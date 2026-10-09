@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { sessionDateISO, sessionsInRange, resolveTeacherAccount } from '../src/lib/evaluation';
+import type { TeacherProfile, SuccessfulSession, UserAccount } from '../src/types';
+const session = (code: string, date: string): SuccessfulSession => ({ code, date, name: code, week: 'W1', slot: '18:00', students: '1/3', status: 'Hoàn thành tốt', roomLink: '', recordLink: '', checkin: '' });
+const teacher = { id: 'GV-1', email: 'teacher@example.com', successfulSessions: [session('s1', 'Thứ Ba, 06/10'), session('s2', '2026-10-08'), session('s3', 'Không rõ ngày')] } as TeacherProfile;
+assert.equal(sessionDateISO(session('s', '06/10/2027')), '2027-10-06');
+assert.equal(sessionDateISO({...session('s', '06/10'), dateISO:'2028-10-06'}), '2028-10-06');
+assert.deepEqual(sessionsInRange(teacher,'2026-10-06','2026-10-06').map(s=>s.code), ['s1']);
+assert.deepEqual(sessionsInRange(teacher,'2026-10-07','2026-10-09').map(s=>s.code), ['s2']);
+assert.deepEqual(sessionsInRange(teacher,'2026-10-09','2026-10-01'), []);
+assert.equal(sessionsInRange(teacher,'','').length, 3);
+const account = { id:'USR-1', email:'TEACHER@example.com', role:'Giáo viên Giảng dạy', username:'teacher', status:'active' } as UserAccount;
+assert.equal(resolveTeacherAccount(teacher,[account])?.id, 'USR-1');
+assert.equal(resolveTeacherAccount(teacher,[{...account, email:'other@example.com'}]), undefined);
+assert.equal(resolveTeacherAccount(teacher,[{...account, role:'Quản trị Toàn quyền'}]), undefined);
+assert.equal(resolveTeacherAccount(teacher,[account,{...account,id:'USR-2'}]), undefined);
+console.log('Passed: date bounds, missing dates, exact account binding and ambiguous recipients.');

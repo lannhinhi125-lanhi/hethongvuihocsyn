@@ -3,7 +3,8 @@ import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { CategoryMultiFilter } from '../components/CategoryMultiFilter';
 import { TeacherAvailabilityView } from './TeacherAvailabilityView';
-import { TeacherProfile, SuccessfulSession } from '../types';
+import { resolveTeacherAccount, sessionDateISO, sessionsInRange } from '../lib/evaluation';
+import { TeacherProfile, SuccessfulSession, EvaluationRecord } from '../types';
 import {
   Contact,
   Calendar,
@@ -40,7 +41,7 @@ import {
 } from 'lucide-react';
 
 export const Module3_Teachers: React.FC = () => {
-  const { teachers, setTeachers, timeSlots, addUser, showToast } = useApp();
+  const { teachers, setTeachers, timeSlots, addUser, showToast, users, currentUser } = useApp();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
@@ -83,7 +84,8 @@ export const Module3_Teachers: React.FC = () => {
   const [availStatus, setAvailStatus] = useState('ALL');
 
   // Evaluation filters
-  const [evalFilter, setEvalFilter] = useState<'UNSCORED' | 'SCORED' | 'ALL'>('UNSCORED');
+  const [evalDateFrom, setEvalDateFrom] = useState('');
+  const [evalDateTo, setEvalDateTo] = useState('');
   const [evalSubject, setEvalSubject] = useState('ALL');
   const [evalColSearchName, setEvalColSearchName] = useState('');
   const [evalColFilterSubject, setEvalColFilterSubject] = useState('ALL');
@@ -99,7 +101,6 @@ export const Module3_Teachers: React.FC = () => {
   // Evaluation flow state
   const [gradingTeacher, setGradingTeacher] = useState<TeacherProfile | null>(null);
   const [isSelectSessionModalOpen, setIsSelectSessionModalOpen] = useState(false);
-  const [selectedWeekFilter, setSelectedWeekFilter] = useState('ALL');
   const [selectedSessionForGrading, setSelectedSessionForGrading] = useState<SuccessfulSession | null>(null);
   const [isGradingModalOpen, setIsGradingModalOpen] = useState(false);
 
@@ -356,10 +357,11 @@ export const Module3_Teachers: React.FC = () => {
   const startGradingSession = (session: SuccessfulSession) => {
     setSelectedSessionForGrading(session);
     setIsSelectSessionModalOpen(false);
-    setTc1Score(gradingTeacher?.evalCriteriaScores?.tc1 ?? 8.5);
-    setTc2Score(gradingTeacher?.evalCriteriaScores?.tc2 ?? 8.0);
-    setTc3Score(gradingTeacher?.evalCriteriaScores?.tc3 ?? 9.0);
-    setGradingComment(gradingTeacher?.evalComment || '');
+    const existing = gradingTeacher?.evaluationReports?.find(r => r.sessionCode === session.code && r.sessionDate === sessionDateISO(session));
+    setTc1Score(existing?.criteriaScores.tc1 ?? 8.5);
+    setTc2Score(existing?.criteriaScores.tc2 ?? 8);
+    setTc3Score(existing?.criteriaScores.tc3 ?? 9);
+    setGradingComment(existing?.generalComment || '');
     setIsPlayingRecording(false);
     setVideoSpeed(1);
     setIsGradingModalOpen(true);
@@ -367,7 +369,30 @@ export const Module3_Teachers: React.FC = () => {
 
   const handleSubmitGrading = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gradingTeacher) return;
+    if (!gradingTeacher || !selectedSessionForGrading) return;
+    const recipient = resolveTeacherAccount(gradingTeacher, users);
+    if (!recipient || recipient.status !== 'active') {
+      showToast('Chưa có tài khoản giáo viên hoạt động được liên kết duy nhất với hồ sơ này. Vui lòng kiểm tra tài khoản trước khi gửi.', 'error');
+      return;
+    }
+    if (![tc1Score, tc2Score, tc3Score].every(score => Number.isFinite(score) && score >= 0 && score <= 10)) {
+      showToast('Điểm từng tiêu chí phải nằm trong khoảng 0–10.', 'error'); return;
+    }
+    if (!gradingComment.trim()) { showToast('Vui lòng nhập nhận xét trước khi gửi.', 'error'); return; }
+    const session = selectedSessionForGrading;
+    const existing = gradingTeacher.evaluationReports?.find(r => r.sessionCode === session.code && r.sessionDate === sessionDateISO(session));
+    const score = Number(finalWeightedScore);
+    const report: EvaluationRecord = {
+      id: existing?.id || crypto.randomUUID(), reportCode: existing?.reportCode || `BBDG/${new Date().getFullYear()}/${Date.now()}`,
+      teacherId: gradingTeacher.id, recipientUserId: recipient.id, sessionCode: session.code,
+      sessionDate: sessionDateISO(session), sentAt: new Date().toISOString(),
+      evaluationDate: new Date().toLocaleDateString('vi-VN'), evaluatorName: currentUser.name, evaluatorRole: currentUser.role,
+      classCode: session.code, className: session.name, sessionName: session.name, sessionNum: 1,
+      timeSlot: session.slot, model: session.model || '', roomLink: session.roomLink, recordLink: session.recordLink,
+      overallScore: score, rank: score >= 9 ? 'Xuất sắc' : score >= 8 ? 'Tốt' : score >= 6.5 ? 'Khá' : 'Cần bồi dưỡng',
+      criteriaScores: { tc1: tc1Score, tc2: tc2Score, tc3: tc3Score }, generalComment: gradingComment.trim(),
+      strengths: '', improvements: '', recommendations: '', status: 'DA_DUYET'
+    };
 
     setTeachers(prev =>
       prev.map(t => {
@@ -377,7 +402,8 @@ export const Module3_Teachers: React.FC = () => {
             evalStatus: 'SCORED',
             evalScore: finalWeightedScore,
             evalComment: gradingComment.trim() || 'Giảng dạy chuẩn mực, tương tác tốt với học sinh.',
-            evalCriteriaScores: { tc1: tc1Score, tc2: tc2Score, tc3: tc3Score }
+            evalCriteriaScores: { tc1: tc1Score, tc2: tc2Score, tc3: tc3Score },
+            evaluationReports: [report, ...(t.evaluationReports || []).filter(r => r.id !== report.id)]
           };
         }
         return t;
@@ -385,7 +411,7 @@ export const Module3_Teachers: React.FC = () => {
     );
 
     setIsGradingModalOpen(false);
-    showToast(`Đã lưu biên bản dự giờ (${finalWeightedScore}/10) cho giáo viên ${gradingTeacher.name}!`, 'success');
+    showToast(`Đã gửi phiếu chấm (${finalWeightedScore}/10) tới tài khoản ${recipient.username}!`, 'success');
   };
 
   return (
@@ -819,6 +845,7 @@ export const Module3_Teachers: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
+                  {(evalDateFrom || evalDateTo) && !teachers.some(t => sessionsInRange(t, evalDateFrom, evalDateTo).length) && <tr><td colSpan={7} className="p-8 text-center text-slate-500">Không có ca dạy thành công trong khoảng thời gian đã chọn.</td></tr>}
                   {teachers
                     .filter(t => (availSubject === 'ALL' || t.subject === availSubject) && (availStatus === 'ALL' || (availStatus === 'FULL' ? t.isFull : !t.isFull)))
                     .map(t => (
@@ -880,7 +907,7 @@ export const Module3_Teachers: React.FC = () => {
                 <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
                   <strong>Bước 1:</strong> Lọc danh sách giáo viên &bull;{' '}
                   <strong>Bước 2:</strong> Chọn xem ca dạy và nghe lại video bản ghi recording &bull;{' '}
-                  <strong>Bước 3:</strong> Lập biên bản dự giờ theo 3 tiêu chí trọng số thang điểm 10.
+                  <strong>Bước 3:</strong> Chấm điểm và gửi phiếu chấm cho tài khoản giáo viên.
                 </p>
               </div>
             </div>
@@ -889,49 +916,15 @@ export const Module3_Teachers: React.FC = () => {
             </span>
           </div>
 
-          {/* Bộ lọc tình trạng dự giờ */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="text-xs font-bold text-slate-700">Trạng thái:</span>
-              <button
-                onClick={() => setEvalFilter('UNSCORED')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                  evalFilter === 'UNSCORED' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                <span>Chưa chấm điểm (Cần dự giờ)</span>
-              </button>
-              <button
-                onClick={() => setEvalFilter('SCORED')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  evalFilter === 'SCORED' ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Đã chấm điểm
-              </button>
-              <button
-                onClick={() => setEvalFilter('ALL')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  evalFilter === 'ALL' ? 'bg-slate-800 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                Tất cả
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={evalSubject}
-                onChange={e => setEvalSubject(e.target.value)}
-                className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none"
-              >
-                <option value="ALL">Tất cả môn</option>
-                <option value="SUB-MATH">Môn Toán</option>
-                <option value="SUB-ENG">Môn Tiếng Anh</option>
-              </select>
-              <span className="text-xs text-slate-400">Kỳ đánh giá: Tháng 10/2026</span>
-            </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-end gap-4">
+            <label className="text-xs font-semibold text-slate-700">Từ ngày (ca dạy)
+              <input aria-label="Từ ngày ca dạy" type="date" value={evalDateFrom} onChange={e => setEvalDateFrom(e.target.value)} className="block mt-1 border border-slate-200 rounded-lg px-3 py-2" />
+            </label>
+            <label className="text-xs font-semibold text-slate-700">Đến ngày (ca dạy)
+              <input aria-label="Đến ngày ca dạy" type="date" min={evalDateFrom || undefined} value={evalDateTo} onChange={e => setEvalDateTo(e.target.value)} className="block mt-1 border border-slate-200 rounded-lg px-3 py-2" />
+            </label>
+            <button onClick={() => { setEvalDateFrom(''); setEvalDateTo(''); }} className="text-xs text-orange-600 py-2">Xóa lọc thời gian</button>
+            {evalDateFrom && evalDateTo && evalDateFrom > evalDateTo && <span role="alert" className="text-xs text-rose-600">Ngày kết thúc phải từ ngày bắt đầu trở đi.</span>}
           </div>
 
           {/* Bảng danh sách giáo viên chuyên môn */}
@@ -1021,13 +1014,13 @@ export const Module3_Teachers: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {teachers
                     .filter(t => {
-                      const matchBaseFilter = (evalFilter === 'ALL' || t.evalStatus === evalFilter) && (evalSubject === 'ALL' || t.subject === evalSubject);
+                      const matchBaseFilter = (evalSubject === 'ALL' || t.subject === evalSubject);
                       if (!matchBaseFilter) return false;
                       if (evalColSearchName && !(t.name.toLowerCase().includes(evalColSearchName.toLowerCase()) || t.id.toLowerCase().includes(evalColSearchName.toLowerCase()))) return false;
                       if (evalColFilterSubject !== 'ALL' && t.subject !== evalColFilterSubject) return false;
                       if (evalColFilterLevel !== 'ALL' && t.levelId !== evalColFilterLevel) return false;
                       if (evalColFilterStatus !== 'ALL' && t.evalStatus !== evalColFilterStatus) return false;
-                      return true;
+                      return (!evalDateFrom && !evalDateTo) || sessionsInRange(t, evalDateFrom, evalDateTo).length > 0;
                     })
                     .map(t => {
                       const isScored = t.evalStatus === 'SCORED';
@@ -1048,7 +1041,7 @@ export const Module3_Teachers: React.FC = () => {
                             <div className="text-slate-500 text-[11px]">{t.grades.join(', ')}</div>
                           </td>
                           <td className="py-3 px-4 text-center font-bold text-slate-700 font-mono">
-                            {t.successfulSessions?.length || 0} ca hợp lệ
+                            {sessionsInRange(t, evalDateFrom, evalDateTo).length} ca hợp lệ
                           </td>
                           <td className="py-3 px-4 text-center">
                             {isScored ? (
@@ -1071,57 +1064,10 @@ export const Module3_Teachers: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            {isScored ? (
-                              <button
-                                onClick={() => {
-                                  setGradingTeacher(t);
-                                  const sess = (t.successfulSessions && t.successfulSessions[0]) || {
-                                    code: `${t.id}-S1`,
-                                    name: `${t.subjectName} - Tiết dự giờ chuyên môn`,
-                                    date: 'Thứ Ba, 06/10',
-                                    week: 'W1',
-                                    slot: 'Ca 1 (18:00 - 19:30)',
-                                    students: '1-3 HS',
-                                    status: 'Hoàn thành tốt',
-                                    roomLink: 'https://vuihoc.zoom.us/j/988776655',
-                                    recordLink: 'https://record.vuihoc.vn/meet/rec-01',
-                                    checkin: '17:55 (Đúng giờ)',
-                                    gradeLevel: t.grades[0] || 'Lớp 3',
-                                    model: (t.models && t.models[0]) || '1-1'
-                                  };
-                                  startGradingSession(sess);
-                                }}
-                                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-slate-500" />
-                                <span>Xem phiếu chấm</span>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setGradingTeacher(t);
-                                  const sess = (t.successfulSessions && t.successfulSessions[0]) || {
-                                    code: `${t.id}-S1`,
-                                    name: `${t.subjectName} - Tiết dự giờ chuyên môn`,
-                                    date: 'Thứ Ba, 06/10',
-                                    week: 'W1',
-                                    slot: 'Ca 1 (18:00 - 19:30)',
-                                    students: '1-3 HS',
-                                    status: 'Hoàn thành tốt',
-                                    roomLink: 'https://vuihoc.zoom.us/j/988776655',
-                                    recordLink: 'https://record.vuihoc.vn/meet/rec-01',
-                                    checkin: '17:55 (Đúng giờ)',
-                                    gradeLevel: t.grades[0] || 'Lớp 3',
-                                    model: (t.models && t.models[0]) || '1-1'
-                                  };
-                                  startGradingSession(sess);
-                                }}
-                                className="px-3 py-1.5 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg text-xs inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                                <span>Chọn ca dự giờ</span>
-                              </button>
-                            )}
+                            <button onClick={() => { setGradingTeacher(t); setIsSelectSessionModalOpen(true); }}
+                              className="px-3 py-1.5 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg text-xs inline-flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5" /> Chọn ca dự giờ
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1403,7 +1349,7 @@ export const Module3_Teachers: React.FC = () => {
       {/* ================= MODAL: THỜI KHÓA BIỂU MA TRẬN CA ================= */}
       {selectedTeacherForSchedule && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="font-bold text-base text-slate-800">
@@ -1506,9 +1452,7 @@ export const Module3_Teachers: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-base text-slate-800">Chọn Ca Dự Giờ Chuyên Môn</h3>
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                    Kèm bản ghi hình Recording
-                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Chỉ ca dạy thành công</span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Giáo viên: <strong className="text-[#FF5C00]">{gradingTeacher.name}</strong> &bull; Môn: {gradingTeacher.subjectName}
@@ -1520,13 +1464,18 @@ export const Module3_Teachers: React.FC = () => {
             </div>
 
             <div className="mt-4 space-y-3 text-xs">
+              <div className="flex flex-wrap gap-3 items-center bg-slate-50 rounded-xl p-3">
+                <label>Từ ngày <input type="date" value={evalDateFrom} onChange={e => setEvalDateFrom(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
+                <label>Đến ngày <input type="date" value={evalDateTo} min={evalDateFrom || undefined} onChange={e => setEvalDateTo(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
+                <span>{sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).length} ca thành công</span>
+              </div>
               <div className="space-y-2.5">
-                {gradingTeacher.successfulSessions?.length === 0 ? (
+                {sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).length === 0 ? (
                   <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-xl">
                     Chưa có ca dạy thành công nào của giáo viên trong kỳ này.
                   </div>
                 ) : (
-                  gradingTeacher.successfulSessions.map((ss, idx) => (
+                  sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).map((ss, idx) => (
                     <div
                       key={idx}
                       className="p-3.5 rounded-xl border border-slate-200 hover:border-[#FF5C00] bg-white hover:bg-orange-50/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs"
@@ -1564,7 +1513,7 @@ export const Module3_Teachers: React.FC = () => {
                         className="px-3.5 py-1.5 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-xs cursor-pointer self-start md:self-auto"
                       >
                         <Pencil className="w-3.5 h-3.5" />
-                        <span>Chấm ca này</span>
+                        <span>{gradingTeacher.evaluationReports?.some(r => r.sessionCode === ss.code && r.sessionDate === sessionDateISO(ss)) ? 'Xem / sửa phiếu chấm' : 'Chấm ca này'}</span>
                       </button>
                     </div>
                   ))
@@ -1679,113 +1628,11 @@ export const Module3_Teachers: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Khung Video Bản ghi bài giảng (Recording Player mô phỏng cao cấp) */}
-                <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-md">
-                  <div className="relative aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col justify-between p-3 select-none">
-                    {/* Top bar trên video player */}
-                    <div className="flex items-center justify-between text-xs text-white/90 z-10">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-                        <span className="font-semibold text-[11px] tracking-wide">RECORDER BÀI GIẢNG FULL HD 1080P</span>
-                        <span className="px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono">01:28:45</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[11px] bg-black/40 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/10">
-                        <span>Phòng: ClassIn Room 04</span>
-                      </div>
-                    </div>
-
-                    {/* Màn hình giảng bài trung tâm (bảng viết phấn online & video camera gia sư) */}
-                    <div className="relative flex-1 flex items-center justify-center my-2">
-                      <div className="w-full h-full bg-emerald-950/40 rounded-xl border border-emerald-500/20 p-3 flex flex-col justify-between text-white/80">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="text-[10px] text-emerald-400 font-mono uppercase tracking-wider">
-                              Bảng tương tác bài giảng
-                            </div>
-                            <h4 className="text-sm font-bold text-white mt-0.5">
-                              {selectedSessionForGrading.name}
-                            </h4>
-                            <p className="text-[11px] text-slate-300 mt-1">
-                              Chuyên đề: Phương pháp giải toán logic &bull; Kiến thức trọng tâm tiết {selectedSessionForGrading.slot.split(' ')[0]}
-                            </p>
-                          </div>
-
-                          {/* Camera gia sư ở góc phải trên */}
-                          <div className="w-28 h-20 bg-slate-800 rounded-lg border border-white/20 overflow-hidden relative shadow-lg flex flex-col justify-between p-1">
-                            <div className="text-[9px] font-bold text-white/90 bg-black/50 px-1 rounded self-start truncate max-w-[90px]">
-                              {gradingTeacher.name.split(' ').slice(-1)[0]} (GV)
-                            </div>
-                            <div className="flex items-center justify-center text-orange-300 text-xs font-bold">
-                              🎥 Mic On
-                            </div>
-                            <div className="text-[9px] text-emerald-400 font-mono text-right">● HD 30fps</div>
-                          </div>
-                        </div>
-
-                        {/* Nút Play/Pause to ở giữa */}
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setIsPlayingRecording(!isPlayingRecording)}
-                            className="w-12 h-12 rounded-full bg-[#FF5C00]/90 hover:bg-[#FF5C00] text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer"
-                            title={isPlayingRecording ? 'Tạm dừng' : 'Phát video bài giảng'}
-                          >
-                            {isPlayingRecording ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
-                          </button>
-                        </div>
-
-                        <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                          <span>Sĩ số tham gia: {selectedSessionForGrading.students}</span>
-                          <span className="text-emerald-400 font-mono">Đường truyền ổn định (Ping: 18ms)</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bottom controls của player */}
-                    <div className="space-y-1.5 z-10">
-                      {/* Thanh tiến trình */}
-                      <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden cursor-pointer">
-                        <div className="bg-[#FF5C00] h-full rounded-full w-2/5" />
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-white/80 pt-0.5">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsPlayingRecording(!isPlayingRecording)}
-                            className="hover:text-white cursor-pointer"
-                          >
-                            {isPlayingRecording ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </button>
-                          <Volume2 className="w-4 h-4 text-white/70" />
-                          <span className="text-[11px] font-mono text-white/70">36:12 / 90:00</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px]">
-                          <span className="text-white/60">Tốc độ tua:</span>
-                          {[1, 1.25, 1.5].map(speed => (
-                            <button
-                              key={speed}
-                              type="button"
-                              onClick={() => setVideoSpeed(speed)}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono transition-colors cursor-pointer ${
-                                videoSpeed === speed ? 'bg-[#FF5C00] text-white' : 'bg-white/10 text-white/80 hover:bg-white/20'
-                              }`}
-                            >
-                              {speed}x
-                            </button>
-                          ))}
-                          <a
-                            href={selectedSessionForGrading.recordLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1 hover:text-white ml-1 cursor-pointer"
-                            title="Mở toàn màn hình"
-                          >
-                            <Maximize2 className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-slate-900 text-white rounded-2xl p-6 space-y-3">
+                  <Video className="w-8 h-8 text-orange-400" />
+                  <h4 className="font-bold">Bản ghi của ca đã chọn</h4>
+                  <p className="text-xs text-slate-300">{selectedSessionForGrading.name} · {selectedSessionForGrading.date}</p>
+                  {selectedSessionForGrading.recordLink ? <a href={selectedSessionForGrading.recordLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-white text-slate-900 rounded-lg px-4 py-2 text-xs font-bold"><ExternalLink className="w-4 h-4" />Mở bản ghi bài giảng</a> : <p className="text-xs">Ca này chưa có bản ghi.</p>}
                 </div>
 
                 {/* Thẻ Thông tin Ca học chi tiết */}
@@ -1818,72 +1665,7 @@ export const Module3_Teachers: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Danh sách học sinh tham gia ca dạy */}
-                  <div className="pt-2 border-t border-slate-100">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Danh sách Học sinh tham gia lớp:</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400">Học sinh tích cực tương tác</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px] flex items-center justify-center">
-                            GB
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-800">Trần Gia Bảo</span>
-                            <span className="text-[10px] text-slate-400 ml-1.5 font-mono">HS-2026-089</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px]">
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold text-[10px]">
-                            Có mặt (Check-in 17:58)
-                          </span>
-                          <span className="text-slate-500">Phát biểu 5 lần</span>
-                        </div>
-                      </div>
-                      {selectedSessionForGrading.model !== '1-1' && (
-                        <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] flex items-center justify-center">
-                              ĐA
-                            </div>
-                            <div>
-                              <span className="font-bold text-slate-800">Bùi Đức Anh</span>
-                              <span className="text-[10px] text-slate-400 ml-1.5 font-mono">HS-2026-033</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px]">
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold text-[10px]">
-                              Có mặt (Check-in 17:55)
-                            </span>
-                            <span className="text-slate-500">Hoàn thành 100% BT</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Giáo án & Nhật ký buổi học (Lesson Diary) */}
-                  <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-amber-900 flex items-center gap-1">
-                        <FileText className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Nhật ký buổi học của Gia sư (Lesson Diary)</span>
-                      </span>
-                      <span className="text-[10px] font-semibold text-amber-700">Ghi nhận sau buổi học</span>
-                    </div>
-                    <p className="text-[11px] text-slate-700 leading-relaxed italic bg-white/80 p-2 rounded-lg border border-amber-100">
-                      &ldquo;Buổi học diễn ra đúng giáo trình tiết học. Học sinh nắm bài tốt, hoàn thành các bài tập ví dụ trên lớp và tham gia mini game tính nhẩm hào hứng. Đã giao 5 bài tập về nhà và hướng dẫn phương pháp tự giải.&rdquo;
-                    </p>
-                    <div className="flex items-center gap-3 pt-1 text-[11px] text-slate-600 flex-wrap">
-                      <span>📎 Slide bài giảng: <strong>Lesson_Slide_Vuihoc.pdf</strong></span>
-                      <span>📎 Bài tập về nhà: <strong>Homework_Pack_08.docx</strong></span>
-                    </div>
-                  </div>
+                  <p className="text-xs text-slate-500">Sĩ số ghi nhận: {selectedSessionForGrading.students}</p>
                 </div>
               </div>
 
@@ -1900,6 +1682,11 @@ export const Module3_Teachers: React.FC = () => {
                     </span>
                   </div>
 
+                  <div className="p-3 mb-3 bg-orange-50 rounded-xl text-xs">
+                    <span className="font-semibold">Tài khoản nhận: </span>
+                    {resolveTeacherAccount(gradingTeacher, users)?.username || 'Chưa có tài khoản giáo viên liên kết'}
+                    <p className="mt-1 text-slate-500">Phiếu chấm sẽ xuất hiện trong mục Đánh giá dự giờ của giáo viên.</p>
+                  </div>
                   <form onSubmit={handleSubmitGrading} id="gradingForm" className="space-y-3.5 text-xs">
                     {/* Tiêu chí 1: Hệ số 1 */}
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -2102,13 +1889,14 @@ export const Module3_Teachers: React.FC = () => {
                   >
                     Hủy
                   </button>
+                  <button type="button" onClick={() => { setIsGradingModalOpen(false); setIsSelectSessionModalOpen(true); }} className="px-3 py-2 text-xs font-semibold text-slate-600 border rounded-xl">Chọn ca khác</button>
                   <button
                     type="submit"
                     form="gradingForm"
                     className="px-5 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>Lưu &amp; Phê duyệt kết quả dự giờ</span>
+                    <span>Gửi phiếu chấm cho giáo viên</span>
                   </button>
                 </div>
               </div>

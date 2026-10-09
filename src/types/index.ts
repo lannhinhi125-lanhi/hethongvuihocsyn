@@ -93,6 +93,7 @@ export interface SuccessfulSession {
   code: string;
   name: string;
   date: string;
+  dateISO?: string;
   week: string;
   slot: string;
   students: string;
@@ -129,6 +130,7 @@ export interface TeacherProfile {
   freeSlots: number;
   busySlots: number;
   isFull: boolean;
+  evaluationReports?: EvaluationRecord[];
   successfulSessions: SuccessfulSession[];
   schedule: Record<string, ('free' | 'busy' | 'none')[]>; // slotId -> 7 days (Thứ 2 - CN)
 }
@@ -294,4 +296,37 @@ export interface MonthPayrollData {
   adminSentNotice: boolean;
   teachers: TeacherPayrollSummary[];
   disputes: DisputeItem[];
+}
+
+export interface EvaluationRecord {
+  teacherId?: string;
+  recipientUserId?: string;
+  sessionCode?: string;
+  sessionDate?: string;
+  sentAt?: string;
+  roomLink?: string;
+  recordLink?: string;
+  id: string;
+  reportCode: string; // Số biên bản, ví dụ: BBDG/2026/089
+  evaluationDate: string; // Ngày dự giờ
+  evaluatorName: string; // Người dự giờ
+  evaluatorRole: string; // Chức vụ
+  classCode: string; // Mã lớp
+  className: string; // Tên lớp
+  sessionNum: number; // Buổi số mấy
+  sessionName: string; // Tiết học / Bài học
+  timeSlot: string; // Ca dạy
+  model: string; // 1-3, 1-1
+  overallScore: number; // 9.2
+  rank: 'Xuất sắc' | 'Tốt' | 'Khá' | 'Cần bồi dưỡng';
+  criteriaScores: {
+    tc1: number; // Giáo án & Sư phạm (40%)
+    tc2: number; // Tương tác & Khích lệ (35%)
+    tc3: number; // Thao tác Bảng vẽ & Công nghệ (25%)
+  };
+  generalComment: string; // Nhận xét chung
+  strengths: string; // Điểm mạnh
+  improvements: string; // Cần khắc phục
+  recommendations: string; // Khuyến nghị chuyên môn
+  status: 'DA_DUYET' | 'CHO_GOP_Y';
 }
