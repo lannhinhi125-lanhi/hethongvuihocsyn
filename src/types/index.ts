@@ -174,6 +174,8 @@ export interface ClassRoomSession {
 }
 
 export interface ClassItem {
+  categoryId?: string;
+  status?: 'Chờ khai giảng' | 'Đang học' | 'Tạm dừng' | 'Đã kết thúc';
   id: string;
   code: string;
   name: string;

@@ -7,7 +7,7 @@ export const TeachingCatalog: React.FC = () => {
   const [code, setCode] = useState(''); const [name, setName] = useState(''); const [options, setOptions] = useState(''); const [opened, setOpened] = useState(false);
   return <div className="space-y-4">
     <div className="flex justify-between items-center"><h3 className="font-bold">Cấp học & Lớp dạy</h3><button disabled={!canEdit} onClick={() => { setEditingId(null); setCode(''); setName(''); setOptions(''); setOpened(true); }} className="px-3 py-2 rounded-xl bg-orange-600 text-white disabled:opacity-40">Thêm danh mục</button></div>
-    <p className="text-xs text-slate-500">Dùng chung khi thêm, sửa và lọc hồ sơ giáo viên.</p>
+    <p className="text-xs text-slate-500">Dùng chung khi thêm, sửa và lọc hồ sơ giáo viên, học sinh và lớp học.</p>
     {teachingCategories.map(category => <div key={category.id} className="bg-white p-4 border border-slate-200 rounded-xl space-y-2">
       <div className="flex justify-between"><strong>{category.name} <span className="text-xs text-slate-400">{category.id}</span></strong><div className="flex gap-3 text-xs">
         <label><input type="checkbox" disabled={!canEdit} checked={category.status !== false} onChange={e => { if (canEdit) setTeachingCategories(prev => prev.map(c => c.id === category.id ? { ...c, status: e.target.checked } : c)); }} /> Đang dùng</label>
