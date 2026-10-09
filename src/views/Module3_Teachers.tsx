@@ -1597,20 +1597,7 @@ export const Module3_Teachers: React.FC = () => {
             {/* Nội dung 2 CỘT */}
             <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
               <div className="lg:col-span-7 p-5 space-y-4 overflow-y-auto bg-slate-50/60">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h4 className="text-sm font-bold text-slate-800">Thông tin lớp học</h4>
-                  {selectedSessionForGrading.recordLink ? (
-                    <a href={selectedSessionForGrading.recordLink} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold text-[#FF5C00] hover:bg-orange-100 transition-colors">
-                      <PlayCircle className="h-4 w-4" /> Video recording
-                    </a>
-                  ) : (
-                    <button type="button" disabled title="Ca này chưa có video recording"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-400 cursor-not-allowed">
-                      <PlayCircle className="h-4 w-4" /> Video recording
-                    </button>
-                  )}
-                </div>
+                <h4 className="text-sm font-bold text-slate-800">Thông tin lớp học</h4>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 text-xs">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-slate-800">{selectedSessionForGrading.code}</span>
@@ -1633,13 +1620,18 @@ export const Module3_Teachers: React.FC = () => {
                     <p className="text-slate-500">Check-in: <span className="text-slate-700">{selectedSessionForGrading.checkin || 'Chưa ghi nhận'}</span></p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 flex flex-col items-start gap-2">
-                    <h5 className="font-bold text-slate-800">Phòng học Zoom / ClassIn</h5>
-                    <p className="text-slate-500 break-all line-clamp-2">{selectedSessionForGrading.roomLink || 'Chưa gán link phòng học'}</p>
-                    {selectedSessionForGrading.roomLink && (
-                      <a href={selectedSessionForGrading.roomLink} target="_blank" rel="noreferrer"
+                    <h5 className="font-bold text-slate-800">Video buổi học</h5>
+                    <p className="text-slate-500 break-all line-clamp-2">{selectedSessionForGrading.recordLink || 'Chưa có link video buổi học'}</p>
+                    {selectedSessionForGrading.recordLink ? (
+                      <a href={selectedSessionForGrading.recordLink} target="_blank" rel="noreferrer"
                         className="mt-auto inline-flex items-center gap-1.5 rounded-xl bg-[#FF5C00] px-4 py-2 font-bold text-white hover:bg-[#E05200] transition-colors">
-                        <ExternalLink className="h-3.5 w-3.5" /> VÀO LỚP
+                        <PlayCircle className="h-3.5 w-3.5" /> Xem lại video
                       </a>
+                    ) : (
+                      <button type="button" disabled title="Chưa có link video buổi học"
+                        className="mt-auto inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2 font-bold text-slate-400 cursor-not-allowed">
+                        <PlayCircle className="h-3.5 w-3.5" /> Xem lại video
+                      </button>
                     )}
                   </div>
                 </div>
