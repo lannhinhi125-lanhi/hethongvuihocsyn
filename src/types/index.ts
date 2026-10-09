@@ -10,7 +10,7 @@ export interface UserAccount {
   email: string;
   phone: string;
   role: UserRole;
-  subject?: 'SUB-MATH' | 'SUB-ENG';
+  subject?: string;
   status: 'active' | 'locked';
   avatarInitials: string;
 }

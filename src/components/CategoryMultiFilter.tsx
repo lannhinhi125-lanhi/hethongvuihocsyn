@@ -8,6 +8,7 @@ export interface CategoryOption {
 }
 
 export interface CategoryGroup {
+  status?: boolean;
   id: string;
   name: string;
   badge?: string;

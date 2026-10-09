@@ -9,10 +9,11 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
+  onLogout?: () => void;
   onToggleMobileMenu?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
+export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) => {
   const {
     activeModule,
     currentUser,
@@ -51,18 +52,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       ? adminModuleTitles[activeModule] || { cat: 'Quản trị', title: 'Hệ thống Vận hành' }
       : teacherTabTitles[teacherPortalTab] || { cat: 'Cổng Giáo viên', title: 'Bảng Giảng Dạy' };
 
-  const handleRoleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = users.find(u => u.id === e.target.value);
-    if (selected) {
-      setCurrentUser(selected);
-      if (selected.role === 'Giáo viên Giảng dạy') {
-        setWorkspaceMode('TEACHER');
-      } else {
-        setWorkspaceMode('ADMIN');
-      }
-      showToast(`Đã chuyển sang tài khoản [${selected.name}] (${selected.role})`, 'info');
-    }
-  };
 
   const handleConfirmReset = () => {
     if (window.confirm('Khôi phục toàn bộ hệ thống về 1 bộ dữ liệu liên thông chuẩn xuyên suốt?')) {
@@ -112,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Nút Xóa sạch dữ liệu (Empty State) */}
           <button
-            onClick={handleConfirmClear}
+            disabled={currentUser.role !== 'Quản trị Toàn quyền'} onClick={handleConfirmClear}
             className="p-1.5 sm:px-2.5 sm:py-1.5 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-md border border-slate-200 hover:border-rose-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
             title="Xóa trống toàn bộ dữ liệu (0 học sinh, 0 lớp học, 0 khiếu nại)"
           >
@@ -122,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
           {/* Nút Khôi phục dữ liệu chuẩn */}
           <button
-            onClick={handleConfirmReset}
+            disabled={currentUser.role !== 'Quản trị Toàn quyền'} onClick={handleConfirmReset}
             className="p-1.5 sm:px-2.5 sm:py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-md border border-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
             title="Khôi phục 1 bộ dữ liệu liên thông chuẩn xuyên suốt"
           >
@@ -132,23 +121,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
           <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
-          {/* Switcher đổi tài khoản / vai trò nhanh */}
-          <div className="hidden sm:flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md border border-slate-200 text-xs">
-            <UserCheck className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              id="select-role-user"
-              value={currentUser.id}
-              onChange={handleRoleSelect}
-              className="bg-transparent text-xs font-medium text-slate-800 focus:outline-none cursor-pointer max-w-[150px] lg:max-w-none"
-            >
-              {users.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.role.includes('Giáo viên') ? 'GV' : u.role.split(' ')[0]})
-                </option>
-              ))}
-            </select>
-          </div>
-
+          <button type="button" onClick={onLogout} className="px-3 py-2 text-xs border border-slate-200 rounded-lg">Đăng xuất</button>
           {/* Avatar người dùng hiện tại */}
           <div className="flex items-center gap-2 pl-1">
             <div className="w-8 h-8 rounded-md bg-slate-900 text-white flex items-center justify-center font-semibold text-xs border border-slate-700">

@@ -1,3 +1,4 @@
+import { LoginView } from './views/LoginView';
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
@@ -16,7 +17,8 @@ import { TeacherAvailabilityView } from './views/TeacherAvailabilityView';
 import { TeacherWorkReconciliationView } from './views/TeacherWorkReconciliationView';
 
 const MainLayout: React.FC = () => {
-  const { activeModule, workspaceMode, teacherPortalTab } = useApp();
+  const { activeModule, workspaceMode, teacherPortalTab, currentUser, users } = useApp();
+  const [authenticated, setAuthenticated] = useState(() => sessionStorage.getItem('vuihoc_authenticated') === 'true');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -27,7 +29,7 @@ const MainLayout: React.FC = () => {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Header với Breadcrumb, Switcher vai trò, Xóa & Reset dữ liệu */}
-        <Header onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
+        <Header onLogout={() => { sessionStorage.removeItem('vuihoc_authenticated'); setAuthenticated(false); }} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         {/* Scrollable Main Content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
@@ -35,7 +37,7 @@ const MainLayout: React.FC = () => {
             {workspaceMode === 'ADMIN' ? (
               // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================
               <>
-                {activeModule === 1 && <Module1_UsersRoles />}
+                {activeModule === 1 && (currentUser.role === 'Quản trị Toàn quyền' ? <Module1_UsersRoles /> : <p className="p-6 text-slate-500">Chỉ quản trị viên được quản lý tài khoản và phân quyền.</p>)}
                 {activeModule === 2 && <Module2_MasterData />}
                 {activeModule === 3 && <Module3_Teachers />}
                 {activeModule === 4 && <Module4_StudentsClasses />}

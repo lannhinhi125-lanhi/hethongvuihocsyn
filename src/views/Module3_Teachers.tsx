@@ -1,3 +1,4 @@
+import { canManageTeacherProfiles } from '../lib/teacherAccounts';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
@@ -41,12 +42,15 @@ import {
 } from 'lucide-react';
 
 export const Module3_Teachers: React.FC = () => {
-  const { teachers, setTeachers, timeSlots, addUser, showToast, users, currentUser } = useApp();
+  const { teachers, setTeachers, timeSlots, createTeacherWithAccount, updateTeacher, showToast, users, currentUser, roleGroups, subjects, teachingCategories } = useApp();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>(['1-1', '1-n']);
-  const [revealedTeacherPass, setRevealedTeacherPass] = useState<Record<string, boolean>>({});
+  const canManageProfiles = canManageTeacherProfiles(currentUser, roleGroups);
+  const activeSubjects = subjects.filter(subject => subject.status);
+  const activeCategories = teachingCategories.filter(category => category.status !== false);
+  const [createdCredentials, setCreatedCredentials] = useState<{ id: string; username: string; password: string } | null>(null);
   const [scheduleModalTeacher, setScheduleModalTeacher] = useState<TeacherProfile | null>(null);
 
   // Hình thức nhận lớp
@@ -117,26 +121,16 @@ export const Module3_Teachers: React.FC = () => {
   const [newTeacherPhone, setNewTeacherPhone] = useState('');
   const [newTeacherSubject, setNewTeacherSubject] = useState('SUB-MATH');
   const [newTeacherLevel, setNewTeacherLevel] = useState('CAP-TH');
-  const [newTeacherGrades, setNewTeacherGrades] = useState<string[]>(['Lớp 3', 'Lớp 4']);
+  const [newTeacherGrades, setNewTeacherGrades] = useState<string[]>([]);
   const [newTeacherDegree, setNewTeacherDegree] = useState('');
 
-  const gradeOptionsByLevel: Record<string, string[]> = {
-    'CAP-TH': ['Lớp 1', 'Lớp 2', 'Lớp 3', 'Lớp 4', 'Lớp 5'],
-    'CAP-THCS': ['Lớp 6', 'Lớp 7', 'Lớp 8', 'Lớp 9'],
-    'CAP-THPT': ['Lớp 10', 'Lớp 11', 'Lớp 12'],
-    'CAT-IELTS': ['IELTS 5.0 - 5.5', 'IELTS 6.0 - 6.5', 'IELTS 6.5 - 7.5', 'IELTS 8.0+', 'Cambridge KET/PET', 'Cambridge Flyers'],
-    'CAT-MATH-SPEC': ['Toán Tư duy Singapore', 'Toán Soroban', 'Luyện thi Violympic', 'Toán Nâng cao 1-3', 'Toán 1 kèm 1']
-  };
+  const gradeOptionsByLevel = Object.fromEntries(teachingCategories.map(category => [category.id, category.options.map(option => option.id)]));
 
   // Bộ lọc Phân cấp theo Danh mục & Cấp độ (Tiểu học, THCS, THPT, IELTS...)
   const [catFilterCategory, setCatFilterCategory] = useState<string>('ALL');
   const [catFilterSubOptions, setCatFilterSubOptions] = useState<string[]>([]);
 
-  const teacherCategories = Object.entries(gradeOptionsByLevel).map(([id, grades]) => ({
-    id,
-    name: ({ 'CAP-TH': 'Tiểu học', 'CAP-THCS': 'THCS', 'CAP-THPT': 'THPT', 'CAT-IELTS': 'IELTS & Quốc tế', 'CAT-MATH-SPEC': 'Toán Tư Duy & Nâng Cao' } as Record<string, string>)[id],
-    options: Array.from(new Set([...grades, ...teachers.filter(t => t.levelId === id).flatMap(t => t.grades)])).map(grade => ({ id: grade, label: grade }))
-  }));
+  const teacherCategories = activeCategories;
   const matchesCategory = (t: TeacherProfile, category: string, options: string[]) =>
     (category === 'ALL' || t.levelId === category) && (options.length === 0 || options.some(option => t.grades.includes(option)));
   const matchesPeriod = (t: TeacherProfile, from: string, to: string) =>
@@ -169,6 +163,7 @@ export const Module3_Teachers: React.FC = () => {
 
   // Handlers for Teacher Edit & Status
   const handleOpenEditModal = (t: TeacherProfile) => {
+    if (!canManageProfiles) return;
     setEditingTeacher(t);
     setEditTeacherName(t.name);
     setEditTeacherPhone(t.phone);
@@ -189,7 +184,7 @@ export const Module3_Teachers: React.FC = () => {
 
   const handleEditTeacherSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTeacher) return;
+    if (!canManageProfiles || !editingTeacher) return;
     if (editTeacherGrades.length === 0) {
       showToast('Vui lòng chọn ít nhất 1 khối lớp phụ trách!', 'error');
       return;
@@ -203,44 +198,27 @@ export const Module3_Teachers: React.FC = () => {
       editTeacherStatus === 'DANG_DAY' ? 'Đang dạy' :
       editTeacherStatus === 'CHO_LOP' ? 'Chờ lớp' : 'Tạm ngưng';
 
-    setTeachers(prev =>
-      prev.map(t => {
-        if (t.id === editingTeacher.id) {
-          return {
-            ...t,
-            name: editTeacherName.trim(),
-            phone: editTeacherPhone.trim(),
-            email: editTeacherEmail.trim(),
-            subject: editTeacherSubject,
-            subjectName: editTeacherSubject === 'SUB-MATH' ? 'Môn Toán' : 'Môn Tiếng Anh',
-            levelId: editTeacherLevel,
-            levelName: editTeacherLevel === 'CAP-TH' ? 'Tiểu học' : editTeacherLevel === 'CAP-THCS' ? 'THCS' : 'THPT',
-            grades: editTeacherGrades,
-            models: editTeacherModels,
-            status: editTeacherStatus,
-            statusLabel,
-            degree: editTeacherDegree.trim()
-          };
-        }
-        return t;
-      })
-    );
+    const category = activeCategories.find(c => c.id === editTeacherLevel);
+    const subject = activeSubjects.find(s => s.code === editTeacherSubject);
+    if (!category || !subject || !editTeacherName.trim() || !editTeacherGrades.every(grade => category.options.some(option => option.id === grade))) { showToast('Vui lòng chọn môn và lớp hợp lệ từ danh mục.', 'error'); return; }
+    const saved = updateTeacher(editingTeacher.id, { name: editTeacherName.trim(), phone: editTeacherPhone.trim(), email: editTeacherEmail.trim().toLowerCase(), subject: subject.code, subjectName: subject.name, levelId: category.id, levelName: category.name, grades: editTeacherGrades, models: editTeacherModels, status: editTeacherStatus, statusLabel, degree: editTeacherDegree.trim() });
+    if (!saved) return;
 
     setEditingTeacher(null);
     showToast(`Đã cập nhật thông tin Giáo viên ${editTeacherName} thành công!`, 'success');
   };
 
   const handleQuickStatusChange = (tId: string, newStatus: 'DANG_DAY' | 'CHO_LOP' | 'TAM_NGUNG') => {
+    if (!canManageProfiles) return;
     const statusLabel =
       newStatus === 'DANG_DAY' ? 'Đang dạy' :
       newStatus === 'CHO_LOP' ? 'Chờ lớp' : 'Tạm ngưng';
-    setTeachers(prev =>
-      prev.map(t => (t.id === tId ? { ...t, status: newStatus, statusLabel } : t))
-    );
+    if (!updateTeacher(tId, { status: newStatus, statusLabel })) return;
     showToast(`Đã đổi trạng thái sang [${statusLabel}]!`, 'info');
   };
 
   const handleDeleteTeacherConfirm = () => {
+    if (!canManageProfiles) return;
     if (!teacherToDelete) return;
     const name = teacherToDelete.name;
     setTeachers(prev => prev.filter(t => t.id !== teacherToDelete.id));
@@ -260,68 +238,20 @@ export const Module3_Teachers: React.FC = () => {
       return;
     }
 
-    const tId = `GV-2026-${Math.floor(100 + Math.random() * 900)}`;
-    const uName = `teacher.${Math.floor(1000 + Math.random() * 9000)}`;
-    const pRaw = 'Vuihoc@2026';
-    const initials = newTeacherName.trim().split(' ').slice(-2).map(p => p[0]).join('').toUpperCase();
-
-    const newTeacher: TeacherProfile = {
-      id: tId,
-      name: newTeacherName.trim(),
-      username: uName,
-      passwordRaw: pRaw,
-      subject: newTeacherSubject,
-      subjectName: newTeacherSubject === 'SUB-MATH' ? 'Môn Toán' : 'Môn Tiếng Anh',
-      levelId: newTeacherLevel,
-      levelName: newTeacherLevel === 'CAP-TH' ? 'Tiểu học' : newTeacherLevel === 'CAP-THCS' ? 'THCS' : 'THPT',
-      grades: newTeacherGrades,
-      models: newTeacherModels,
-      phone: newTeacherPhone.trim(),
-      email: newTeacherEmail.trim(),
-      degree: newTeacherDegree.trim() || 'Đại học Sư phạm',
-      status: 'CHO_LOP',
-      statusLabel: 'Chờ lớp',
-      evalStatus: 'UNSCORED',
-      evalScore: null,
-      evalComment: '',
-      freeSlots: 6,
-      busySlots: 0,
-      isFull: false,
-      successfulSessions: [
-        {
-          code: `${newTeacherSubject === 'SUB-MATH' ? 'MAT' : 'ENG'}-01`,
-          name: `${newTeacherSubject === 'SUB-MATH' ? 'Toán' : 'Tiếng Anh'} Khởi đầu bài mới`,
-          date: 'Thứ Ba, 06/10',
-          week: 'W1',
-          slot: 'Ca Tối 1 (18:00 - 19:30)',
-          students: '1/1 HS',
-          status: 'Hoàn thành tốt',
-          roomLink: 'https://vuihoc.zoom.us/j/demo',
-          recordLink: 'https://record.vuihoc.vn/demo',
-          checkin: '17:55 (Đúng giờ)'
-        }
-      ],
-      schedule: {
-        'SLOT-E1': ['free', 'free', 'none', 'free', 'none', 'free', 'free'],
-        'SLOT-E2': ['none', 'free', 'none', 'free', 'none', 'free', 'none']
-      }
-    };
-
-    addUser({
-      name: newTeacherName.trim(),
-      username: uName,
-      passwordRaw: pRaw,
-      email: newTeacherEmail.trim(),
-      phone: newTeacherPhone.trim(),
-      role: 'Giáo viên Giảng dạy',
-      subject: newTeacherSubject as any,
-      status: 'active',
-      avatarInitials: initials || 'GV'
+    if (!canManageProfiles) return;
+    const category = activeCategories.find(c => c.id === newTeacherLevel);
+    const subject = activeSubjects.find(s => s.code === newTeacherSubject);
+    if (!category || !subject) { showToast('Vui lòng chọn môn và cấp học từ danh mục đang hoạt động.', 'error'); return; }
+    const credentials = createTeacherWithAccount({
+      name: newTeacherName.trim(), subject: subject.code, subjectName: subject.name, levelId: category.id, levelName: category.name,
+      grades: newTeacherGrades, models: newTeacherModels, phone: newTeacherPhone.trim(), email: newTeacherEmail.trim(), degree: newTeacherDegree.trim(),
+      status: 'CHO_LOP', statusLabel: 'Chờ lớp', evalStatus: 'UNSCORED', evalScore: null, evalComment: '', freeSlots: 0, busySlots: 0, isFull: false, successfulSessions: [], schedule: {}
     });
-
-    setTeachers(prev => [newTeacher, ...prev]);
+    if (!credentials) return;
+    setCreatedCredentials(credentials);
     setIsCreateModalOpen(false);
-    showToast(`Đã thêm GV ${newTeacher.name} & tự động cấp tài khoản đăng nhập (${uName} / ${pRaw})!`, 'success');
+    setNewTeacherName(''); setNewTeacherEmail(''); setNewTeacherPhone(''); setNewTeacherGrades([]); setNewTeacherDegree('');
+    showToast('Đã tạo hồ sơ và tài khoản giáo viên.', 'success');
   };
 
   const handleGradeToggle = (grade: string) => {
@@ -398,6 +328,16 @@ export const Module3_Teachers: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {createdCredentials && canManageProfiles && <div role="dialog" aria-modal="true" aria-label="Tài khoản giáo viên mới" className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-2xl w-full max-w-md space-y-4">
+          <h3 className="font-bold">Đã cấp tài khoản giáo viên</h3>
+          <p className="text-sm">Mã giáo viên đồng thời là tên đăng nhập. Tài khoản có vai trò Giáo viên.</p>
+          <label className="block text-xs">Mã / Tên đăng nhập<input readOnly value={createdCredentials.username} className="w-full p-2 border rounded-lg font-mono" /></label>
+          <label className="block text-xs">Mật khẩu được tạo tự động<input readOnly value={createdCredentials.password} className="w-full p-2 border rounded-lg font-mono" /></label>
+          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText('Tên đăng nhập: ' + createdCredentials.username + '\nMật khẩu: ' + createdCredentials.password); showToast('Đã sao chép tài khoản.', 'success'); } catch { showToast('Vui lòng sao chép trực tiếp từ các ô thông tin.', 'warning'); } }} className="p-2 rounded-lg border">Sao chép</button>
+          <button type="button" onClick={() => setCreatedCredentials(null)} className="ml-2 p-2 rounded-lg bg-orange-600 text-white">Đóng</button>
+        </div>
+      </div>}
       {/* Header & Điều hướng 3 Tab nghiệp vụ */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -509,7 +449,7 @@ export const Module3_Teachers: React.FC = () => {
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                 <button
-                  onClick={() => setIsCreateModalOpen(true)}
+                  disabled={!canManageProfiles} onClick={() => { if (canManageProfiles) { setNewTeacherSubject(activeSubjects[0]?.code || ''); setNewTeacherLevel(activeCategories[0]?.id || ''); setIsCreateModalOpen(true); } }}
                   className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <UserPlus className="w-4 h-4 font-bold" />
@@ -584,6 +524,7 @@ export const Module3_Teachers: React.FC = () => {
                         </td>
                         <td className="py-3 px-3 text-center">
                           <select
+                            disabled={!canManageProfiles}
                             value={t.status}
                             onChange={e => handleQuickStatusChange(t.id, e.target.value as any)}
                             className={`px-2.5 py-1 rounded-full text-[11px] font-bold border cursor-pointer focus:outline-none transition-colors ${
@@ -617,14 +558,14 @@ export const Module3_Teachers: React.FC = () => {
                               <Calendar className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleOpenEditModal(t)}
+                              disabled={!canManageProfiles} onClick={() => handleOpenEditModal(t)}
                               className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
                               title="Chỉnh sửa thông tin giáo viên"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => setTeacherToDelete(t)}
+                              disabled={!canManageProfiles} onClick={() => { if (canManageProfiles) setTeacherToDelete(t); }}
                               className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500 hover:text-rose-700 transition-colors cursor-pointer"
                               title="Xóa giáo viên"
                             >
@@ -917,7 +858,7 @@ export const Module3_Teachers: React.FC = () => {
       )}
 
       {/* ================= MODAL: THÊM HỒ SƠ GIÁO VIÊN ================= */}
-      {isCreateModalOpen && (
+      {isCreateModalOpen && canManageProfiles && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -974,37 +915,12 @@ export const Module3_Teachers: React.FC = () => {
                 </div>
               </div>
 
-              {/* Môn chuyên trách cố định */}
-              <div className="p-3 bg-orange-50/70 rounded-xl border border-orange-200">
-                <label className="block font-bold text-[#FF5C00] mb-1.5">
-                  Môn chuyên trách cố định (1 giáo viên chỉ dạy 1 môn - Ràng buộc CSDL) <span className="text-rose-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700 hover:border-[#FF5C00]">
-                    <input
-                      type="radio"
-                      name="m3_subject"
-                      value="SUB-MATH"
-                      checked={newTeacherSubject === 'SUB-MATH'}
-                      onChange={() => setNewTeacherSubject('SUB-MATH')}
-                      className="accent-[#FF5C00] w-4 h-4"
-                    />
-                    <span>Môn Toán (SUB-MATH)</span>
-                  </label>
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700 hover:border-[#FF5C00]">
-                    <input
-                      type="radio"
-                      name="m3_subject"
-                      value="SUB-ENG"
-                      checked={newTeacherSubject === 'SUB-ENG'}
-                      onChange={() => setNewTeacherSubject('SUB-ENG')}
-                      className="accent-[#FF5C00] w-4 h-4"
-                    />
-                    <span>Môn Tiếng Anh (SUB-ENG)</span>
-                  </label>
-                </div>
-              </div>
-
+              <label className="block font-bold text-slate-700">Môn chuyên trách
+                <select required value={newTeacherSubject} onChange={e => setNewTeacherSubject(e.target.value)} className="mt-1 w-full p-2 border border-slate-200 rounded-xl">
+                  <option value="">Chọn môn từ danh mục</option>
+                  {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
+                </select>
+              </label>
               {/* Cấp học & Khối lớp */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                 <div>
@@ -1015,13 +931,12 @@ export const Module3_Teachers: React.FC = () => {
                     value={newTeacherLevel}
                     onChange={e => {
                       setNewTeacherLevel(e.target.value);
-                      setNewTeacherGrades(['Lớp 1', 'Lớp 2']);
+                      setNewTeacherGrades([]);
                     }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                   >
-                    <option value="CAP-TH">Tiểu học (Cấp 1: Lớp 1 &rarr; Lớp 5)</option>
-                    <option value="CAP-THCS">Trung học cơ sở (Cấp 2: Lớp 6 &rarr; Lớp 9)</option>
-                    <option value="CAP-THPT">Trung học phổ thông (Cấp 3: Lớp 10 &rarr; Lớp 12)</option>
+                    <option value="">Chọn cấp học từ danh mục</option>
+                    {activeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </select>
                 </div>
 
@@ -1050,7 +965,7 @@ export const Module3_Teachers: React.FC = () => {
                         onChange={() => handleGradeToggle(g)}
                         className="accent-[#FF5C00] w-4 h-4 mb-1"
                       />
-                      <span className="font-semibold text-slate-700 text-xs">{g}</span>
+                      <span className="font-semibold text-slate-700 text-xs">{teachingCategories.find(c => c.id === newTeacherLevel)?.options.find(o => o.id === g)?.label || g}</span>
                     </label>
                   ))}
                 </div>
@@ -1616,7 +1531,7 @@ export const Module3_Teachers: React.FC = () => {
       )}
 
       {/* ================= MODAL: CHỈNH SỬA THÔNG TIN GIÁO VIÊN ================= */}
-      {editingTeacher && (
+      {editingTeacher && canManageProfiles && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -1703,8 +1618,9 @@ export const Module3_Teachers: React.FC = () => {
                     onChange={e => setEditTeacherSubject(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 font-semibold focus:outline-none focus:border-[#FF5C00]"
                   >
-                    <option value="SUB-MATH">Môn Toán</option>
-                    <option value="SUB-ENG">Môn Tiếng Anh</option>
+                    <option value="">Chọn môn từ danh mục</option>
+                    {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
+                    {!activeSubjects.some(subject => subject.code === editTeacherSubject) && <option value={editTeacherSubject} disabled>{editingTeacher?.subjectName} (ngừng sử dụng)</option>}
                   </select>
                 </div>
                 <div>
@@ -1715,14 +1631,12 @@ export const Module3_Teachers: React.FC = () => {
                     value={editTeacherLevel}
                     onChange={e => {
                       setEditTeacherLevel(e.target.value);
-                      const defaults = gradeOptionsByLevel[e.target.value] || [];
-                      setEditTeacherGrades(defaults.slice(0, 2));
+                      setEditTeacherGrades([]);
                     }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 font-semibold focus:outline-none focus:border-[#FF5C00]"
                   >
-                    <option value="CAP-TH">Tiểu học (Cấp 1)</option>
-                    <option value="CAP-THCS">Trung học cơ sở (Cấp 2)</option>
-                    <option value="CAP-THPT">Trung học phổ thông (Cấp 3)</option>
+                    <option value="">Chọn cấp học từ danh mục</option>
+                    {activeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -1972,8 +1886,7 @@ export const Module3_Teachers: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả môn học</option>
-              <option value="SUB-MATH">Môn Toán</option>
-              <option value="SUB-ENG">Môn Tiếng Anh</option>
+              {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
             </select>
           </div>
           <div>
@@ -2063,8 +1976,7 @@ export const Module3_Teachers: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả môn học</option>
-              <option value="SUB-MATH">Môn Toán</option>
-              <option value="SUB-ENG">Môn Tiếng Anh</option>
+              {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
             </select>
           </div>
           <div>

@@ -1,3 +1,4 @@
+import { TeachingCatalog } from '../components/TeachingCatalog';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { IncidentCategory } from '../types';
@@ -33,7 +34,7 @@ export const Module2_MasterData: React.FC = () => {
     showToast
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents'>('subjects');
+  const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching'>('subjects');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // Modals state
@@ -457,6 +458,7 @@ export const Module2_MasterData: React.FC = () => {
         </div>
       </div>
 
+      {activeTab === 'teaching' && <TeachingCatalog />}
       {/* 6 Tabs Chuyển đổi danh mục */}
       <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs overflow-x-auto flex items-center gap-1 text-xs">
         <button

@@ -1,3 +1,5 @@
+import { canManageTeacherProfiles, generateTeacherCredentials } from '../lib/teacherAccounts';
+import { DEFAULT_TEACHER_CATEGORIES, type CategoryGroup } from '../components/CategoryMultiFilter';
 import { canEditTeacherAvailability } from '../lib/teacherAvailability';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
@@ -29,6 +31,9 @@ export interface ToastMessage {
 export type WorkspaceMode = 'ADMIN' | 'TEACHER';
 
 interface AppContextType {
+  teachingCategories: CategoryGroup[];
+  setTeachingCategories: React.Dispatch<React.SetStateAction<CategoryGroup[]>>;
+  createTeacherWithAccount: (teacher: Omit<TeacherProfile, 'id' | 'username' | 'passwordRaw'>) => { id: string; username: string; password: string } | null;
   // Navigation & Role
   currentUser: UserAccount;
   setCurrentUser: (user: UserAccount) => void;
@@ -1142,6 +1147,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [users, setUsers] = useState<UserAccount[]>(() => getStored('users', initialUsers));
   const [roleGroups, setRoleGroups] = useState<SystemRoleGroup[]>(() => getStored('roleGroups', initialRoleGroups));
 
+  const [teachingCategories, setTeachingCategories] = useState<CategoryGroup[]>(() => getStored('teachingCategories', DEFAULT_TEACHER_CATEGORIES.map(category => ({ ...category, options: category.id.startsWith('CAP-') ? category.options.filter(option => option.id.startsWith('Lớp ')) : category.options }))));
   // PH2
   const [subjects, setSubjects] = useState<SubjectItem[]>(() => getStored('subjects', initialSubjects));
   const [levels, setLevels] = useState<LevelItem[]>(() => getStored('levels', initialLevels));
@@ -1209,6 +1215,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(`${STORAGE_KEY}_activeModule`, JSON.stringify(activeModule));
       localStorage.setItem(`${STORAGE_KEY}_users`, JSON.stringify(users));
       localStorage.setItem(`${STORAGE_KEY}_roleGroups`, JSON.stringify(roleGroups));
+      localStorage.setItem(`${STORAGE_KEY}_teachingCategories`, JSON.stringify(teachingCategories));
       localStorage.setItem(`${STORAGE_KEY}_subjects`, JSON.stringify(subjects));
       localStorage.setItem(`${STORAGE_KEY}_levels`, JSON.stringify(levels));
       localStorage.setItem(`${STORAGE_KEY}_timeSlots`, JSON.stringify(timeSlots));
@@ -1226,7 +1233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // ignore
     }
   }, [
-    currentUser, activeModule, users, roleGroups, subjects, levels,
+    currentUser, activeModule, users, roleGroups, teachingCategories, subjects, levels,
     timeSlots, packages, models, incidents, teachers, students,
     classes, criteriaCategories, sopDocuments, ragBotConfig, payrollStore
   ]);
@@ -1263,6 +1270,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
+  const createTeacherWithAccount: AppContextType['createTeacherWithAccount'] = (profile) => {
+    if (!canManageTeacherProfiles(currentUser, roleGroups)) { showToast('Bạn chưa được cấp quyền quản lý hồ sơ giáo viên.', 'error'); return null; }
+    const email = profile.email.trim().toLowerCase();
+    if (!profile.name.trim() || !email || users.some(u => u.email.trim().toLowerCase() === email) || teachers.some(t => t.email.trim().toLowerCase() === email)) { showToast('Tên/email không hợp lệ hoặc email đã được sử dụng.', 'error'); return null; }
+    const category = teachingCategories.find(c => c.id === profile.levelId && c.status !== false);
+    if (!subjects.some(subject => subject.code === profile.subject && subject.status) || !category || !profile.grades.length || !profile.grades.every(grade => category.options.some(option => option.id === grade)) || !profile.models?.length) { showToast('Vui lòng chọn môn, lớp dạy và mô hình hợp lệ từ danh mục.', 'error'); return null; }
+    const credentials = generateTeacherCredentials(teachers, users);
+    const teacher = { ...profile, id: credentials.id, username: credentials.username, email, schedule: {}, freeSlots: 0, busySlots: 0, isFull: false, successfulSessions: [] };
+    const account: UserAccount = { id: credentials.id, username: credentials.username, passwordRaw: credentials.password, name: profile.name.trim(), email, phone: profile.phone, role: 'Giáo viên Giảng dạy', subject: profile.subject, status: 'active', avatarInitials: profile.name.trim().split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase() };
+    setTeachers(prev => [teacher, ...prev]);
+    setUsers(prev => [account, ...prev]);
+    return credentials;
+  };
+
   // PH3 Actions
   const addTeacher = (teacher: TeacherProfile) => {
     setTeachers(prev => [teacher, ...prev]);
@@ -1271,10 +1292,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateTeacher = (id: string, updates: Partial<TeacherProfile>) => {
     const teacher = teachers.find(t => t.id === id);
+    const editsProfile = Object.keys(updates).some(key => !['schedule', 'freeSlots', 'busySlots', 'isFull'].includes(key));
+    if (editsProfile && !canManageTeacherProfiles(currentUser, roleGroups)) { showToast('Bạn chưa được cấp quyền sửa hồ sơ giáo viên.', 'error'); return false; }
     const editsAvailability = ['schedule', 'freeSlots', 'busySlots', 'isFull'].some(key => Object.prototype.hasOwnProperty.call(updates, key));
     if (!teacher || (editsAvailability && !canEditTeacherAvailability(currentUser, teacher))) {
       showToast('Chỉ giáo viên được cập nhật lịch rảnh của mình.', 'warning');
       return false;
+    }
+    if (editsProfile && teacher) {
+      const linked = users.find(u => u.id === teacher.id || (teacher.username && u.username === teacher.username) || (teacher.email && u.email.toLowerCase() === teacher.email.toLowerCase()));
+      if (updates.email && users.some(u => u.id !== linked?.id && u.email.toLowerCase() === updates.email!.trim().toLowerCase())) { showToast('Email đã được sử dụng.', 'error'); return false; }
+      if (linked) setUsers(prev => prev.map(u => u.id === linked.id ? { ...u, name: updates.name ?? u.name, email: updates.email ?? u.email, phone: updates.phone ?? u.phone, subject: updates.subject ?? u.subject } : u));
     }
     setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     showToast('Cập nhật hồ sơ Giáo viên thành công!', 'success');
@@ -1704,6 +1732,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addUser,
         updateUser,
         toggleLockUser,
+        teachingCategories,
+        setTeachingCategories,
+        createTeacherWithAccount,
         subjects,
         setSubjects,
         levels,

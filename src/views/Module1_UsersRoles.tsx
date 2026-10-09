@@ -1,3 +1,4 @@
+import { TEACHER_PROFILE_PERMISSION } from '../lib/teacherAccounts';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserAccount, SystemRoleGroup } from '../types';
@@ -46,7 +47,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
-  const [newUserSubject, setNewUserSubject] = useState<'SUB-MATH' | 'SUB-ENG'>('SUB-MATH');
+  const [newUserSubject, setNewUserSubject] = useState<string>('SUB-MATH');
 
   // Edit User Form state
   const [editUserName, setEditUserName] = useState('');
@@ -56,7 +57,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
   const [editUserRole, setEditUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
-  const [editUserSubject, setEditUserSubject] = useState<'SUB-MATH' | 'SUB-ENG'>('SUB-MATH');
+  const [editUserSubject, setEditUserSubject] = useState<string>('SUB-MATH');
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -155,7 +156,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const systemFeaturesList = [
     { mod: 'Quản trị Hệ thống & Phân quyền', feats: ['Cấp tài khoản & Mật khẩu người dùng', 'Khóa / Mở khóa tài khoản nhân sự', 'Chỉnh sửa thông tin tài khoản & Mật khẩu', 'Tạo, sửa, xóa & Gán Nhóm quyền'] },
     { mod: 'Danh mục dùng chung', feats: ['Cấu hình Môn học (Toán, Tiếng Anh) & Khối lớp', 'Cấu hình Gói thời hạn (3, 6, 9, 12 tháng) tính ngày', 'Cấu hình Mô hình lớp & Sĩ số trần (1-1, 1-3, 1-5)', 'Cấu hình Khung giờ ca dạy chuẩn (Time Slot)', 'Cấu hình Danh mục Sự cố & Vi phạm ca học'] },
-    { mod: 'Quản lý Giáo viên & Đánh giá Dự giờ', feats: ['Tạo hồ sơ giáo viên (Gán 1 môn Toán/Anh)', 'Giáo viên đăng ký lịch rảnh theo tuần', 'Xem tổng hợp lịch rảnh & Khóa sổ đăng ký tuần', 'Thực hiện chấm điểm dự giờ sư phạm (3 tiêu chí)', 'Xuất danh sách hồ sơ giáo viên ra file Excel'] },
+    { mod: 'Quản lý Giáo viên & Đánh giá Dự giờ', feats: [TEACHER_PROFILE_PERMISSION, 'Tạo hồ sơ giáo viên (Gán 1 môn Toán/Anh)', 'Giáo viên đăng ký lịch rảnh theo tuần', 'Xem tổng hợp lịch rảnh & Khóa sổ đăng ký tuần', 'Thực hiện chấm điểm dự giờ sư phạm (3 tiêu chí)', 'Xuất danh sách hồ sơ giáo viên ra file Excel'] },
     { mod: 'Học sinh & Điều phối Lớp học', feats: ['Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy', 'Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc', 'Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)', 'Phân công giáo viên (Khớp nối môn và lịch rảnh)', 'Nạp học liệu: Thêm theo tuần & Excel mẫu'] },
     { mod: 'Giám sát Ca dạy & Dạy thay (Cover)', feats: ['Theo dõi thời khóa biểu toàn hệ thống (Calendar)', 'Giáo viên Check-in / Check-out vào ca dạy', 'Báo cáo sự cố ca dạy (đi muộn, lỗi mạng, nghỉ)', 'Quét giáo viên rảnh cùng môn để dạy thay (Cover)'] },
     { mod: 'Trợ lý Trí tuệ nhân tạo (AI Studio)', feats: ['Cấu hình Prompt văn phong & Tiêu chí nhận xét môn', 'Quản lý kho tài liệu tri thức SOP', 'Sử dụng AI sinh & tinh chỉnh nhận xét học sinh', 'Chatbot AI 24/7 tra cứu quy chế & nghiệp vụ'] },
