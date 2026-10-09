@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { canEditTeacherAvailability } from '../lib/teacherAvailability';
 
-export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = ({ initialTeacherId }) => {
+export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; readOnly?: boolean }> = ({ initialTeacherId, readOnly = false }) => {
   const { currentUser, teachers, classes, timeSlots, updateTeacher, showToast } = useApp();
 
-  // Tìm giáo viên/gia sư mặc định theo initialTeacherId hoặc người dùng đăng nhập hoặc người đầu tiên
-  const initialTeacher = teachers.find(
-    t => t.id === initialTeacherId || t.id === currentUser.id || t.email === currentUser.email || t.name.includes(currentUser.name.replace('Thầy ', '').replace('Cô ', ''))
-  ) || teachers[0];
-
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(initialTeacherId || initialTeacher?.id || teachers[0]?.id || 'GV-001');
-
-  // Giáo viên hoặc Gia sư đang được chọn xem và chỉnh sửa lịch rảnh
-  const activeTeacher = teachers.find(t => t.id === selectedTeacherId) || teachers[0];
+  const ownTeacher = teachers.find(t => canEditTeacherAvailability(currentUser, t));
+  const activeTeacher = initialTeacherId ? teachers.find(t => t.id === initialTeacherId) : ownTeacher;
+  const canEdit = !readOnly && canEditTeacherAvailability(currentUser, activeTeacher);
 
   // BỘ LỌC THỜI GIAN THEO YÊU CẦU: Năm học hiện tại, Tháng, Tuần, Từ ngày - Đến ngày
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
@@ -81,7 +76,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
       }
     });
     setScheduleState(initial);
-  }, [selectedTeacherId, activeTeacher?.id]);
+  }, [activeTeacher?.id, activeTeacher?.schedule]);
 
   // Helper tìm lớp học được gán cho giáo viên/gia sư tại thứ và khung giờ này
   const getAssignedClassForSlot = (dayKey: number, slotCode: string, slotTimeRange: string) => {
@@ -89,6 +84,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
       0: 'T2', 1: 'T3', 2: 'T4', 3: 'T5', 4: 'T6', 5: 'T7', 6: 'CN'
     };
     const targetDay = dayShortMap[dayKey];
+    if (!activeTeacher) return undefined;
 
     return classes.find(cls => {
       const isTeacherMatch =
@@ -112,6 +108,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
   };
 
   const toggleSlotStatus = (slotCode: string, dayIndex: number, assignedClass?: any) => {
+    if (!canEdit) return;
     if (assignedClass) {
       showToast(`Ca này đã được gán Lớp học chính thức [${assignedClass.code}]! Không thể thay đổi trạng thái rảnh.`, 'warning');
       return;
@@ -133,6 +130,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
   };
 
   const setAllSlotsForDay = (dayIndex: number, setToFree: boolean) => {
+    if (!canEdit) return;
     setScheduleState(prev => {
       const updated = { ...prev };
       activeSlots.forEach(s => {
@@ -149,7 +147,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
   };
 
   const handleSaveAvailability = () => {
-    if (!activeTeacher) return;
+    if (!canEdit || !activeTeacher) return;
     let freeCount = 0;
     Object.values(scheduleState).forEach(arr => {
       arr.forEach(val => {
@@ -157,10 +155,11 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
       });
     });
 
-    updateTeacher(activeTeacher.id, {
+    const saved = updateTeacher(activeTeacher.id, {
       schedule: scheduleState,
       freeSlots: freeCount
     });
+    if (!saved) return;
 
     showToast(`Đã lưu lịch rảnh (Hiệu lực: ${fromDate} đến ${toDate}, Năm học ${selectedSchoolYear}) cho ${activeTeacher.name}!`, 'success');
   };
@@ -187,8 +186,11 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
     }).length;
   };
 
+  if (!activeTeacher) return <div className="p-6 text-sm text-slate-500">Không tìm thấy hồ sơ giáo viên liên kết với tài khoản.</div>;
+
   return (
     <div className="space-y-5 font-infer">
+      {!canEdit && <p className="p-3 rounded-xl bg-slate-100 text-slate-600 text-xs">Chỉ xem lịch giáo viên đã đăng ký. Chỉ giáo viên được thay đổi lựa chọn của mình.</p>}
       {/* Header Banner phong cách Figma tối giản */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -201,7 +203,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
             </span>
           </div>
           <h1 className="text-xl font-bold text-slate-800 mt-2">
-            Đăng Ký Khung Ca Dạy &amp; Lịch Rảnh
+            {canEdit ? 'Đăng Ký Khung Ca Dạy & Lịch Rảnh' : 'Lịch rảnh & Thời khóa biểu'}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             Đăng ký thời gian rảnh theo từng khoảng hiệu lực. Ca đã ghép lớp sẽ hiển thị mã lớp và được lưu lịch sử đầy đủ.
@@ -234,12 +236,12 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
           </div>
 
           {/* Nút lưu */}
-          <button
+          {canEdit && <button
             onClick={handleSaveAvailability}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
           >
             Lưu Lịch Rảnh ({totalFreeSlots} ca)
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -354,20 +356,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-[11px]">Đổi tài khoản:</span>
-            <select
-              value={selectedTeacherId}
-              onChange={e => setSelectedTeacherId(e.target.value)}
-              className="px-2 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-            >
-              {teachers.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.subjectName || t.subject}) - {t.id}
-                </option>
-              ))}
-            </select>
-          </div>
+
         </div>
       </div>
 
@@ -444,16 +433,16 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
                 </span>
                 <div>
                   <h3 className="font-bold text-slate-800 text-sm">
-                    Bước 2: Chọn Ca rảnh cho <strong>{currentSelectedDay.label}</strong>
+                    {canEdit ? 'Bước 2: Chọn Ca rảnh cho ' : 'Ca đã đăng ký cho '}<strong>{currentSelectedDay.label}</strong>
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Tick chọn ca Thầy/Cô và Gia sư sẵn sàng nhận lớp. Ca đã xếp lớp sẽ hiển thị mã lớp cố định.
+                    {canEdit ? 'Tick chọn ca Thầy/Cô và Gia sư sẵn sàng nhận lớp. Ca đã xếp lớp sẽ hiển thị mã lớp cố định.' : 'Xem trạng thái ca giáo viên đã đăng ký và các lớp đã được xếp.'}
                   </p>
                 </div>
               </div>
 
               {/* Thao tác nhanh */}
-              <div className="flex items-center gap-2">
+              {canEdit && <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setAllSlotsForDay(selectedDayKey, true)}
@@ -468,7 +457,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
                 >
                   Xóa chọn ngày này
                 </button>
-              </div>
+              </div>}
             </div>
 
             {/* Danh sách các ca học */}
@@ -484,9 +473,9 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
                 return (
                   <div
                     key={slot.code || slot.id}
-                    onClick={() => toggleSlotStatus(slot.code, selectedDayKey, assignedClass)}
+                    onClick={canEdit ? () => toggleSlotStatus(slot.code, selectedDayKey, assignedClass) : undefined}
                     className={`p-4 rounded-xl border transition-all select-none flex flex-col justify-between ${
-                      hasAssignedClass
+                      !canEdit ? 'cursor-default ' + (isFree ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-slate-50') : hasAssignedClass
                         ? 'border-indigo-400 bg-indigo-50/80 shadow-xs ring-1 ring-indigo-400/30 cursor-default'
                         : isFree
                         ? 'border-emerald-400 bg-emerald-50/60 shadow-xs ring-1 ring-emerald-400/30 cursor-pointer'
@@ -583,7 +572,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
                         </span>
                       ) : (
                         <span className="text-slate-400">
-                          Bấm để đánh dấu Thầy/Cô rảnh nhận lớp
+                          {canEdit ? 'Bấm để đánh dấu Thầy/Cô rảnh nhận lớp' : 'Chưa đăng ký rảnh'}
                         </span>
                       )}
                       <span className="text-[10px] text-slate-400 font-mono">
@@ -665,9 +654,9 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
                           return (
                             <td
                               key={d.key}
-                              onClick={() => toggleSlotStatus(s.code, d.key, assignedClass)}
+                              onClick={canEdit ? () => toggleSlotStatus(s.code, d.key, assignedClass) : undefined}
                               className={`p-2 border-r border-slate-200 last:border-r-0 text-center transition-all ${
-                                hasAssignedClass
+                                !canEdit ? 'cursor-default ' + (isFree ? 'bg-emerald-50/70' : 'bg-slate-50') : hasAssignedClass
                                   ? 'bg-indigo-50/80 cursor-default'
                                   : isFree
                                   ? 'bg-emerald-50/70 hover:bg-emerald-100 cursor-pointer'
@@ -710,7 +699,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string }> = 
                                     <span className="text-[10px] font-bold text-indigo-700">Có lớp</span>
                                   </div>
                                 ) : (
-                                  <span className="text-[11px] text-slate-400 font-medium">+ Bật rảnh</span>
+                                  <span className="text-[11px] text-slate-400 font-medium">{canEdit ? '+ Bật rảnh' : 'Chưa đăng ký'}</span>
                                 )}
                               </div>
                             </td>

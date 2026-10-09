@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, RotateCcw, Filter, Check } from 'lucide-react';
 
 export interface FilterDrawerProps {
@@ -24,8 +25,8 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-[100] overflow-hidden">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
@@ -34,7 +35,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
       {/* Drawer content slide in from right */}
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-300">
+        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200 filter-drawer-enter">
           {/* Header */}
           <div className="p-4 px-5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -116,6 +117,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

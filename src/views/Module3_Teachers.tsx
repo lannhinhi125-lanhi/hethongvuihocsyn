@@ -49,13 +49,8 @@ export const Module3_Teachers: React.FC = () => {
   const [revealedTeacherPass, setRevealedTeacherPass] = useState<Record<string, boolean>>({});
   const [scheduleModalTeacher, setScheduleModalTeacher] = useState<TeacherProfile | null>(null);
 
-  // Column-level filters (Bộ lọc từng trường dữ liệu)
-  const [colSearchName, setColSearchName] = useState('');
-  const [colFilterSubject, setColFilterSubject] = useState('ALL');
-  const [colFilterLevel, setColFilterLevel] = useState('ALL');
-  const [colFilterGrade, setColFilterGrade] = useState('ALL');
+  // Hình thức nhận lớp
   const [colFilterModel, setColFilterModel] = useState('ALL');
-  const [colFilterStatus, setColFilterStatus] = useState('ALL');
 
   // Edit Teacher Modal State
   const [editingTeacher, setEditingTeacher] = useState<TeacherProfile | null>(null);
@@ -75,10 +70,16 @@ export const Module3_Teachers: React.FC = () => {
   // Filters (Drawer)
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterSubject, setFilterSubject] = useState('ALL');
-  const [filterLevel, setFilterLevel] = useState('ALL');
-  const [filterGrade, setFilterGrade] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
 
+  const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
+  const [availCategory, setAvailCategory] = useState('ALL');
+  const [availSubOptions, setAvailSubOptions] = useState<string[]>([]);
+  const [availModel, setAvailModel] = useState('ALL');
+  const [availFrom, setAvailFrom] = useState('');
+  const [availTo, setAvailTo] = useState('');
+  const [profileFrom, setProfileFrom] = useState('');
+  const [profileTo, setProfileTo] = useState('');
   // Availability filters
   const [availSubject, setAvailSubject] = useState('ALL');
   const [availStatus, setAvailStatus] = useState('ALL');
@@ -95,8 +96,6 @@ export const Module3_Teachers: React.FC = () => {
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTeacherForDetail, setSelectedTeacherForDetail] = useState<TeacherProfile | null>(null);
-  const [selectedTeacherForSchedule, setSelectedTeacherForSchedule] = useState<TeacherProfile | null>(null);
-  const [isSelfRegisterModalOpen, setIsSelfRegisterModalOpen] = useState(false);
 
   // Evaluation flow state
   const [gradingTeacher, setGradingTeacher] = useState<TeacherProfile | null>(null);
@@ -133,56 +132,39 @@ export const Module3_Teachers: React.FC = () => {
   const [catFilterCategory, setCatFilterCategory] = useState<string>('ALL');
   const [catFilterSubOptions, setCatFilterSubOptions] = useState<string[]>([]);
 
-  // Filtered teachers list (kết hợp cả thanh tìm kiếm, bộ lọc drawer, bộ lọc danh mục và bộ lọc theo từng trường)
+  const teacherCategories = Object.entries(gradeOptionsByLevel).map(([id, grades]) => ({
+    id,
+    name: ({ 'CAP-TH': 'Tiểu học', 'CAP-THCS': 'THCS', 'CAP-THPT': 'THPT', 'CAT-IELTS': 'IELTS & Quốc tế', 'CAT-MATH-SPEC': 'Toán Tư Duy & Nâng Cao' } as Record<string, string>)[id],
+    options: Array.from(new Set([...grades, ...teachers.filter(t => t.levelId === id).flatMap(t => t.grades)])).map(grade => ({ id: grade, label: grade }))
+  }));
+  const matchesCategory = (t: TeacherProfile, category: string, options: string[]) =>
+    (category === 'ALL' || t.levelId === category) && (options.length === 0 || options.some(option => t.grades.includes(option)));
+  const matchesPeriod = (t: TeacherProfile, from: string, to: string) =>
+    (!from || !to || from <= to) && (!to || !t.startDate || t.startDate <= to) && (!from || !t.endDate || t.endDate >= from);
+  const filteredAvailability = teachers.filter(t =>
+    (availSubject === 'ALL' || t.subject === availSubject) &&
+    (availStatus === 'ALL' || (availStatus === 'FULL' ? t.isFull : t.freeSlots > 0)) &&
+    matchesCategory(t, availCategory, availSubOptions) &&
+    (availModel === 'ALL' || (t.models?.length ? t.models : ['1-1', '1-n']).includes(availModel)) && matchesPeriod(t, availFrom, availTo)
+  );
+  // Kết hợp tìm kiếm với các tiêu chí trong bảng lọc bên phải.
   const filteredTeachers = teachers.filter(t => {
-    // 1. Khớp theo Danh mục & Checkbox đa chọn (Tiểu học, THCS, THPT, IELTS...)
-    let matchCat = true;
-    if (catFilterCategory !== 'ALL') {
-      if (catFilterSubOptions.length > 0) {
-        matchCat = catFilterSubOptions.some(opt =>
-          t.grades.includes(opt) ||
-          t.grades.some(g => opt.toLowerCase().includes(g.toLowerCase()) || g.toLowerCase().includes(opt.toLowerCase())) ||
-          t.degree.toLowerCase().includes(opt.toLowerCase()) ||
-          t.levelName.toLowerCase().includes(opt.toLowerCase()) ||
-          t.levelId === catFilterCategory
-        );
-      } else {
-        matchCat = t.levelId === catFilterCategory ||
-                   t.levelName.toLowerCase().includes(catFilterCategory.toLowerCase());
-      }
-    } else if (catFilterSubOptions.length > 0) {
-      matchCat = catFilterSubOptions.some(opt =>
-        t.grades.includes(opt) ||
-        t.grades.some(g => opt.toLowerCase().includes(g.toLowerCase()) || g.toLowerCase().includes(opt.toLowerCase())) ||
-        t.degree.toLowerCase().includes(opt.toLowerCase())
-      );
-    }
-
+    const matchCat = matchesCategory(t, catFilterCategory, catFilterSubOptions);
+    const matchTime = matchesPeriod(t, profileFrom, profileTo);
     const matchSearch =
       (!searchKeyword ||
         t.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
         t.id.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-        t.phone.includes(searchKeyword)) &&
-      (!colSearchName ||
-        t.name.toLowerCase().includes(colSearchName.toLowerCase()) ||
-        t.id.toLowerCase().includes(colSearchName.toLowerCase()));
+        t.phone.includes(searchKeyword));
 
-    const matchSub = (filterSubject === 'ALL' || t.subject === filterSubject) &&
-                     (colFilterSubject === 'ALL' || t.subject === colFilterSubject);
-
-    const matchLvl = (filterLevel === 'ALL' || t.levelId === filterLevel) &&
-                     (colFilterLevel === 'ALL' || t.levelId === colFilterLevel);
-
-    const matchGrd = (filterGrade === 'ALL' || t.grades.includes(filterGrade)) &&
-                     (colFilterGrade === 'ALL' || t.grades.includes(colFilterGrade));
+    const matchSub = filterSubject === 'ALL' || t.subject === filterSubject;
 
     const tModels = t.models && t.models.length > 0 ? t.models : ['1-1', '1-n'];
     const matchModel = colFilterModel === 'ALL' || tModels.includes(colFilterModel);
 
-    const matchSts = (filterStatus === 'ALL' || t.status === filterStatus) &&
-                     (colFilterStatus === 'ALL' || t.status === colFilterStatus);
+    const matchSts = filterStatus === 'ALL' || t.status === filterStatus;
 
-    return matchCat && matchSearch && matchSub && matchLvl && matchGrd && matchModel && matchSts;
+    return matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts;
   });
 
   // Handlers for Teacher Edit & Status
@@ -420,9 +402,6 @@ export const Module3_Teachers: React.FC = () => {
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-[#FF5C00] font-bold text-xs uppercase tracking-wide">
-              ĐIỀU HÀNH GIẢNG DẠY
-            </span>
             <h2 className="text-xl font-bold text-slate-800">Quản lý Giáo viên &amp; Đánh giá Dự giờ</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -539,27 +518,6 @@ export const Module3_Teachers: React.FC = () => {
               </div>
             </div>
 
-            {/* BỘ LỌC PHÂN CẤP THEO DANH MỤC (Tiểu học, THCS, THPT, IELTS & Chứng chỉ...) */}
-            <div className="pt-2.5 border-t border-slate-100">
-              <CategoryMultiFilter
-                selectedCategory={catFilterCategory}
-                onSelectCategory={catId => {
-                  setCatFilterCategory(catId);
-                  if (catId === 'ALL') setCatFilterSubOptions([]);
-                }}
-                selectedSubOptions={catFilterSubOptions}
-                onToggleSubOption={optId => {
-                  setCatFilterSubOptions(prev =>
-                    prev.includes(optId) ? prev.filter(o => o !== optId) : [...prev, optId]
-                  );
-                }}
-                onSelectAllSubOptions={allIds => {
-                  setCatFilterSubOptions(prev => Array.from(new Set([...prev, ...allIds])));
-                }}
-                onClearSubOptions={() => setCatFilterSubOptions([])}
-                mode="inline"
-              />
-            </div>
           </div>
 
           {/* Bảng hồ sơ giáo viên */}
@@ -576,97 +534,9 @@ export const Module3_Teachers: React.FC = () => {
                     <th className="py-3 px-3 text-center">Trạng thái</th>
                     <th className="py-3 px-4 text-center">Thao tác</th>
                   </tr>
-                  {/* HÀNG BỘ LỌC THEO TỪNG TRƯỜNG DỮ LIỆU */}
-                  <tr className="bg-slate-100/80 border-b border-slate-200 font-normal normal-case">
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={colSearchName}
-                        onChange={e => setColSearchName(e.target.value)}
-                        placeholder="Lọc tên / mã GV..."
-                        className="w-full px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-2">
-                      <select
-                        value={colFilterSubject}
-                        onChange={e => setColFilterSubject(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-                      >
-                        <option value="ALL">Tất cả môn</option>
-                        <option value="SUB-MATH">Toán</option>
-                        <option value="SUB-ENG">Tiếng Anh</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-2">
-                      <select
-                        value={colFilterLevel}
-                        onChange={e => setColFilterLevel(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-                      >
-                        <option value="ALL">Tất cả cấp</option>
-                        <option value="CAP-TH">Tiểu học</option>
-                        <option value="CAP-THCS">THCS</option>
-                        <option value="CAP-THPT">THPT</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-2">
-                      <select
-                        value={colFilterGrade}
-                        onChange={e => setColFilterGrade(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-                      >
-                        <option value="ALL">Tất cả khối</option>
-                        {['Lớp 1', 'Lớp 2', 'Lớp 3', 'Lớp 4', 'Lớp 5', 'Lớp 6', 'Lớp 7', 'Lớp 8', 'Lớp 9', 'Lớp 10', 'Lớp 11', 'Lớp 12'].map(g => (
-                          <option key={g} value={g}>{g}</option>
-                        ))}
-                      </select>
-                    </th>
-                    <th className="py-2 px-2 text-center">
-                      <select
-                        value={colFilterModel}
-                        onChange={e => setColFilterModel(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-                      >
-                        <option value="ALL">Tất cả</option>
-                        <option value="1-1">1 - 1</option>
-                        <option value="1-n">1 - n</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-2 text-center">
-                      <select
-                        value={colFilterStatus}
-                        onChange={e => setColFilterStatus(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-                      >
-                        <option value="ALL">Tất cả</option>
-                        <option value="DANG_DAY">Đang dạy</option>
-                        <option value="CHO_LOP">Chờ lớp</option>
-                        <option value="TAM_NGUNG">Tạm ngưng</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-2 text-center">
-                      {(colSearchName || colFilterSubject !== 'ALL' || colFilterLevel !== 'ALL' || colFilterGrade !== 'ALL' || colFilterModel !== 'ALL' || colFilterStatus !== 'ALL') ? (
-                        <button
-                          onClick={() => {
-                            setColSearchName('');
-                            setColFilterSubject('ALL');
-                            setColFilterLevel('ALL');
-                            setColFilterGrade('ALL');
-                            setColFilterModel('ALL');
-                            setColFilterStatus('ALL');
-                          }}
-                          className="text-[10px] text-orange-600 hover:text-orange-800 font-bold underline cursor-pointer"
-                        >
-                          Xóa lọc
-                        </button>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">Bộ lọc</span>
-                      )}
-                    </th>
-                  </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
+                  {filteredTeachers.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-500">Không có giáo viên phù hợp với bộ lọc.</td></tr>}
                   {filteredTeachers.map(t => {
                     const isMath = t.subject === 'SUB-MATH';
                     const badgeColor = isMath
@@ -778,9 +648,6 @@ export const Module3_Teachers: React.FC = () => {
           <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm text-slate-800 uppercase tracking-wide">
-                  DANH SÁCH THEO DÕI LỊCH RẢNH GIÁO VIÊN
-                </h3>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200">
                   Tuần hiện tại (Thứ 2 &rarr; Chủ Nhật)
                 </span>
@@ -790,44 +657,15 @@ export const Module3_Teachers: React.FC = () => {
               </p>
             </div>
 
-            <button
-              onClick={() => setIsSelfRegisterModalOpen(true)}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Calendar className="w-4 h-4 text-[#FF5C00]" />
-              <span>Giáo viên tự đăng ký lịch rảnh</span>
+
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+            <button type="button" onClick={() => setIsAvailabilityFilterOpen(true)} className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold flex items-center gap-2 hover:bg-orange-50 cursor-pointer">
+              <Filter className="w-4 h-4 text-[#FF5C00]" /> Bộ lọc nâng cao
             </button>
+            <span className="text-xs text-slate-500">{filteredAvailability.length} giáo viên</span>
           </div>
-
-          {/* Bộ lọc */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <select
-                value={availSubject}
-                onChange={e => setAvailSubject(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-              >
-                <option value="ALL">Môn học: Tất cả</option>
-                <option value="SUB-MATH">Môn Toán</option>
-                <option value="SUB-ENG">Môn Tiếng Anh</option>
-              </select>
-
-              <select
-                value={availStatus}
-                onChange={e => setAvailStatus(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-              >
-                <option value="ALL">Tình trạng: Tất cả</option>
-                <option value="FREE">Vẫn còn ca rảnh</option>
-                <option value="FULL">Đã kín lịch dạy</option>
-              </select>
-            </div>
-
-            <div className="text-xs text-slate-400">
-              Bấm vào nút <strong className="text-slate-700">Xem lịch chi tiết</strong> để mở popup ma trận thời khóa biểu theo ca
-            </div>
-          </div>
-
           {/* Bảng danh sách */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
@@ -845,9 +683,8 @@ export const Module3_Teachers: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {(evalDateFrom || evalDateTo) && !teachers.some(t => sessionsInRange(t, evalDateFrom, evalDateTo).length) && <tr><td colSpan={7} className="p-8 text-center text-slate-500">Không có ca dạy thành công trong khoảng thời gian đã chọn.</td></tr>}
-                  {teachers
-                    .filter(t => (availSubject === 'ALL' || t.subject === availSubject) && (availStatus === 'ALL' || (availStatus === 'FULL' ? t.isFull : !t.isFull)))
+                  {filteredAvailability.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">Không có giáo viên phù hợp với bộ lọc.</td></tr>}
+                  {filteredAvailability
                     .map(t => (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                         <td className="py-3 px-4 font-bold text-slate-800">
@@ -876,7 +713,7 @@ export const Module3_Teachers: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <button
-                            onClick={() => setSelectedTeacherForSchedule(t)}
+                            onClick={() => setScheduleModalTeacher(t)}
                             className="px-3 py-1.5 bg-slate-100 hover:bg-[#FF5C00] hover:text-white text-slate-700 font-semibold rounded-lg text-xs transition-colors inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Calendar className="w-3.5 h-3.5" />
@@ -1346,104 +1183,6 @@ export const Module3_Teachers: React.FC = () => {
         </div>
       )}
 
-      {/* ================= MODAL: THỜI KHÓA BIỂU MA TRẬN CA ================= */}
-      {selectedTeacherForSchedule && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="font-bold text-base text-slate-800">
-                  Thời khóa biểu Lịch rảnh: {selectedTeacherForSchedule.name}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Môn: <strong className="text-[#FF5C00]">{selectedTeacherForSchedule.subjectName}</strong> &bull;{' '}
-                  Cấp: <strong className="text-slate-700">{selectedTeacherForSchedule.levelName}</strong> &bull;{' '}
-                  Khối: {selectedTeacherForSchedule.grades.join(', ')}
-                </p>
-              </div>
-              <button onClick={() => setSelectedTeacherForSchedule(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="mt-4">
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-center text-xs">
-                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="p-2.5 text-left w-44">Khung giờ chuẩn (Time Slot)</th>
-                      <th className="p-2.5">Thứ 2</th>
-                      <th className="p-2.5">Thứ 3</th>
-                      <th className="p-2.5">Thứ 4</th>
-                      <th className="p-2.5">Thứ 5</th>
-                      <th className="p-2.5">Thứ 6</th>
-                      <th className="p-2.5 bg-amber-50">Thứ 7</th>
-                      <th className="p-2.5 bg-amber-50">Chủ Nhật</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {timeSlots.map(slot => {
-                      const days = selectedTeacherForSchedule.schedule[slot.code] || [
-                        'free',
-                        'busy',
-                        'none',
-                        'free',
-                        'busy',
-                        'none',
-                        'none'
-                      ];
-
-                      return (
-                        <tr key={slot.id}>
-                          <td className="p-2.5 text-left font-semibold text-slate-700 border-r border-slate-200 bg-slate-50/60">
-                            {slot.name}
-                          </td>
-                          {days.map((st, idx) => (
-                            <td key={idx} className="p-2">
-                              {st === 'free' ? (
-                                <div className="py-1 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 text-[11px]">
-                                  Ca rảnh
-                                </div>
-                              ) : st === 'busy' ? (
-                                <div className="py-1 rounded bg-blue-100 text-blue-800 font-bold border border-blue-200 text-[11px]">
-                                  Có lớp
-                                </div>
-                              ) : (
-                                <span className="text-slate-300 font-bold">--</span>
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                <div className="flex items-center gap-4">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300" /> Ca rảnh nhận lớp
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300" /> Đã xếp lớp
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded bg-slate-100 border border-slate-200" /> Không đăng ký
-                  </span>
-                </div>
-                <button
-                  onClick={() => setSelectedTeacherForSchedule(null)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-semibold cursor-pointer"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ================= MODAL: CHỌN CA DỰ GIỜ & RECORDING (BƯỚC 2) ================= */}
       {isSelectSessionModalOpen && gradingTeacher && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -1876,82 +1615,6 @@ export const Module3_Teachers: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Giáo viên tự đăng ký lịch rảnh */}
-      {isSelfRegisterModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-slate-800">Giáo viên Đăng ký Lịch rảnh Tuần</h3>
-              <button onClick={() => setIsSelfRegisterModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="mt-4 space-y-3 text-xs">
-              <p className="text-slate-600">
-                Tích chọn các ca bạn sẵn sàng nhận lớp trong tuần tới. Hệ thống điều phối PH5 sẽ tự động quét ca rảnh để ghép lớp!
-              </p>
-              <div className="p-3 bg-slate-50 rounded-xl space-y-2">
-                {timeSlots.map(slot => (
-                  <label key={slot.id} className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                    <input type="checkbox" defaultChecked className="accent-[#FF5C00] w-4 h-4" />
-                    <span>{slot.name} ({slot.timeRange})</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setIsSelfRegisterModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => {
-                  setIsSelfRegisterModalOpen(false);
-                  showToast('Đã lưu đăng ký lịch rảnh tuần thành công!', 'success');
-                }}
-                className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
-              >
-                Lưu lịch rảnh
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: LỊCH DẠY & CA RẢNH GIÁO VIÊN ================= */}
-      {scheduleModalTeacher && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-          <div className="bg-slate-50 rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-4 px-6 bg-white border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#FF5C00] font-bold flex items-center justify-center text-sm">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-800">
-                    Lịch Dạy &amp; Khung Giờ Rảnh: {scheduleModalTeacher.name} ({scheduleModalTeacher.id})
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Môn {scheduleModalTeacher.subjectName} • {scheduleModalTeacher.levelName} • Vận hành tra cứu và cấu hình ca rảnh để ghép lớp
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setScheduleModalTeacher(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <TeacherAvailabilityView initialTeacherId={scheduleModalTeacher.id} />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ================= MODAL: CHỈNH SỬA THÔNG TIN GIÁO VIÊN ================= */}
       {editingTeacher && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -2242,7 +1905,7 @@ export const Module3_Teachers: React.FC = () => {
               </button>
             </div>
             <div className="p-4 md:p-6 overflow-y-auto flex-1">
-              <TeacherAvailabilityView initialTeacherId={scheduleModalTeacher.id} />
+              <TeacherAvailabilityView initialTeacherId={scheduleModalTeacher.id} readOnly />
             </div>
           </div>
         </div>
@@ -2253,32 +1916,34 @@ export const Module3_Teachers: React.FC = () => {
         isOpen={isTeacherFilterOpen}
         onClose={() => setIsTeacherFilterOpen(false)}
         title="Bộ lọc nâng cao Giáo viên"
-        subtitle="Lọc theo môn chuyên trách, cấp học, khối và trạng thái"
+        subtitle="Lọc theo danh mục, hình thức và thời gian giảng dạy"
         activeCount={[
           filterSubject !== 'ALL' ? 1 : 0,
-          filterLevel !== 'ALL' ? 1 : 0,
-          filterGrade !== 'ALL' ? 1 : 0,
           filterStatus !== 'ALL' ? 1 : 0,
           catFilterCategory !== 'ALL' ? 1 : 0,
-          catFilterSubOptions.length > 0 ? 1 : 0
+          catFilterSubOptions.length > 0 ? 1 : 0,
+          colFilterModel !== 'ALL' ? 1 : 0,
+          profileFrom || profileTo ? 1 : 0
         ].reduce((a, b) => a + b, 0)}
         onReset={() => {
           setFilterSubject('ALL');
-          setFilterLevel('ALL');
-          setFilterGrade('ALL');
           setFilterStatus('ALL');
           setCatFilterCategory('ALL');
           setCatFilterSubOptions([]);
           setSearchKeyword('');
+          setColFilterModel('ALL');
+          setProfileFrom('');
+          setProfileTo('');
         }}
       >
         <div className="space-y-4 text-xs">
           {/* Lọc theo Danh mục & Cấp độ đa chọn */}
           <CategoryMultiFilter
+            categories={teacherCategories}
             selectedCategory={catFilterCategory}
             onSelectCategory={catId => {
               setCatFilterCategory(catId);
-              if (catId === 'ALL') setCatFilterSubOptions([]);
+              setCatFilterSubOptions([]);
             }}
             selectedSubOptions={catFilterSubOptions}
             onToggleSubOption={optId => {
@@ -2292,6 +1957,12 @@ export const Module3_Teachers: React.FC = () => {
             onClearSubOptions={() => setCatFilterSubOptions([])}
             mode="drawer"
           />
+          <fieldset className="space-y-2">
+            <legend className="font-bold text-slate-700">Khoảng thời gian giảng dạy</legend>
+            <p className="text-slate-500">Giáo viên có thời gian giảng dạy giao với khoảng ngày đã chọn.</p>
+            <label className="block">Từ ngày<input aria-label="Từ ngày giảng dạy" type="date" value={profileFrom} max={profileTo || undefined} onChange={e => setProfileFrom(e.target.value)} className="block w-full p-2 border border-slate-200 rounded-xl" /></label>
+            <label className="block">Đến ngày<input aria-label="Đến ngày giảng dạy" type="date" value={profileTo} min={profileFrom || undefined} onChange={e => setProfileTo(e.target.value)} className="block w-full p-2 border border-slate-200 rounded-xl" /></label>
+          </fieldset>
 
           <div>
             <label className="block font-bold text-slate-700 mb-1">Môn chuyên trách</label>
@@ -2303,41 +1974,6 @@ export const Module3_Teachers: React.FC = () => {
               <option value="ALL">Tất cả môn học</option>
               <option value="SUB-MATH">Môn Toán</option>
               <option value="SUB-ENG">Môn Tiếng Anh</option>
-            </select>
-          </div>
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Cấp học</label>
-            <select
-              value={filterLevel}
-              onChange={e => setFilterLevel(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
-            >
-              <option value="ALL">Tất cả cấp học</option>
-              <option value="CAP-TH">Tiểu học</option>
-              <option value="CAP-THCS">THCS</option>
-              <option value="CAP-THPT">THPT</option>
-            </select>
-          </div>
-          <div>
-            <label className="block font-bold text-slate-700 mb-1">Khối lớp</label>
-            <select
-              value={filterGrade}
-              onChange={e => setFilterGrade(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
-            >
-              <option value="ALL">Tất cả khối lớp</option>
-              <option value="Lớp 1">Lớp 1</option>
-              <option value="Lớp 2">Lớp 2</option>
-              <option value="Lớp 3">Lớp 3</option>
-              <option value="Lớp 4">Lớp 4</option>
-              <option value="Lớp 5">Lớp 5</option>
-              <option value="Lớp 6">Lớp 6</option>
-              <option value="Lớp 7">Lớp 7</option>
-              <option value="Lớp 8">Lớp 8</option>
-              <option value="Lớp 9">Lớp 9</option>
-              <option value="Lớp 10">Lớp 10</option>
-              <option value="Lớp 11">Lớp 11</option>
-              <option value="Lớp 12">Lớp 12</option>
             </select>
           </div>
           <div>
@@ -2363,6 +1999,89 @@ export const Module3_Teachers: React.FC = () => {
               <option value="DANG_DAY">Đang dạy</option>
               <option value="CHO_LOP">Chờ lớp</option>
               <option value="TAM_NGUNG">Tạm ngưng</option>
+            </select>
+          </div>
+        </div>
+      </FilterDrawer>
+      {/* Bộ lọc nâng cao trượt từ phải sang cho Giáo viên */}
+      <FilterDrawer
+        isOpen={isAvailabilityFilterOpen}
+        onClose={() => setIsAvailabilityFilterOpen(false)}
+        title="Bộ lọc Lịch rảnh & Thời khóa biểu"
+        subtitle="Lọc theo danh mục, hình thức và thời gian giảng dạy"
+        activeCount={[
+          availSubject !== 'ALL' ? 1 : 0,
+          availStatus !== 'ALL' ? 1 : 0,
+          availCategory !== 'ALL' ? 1 : 0,
+          availSubOptions.length > 0 ? 1 : 0,
+          availModel !== 'ALL' ? 1 : 0,
+          availFrom || availTo ? 1 : 0
+        ].reduce((a, b) => a + b, 0)}
+        onReset={() => {
+          setAvailSubject('ALL');
+          setAvailStatus('ALL');
+          setAvailCategory('ALL');
+          setAvailSubOptions([]);
+          setAvailModel('ALL');
+          setAvailFrom('');
+          setAvailTo('');
+        }}
+      >
+        <div className="space-y-4 text-xs">
+          {/* Lọc theo Danh mục & Cấp độ đa chọn */}
+          <CategoryMultiFilter
+            categories={teacherCategories}
+            selectedCategory={availCategory}
+            onSelectCategory={catId => {
+              setAvailCategory(catId);
+              setAvailSubOptions([]);
+            }}
+            selectedSubOptions={availSubOptions}
+            onToggleSubOption={optId => {
+              setAvailSubOptions(prev =>
+                prev.includes(optId) ? prev.filter(o => o !== optId) : [...prev, optId]
+              );
+            }}
+            onSelectAllSubOptions={allIds => {
+              setAvailSubOptions(prev => Array.from(new Set([...prev, ...allIds])));
+            }}
+            onClearSubOptions={() => setAvailSubOptions([])}
+            mode="drawer"
+          />
+          <fieldset className="space-y-2">
+            <legend className="font-bold text-slate-700">Khoảng thời gian giảng dạy</legend>
+            <p className="text-slate-500">Giáo viên có thời gian giảng dạy giao với khoảng ngày đã chọn.</p>
+            <label className="block">Từ ngày<input aria-label="Từ ngày giảng dạy" type="date" value={availFrom} max={availTo || undefined} onChange={e => setAvailFrom(e.target.value)} className="block w-full p-2 border border-slate-200 rounded-xl" /></label>
+            <label className="block">Đến ngày<input aria-label="Đến ngày giảng dạy" type="date" value={availTo} min={availFrom || undefined} onChange={e => setAvailTo(e.target.value)} className="block w-full p-2 border border-slate-200 rounded-xl" /></label>
+          </fieldset>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Môn chuyên trách</label>
+            <select
+              value={availSubject}
+              onChange={e => setAvailSubject(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
+            >
+              <option value="ALL">Tất cả môn học</option>
+              <option value="SUB-MATH">Môn Toán</option>
+              <option value="SUB-ENG">Môn Tiếng Anh</option>
+            </select>
+          </div>
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Hình thức nhận lớp</label>
+            <select
+              value={availModel}
+              onChange={e => setAvailModel(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
+            >
+              <option value="ALL">Tất cả hình thức</option>
+              <option value="1-1">Lớp 1 - 1 (Kèm 1-1)</option>
+              <option value="1-n">Lớp 1 - n (Nhóm 1-5, 1-10)</option>
+            </select>
+          </div>
+          <div><label className="block font-bold text-slate-700 mb-1">Tình trạng lịch</label>
+            <select aria-label="Tình trạng lịch" value={availStatus} onChange={e => setAvailStatus(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200">
+              <option value="ALL">Tất cả</option><option value="FREE">Vẫn còn ca rảnh</option><option value="FULL">Đã kín lịch dạy</option>
             </select>
           </div>
         </div>

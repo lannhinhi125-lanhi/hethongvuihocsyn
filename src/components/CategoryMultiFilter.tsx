@@ -148,117 +148,28 @@ export const CategoryMultiFilter: React.FC<CategoryMultiFilterProps> = ({
 
   if (mode === 'drawer') {
     return (
-      <div className="space-y-3 p-3.5 bg-slate-50/80 rounded-xl border border-slate-200">
-        <div className="flex items-center justify-between">
-          <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-[#FF5C00]" />
-            <span>Lọc theo Danh mục &amp; Cấp độ (Đa chọn):</span>
-          </label>
-          {selectedSubOptions.length > 0 && (
-            <button
-              type="button"
-              onClick={onClearSubOptions}
-              className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
-            >
-              Xóa chọn ({selectedSubOptions.length})
-            </button>
-          )}
-        </div>
-
-        {/* Danh sách danh mục chính */}
-        <div className="grid grid-cols-2 gap-1.5">
-          <button
-            type="button"
-            onClick={() => onSelectCategory('ALL')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold text-left transition-all border cursor-pointer ${
-              selectedCategory === 'ALL'
-                ? 'bg-[#FF5C00] text-white border-[#FF5C00] shadow-2xs font-bold'
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-            }`}
-          >
-            Tất cả danh mục
+      <div className="space-y-3 text-xs" ref={dropdownRef}>
+        <label className="block font-bold text-slate-700">Danh mục
+          <select aria-label="Danh mục" value={selectedCategory} onChange={e => handleSelectCategoryClick(e.target.value)} className="mt-1 w-full p-2 rounded-xl border border-slate-200 bg-slate-50">
+            <option value="ALL">Tất cả danh mục</option>
+            {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+          </select>
+        </label>
+        {currentCategoryGroup && <div>
+          <button type="button" aria-expanded={isOpenDropdown} onClick={() => setIsOpenDropdown(!isOpenDropdown)} className="w-full p-2 border border-slate-200 rounded-xl flex items-center justify-between font-semibold">
+            Danh mục con ({selectedInCurrentCategory} đã chọn)<ChevronDown className="w-4 h-4" />
           </button>
-          {categories.map(cat => {
-            const isCatActive = selectedCategory === cat.id;
-            const countInCat = cat.options.filter(o => selectedSubOptions.includes(o.id)).length;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => onSelectCategory(cat.id)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs transition-all border flex items-center justify-between cursor-pointer ${
-                  isCatActive
-                    ? 'bg-orange-50 text-[#FF5C00] border-orange-300 font-bold'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <span className="truncate">{cat.name}</span>
-                {countInCat > 0 && (
-                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[#FF5C00] text-white text-[10px] font-bold">
-                    {countInCat}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Khung checkboxes trường/khối thuộc danh mục đã chọn */}
-        {currentCategoryGroup && (
-          <div className="mt-2.5 pt-2.5 border-t border-slate-200 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-700">
-                Tùy chọn cho &ldquo;{currentCategoryGroup.name}&rdquo;:
-              </span>
-              <div className="flex items-center gap-2 text-[11px]">
-                <button
-                  type="button"
-                  onClick={handleCheckAllCurrent}
-                  className="text-indigo-600 hover:underline font-semibold cursor-pointer"
-                >
-                  Chọn tất cả
-                </button>
-                <span className="text-slate-300">|</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const currentIds = currentCategoryGroup.options.map(o => o.id);
-                    currentIds.forEach(id => {
-                      if (selectedSubOptions.includes(id)) onToggleSubOption(id);
-                    });
-                  }}
-                  className="text-slate-500 hover:underline cursor-pointer"
-                >
-                  Bỏ chọn
-                </button>
-              </div>
+          {isOpenDropdown && <div className="mt-1 p-3 rounded-xl border border-slate-200 bg-white shadow-sm space-y-2">
+            <input aria-label="Tìm danh mục con" value={searchSubText} onChange={e => setSearchSubText(e.target.value)} placeholder="Tìm danh mục con..." className="w-full p-2 border rounded-lg border-slate-200" />
+            <div className="flex justify-between"><button type="button" onClick={handleCheckAllCurrent} className="text-orange-600">Chọn tất cả</button><button type="button" onClick={onClearSubOptions}>Bỏ chọn</button></div>
+            <div className="max-h-56 overflow-y-auto space-y-1">
+              {filteredOptions.map(option => <label key={option.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-orange-50 cursor-pointer">
+                <input type="checkbox" checked={selectedSubOptions.includes(option.id)} onChange={() => onToggleSubOption(option.id)} className="accent-orange-600" />{option.label}
+              </label>)}
+              {filteredOptions.length === 0 && <p className="p-2 text-slate-500">Không tìm thấy danh mục con.</p>}
             </div>
-
-            <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto p-1">
-              {currentCategoryGroup.options.map(opt => {
-                const isChecked = selectedSubOptions.includes(opt.id);
-                return (
-                  <label
-                    key={opt.id}
-                    className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
-                      isChecked
-                        ? 'bg-orange-50/70 border-orange-300 text-[#FF5C00] font-semibold'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => onToggleSubOption(opt.id)}
-                      className="accent-[#FF5C00] w-3.5 h-3.5 rounded cursor-pointer"
-                    />
-                    <span className="truncate">{opt.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        )}
+          </div>}
+        </div>}
       </div>
     );
   }

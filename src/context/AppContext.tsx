@@ -1,3 +1,4 @@
+import { canEditTeacherAvailability } from '../lib/teacherAvailability';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   UserAccount,
@@ -68,7 +69,7 @@ interface AppContextType {
   teachers: TeacherProfile[];
   setTeachers: React.Dispatch<React.SetStateAction<TeacherProfile[]>>;
   addTeacher: (teacher: TeacherProfile) => void;
-  updateTeacher: (id: string, updates: Partial<TeacherProfile>) => void;
+  updateTeacher: (id: string, updates: Partial<TeacherProfile>) => boolean;
 
   // PH4: Students & Classes (Quản trị)
   students: StudentRecord[];
@@ -1269,8 +1270,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateTeacher = (id: string, updates: Partial<TeacherProfile>) => {
+    const teacher = teachers.find(t => t.id === id);
+    const editsAvailability = ['schedule', 'freeSlots', 'busySlots', 'isFull'].some(key => Object.prototype.hasOwnProperty.call(updates, key));
+    if (!teacher || (editsAvailability && !canEditTeacherAvailability(currentUser, teacher))) {
+      showToast('Chỉ giáo viên được cập nhật lịch rảnh của mình.', 'warning');
+      return false;
+    }
     setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     showToast('Cập nhật hồ sơ Giáo viên thành công!', 'success');
+    return true;
   };
 
   // PH4 Actions
