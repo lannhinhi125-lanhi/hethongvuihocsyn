@@ -1,8 +1,9 @@
+import { ColumnFilter } from '../components/ColumnFilter';
 import { canManageTeacherProfiles } from '../lib/teacherAccounts';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
-import { CategoryMultiFilter } from '../components/CategoryMultiFilter';
+import { TeacherFieldInputs, TeacherCategoryFields, emptyTeacherFields, matchesTeacherFields } from '../components/TeacherFieldFilters';
 import { TeacherAvailabilityView } from './TeacherAvailabilityView';
 import { resolveTeacherAccount, sessionDateISO, sessionsInRange } from '../lib/evaluation';
 import { TeacherProfile, SuccessfulSession, EvaluationRecord } from '../types';
@@ -46,11 +47,12 @@ export const Module3_Teachers: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
+  const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>(['1-1', '1-n']);
   const canManageProfiles = canManageTeacherProfiles(currentUser, roleGroups);
   const activeSubjects = subjects.filter(subject => subject.status);
   const activeCategories = teachingCategories.filter(category => category.status !== false);
-  const [createdCredentials, setCreatedCredentials] = useState<{ id: string; username: string; password: string } | null>(null);
+  const [isDetailPasswordVisible, setIsDetailPasswordVisible] = useState(false);
   const [scheduleModalTeacher, setScheduleModalTeacher] = useState<TeacherProfile | null>(null);
 
   // Hình thức nhận lớp
@@ -71,12 +73,53 @@ export const Module3_Teachers: React.FC = () => {
   // Delete Teacher Modal State
   const [teacherToDelete, setTeacherToDelete] = useState<TeacherProfile | null>(null);
 
+  const [profileFields, setProfileFields] = useState({ ...emptyTeacherFields });
+  const [availabilityFields, setAvailabilityFields] = useState({ ...emptyTeacherFields });
+  const fieldHeading = (tab: 'profile' | 'availability', field: string, label: string, active: boolean) => {
+    const profile = tab === 'profile';
+    const values = profile ? profileFields : availabilityFields;
+    const setValues = profile ? setProfileFields : setAvailabilityFields;
+    const category = profile ? catFilterCategory : availCategory;
+    const setCategory = profile ? setCatFilterCategory : setAvailCategory;
+    const grades = profile ? catFilterSubOptions : availSubOptions;
+    const setGrades = profile ? setCatFilterSubOptions : setAvailSubOptions;
+    const subject = profile ? filterSubject : availSubject;
+    const setSubject = profile ? setFilterSubject : setAvailSubject;
+    const model = profile ? colFilterModel : availModel;
+    const setModel = profile ? setColFilterModel : setAvailModel;
+    const status = profile ? filterStatus : availStatus;
+    const setStatus = profile ? setFilterStatus : setAvailStatus;
+    const select = (value: string, onChange: (value: string) => void, options: { value: string; label: string }[]) => <select aria-label={label} value={value} onChange={e => onChange(e.target.value)} className="w-full p-2 rounded-lg border border-slate-200"><option value="ALL">Tất cả</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>;
+    const gradeOptions = Array.from(new Map(teachingCategories.flatMap(item => item.options).map(option => [option.id, option])).values());
+    const reset = () => {
+      if (field === 'name') setValues(prev => ({ ...prev, id: '', name: '' }));
+      if (field === 'subject') setSubject('ALL');
+      if (field === 'level') setCategory('ALL');
+      if (field === 'grades') setGrades([]);
+      if (field === 'model') setModel('ALL');
+      if (field === 'status') setStatus('ALL');
+      if (field === 'free') setValues(prev => ({ ...prev, minFree: '', maxFree: '' }));
+      if (field === 'busy') setValues(prev => ({ ...prev, minBusy: '', maxBusy: '' }));
+    };
+    return <ColumnFilter label={label} active={active} onReset={reset}>
+      {field === 'name' && (['id', 'name'] as const).map(key => <label key={key} className="block">{key === 'id' ? 'Mã giáo viên' : 'Họ và tên'}<input aria-label={key === 'id' ? 'Lọc mã giáo viên' : 'Lọc tên giáo viên'} value={values[key]} onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 w-full p-2 rounded-lg border border-slate-200" /></label>)}
+      {field === 'subject' && select(subject, setSubject, subjects.map(item => ({ value: item.code, label: item.name })))}
+      {field === 'level' && select(category, setCategory, teachingCategories.map(item => ({ value: item.id, label: item.name })))}
+      {field === 'model' && select(model, setModel, [{ value: '1-1', label: '1 - 1' }, { value: '1-n', label: '1 - n' }])}
+      {field === 'status' && select(status, setStatus, profile ? [{ value: 'DANG_DAY', label: 'Đang dạy' }, { value: 'CHO_LOP', label: 'Chờ lớp' }, { value: 'TAM_NGUNG', label: 'Tạm ngưng' }] : [{ value: 'FREE', label: 'Vẫn còn ca rảnh' }, { value: 'FULL', label: 'Đã kín lịch dạy' }])}
+      {field === 'grades' && <div className="max-h-52 overflow-y-auto space-y-1">{gradeOptions.map(option => <label key={option.id} className="flex items-center gap-2 p-1.5"><input type="checkbox" checked={grades.includes(option.id)} onChange={() => setGrades(prev => prev.includes(option.id) ? prev.filter(id => id !== option.id) : [...prev, option.id])} className="accent-orange-600" />{option.label}</label>)}</div>}
+      {(field === 'free' || field === 'busy') && <div className="grid grid-cols-2 gap-2">{(['min', 'max'] as const).map(bound => {
+        const key = (bound + (field === 'free' ? 'Free' : 'Busy')) as 'minFree' | 'maxFree' | 'minBusy' | 'maxBusy';
+        return <label key={bound}>{bound === 'min' ? 'Tối thiểu' : 'Tối đa'}<input aria-label={label + (bound === 'min' ? ' tối thiểu' : ' tối đa')} type="number" min="0" step="1" value={values[key]} onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 w-full p-2 rounded-lg border border-slate-200" /></label>;
+      })}</div>}
+    </ColumnFilter>;
+  };
+
   // Filters (Drawer)
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterSubject, setFilterSubject] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
 
-  const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
   const [availCategory, setAvailCategory] = useState('ALL');
   const [availSubOptions, setAvailSubOptions] = useState<string[]>([]);
   const [availModel, setAvailModel] = useState('ALL');
@@ -100,6 +143,8 @@ export const Module3_Teachers: React.FC = () => {
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTeacherForDetail, setSelectedTeacherForDetail] = useState<TeacherProfile | null>(null);
+
+  const detailAccount = selectedTeacherForDetail ? resolveTeacherAccount(selectedTeacherForDetail, users) : undefined;
 
   // Evaluation flow state
   const [gradingTeacher, setGradingTeacher] = useState<TeacherProfile | null>(null);
@@ -136,6 +181,7 @@ export const Module3_Teachers: React.FC = () => {
   const matchesPeriod = (t: TeacherProfile, from: string, to: string) =>
     (!from || !to || from <= to) && (!to || !t.startDate || t.startDate <= to) && (!from || !t.endDate || t.endDate >= from);
   const filteredAvailability = teachers.filter(t =>
+    matchesTeacherFields(t, availabilityFields) &&
     (availSubject === 'ALL' || t.subject === availSubject) &&
     (availStatus === 'ALL' || (availStatus === 'FULL' ? t.isFull : t.freeSlots > 0)) &&
     matchesCategory(t, availCategory, availSubOptions) &&
@@ -158,7 +204,7 @@ export const Module3_Teachers: React.FC = () => {
 
     const matchSts = filterStatus === 'ALL' || t.status === filterStatus;
 
-    return matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts;
+    return matchesTeacherFields(t, profileFields) && matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts;
   });
 
   // Handlers for Teacher Edit & Status
@@ -242,13 +288,15 @@ export const Module3_Teachers: React.FC = () => {
     const category = activeCategories.find(c => c.id === newTeacherLevel);
     const subject = activeSubjects.find(s => s.code === newTeacherSubject);
     if (!category || !subject) { showToast('Vui lòng chọn môn và cấp học từ danh mục đang hoạt động.', 'error'); return; }
-    const credentials = createTeacherWithAccount({
+    const profile: Omit<TeacherProfile, 'id' | 'username' | 'passwordRaw'> = {
       name: newTeacherName.trim(), subject: subject.code, subjectName: subject.name, levelId: category.id, levelName: category.name,
       grades: newTeacherGrades, models: newTeacherModels, phone: newTeacherPhone.trim(), email: newTeacherEmail.trim(), degree: newTeacherDegree.trim(),
       status: 'CHO_LOP', statusLabel: 'Chờ lớp', evalStatus: 'UNSCORED', evalScore: null, evalComment: '', freeSlots: 0, busySlots: 0, isFull: false, successfulSessions: [], schedule: {}
-    });
+    };
+    const credentials = createTeacherWithAccount(profile);
     if (!credentials) return;
-    setCreatedCredentials(credentials);
+    setIsDetailPasswordVisible(false);
+    setSelectedTeacherForDetail({ ...profile, id: credentials.id, username: credentials.username });
     setIsCreateModalOpen(false);
     setNewTeacherName(''); setNewTeacherEmail(''); setNewTeacherPhone(''); setNewTeacherGrades([]); setNewTeacherDegree('');
     showToast('Đã tạo hồ sơ và tài khoản giáo viên.', 'success');
@@ -328,16 +376,6 @@ export const Module3_Teachers: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {createdCredentials && canManageProfiles && <div role="dialog" aria-modal="true" aria-label="Tài khoản giáo viên mới" className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-        <div className="bg-white p-6 rounded-2xl w-full max-w-md space-y-4">
-          <h3 className="font-bold">Đã cấp tài khoản giáo viên</h3>
-          <p className="text-sm">Mã giáo viên đồng thời là tên đăng nhập. Tài khoản có vai trò Giáo viên.</p>
-          <label className="block text-xs">Mã / Tên đăng nhập<input readOnly value={createdCredentials.username} className="w-full p-2 border rounded-lg font-mono" /></label>
-          <label className="block text-xs">Mật khẩu được tạo tự động<input readOnly value={createdCredentials.password} className="w-full p-2 border rounded-lg font-mono" /></label>
-          <button type="button" onClick={async () => { try { await navigator.clipboard.writeText('Tên đăng nhập: ' + createdCredentials.username + '\nMật khẩu: ' + createdCredentials.password); showToast('Đã sao chép tài khoản.', 'success'); } catch { showToast('Vui lòng sao chép trực tiếp từ các ô thông tin.', 'warning'); } }} className="p-2 rounded-lg border">Sao chép</button>
-          <button type="button" onClick={() => setCreatedCredentials(null)} className="ml-2 p-2 rounded-lg bg-orange-600 text-white">Đóng</button>
-        </div>
-      </div>}
       {/* Header & Điều hướng 3 Tab nghiệp vụ */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -466,12 +504,12 @@ export const Module3_Teachers: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Mã / Họ và tên</th>
-                    <th className="py-3 px-3">Môn chuyên trách</th>
-                    <th className="py-3 px-3">Cấp học</th>
-                    <th className="py-3 px-3">Khối lớp phụ trách</th>
-                    <th className="py-3 px-3 text-center">Hình thức dạy</th>
-                    <th className="py-3 px-3 text-center">Trạng thái</th>
+                    <th className="py-3 px-4">{fieldHeading('profile', 'name', 'Mã / Họ và tên', Boolean(profileFields.name || profileFields.id))}</th>
+                    <th className="py-3 px-3">{fieldHeading('profile', 'subject', 'Môn chuyên trách', filterSubject !== 'ALL')}</th>
+                    <th className="py-3 px-3">{fieldHeading('profile', 'level', 'Cấp học', catFilterCategory !== 'ALL')}</th>
+                    <th className="py-3 px-3">{fieldHeading('profile', 'grades', 'Khối lớp phụ trách', catFilterSubOptions.length > 0)}</th>
+                    <th className="py-3 px-3 text-center">{fieldHeading('profile', 'model', 'Hình thức dạy', colFilterModel !== 'ALL')}</th>
+                    <th className="py-3 px-3 text-center">{fieldHeading('profile', 'status', 'Trạng thái', filterStatus !== 'ALL')}</th>
                     <th className="py-3 px-4 text-center">Thao tác</th>
                   </tr>
                 </thead>
@@ -544,7 +582,7 @@ export const Module3_Teachers: React.FC = () => {
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
-                              onClick={() => setSelectedTeacherForDetail(t)}
+                              onClick={() => { setIsDetailPasswordVisible(false); setSelectedTeacherForDetail(t); }}
                               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                               title="Xem lý lịch chi tiết"
                             >
@@ -613,13 +651,13 @@ export const Module3_Teachers: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Giáo viên</th>
-                    <th className="py-3 px-4">Môn chuyên trách</th>
-                    <th className="py-3 px-4">Cấp học</th>
-                    <th className="py-3 px-4">Khối lớp</th>
-                    <th className="py-3 px-4 text-center">Số ca đăng ký rảnh</th>
-                    <th className="py-3 px-4 text-center">Số ca đã xếp lớp</th>
-                    <th className="py-3 px-4 text-center">Tình trạng tuần</th>
+                    <th className="py-3 px-4">{fieldHeading('availability', 'name', 'Giáo viên', Boolean(availabilityFields.name || availabilityFields.id))}</th>
+                    <th className="py-3 px-4">{fieldHeading('availability', 'subject', 'Môn chuyên trách', availSubject !== 'ALL')}</th>
+                    <th className="py-3 px-4">{fieldHeading('availability', 'level', 'Cấp học', availCategory !== 'ALL')}</th>
+                    <th className="py-3 px-4">{fieldHeading('availability', 'grades', 'Khối lớp', availSubOptions.length > 0)}</th>
+                    <th className="py-3 px-4 text-center">{fieldHeading('availability', 'free', 'Số ca đăng ký rảnh', Boolean(availabilityFields.minFree || availabilityFields.maxFree))}</th>
+                    <th className="py-3 px-4 text-center">{fieldHeading('availability', 'busy', 'Số ca đã xếp lớp', Boolean(availabilityFields.minBusy || availabilityFields.maxBusy))}</th>
+                    <th className="py-3 px-4 text-center">{fieldHeading('availability', 'status', 'Tình trạng tuần', availStatus !== 'ALL')}</th>
                     <th className="py-3 px-4 text-center">Thời khóa biểu</th>
                   </tr>
                 </thead>
@@ -1040,7 +1078,7 @@ export const Module3_Teachers: React.FC = () => {
       {/* ================= MODAL: XEM CHI TIẾT HỒ SƠ GIÁO VIÊN ================= */}
       {selectedTeacherForDetail && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[#FF5C00] text-white font-black flex items-center justify-center text-sm">
@@ -1079,6 +1117,26 @@ export const Module3_Teachers: React.FC = () => {
                   <strong className="text-slate-800 font-semibold text-xs">{selectedTeacherForDetail.email}</strong>
                 </div>
               </div>
+
+              {canManageProfiles && <section className="p-3 rounded-xl border border-orange-200 bg-orange-50/50 space-y-3">
+                <h4 className="font-bold text-slate-800">Tài khoản đăng nhập giáo viên</h4>
+                {detailAccount ? <>
+                  <label className="block text-slate-600">Tên đăng nhập / Mã giáo viên
+                    <input aria-label="Tên đăng nhập giáo viên" readOnly value={detailAccount.username} className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-mono text-slate-800" />
+                  </label>
+                  <div>
+                    <label htmlFor="teacher-detail-password" className="block text-slate-600 mb-1">Mật khẩu</label>
+                    <div className="flex gap-2">
+                      <input id="teacher-detail-password" readOnly type={isDetailPasswordVisible ? 'text' : 'password'} value={detailAccount.passwordRaw || ''} className="min-w-0 flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white font-mono text-slate-800" />
+                      <button type="button" aria-label={isDetailPasswordVisible ? 'Ẩn mật khẩu giáo viên' : 'Hiện mật khẩu giáo viên'} aria-pressed={isDetailPasswordVisible} onClick={() => setIsDetailPasswordVisible(value => !value)} className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600"><Eye className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap justify-between items-center gap-2">
+                    <span className="text-slate-500">Vai trò: Giáo viên • {detailAccount.status === 'active' ? 'Đang hoạt động' : 'Đã khóa'}</span>
+                    <button type="button" onClick={async () => { try { await navigator.clipboard.writeText('Tên đăng nhập: ' + detailAccount.username + '\nMật khẩu: ' + detailAccount.passwordRaw); showToast('Đã sao chép tài khoản giáo viên.', 'success'); } catch { showToast('Vui lòng sao chép trực tiếp từ các ô thông tin.', 'warning'); } }} className="inline-flex items-center gap-1.5 text-orange-700 font-semibold"><Copy className="w-3.5 h-3.5" /> Sao chép tài khoản</button>
+                  </div>
+                </> : <p className="text-slate-500">Chưa có tài khoản đăng nhập liên kết với hồ sơ này.</p>}
+              </section>}
 
               <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-100 space-y-1">
                 <span className="text-blue-800 font-bold block text-[11px]">Trình độ &amp; Bằng cấp sư phạm:</span>
@@ -1830,8 +1888,9 @@ export const Module3_Teachers: React.FC = () => {
         isOpen={isTeacherFilterOpen}
         onClose={() => setIsTeacherFilterOpen(false)}
         title="Bộ lọc nâng cao Giáo viên"
-        subtitle="Lọc theo danh mục, hình thức và thời gian giảng dạy"
+        subtitle="Kết hợp các tiêu chí lọc nâng cao"
         activeCount={[
+          Object.values(profileFields).filter(Boolean).length,
           filterSubject !== 'ALL' ? 1 : 0,
           filterStatus !== 'ALL' ? 1 : 0,
           catFilterCategory !== 'ALL' ? 1 : 0,
@@ -1840,6 +1899,7 @@ export const Module3_Teachers: React.FC = () => {
           profileFrom || profileTo ? 1 : 0
         ].reduce((a, b) => a + b, 0)}
         onReset={() => {
+          setProfileFields({ ...emptyTeacherFields });
           setFilterSubject('ALL');
           setFilterStatus('ALL');
           setCatFilterCategory('ALL');
@@ -1852,25 +1912,8 @@ export const Module3_Teachers: React.FC = () => {
       >
         <div className="space-y-4 text-xs">
           {/* Lọc theo Danh mục & Cấp độ đa chọn */}
-          <CategoryMultiFilter
-            categories={teacherCategories}
-            selectedCategory={catFilterCategory}
-            onSelectCategory={catId => {
-              setCatFilterCategory(catId);
-              setCatFilterSubOptions([]);
-            }}
-            selectedSubOptions={catFilterSubOptions}
-            onToggleSubOption={optId => {
-              setCatFilterSubOptions(prev =>
-                prev.includes(optId) ? prev.filter(o => o !== optId) : [...prev, optId]
-              );
-            }}
-            onSelectAllSubOptions={allIds => {
-              setCatFilterSubOptions(prev => Array.from(new Set([...prev, ...allIds])));
-            }}
-            onClearSubOptions={() => setCatFilterSubOptions([])}
-            mode="drawer"
-          />
+          <TeacherFieldInputs prefix="profile-filter" value={profileFields} onChange={setProfileFields}  />
+          <TeacherCategoryFields prefix="profile-filter" categories={teachingCategories} category={catFilterCategory} grades={catFilterSubOptions} onCategory={setCatFilterCategory} onGrades={setCatFilterSubOptions} />
           <fieldset className="space-y-2">
             <legend className="font-bold text-slate-700">Khoảng thời gian giảng dạy</legend>
             <p className="text-slate-500">Giáo viên có thời gian giảng dạy giao với khoảng ngày đã chọn.</p>
@@ -1881,7 +1924,7 @@ export const Module3_Teachers: React.FC = () => {
           <div>
             <label className="block font-bold text-slate-700 mb-1">Môn chuyên trách</label>
             <select
-              value={filterSubject}
+              id="profile-filter-subject" value={filterSubject}
               onChange={e => setFilterSubject(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
@@ -1892,7 +1935,7 @@ export const Module3_Teachers: React.FC = () => {
           <div>
             <label className="block font-bold text-slate-700 mb-1">Hình thức nhận lớp</label>
             <select
-              value={colFilterModel}
+              id="profile-filter-model" value={colFilterModel}
               onChange={e => setColFilterModel(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
@@ -1904,7 +1947,7 @@ export const Module3_Teachers: React.FC = () => {
           <div>
             <label className="block font-bold text-slate-700 mb-1">Trạng thái giáo viên</label>
             <select
-              value={filterStatus}
+              id="profile-filter-status" value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
@@ -1921,8 +1964,9 @@ export const Module3_Teachers: React.FC = () => {
         isOpen={isAvailabilityFilterOpen}
         onClose={() => setIsAvailabilityFilterOpen(false)}
         title="Bộ lọc Lịch rảnh & Thời khóa biểu"
-        subtitle="Lọc theo danh mục, hình thức và thời gian giảng dạy"
+        subtitle="Kết hợp các tiêu chí lọc nâng cao"
         activeCount={[
+          Object.values(availabilityFields).filter(Boolean).length,
           availSubject !== 'ALL' ? 1 : 0,
           availStatus !== 'ALL' ? 1 : 0,
           availCategory !== 'ALL' ? 1 : 0,
@@ -1931,6 +1975,7 @@ export const Module3_Teachers: React.FC = () => {
           availFrom || availTo ? 1 : 0
         ].reduce((a, b) => a + b, 0)}
         onReset={() => {
+          setAvailabilityFields({ ...emptyTeacherFields });
           setAvailSubject('ALL');
           setAvailStatus('ALL');
           setAvailCategory('ALL');
@@ -1942,25 +1987,8 @@ export const Module3_Teachers: React.FC = () => {
       >
         <div className="space-y-4 text-xs">
           {/* Lọc theo Danh mục & Cấp độ đa chọn */}
-          <CategoryMultiFilter
-            categories={teacherCategories}
-            selectedCategory={availCategory}
-            onSelectCategory={catId => {
-              setAvailCategory(catId);
-              setAvailSubOptions([]);
-            }}
-            selectedSubOptions={availSubOptions}
-            onToggleSubOption={optId => {
-              setAvailSubOptions(prev =>
-                prev.includes(optId) ? prev.filter(o => o !== optId) : [...prev, optId]
-              );
-            }}
-            onSelectAllSubOptions={allIds => {
-              setAvailSubOptions(prev => Array.from(new Set([...prev, ...allIds])));
-            }}
-            onClearSubOptions={() => setAvailSubOptions([])}
-            mode="drawer"
-          />
+          <TeacherFieldInputs prefix="availability-filter" value={availabilityFields} onChange={setAvailabilityFields} showCounts />
+          <TeacherCategoryFields prefix="availability-filter" categories={teachingCategories} category={availCategory} grades={availSubOptions} onCategory={setAvailCategory} onGrades={setAvailSubOptions} />
           <fieldset className="space-y-2">
             <legend className="font-bold text-slate-700">Khoảng thời gian giảng dạy</legend>
             <p className="text-slate-500">Giáo viên có thời gian giảng dạy giao với khoảng ngày đã chọn.</p>
@@ -1971,7 +1999,7 @@ export const Module3_Teachers: React.FC = () => {
           <div>
             <label className="block font-bold text-slate-700 mb-1">Môn chuyên trách</label>
             <select
-              value={availSubject}
+              id="availability-filter-subject" value={availSubject}
               onChange={e => setAvailSubject(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
@@ -1982,7 +2010,7 @@ export const Module3_Teachers: React.FC = () => {
           <div>
             <label className="block font-bold text-slate-700 mb-1">Hình thức nhận lớp</label>
             <select
-              value={availModel}
+              id="availability-filter-model" value={availModel}
               onChange={e => setAvailModel(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
@@ -1992,7 +2020,7 @@ export const Module3_Teachers: React.FC = () => {
             </select>
           </div>
           <div><label className="block font-bold text-slate-700 mb-1">Tình trạng lịch</label>
-            <select aria-label="Tình trạng lịch" value={availStatus} onChange={e => setAvailStatus(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200">
+            <select aria-label="Tình trạng lịch" id="availability-filter-status" value={availStatus} onChange={e => setAvailStatus(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200">
               <option value="ALL">Tất cả</option><option value="FREE">Vẫn còn ca rảnh</option><option value="FULL">Đã kín lịch dạy</option>
             </select>
           </div>

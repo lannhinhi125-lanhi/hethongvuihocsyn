@@ -1343,7 +1343,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateClass = (id: string, updates: Partial<ClassItem>) => {
+    const previousClass = classes.find(item => item.id === id);
     setClasses(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+    if (previousClass && (updates.studentIds !== undefined || updates.code !== undefined)) {
+      const nextClass = { ...previousClass, ...updates };
+      setStudents(prev => prev.map(student => {
+        if (nextClass.studentIds.includes(student.id)) {
+          const newlyAssigned = !previousClass.studentIds.includes(student.id);
+          return { ...student, currentClassCode: nextClass.code, status: newlyAssigned ? 'Đang học' : student.status };
+        }
+        if (previousClass.studentIds.includes(student.id) && student.currentClassCode === previousClass.code) {
+          const otherClass = classes.find(item => item.id !== id && item.studentIds.includes(student.id));
+          return { ...student, currentClassCode: otherClass?.code, status: otherClass ? student.status : 'Chờ xếp lớp' };
+        }
+        return student;
+      }));
+    }
     showToast('Cập nhật lớp học thành công!', 'success');
   };
 

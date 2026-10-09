@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import type { ClassItem } from '../types';
 import { canEditTeacherAvailability } from '../lib/teacherAvailability';
+
+const RegisteredClassSummary: React.FC<{ item: Pick<ClassItem, 'code' | 'name' | 'model'> }> = ({ item }) => (
+  <div className="min-w-0 space-y-1 text-left">
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="font-mono text-[11px] font-bold text-indigo-800 break-all">{item.code}</span>
+      <span className="shrink-0 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-semibold" aria-label="Mô hình lớp">{item.model}</span>
+    </div>
+    <p className="text-[11px] leading-4 text-slate-700 line-clamp-2" title={item.name}>{item.name}</p>
+  </div>
+);
 
 export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; readOnly?: boolean }> = ({ initialTeacherId, readOnly = false }) => {
   const { currentUser, teachers, classes, timeSlots, updateTeacher, showToast } = useApp();
@@ -192,7 +203,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     <div className="space-y-5 font-infer">
       {!canEdit && <p className="p-3 rounded-xl bg-slate-100 text-slate-600 text-xs">Chỉ xem lịch giáo viên đã đăng ký. Chỉ giáo viên được thay đổi lựa chọn của mình.</p>}
       {/* Header Banner phong cách Figma tối giản */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-3 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[11px] uppercase tracking-wider border border-slate-200">
@@ -205,9 +216,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
           <h1 className="text-xl font-bold text-slate-800 mt-2">
             {canEdit ? 'Đăng Ký Khung Ca Dạy & Lịch Rảnh' : 'Lịch rảnh & Thời khóa biểu'}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Đăng ký thời gian rảnh theo từng khoảng hiệu lực. Ca đã ghép lớp sẽ hiển thị mã lớp và được lưu lịch sử đầy đủ.
-          </p>
+          <p className="text-[11px] text-slate-500 mt-1">{activeTeacher.name} • {activeTeacher.id}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -245,118 +254,34 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
         </div>
       </div>
 
-      {/* THANH LỌC THỜI GIAN THEO YÊU CẦU: Năm học, Tháng, Tuần, Khoảng ngày áp dụng */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Năm học */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600">Năm học:</span>
-              <select
-                value={selectedSchoolYear}
-                onChange={e => setSelectedSchoolYear(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-              >
-                <option value="2026 - 2027">2026 - 2027 (Hiện tại)</option>
-                <option value="2025 - 2026">2025 - 2026</option>
-                <option value="2027 - 2028">2027 - 2028</option>
-              </select>
-            </div>
-
-            {/* Tháng */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600">Tháng:</span>
-              <select
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-              >
-                <option value="09/2026">Tháng 09/2026</option>
-                <option value="10/2026">Tháng 10/2026</option>
-                <option value="11/2026">Tháng 11/2026</option>
-                <option value="12/2026">Tháng 12/2026</option>
-              </select>
-            </div>
-
-            {/* Tuần học & Phím tắt Tuần sau */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-slate-600">Tuần học:</span>
-              <select
-                value={selectedWeek}
-                onChange={e => handleWeekChange(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-              >
-                {weekOptions.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => handleWeekChange('W1')}
-                className={`px-2 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                  selectedWeek === 'W1'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                Tuần này
-              </button>
-              <button
-                type="button"
-                onClick={() => handleWeekChange('W2')}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                  selectedWeek === 'W2'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs ring-2 ring-emerald-300'
-                    : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 font-extrabold'
-                }`}
-                title="Bấm để xem & đăng ký lịch rảnh Tuần sau"
-              >
-                👉 Tuần sau
-              </button>
-            </div>
+      {/* Bộ lọc thời gian gọn theo hàng ngang, dùng chung cho quản trị và giáo viên. */}
+      <div className="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="flex flex-wrap items-end gap-2 text-[11px]">
+          <label className="flex-1 sm:flex-none min-w-[105px] text-slate-500">Năm học
+            <select aria-label="Năm học" value={selectedSchoolYear} onChange={e => setSelectedSchoolYear(e.target.value)} className="block w-full sm:w-28 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
+              <option value="2026 - 2027">2026 - 2027</option><option value="2025 - 2026">2025 - 2026</option><option value="2027 - 2028">2027 - 2028</option>
+            </select>
+          </label>
+          <label className="flex-1 sm:flex-none min-w-[95px] text-slate-500">Tháng
+            <select aria-label="Tháng" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="block w-full sm:w-24 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
+              <option value="09/2026">09/2026</option><option value="10/2026">10/2026</option><option value="11/2026">11/2026</option><option value="12/2026">12/2026</option>
+            </select>
+          </label>
+          <label className="flex-1 sm:flex-none min-w-[170px] text-slate-500">Tuần
+            <select aria-label="Tuần" value={selectedWeek} onChange={e => handleWeekChange(e.target.value)} className="block w-full sm:w-48 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
+              {weekOptions.map(week => <option key={week.id} value={week.id}>{week.label}</option>)}
+            </select>
+          </label>
+          <label className="flex-1 sm:flex-none text-slate-500">Từ ngày
+            <input aria-label="Từ ngày" type="date" value={fromDate} max={toDate || undefined} onChange={e => setFromDate(e.target.value)} className="block w-full sm:w-32 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800" />
+          </label>
+          <label className="flex-1 sm:flex-none text-slate-500">Đến ngày
+            <input aria-label="Đến ngày" type="date" value={toDate} min={fromDate || undefined} onChange={e => setToDate(e.target.value)} className="block w-full sm:w-32 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800" />
+          </label>
+          <div className="flex gap-1.5">
+            <button type="button" onClick={() => handleWeekChange('W1')} className={selectedWeek === 'W1' ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần này</button>
+            <button type="button" onClick={() => handleWeekChange('W2')} className={selectedWeek === 'W2' ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần sau</button>
           </div>
-
-          {/* Khoảng ngày hiệu lực Từ ngày - Đến ngày */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            <span className="font-semibold text-slate-600">Thời gian hiệu lực:</span>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={e => setFromDate(e.target.value)}
-                className="px-2 py-1 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:ring-1 focus:ring-indigo-500"
-              />
-              <span className="text-slate-400">&rarr;</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={e => setToDate(e.target.value)}
-                className="px-2 py-1 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-            <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold text-[11px] border border-emerald-200">
-              Đang áp dụng
-            </span>
-          </div>
-        </div>
-
-        {/* Thanh ghi chú lịch sử và tài khoản */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-700">Tài khoản:</span>
-            <span className="font-bold text-indigo-700">{activeTeacher?.name}</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-              {activeTeacher?.id}
-            </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {activeTeacher?.name.includes('Gia sư') ? 'Gia sư chuyên đề' : 'Giáo viên'}
-            </span>
-          </div>
-
-
         </div>
       </div>
 
@@ -425,7 +350,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
           </div>
 
           {/* BƯỚC 2: CHỌN CA CHO THỨ ĐANG CHỌN */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
               <div className="flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">
@@ -461,7 +386,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
             </div>
 
             {/* Danh sách các ca học */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {activeSlots.map(slot => {
                 const currentArr = scheduleState[slot.code] || ['none', 'none', 'none', 'none', 'none', 'none', 'none'];
                 const status = currentArr[selectedDayKey] || 'none';
@@ -471,114 +396,20 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
                 const isBusy = status === 'busy' || hasAssignedClass;
 
                 return (
-                  <div
-                    key={slot.code || slot.id}
-                    onClick={canEdit ? () => toggleSlotStatus(slot.code, selectedDayKey, assignedClass) : undefined}
-                    className={`p-4 rounded-xl border transition-all select-none flex flex-col justify-between ${
-                      !canEdit ? 'cursor-default ' + (isFree ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-slate-50') : hasAssignedClass
-                        ? 'border-indigo-400 bg-indigo-50/80 shadow-xs ring-1 ring-indigo-400/30 cursor-default'
-                        : isFree
-                        ? 'border-emerald-400 bg-emerald-50/60 shadow-xs ring-1 ring-emerald-400/30 cursor-pointer'
-                        : isBusy
-                        ? 'border-indigo-200 bg-indigo-50/50 cursor-not-allowed opacity-90'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60 cursor-pointer'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] font-semibold text-slate-500 uppercase">
-                              {slot.code}
-                            </span>
-                            <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-mono text-[10px]">
-                              {slot.durationMinutes || 90} phút
-                            </span>
-                          </div>
-                          <h4 className="font-bold text-slate-800 text-sm mt-1">{slot.name}</h4>
-                        </div>
-
-                        {/* Chỉ báo trạng thái */}
-                        <div className="pt-0.5">
-                          {hasAssignedClass ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white tracking-wide">
-                              ĐÃ GÁN LỚP
-                            </span>
-                          ) : isFree ? (
-                            <span className="w-5 h-5 rounded bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
-                              ✓
-                            </span>
-                          ) : isBusy ? (
-                            <span className="w-5 h-5 rounded bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
-                              ●
-                            </span>
-                          ) : (
-                            <div className="w-5 h-5 rounded border-2 border-slate-300 hover:border-slate-400" />
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-2 text-xs font-mono font-medium text-slate-600">
-                        <span>Khung giờ: {slot.timeRange}</span>
-                      </div>
-
-                      {/* KHỐI HIỂN THỊ MÃ LỚP ĐƯỢC GÁN VÀO CA HỌC */}
-                      {hasAssignedClass && (
-                        <div className="mt-3 p-2.5 rounded-lg bg-white border border-indigo-200 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider">
-                              MÃ LỚP HỌC:
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-900 border border-indigo-300">
-                              {assignedClass.code}
-                            </span>
-                          </div>
-                          <div className="text-xs font-bold text-slate-800 truncate">
-                            {assignedClass.name}
-                          </div>
-                          <div className="text-[11px] text-slate-500 flex items-center justify-between pt-0.5 border-t border-slate-100">
-                            <span>Mô hình: {assignedClass.model}</span>
-                            <span>Sĩ số: {assignedClass.studentIds?.length || 0}/{assignedClass.maxStudents} HS</span>
-                          </div>
-                          {assignedClass.roomLink && (
-                            <div className="pt-1">
-                              <a
-                                href={assignedClass.roomLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={e => e.stopPropagation()}
-                                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 underline truncate block"
-                              >
-                                Vào phòng Zoom lớp học &rarr;
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                  <div key={slot.code || slot.id} className="min-w-0 rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="flex flex-wrap justify-between gap-1 px-3 py-1.5 bg-slate-50 text-[10px] text-slate-500">
+                      <span className="font-medium">{slot.name}</span>
+                      <span className="font-mono whitespace-nowrap">{slot.timeRange}</span>
                     </div>
-
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                      {hasAssignedClass ? (
-                        <span className="font-bold text-indigo-800">
-                          Đã xếp lớp chính thức (Cố định ca)
-                        </span>
-                      ) : isFree ? (
-                        <span className="font-bold text-emerald-700">
-                          ✓ Đã chọn RẢNH (Sẵn sàng nhận lớp)
-                        </span>
-                      ) : isBusy ? (
-                        <span className="font-semibold text-indigo-700">
-                          Đã có lịch bận / ghép lớp
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">
-                          {canEdit ? 'Bấm để đánh dấu Thầy/Cô rảnh nhận lớp' : 'Chưa đăng ký rảnh'}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {currentSelectedDay.short}
-                      </span>
-                    </div>
+                    {assignedClass ? (
+                      <div className="px-3 py-2 bg-indigo-50/60"><RegisteredClassSummary item={assignedClass} /></div>
+                    ) : (
+                      <button type="button" disabled={!canEdit || isBusy} onClick={() => toggleSlotStatus(slot.code, selectedDayKey)} aria-pressed={isFree}
+                        className={isFree ? 'w-full px-3 py-2 flex items-center gap-2 text-left bg-emerald-50 text-emerald-700 text-xs font-semibold disabled:cursor-default' : 'w-full px-3 py-2 flex items-center gap-2 text-left bg-white text-slate-500 text-xs disabled:cursor-default'}>
+                        <span className={isFree ? 'w-4 h-4 rounded bg-emerald-600 text-white text-center text-[11px]' : 'w-4 h-4 rounded border border-slate-300 text-center text-[11px]'}>{isFree ? '✓' : isBusy ? '●' : ''}</span>
+                        <span>{isFree ? 'Đã đăng ký rảnh' : isBusy ? 'Có lớp' : canEdit ? 'Đăng ký rảnh' : 'Chưa đăng ký'}</span>
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -666,7 +497,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
                               }`}
                             >
                               <div
-                                className={`min-h-[64px] p-1.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                                className={`min-h-[48px] p-1.5 rounded-lg border flex flex-col items-center justify-center transition-all ${
                                   hasAssignedClass
                                     ? 'border-indigo-300 bg-white shadow-2xs text-indigo-900'
                                     : isFree
@@ -677,17 +508,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
                                 }`}
                               >
                                 {hasAssignedClass ? (
-                                  <div className="w-full text-center space-y-0.5">
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600 block">
-                                      ĐÃ XẾP LỚP
-                                    </span>
-                                    <span className="font-mono font-bold text-[11px] bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-900 block truncate">
-                                      {assignedClass.code}
-                                    </span>
-                                    <span className="text-[10px] text-slate-600 truncate block font-medium max-w-[110px] mx-auto">
-                                      {assignedClass.name}
-                                    </span>
-                                  </div>
+                                  <RegisteredClassSummary item={assignedClass} />
                                 ) : isFree ? (
                                   <div className="flex flex-col items-center gap-0.5">
                                     <span className="text-xs font-bold text-emerald-600">✓</span>
