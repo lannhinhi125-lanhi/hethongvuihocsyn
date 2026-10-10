@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   ShieldCheck,
@@ -21,6 +21,12 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const {
     activeModule,
     setActiveModule,
@@ -159,6 +165,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
           {/* User Profile Footer */}
           <div className="p-3 border-t border-slate-800/80 bg-slate-900/50 text-xs text-slate-400 space-y-2">
+            <div className="flex items-center gap-2 px-1 text-[10px] leading-none" aria-label="Thời gian hiện tại">
+              <Clock className="w-3.5 h-3.5 text-indigo-300" />
+              <time dateTime={currentTime.toISOString()} className="font-semibold tracking-wide text-slate-300">
+                {currentTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+              </time>
+              <span className="text-slate-600">·</span>
+              <span>{currentTime.toLocaleDateString('vi-VN')}</span>
+            </div>
             <button
               onClick={handleToggleWorkspace}
               className="w-full py-1.5 px-2.5 rounded-md text-xs font-medium flex items-center justify-between transition-colors cursor-pointer bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700/60"

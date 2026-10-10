@@ -1193,8 +1193,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [criteriaCategories, setCriteriaCategories] = useState<CriteriaCategory[]>(() => getStored('criteria', initialCriteria));
   const [sopDocuments, setSopDocuments] = useState<SOPDocument[]>(() => getStored('sopDocs', initialSOPDocuments));
   const [ragBotConfig, setRagBotConfig] = useState<RAGBotConfig>(() => getStored('ragConfig', initialRAGBotConfig));
-  const [activeToneKey, setActiveToneKey] = useState<string>('khich-le');
-  const [toneDirectives, setToneDirectives] = useState<Record<string, { name: string; directive: string }>>(initialToneDirectives);
+  const [activeToneKey, setActiveToneKey] = useState<string>(() => getStored('activeToneKey', 'khich-le'));
+  const [toneDirectives, setToneDirectives] = useState<Record<string, { name: string; directive: string }>>(() =>
+    getStored('toneDirectives', initialToneDirectives)
+  );
 
   // PH7
   const [payrollStore, setPayrollStore] = useState<Record<string, MonthPayrollData>>(() => getStored('payrollStore', initialPayrollStore));
@@ -1228,6 +1230,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(`${STORAGE_KEY}_criteria`, JSON.stringify(criteriaCategories));
       localStorage.setItem(`${STORAGE_KEY}_sopDocs`, JSON.stringify(sopDocuments));
       localStorage.setItem(`${STORAGE_KEY}_ragConfig`, JSON.stringify(ragBotConfig));
+      localStorage.setItem(`${STORAGE_KEY}_activeToneKey`, JSON.stringify(activeToneKey));
+      localStorage.setItem(`${STORAGE_KEY}_toneDirectives`, JSON.stringify(toneDirectives));
       localStorage.setItem(`${STORAGE_KEY}_payrollStore`, JSON.stringify(payrollStore));
     } catch {
       // ignore
@@ -1235,7 +1239,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [
     currentUser, activeModule, users, roleGroups, teachingCategories, subjects, levels,
     timeSlots, packages, models, incidents, teachers, students,
-    classes, criteriaCategories, sopDocuments, ragBotConfig, payrollStore
+    classes, criteriaCategories, sopDocuments, ragBotConfig, activeToneKey, toneDirectives, payrollStore
   ]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
@@ -1695,6 +1699,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCriteriaCategories(initialCriteria);
     setSopDocuments(initialSOPDocuments);
     setRagBotConfig(initialRAGBotConfig);
+    setActiveToneKey('khich-le');
+    setToneDirectives(initialToneDirectives);
     setPayrollStore(initialPayrollStore);
     setCurrentUser(initialUsers[0]);
     setActiveModule(1);

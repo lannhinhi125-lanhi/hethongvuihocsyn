@@ -808,10 +808,17 @@ export const Module4_StudentsClasses: React.FC = () => {
     }
 
     if (editingClassId) {
+      const existingClass = classes.find(item => item.id === editingClassId);
+      const rosterChanged = Boolean(existingClass && (
+        existingClass.teacherId !== assignedTeacher?.id ||
+        existingClass.teacherName !== clsTeacher ||
+        existingClass.studentIds.length !== clsSelectedStudentIds.length ||
+        existingClass.studentIds.some(id => !clsSelectedStudentIds.includes(id))
+      ));
       updateClass(editingClassId, {
         code: savedCode,
         categoryId: clsCategory,
-        status: clsStatus,
+        status: rosterChanged ? 'Chờ khai giảng' : clsStatus,
         name: clsName.trim(),
         grade: clsGrade,
         subject: clsSubject,

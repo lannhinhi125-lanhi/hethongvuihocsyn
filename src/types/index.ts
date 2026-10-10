@@ -165,12 +165,24 @@ export interface ClassRoomSession {
   sessionNum: number;
   dateStr: string;
   title: string;
-  status: 'Chưa diễn ra' | 'Đã hoàn thành' | 'Nghỉ có phép' | 'Dạy thay';
+  status: 'Chưa diễn ra' | 'Đã hoàn thành' | 'Nghỉ có phép' | 'Dạy thay' | 'Khai giảng';
+  checkinTime?: string;
+  teacherAttendance?: 'ATTENDED' | 'LATE';
+  checkinBy?: string;
+  coverTeacherId?: string;
+  coverTeacherName?: string;
   materialGv: string;
   materialHs: string;
   exerciseLms: string;
   attendance?: Record<string, 'present' | 'late' | 'absent'>;
   feedback?: Record<string, string>;
+}
+
+export interface ClassCoverAssignment {
+  sessionNum: number;
+  dateStr: string;
+  teacherId: string;
+  teacherName: string;
 }
 
 export interface ClassItem {
@@ -191,6 +203,7 @@ export interface ClassItem {
   teacherId?: string;
   materials: ClassSessionMaterial[];
   activeSessions?: Record<number, ClassRoomSession>;
+  coverAssignments?: ClassCoverAssignment[];
 }
 
 // Phân hệ 6: Quản trị AI Studio
@@ -208,7 +221,7 @@ export interface CriterionItem {
 
 export interface CriteriaCategory {
   id: string;
-  subject: 'TOAN' | 'ENG';
+  subject: string;
   name: string;
   criteria: CriterionItem[];
 }

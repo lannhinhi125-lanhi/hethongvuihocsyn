@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ClassItem } from '../types';
+import { findKnowledgeDocument } from '../lib/knowledgeSearch';
 import {
   Calendar,
   Sparkles,
@@ -18,7 +19,10 @@ import {
 } from 'lucide-react';
 
 export const Module4_TeacherSchedule: React.FC = () => {
-  const { classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser } = useApp();
+  const {
+    classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
+    subjects, criteriaCategories, activeToneKey, toneDirectives, sopDocuments, ragBotConfig
+  } = useApp();
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
   const [selectedMonth, setSelectedMonth] = useState('10/2026');
@@ -27,12 +31,12 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [toDate, setToDate] = useState('2026-10-11');
   const [currentWeekLabel, setCurrentWeekLabel] = useState('Tuần: 05/10 - 11/10/2026');
 
-  // Quản trị tri thức - Bot Chat hỗ trợ vận hành (SOP & Quy chế)
+  // Bot chat tra cứu tài liệu tri thức; câu trả lời hiện là mô phỏng trước khi kết nối Gemini.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
   const [botMessages, setBotMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
     {
       sender: 'bot',
-      text: 'Dạ em chào Thầy/Cô ạ! Em là Trợ lý Tri thức Vận hành Vuihoc Tutor. Em có thể giải đáp nhanh các quy định SOP: báo nghỉ trước ca, sự cố mất mạng/mất điện, quy trình xử lý học sinh vắng và chốt công đối soát.',
+      text: ragBotConfig.welcomeGreeting,
       time: 'Vừa xong'
     }
   ]);
@@ -43,7 +47,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     setBotMessages([
       {
         sender: 'bot',
-        text: 'Dạ em chào Thầy/Cô ạ! Em là Trợ lý Tri thức Vận hành Vuihoc Tutor. Em có thể giải đáp nhanh các quy định SOP: báo nghỉ trước ca, sự cố mất mạng/mất điện, quy trình xử lý học sinh vắng và chốt công đối soát.',
+        text: ragBotConfig.welcomeGreeting,
         time: 'Vừa xong'
       }
     ]);
@@ -54,13 +58,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   // Trạng thái buổi học: CHUA_DIEN_RA (chưa diễn ra), DANG_HOC (đang học), DA_HOAN_THANH (đã hoàn thành)
   const [classLiveStatus, setClassLiveStatus] = useState<'CHUA_DIEN_RA' | 'DANG_HOC' | 'DA_HOAN_THANH'>('CHUA_DIEN_RA');
 
-  const quickQuestions = [
-    'Quy định báo nghỉ trước ca dạy bao nhiêu tiếng?',
-    'Sự cố mất mạng đột xuất trong ca dạy xử lý thế nào?',
-    'Học sinh vắng không phép điểm danh ra sao?',
-    'Thời hạn nộp giải trình đối soát công?',
-    'Lỗi link phòng Zoom không vào được thì báo ai?'
-  ];
+  const quickQuestions = ragBotConfig.quickPrompts;
 
   const handleSendQuestion = (questionText?: string) => {
     const q = (questionText || chatInput).trim();
@@ -69,22 +67,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
     const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const userMsg = { sender: 'user' as const, text: q, time: timeStr };
 
-    let botReply = '';
-    const qLower = q.toLowerCase();
-
-    if (qLower.includes('nghỉ') || qLower.includes('báo bận') || qLower.includes('cover')) {
-      botReply = 'Dạ thưa Thầy/Cô, theo ĐIỀU 1 - SOP Báo nghỉ ca dạy Vuihoc Tutor:\n• Báo trước ít nhất 04 TIẾNG để Ban Vận hành kịp điều phối giáo viên dạy thay (Cover).\n• Báo dưới 02 tiếng sẽ tính là vi phạm mức 2 (ảnh hưởng đến đánh giá chuyên môn).\n• Thầy/Cô có thể bấm trực tiếp nút "Báo bận / Xin nghỉ" trên ca dạy hoặc nhắn vào Zalo Trực Ban Vận Hành nhé ạ!';
-    } else if (qLower.includes('mất mạng') || qLower.includes('mất điện') || qLower.includes('thiết bị') || qLower.includes('mic') || qLower.includes('camera')) {
-      botReply = 'Dạ thưa Thầy/Cô, theo ĐIỀU 2 - SOP Sự cố kỹ thuật trong ca dạy:\n• Trong 05 phút đầu: Dùng 4G điện thoại nhắn ngay vào Zalo Trực Ban Vận Hành ca trực.\n• Khắc phục tối đa trong 10 phút và bù giờ tương ứng cho học sinh.\n• Sau 10 phút chưa khắc phục được: Vận hành sẽ kích hoạt Giáo viên dạy thay khẩn cấp để đảm bảo quyền lợi học sinh.';
-    } else if (qLower.includes('vắng') || qLower.includes('học sinh không vào') || qLower.includes('điểm danh')) {
-      botReply = 'Dạ theo quy định Vận hành Lớp học:\n• Quá 05 phút học sinh chưa vào: Thầy/Cô bấm nút "Báo sự cố HS vắng" để Vận hành gọi điện cho phụ huynh ngay.\n• Sau ca dạy: Tích chọn trạng thái "Vắng không phép" và ghi chú vào Nhật ký buổi dạy để phục vụ chốt công.';
-    } else if (qLower.includes('đối soát') || qLower.includes('giải trình') || qLower.includes('công') || qLower.includes('lương')) {
-      botReply = 'Dạ theo Quy chế Đối soát công ca dạy:\n• Hệ thống khóa sổ kỳ công vào 23h59 Chủ nhật hàng tuần.\n• Thời hạn nộp giải trình khiếu nại sai lệch là trước 12h00 trưa Thứ 2 (kèm ảnh chụp màn hình minh chứng ca dạy).\n• Thầy/Cô vào mục "Đối soát công ca dạy" để gửi yêu cầu trực tiếp.';
-    } else if (qLower.includes('zoom') || qLower.includes('phòng') || qLower.includes('link')) {
-      botReply = 'Dạ link phòng học Zoom/ClassIn được Vận hành gắn cố định trên từng ô ca dạy. Nếu link báo hết hạn hoặc không vào được, Thầy/Cô nhấn nút "Báo sự cố" hoặc liên hệ trực tiếp Hot-line Vận hành Vuihoc Tutor nhé ạ!';
-    } else {
-      botReply = 'Dạ vấn đề này Thầy/Cô có thể tham khảo thêm tại tài liệu SOP Vận hành hoặc liên hệ trực ban Zalo Vận hành để được hỗ trợ tức thì ạ!';
-    }
+    const documentMatch = findKnowledgeDocument(q, sopDocuments);
+    const botReply = documentMatch
+      ? `${documentMatch.content}\n\nTài liệu tham khảo: ${documentMatch.title}`
+      : ragBotConfig.fallbackResponse;
 
     setBotMessages(prev => [...prev, userMsg, { sender: 'bot', text: botReply, time: timeStr }]);
     setChatInput('');
@@ -109,19 +95,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
   const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
   const [selectedSessionNum, setSelectedSessionNum] = useState<number>(1);
+  const [selectedSessionDate, setSelectedSessionDate] = useState('');
 
   // AI Review modal state
   const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
   const [aiReviewStudentName, setAiReviewStudentName] = useState('Trần Gia Bảo');
-  const [aiGeneratedText, setAiGeneratedText] = useState(
-    'Hôm nay con tiếp thu bài rất nhanh, nắm vững 3 bước giải toán có lời văn và thực hiện phép tính cẩn thận. Con chú ý lắng nghe và hoàn thành tốt bài tập tại lớp. Thầy/Cô khen ngợi tinh thần học tập của con!'
-  );
-
-  const sampleAiTexts = [
-    'Hôm nay con tiếp thu bài rất nhanh, nắm vững 3 bước giải toán có lời văn và thực hiện phép tính cẩn thận. Con chú ý lắng nghe và hoàn thành tốt bài tập tại lớp.',
-    'Con hiểu bài tốt, thao tác tính toán nhanh và có tinh thần tự giác cao. Con cần chú ý đọc kỹ đề bài để tránh nhầm lẫn các đơn vị đo nhé!',
-    'Con rất tích cực tương tác và đặt câu hỏi thông minh trong tiết học. Khen ngợi sự tập trung và cố gắng của con hôm nay!'
-  ];
+  const [aiGeneratedText, setAiGeneratedText] = useState('');
+  const [selectedCriterionOptions, setSelectedCriterionOptions] = useState<Record<string, string>>({});
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -129,10 +109,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
     });
   };
 
-  const handleOpenClassModal = (cls: ClassItem, sessionNum: number = 1) => {
+  const handleOpenClassModal = (cls: ClassItem, sessionNum: number = 1, sessionDate = fromDate) => {
     setSelectedClass(cls);
     setSelectedSessionNum(sessionNum);
-    const currStatus = cls.activeSessions?.[sessionNum]?.status;
+    setSelectedSessionDate(sessionDate);
+    const storedSession = cls.activeSessions?.[sessionNum];
+    const currStatus = storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === sessionDate
+      ? storedSession.status
+      : undefined;
     if (currStatus === 'Đã hoàn thành') {
       setClassLiveStatus('DA_HOAN_THANH');
     } else {
@@ -141,13 +125,49 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleEnterClassroom = () => {
+    if (selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id) {
+      showToast(`Ca này đang được dạy thay bởi ${selectedClassCoverAssignment.teacherName}.`, 'warning');
+      return;
+    }
     if (!selectedClass || !selectedClass.roomLink) {
       showToast('Lớp học này chưa có link phòng Zoom/ClassIn do Vận hành gán!', 'warning');
       return;
     }
-    // Chuyển trạng thái sang ĐANG_HOC để gia sư có thể xác nhận theo đúng quy trình
+    const schedule = selectedClassSchedule.find(entry => entry.session === selectedSessionNum);
+    const sessionDate = schedule ? weekDates.find(date => {
+      const dateValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      return dateValue === selectedSessionDate;
+    }) || weekDates[schedule.dayIndex] : new Date(`${selectedSessionDate || fromDate}T00:00:00`);
+    const dateStr = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`;
+    const checkinTime = new Date().toTimeString().slice(0, 8);
+    const scheduledStart = Number((schedule?.time.match(/^(\d{1,2}):(\d{2})/) || [])[1]) * 60 + Number((schedule?.time.match(/^(\d{1,2}):(\d{2})/) || [])[2]);
+    const [checkinHour, checkinMinute] = checkinTime.split(':').map(Number);
+    const teacherAttendance = checkinHour * 60 + checkinMinute > scheduledStart ? 'LATE' : 'ATTENDED';
+    const storedSession = selectedClass.activeSessions?.[selectedSessionNum];
+    const activeSession = storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === dateStr
+      ? storedSession
+      : undefined;
+    setClasses(previous => previous.map(cls => cls.id === selectedClass.id ? {
+      ...cls,
+      activeSessions: {
+        ...(cls.activeSessions || {}),
+        [selectedSessionNum]: {
+          ...(activeSession || {}),
+          sessionNum: selectedSessionNum,
+          dateStr: `${dateStr} ${schedule?.time || activeSession?.dateStr.split(' ').slice(1).join(' ') || ''}`.trim(),
+          title: selectedClassMaterial?.title || activeSession?.title || `Buổi ${selectedSessionNum}`,
+          status: activeSession?.status || 'Chưa diễn ra',
+          materialGv: selectedClassMaterial?.slide || activeSession?.materialGv || '',
+          materialHs: activeSession?.materialHs || '',
+          exerciseLms: selectedClassMaterial?.lms || activeSession?.exerciseLms || '',
+          checkinTime,
+          teacherAttendance,
+          checkinBy: currentUser.name
+        }
+      }
+    } : cls));
     setClassLiveStatus('DANG_HOC');
-    showToast('Đang kết nối vào phòng học trực tuyến... Trạng thái ca: ĐANG HỌC!', 'info');
+    showToast(`Đã ghi nhận ${currentUser.name} vào lớp lúc ${checkinTime}. Chuyên cần: ${teacherAttendance === 'ATTENDED' ? 'Có mặt' : 'Đi muộn'}.`, teacherAttendance === 'ATTENDED' ? 'success' : 'warning');
     setTimeout(() => {
       window.open(selectedClass.roomLink, '_blank');
     }, 400);
@@ -180,13 +200,33 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   const handleOpenAiReview = (studentName: string) => {
     setAiReviewStudentName(studentName);
+    setSelectedCriterionOptions({});
+    setAiGeneratedText('');
     setIsAiReviewModalOpen(true);
   };
 
   const handleRegenerateAi = () => {
-    const random = sampleAiTexts[Math.floor(Math.random() * sampleAiTexts.length)];
-    setAiGeneratedText(random);
-    showToast('AI đã tạo lại nhận xét theo tiêu chí môn học!', 'info');
+    const selectedFeedback = reviewCriteria.flatMap(category => category.criteria.flatMap(criterion => {
+      const selectedOptionId = selectedCriterionOptions[criterion.id];
+      const selectedOption = criterion.options.find(option => option.id === selectedOptionId);
+      return selectedOption ? [selectedOption.label] : [];
+    }));
+    if (!selectedFeedback.length) {
+      showToast('Vui lòng chọn kết quả cho ít nhất một tiêu chí trước khi tạo nhận xét.', 'warning');
+      return;
+    }
+
+    const subjectName = selectedClass
+      ? subjects.find(subject => subject.code === selectedClass.subject)?.name || selectedClass.subject
+      : 'buổi học';
+    const detail = selectedFeedback.join('; ');
+    const generatedText = activeToneKey === 'chuan-muc'
+      ? `Nhận xét buổi học môn ${subjectName} của ${aiReviewStudentName}: ${detail}.`
+      : activeToneKey === 'ngan-gon'
+        ? `${aiReviewStudentName} (${subjectName}): ${detail}.`
+        : `Hôm nay ${aiReviewStudentName} học môn ${subjectName}: ${detail}. Thầy/Cô ghi nhận nỗ lực của con và sẽ tiếp tục đồng hành ở buổi học sau.`;
+    setAiGeneratedText(generatedText);
+    showToast('Đã tạo bản nhận xét xem trước từ các tiêu chí giáo viên đã chọn.', 'info');
   };
 
   const handleSaveAiReview = () => {
@@ -202,9 +242,17 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   const currentTeacher = teachers.find(t => t.id === selectedTeacherId) || defaultTeacher;
 
-  const teacherClasses = classes.filter(
-    c => (currentTeacher && c.teacherId === currentTeacher.id) ||
-         (currentTeacher && c.teacherName.includes(currentTeacher.name.replace('Thầy ', '').replace('Cô ', '')))
+  const isPrimaryTeacherForClass = (cls: ClassItem) => Boolean(currentTeacher && (
+    cls.teacherId === currentTeacher.id ||
+    cls.teacherName.includes(currentTeacher.name.replace('Thầy ', '').replace('Cô ', ''))
+  ));
+  const teacherClasses = classes.filter(cls =>
+    isPrimaryTeacherForClass(cls) ||
+    cls.coverAssignments?.some(assignment =>
+      assignment.teacherId === currentTeacher?.id &&
+      assignment.dateStr >= fromDate &&
+      assignment.dateStr <= toDate
+    )
   );
 
   const scheduleEntriesForClass = (cls: ClassItem) => Array.from(
@@ -226,6 +274,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
     date.setDate(date.getDate() + index);
     return date;
   });
+  const dateStringForWeekDay = (dayIndex: number) => {
+    const date = weekDates[dayIndex];
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
   const weekDayNames = ['Thứ 2 / Mon', 'Thứ 3 / Tue', 'Thứ 4 / Wed', 'Thứ 5 / Thu', 'Thứ 6 / Fri', 'Thứ 7 / Sat', 'Chủ nhật / Sun'];
   const timetableSlots = Array.from(new Set(teacherClasses.flatMap(cls => scheduleEntriesForClass(cls).map(entry => entry.time)))).sort((a, b) => a.localeCompare(b));
   const teacherScheduleRows = timetableSlots.map(time => ({
@@ -233,11 +285,32 @@ export const Module4_TeacherSchedule: React.FC = () => {
     days: weekDates.map((_, dayIndex) => teacherClasses.flatMap(cls =>
       scheduleEntriesForClass(cls)
         .filter(entry => entry.time === time && entry.dayIndex === dayIndex)
-        .map(entry => ({ cls, session: entry.session, material: selectedWeekMaterial(cls, entry.session) }))
+        .flatMap(entry => {
+          const coverAssignment = cls.coverAssignments?.find(assignment =>
+            assignment.sessionNum === entry.session && assignment.dateStr === dateStringForWeekDay(dayIndex)
+          );
+          const isPrimary = isPrimaryTeacherForClass(cls);
+          if (!isPrimary && coverAssignment?.teacherId !== currentTeacher?.id) return [];
+          return [{
+            cls,
+            session: entry.session,
+            material: selectedWeekMaterial(cls, entry.session),
+            coverAssignment,
+            sessionDate: dateStringForWeekDay(dayIndex)
+          }];
+        })
     ))
   }));
   const selectedClassSchedule = selectedClass ? scheduleEntriesForClass(selectedClass) : [];
   const selectedClassMaterial = selectedClass ? selectedWeekMaterial(selectedClass, selectedSessionNum) : undefined;
+  const selectedSubjectKey = selectedClass
+    ? subjects.find(subject => subject.code === selectedClass.subject)?.abbr ||
+      (selectedClass.subject === 'SUB-ENG' ? 'ENG' : 'TOAN')
+    : '';
+  const reviewCriteria = criteriaCategories.filter(category => category.subject === selectedSubjectKey);
+  const selectedClassCoverAssignment = selectedClass?.coverAssignments?.find(assignment =>
+    assignment.sessionNum === selectedSessionNum && assignment.dateStr === selectedSessionDate
+  );
   const shiftScheduleWeek = (offset: number) => {
     const start = new Date(`${fromDate}T00:00:00`);
     start.setDate(start.getDate() + offset * 7);
@@ -282,7 +355,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 : 'bg-white hover:bg-orange-50 text-[#FF5C00] border-orange-200 shadow-2xs'
             }`}
           >
-            <span>Hỏi Trợ Lý Vận Hành (SOP)</span>
+            <span>Bot chat AI</span>
             <span className="px-1.5 py-0.2 rounded text-[10px] bg-orange-100 text-[#FF5C00] font-bold">24/7</span>
           </button>
 
@@ -460,12 +533,16 @@ export const Module4_TeacherSchedule: React.FC = () => {
                   </td>
                   {row.days.map((sessions, dayIndex) => <td key={dayIndex} className="min-w-32 p-2 border-r border-slate-200 align-top bg-slate-50/20">
                     <div className="space-y-2">
-                      {sessions.map(({ cls, session, material }) => <button key={`${cls.id}-${session}`} type="button" onClick={() => handleOpenClassModal(cls, session)} className="w-full rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5 text-left transition-colors hover:border-emerald-400 hover:bg-emerald-100">
+                      {sessions.map(({ cls, session, material, coverAssignment, sessionDate }) => <button key={`${cls.id}-${session}-${sessionDate}`} type="button" onClick={() => handleOpenClassModal(cls, session, sessionDate)} className={`w-full rounded-xl border p-2.5 text-left transition-colors ${coverAssignment ? 'border-purple-200 bg-purple-50/80 hover:border-purple-400 hover:bg-purple-100' : 'border-emerald-200 bg-emerald-50/70 hover:border-emerald-400 hover:bg-emerald-100'}`}>
                         <div className="flex items-center justify-between gap-1">
                           <span className="font-bold text-emerald-900 text-[11px]">{cls.code}</span>
-                          <span className="rounded bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">Buổi {session}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="rounded bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">Buổi {session}</span>
+                            {coverAssignment && <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-800">Dạy thay</span>}
+                          </div>
                         </div>
                         <div className="mt-1 text-[10px] text-slate-600">{cls.name}</div>
+                        {coverAssignment && <div className="mt-1 text-[10px] font-semibold text-purple-800">{coverAssignment.teacherName}</div>}
                         <div className="mt-1.5 line-clamp-2 text-[11px] font-medium text-slate-800">{material?.title || 'Chưa có học liệu được gắn'}</div>
                         <div className={`mt-2 flex items-center gap-1 border-t border-emerald-200/60 pt-1.5 text-[10px] ${cls.roomLink ? 'text-emerald-700' : 'text-slate-400'}`}>
                           <Video className="h-3.5 w-3.5" /> {cls.roomLink ? 'Có link phòng' : 'Chưa có link phòng'}
@@ -517,6 +594,11 @@ export const Module4_TeacherSchedule: React.FC = () => {
                     <div className="text-slate-600 font-mono">
                       {selectedClass.schedule}
                     </div>
+                    {selectedClassCoverAssignment && (
+                      <div className="rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-2 text-[11px] text-purple-800">
+                        Ca này được phân công dạy thay cho <strong>{selectedClassCoverAssignment.teacherName}</strong>.
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -533,9 +615,18 @@ export const Module4_TeacherSchedule: React.FC = () => {
                     {[1, 2].map(session => {
                       const schedule = selectedClassSchedule.find(entry => entry.session === session);
                       const sessionDate = schedule ? weekDates[schedule.dayIndex] : null;
+                      const sessionDateText = sessionDate
+                        ? `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`
+                        : '';
+                      const coverAssignment = selectedClass.coverAssignments?.find(assignment =>
+                        assignment.sessionNum === session && assignment.dateStr === sessionDateText
+                      );
                       const activeSession = selectedClass.activeSessions?.[session];
                       const material = selectedWeekMaterial(selectedClass, session);
-                      return <button key={session} type="button" onClick={() => setSelectedSessionNum(session)} className={`w-full rounded-xl border p-3 text-left transition-all ${selectedSessionNum === session ? 'border-sky-300 bg-sky-50/80 shadow-2xs' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+                      return <button key={session} type="button" onClick={() => {
+                        setSelectedSessionNum(session);
+                        if (sessionDateText) setSelectedSessionDate(sessionDateText);
+                      }} className={`w-full rounded-xl border p-3 text-left transition-all ${selectedSessionNum === session ? 'border-sky-300 bg-sky-50/80 shadow-2xs' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
                         <div className="text-[11px] font-bold text-slate-800">
                           {sessionDate ? `${sessionDate.toLocaleDateString('vi-VN')} ${schedule?.time}` : 'Chưa có lịch học'}
                         </div>
@@ -544,6 +635,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         </div>
                         <div className="mt-2 flex items-center justify-between text-[10px]">
                           <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">Buổi {session}</span>
+                          {coverAssignment && <span className="font-bold text-purple-700">Dạy thay: {coverAssignment.teacherName}</span>}
                           {selectedSessionNum === session && <span className="font-bold text-sky-700">Đang chọn</span>}
                         </div>
                       </button>;
@@ -587,10 +679,12 @@ export const Module4_TeacherSchedule: React.FC = () => {
                     </div>
 
                     <button
+                      type="button"
+                      disabled={Boolean(selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id)}
                       onClick={handleEnterClassroom}
-                      className="mt-3 w-full py-2.5 px-4 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer group"
+                      className="mt-3 w-full py-2.5 px-4 bg-[#FF5C00] hover:bg-[#E05200] disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer group"
                     >
-                      <span>VÀO LỚP</span>
+                      <span>{selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id ? 'CA ĐÃ ĐƯỢC COVER' : 'VÀO LỚP'}</span>
                       <ChevronRight className="w-4 h-4 font-bold group-hover:translate-x-1 transition-transform" />
                     </button>
                   </div>
@@ -801,25 +895,46 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Khung tiêu chí đánh giá môn học:</label>
-                <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="accent-[#FF5C00]" />
-                    <span>Nắm chắc kiến thức bài học</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="accent-[#FF5C00]" />
-                    <span>Tính toán nhanh &amp; chính xác</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="accent-[#FF5C00]" />
-                    <span>Tập trung &amp; hăng hái phát biểu</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="accent-[#FF5C00]" />
-                    <span>Cần rèn thêm chữ viết &amp; cẩn thận</span>
-                  </label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Tiêu chí nhận xét · {subjects.find(subject => subject.abbr === selectedSubjectKey)?.name || selectedSubjectKey}
+                </label>
+                <div className="max-h-56 overflow-y-auto space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  {reviewCriteria.length ? reviewCriteria.map(category => (
+                    <section key={category.id} className="space-y-2">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{category.name}</h4>
+                      {category.criteria.map(criterion => (
+                        <fieldset key={criterion.id} className="rounded-lg border border-slate-200 bg-white p-2.5">
+                          <legend className="px-1 font-semibold text-slate-800">{criterion.name}</legend>
+                          <div className="mt-1 space-y-1.5">
+                            {criterion.options.map(option => (
+                              <label key={option.id} className="flex cursor-pointer items-start gap-2 text-slate-600">
+                                <input
+                                  type="radio"
+                                  name={`review-${criterion.id}`}
+                                  value={option.id}
+                                  checked={selectedCriterionOptions[criterion.id] === option.id}
+                                  onChange={() => setSelectedCriterionOptions(previous => ({ ...previous, [criterion.id]: option.id }))}
+                                  className="mt-0.5 accent-[#FF5C00]"
+                                />
+                                <span>{option.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </fieldset>
+                      ))}
+                    </section>
+                  )) : (
+                    <p className="py-3 text-center text-slate-500">
+                      Chưa có tiêu chí cho môn này. Quản trị viên có thể cấu hình trong AI Studio.
+                    </p>
+                  )}
                 </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Chọn một mức đánh giá cho từng tiêu chí. Danh sách này đồng bộ từ cấu hình AI Studio.
+                </p>
+                <p className="mt-1 text-[10px] text-indigo-600">
+                  Giọng văn đang cấu hình: {toneDirectives[activeToneKey]?.name || 'Mặc định'} · Bản xem trước chưa gọi Gemini.
+                </p>
               </div>
 
               <div>
@@ -896,7 +1011,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             type="button"
             onClick={() => setIsKnowledgeBotOpen(true)}
             className="group relative w-14 h-14 rounded-full bg-gradient-to-tr from-[#E05200] via-[#FF5C00] to-amber-500 text-white shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 border-2 border-white ring-4 ring-orange-200/70"
-            title="Trợ lý Tri thức Vận hành (SOP & Quy chế)"
+            title="Bot chat AI tra cứu tài liệu tri thức"
           >
             {/* Chấm trạng thái Online (Tĩnh, không nhấp nháy theo yêu cầu) */}
             <span className="w-3 h-3 rounded-full bg-emerald-500 absolute top-0 right-0 ring-2 ring-white" />
@@ -909,11 +1024,11 @@ export const Module4_TeacherSchedule: React.FC = () => {
               <path d="M2 14h2" />
               <path d="M20 14h2" />
             </svg>
-            <span className="text-[9px] font-black tracking-wider text-orange-50 leading-none mt-0.5">SOP</span>
+            <span className="text-[9px] font-black tracking-wider text-orange-50 leading-none mt-0.5">AI</span>
             
             {/* Tooltip hiển thị khi hover */}
             <span className="absolute right-16 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl border border-slate-700">
-              Trợ lý Tri thức Vận hành SOP
+              Bot chat AI
             </span>
           </button>
         )}
@@ -935,12 +1050,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-300" />
-                    <h3 className="font-bold text-xs text-white">
-                      Trợ Lý Tri Thức Vận Hành
-                    </h3>
+                    <h3 className="font-bold text-xs text-white">Bot chat AI</h3>
                   </div>
                   <p className="text-[10px] text-orange-100">
-                    SOP &amp; Quy chế Vận hành Vuihoc Tutor
+                    Tra cứu trong tài liệu tri thức
                   </p>
                 </div>
               </div>
@@ -996,7 +1109,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 >
                   <div className="flex items-center gap-1.5 mb-0.5 text-[9px] text-slate-400">
                     <span className={msg.sender === 'bot' ? 'text-[#FF5C00] font-semibold' : ''}>
-                      {msg.sender === 'user' ? 'Thầy/Cô' : 'Bot Vận hành (SOP)'}
+                      {msg.sender === 'user' ? 'Thầy/Cô' : 'Bot chat AI'}
                     </span>
                     <span>• {msg.time}</span>
                   </div>
@@ -1025,7 +1138,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 type="text"
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
-                placeholder="Nhập câu hỏi quy định SOP, báo nghỉ, sự cố..."
+                placeholder="Đặt câu hỏi trong phạm vi tài liệu tri thức..."
                 className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-400 focus:border-orange-400 font-medium"
               />
               <button

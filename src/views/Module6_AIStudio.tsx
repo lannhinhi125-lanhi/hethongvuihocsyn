@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { CriteriaCategory, SOPDocument, RAGBotConfig } from '../types';
+import { findKnowledgeDocument } from '../lib/knowledgeSearch';
 import {
   Sparkles,
   TreePine,
@@ -31,11 +32,14 @@ export const Module6_AIStudio: React.FC = () => {
     setActiveToneKey,
     toneDirectives,
     setToneDirectives,
+    subjects,
     showToast
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'criteria' | 'knowledge' | 'rag-config'>('criteria');
-  const [currentSubject, setCurrentSubject] = useState<'TOAN' | 'ENG'>('TOAN');
+  const activeSubjects = subjects.filter(subject => subject.status);
+  const [currentSubject, setCurrentSubject] = useState('TOAN');
+  const [criterionSubjectKeys, setCriterionSubjectKeys] = useState<string[]>(['TOAN']);
 
   // Simulator state
   const [simUsageCount, setSimUsageCount] = useState(0);
@@ -123,7 +127,9 @@ export const Module6_AIStudio: React.FC = () => {
   // Handlers for Criterion
   const openAddCriterion = (preCatId?: string) => {
     setEditingCriId(null);
-    setSelectedParentCatId(preCatId || filteredCategories[0]?.id || '');
+    const targetCategory = filteredCategories.find(category => category.id === preCatId) || filteredCategories[0];
+    setSelectedParentCatId(targetCategory?.id || '');
+    setCriterionSubjectKeys([targetCategory?.subject || currentSubject]);
     setCriNameInput('');
     setCriOptionsInput([
       'Rất tích cực, làm bài nhanh và chính xác',
@@ -135,10 +141,11 @@ export const Module6_AIStudio: React.FC = () => {
   const openEditCriterion = (catId: string, criId: string) => {
     const cat = criteriaCategories.find(c => c.id === catId);
     const cri = cat?.criteria.find(cr => cr.id === criId);
-    if (!cri) return;
+    if (!cat || !cri) return;
 
     setEditingCriId(criId);
     setSelectedParentCatId(catId);
+    setCriterionSubjectKeys([cat.subject]);
     setCriNameInput(cri.name);
     setCriOptionsInput(cri.options.map(o => o.label));
     setIsCriModalOpen(true);
@@ -162,37 +169,51 @@ export const Module6_AIStudio: React.FC = () => {
       return;
     }
 
-    setCriteriaCategories(prev =>
-      prev.map(cat => {
-        if (cat.id === selectedParentCatId) {
-          if (editingCriId) {
-            return {
-              ...cat,
-              criteria: cat.criteria.map(cr =>
-                cr.id === editingCriId
-                  ? { ...cr, name: criNameInput.trim(), options: validOptions }
-                  : cr
-              )
-            };
-          } else {
-            return {
-              ...cat,
-              criteria: [
-                ...cat.criteria,
-                {
-                  id: `CRI_${Date.now()}`,
-                  name: criNameInput.trim(),
-                  options: validOptions
-                }
-              ]
-            };
-          }
-        }
-        return cat;
-      })
-    );
+    const sourceCategory = criteriaCategories.find(category => category.id === selectedParentCatId);
+    if (!sourceCategory || criterionSubjectKeys.length === 0) {
+      showToast('Vui lòng chọn ít nhất một môn và danh mục tiêu chí.', 'error');
+      return;
+    }
 
-    showToast('Đã lưu tiêu chí và đáp án lựa chọn!', 'success');
+    const sourceCriterion = editingCriId
+      ? sourceCategory.criteria.find(criterion => criterion.id === editingCriId)
+      : undefined;
+    const targetCategoryName = sourceCategory.name;
+    const previousCriterionName = sourceCriterion?.name;
+    const nextCriterionName = criNameInput.trim();
+    const timestamp = Date.now();
+
+    setCriteriaCategories(previous => {
+      let next = [...previous];
+      criterionSubjectKeys.forEach((subjectKey, subjectIndex) => {
+        let categoryIndex = next.findIndex(category =>
+          category.subject === subjectKey && category.name === targetCategoryName
+        );
+        if (categoryIndex < 0) {
+          next.push({
+            id: `CAT_${subjectKey}_${timestamp}_${subjectIndex}`,
+            subject: subjectKey,
+            name: targetCategoryName,
+            criteria: []
+          });
+          categoryIndex = next.length - 1;
+        }
+
+        const category = next[categoryIndex];
+        if (!category) return;
+        const criterionIndex = subjectKey === sourceCategory.subject && sourceCriterion
+          ? category.criteria.findIndex(criterion => criterion.id === sourceCriterion.id)
+          : category.criteria.findIndex(criterion => criterion.name === previousCriterionName || criterion.name === nextCriterionName);
+        const criterion = { id: `CRI_${timestamp}_${subjectIndex}`, name: nextCriterionName, options: validOptions };
+        const criteria = [...category.criteria];
+        if (criterionIndex >= 0) criteria[criterionIndex] = { ...criteria[criterionIndex], ...criterion, id: criteria[criterionIndex].id };
+        else criteria.push(criterion);
+        next[categoryIndex] = { ...category, criteria };
+      });
+      return next;
+    });
+
+    showToast(`Đã lưu tiêu chí cho ${criterionSubjectKeys.length} môn học!`, 'success');
     setIsCriModalOpen(false);
   };
 
@@ -208,7 +229,7 @@ export const Module6_AIStudio: React.FC = () => {
 
     setTimeout(() => {
       const studentName = 'Nguyễn Minh Khang';
-      const subjectText = currentSubject === 'TOAN' ? 'Toán' : 'Tiếng Anh';
+      const subjectText = activeSubjects.find(subject => subject.abbr === currentSubject)?.name || currentSubject;
       let generated = '';
 
       if (activeToneKey === 'khich-le') {
@@ -281,24 +302,12 @@ export const Module6_AIStudio: React.FC = () => {
     setSandboxInput('');
 
     setTimeout(() => {
-      const q = query.toLowerCase();
-      let answer = '';
-      let matchedDocName = '';
-
-      if (q.includes('nghỉ') || q.includes('bận') || q.includes('vắng')) {
-        answer = 'Dạ thưa Thầy/Cô, theo Điều 1.1 trong Quy chế Báo nghỉ SOP, Thầy/Cô có việc bận đột xuất phải tạo phiếu báo nghỉ trước giờ dạy ít nhất 04 TIẾNG để Vận hành kịp thời điều phối giáo viên dạy thay (Cover). Nếu báo nghỉ dưới 02 tiếng mà không có lý do bất khả kháng, ca dạy sẽ tính vi phạm kỷ luật vận hành ạ.';
-        matchedDocName = 'SOP_Bao_Nghi_Va_Su_Co_Ca_Day_2026.txt';
-      } else if (q.includes('mạng') || q.includes('mất điện') || q.includes('thiết bị')) {
-        answer = 'Dạ thưa Thầy/Cô, theo Điều 2 trong Quy chế Xử lý sự cố, khi bị mất điện hoặc hỏng mạng đột xuất, Thầy/Cô có tối đa 10 phút để đổi mạng 4G/thiết bị dự phòng và báo ngay vào Zalo Trực Ban trong vòng 05 phút đầu để Vận hành giữ kết nối với phụ huynh ạ.';
-        matchedDocName = 'SOP_Bao_Nghi_Va_Su_Co_Ca_Day_2026.txt';
-      } else if (q.includes('công') || q.includes('chốt') || q.includes('khiếu nại')) {
-        answer = 'Dạ thưa Thầy/Cô, dữ liệu công tuần được khóa sổ vào 23h59 Chủ nhật. Nếu phát hiện ca dạy bị sai sót, Thầy/Cô vui lòng bấm "Gửi khiếu nại" trước 12h00 trưa Thứ 2 kèm ảnh chụp phòng học để Ban Vận hành phê duyệt điều chỉnh ạ.';
-        matchedDocName = 'Quy_Che_Doi_Soat_Cong_Va_Khieu_Nai.txt';
-      } else {
-        answer = ragBotConfig.fallbackResponse;
-      }
-
-      setSandboxMessages(prev => [...prev, { sender: 'ai', text: answer, matchedDoc: matchedDocName }]);
+      const document = findKnowledgeDocument(query, sopDocuments);
+      setSandboxMessages(prev => [...prev, {
+        sender: 'ai',
+        text: document ? document.content : ragBotConfig.fallbackResponse,
+        matchedDoc: document?.title
+      }]);
     }, 400);
   };
 
@@ -314,7 +323,7 @@ export const Module6_AIStudio: React.FC = () => {
             <h2 className="text-xl font-bold text-slate-800">Quản trị Trí tuệ Nhân tạo (AI Studio)</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Quản lý tiêu chí nhận xét gia sư, chỉ đạo phong cách viết tự nhiên cho Gemini và thiết lập quy tắc phản hồi cho bot SOP vận hành.
+            Quản lý tiêu chí nhận xét dùng chung với giáo viên, kho tài liệu tri thức và cấu hình Bot chat AI.
           </p>
         </div>
 
@@ -336,7 +345,7 @@ export const Module6_AIStudio: React.FC = () => {
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span>Tài liệu Tri thức SOP</span>
+            <span>Tài liệu tri thức</span>
           </button>
           <button
             onClick={() => setActiveTab('rag-config')}
@@ -345,7 +354,7 @@ export const Module6_AIStudio: React.FC = () => {
             }`}
           >
             <Sliders className="w-4 h-4" />
-            <span>Cấu hình AI &amp; Sandbox</span>
+            <span>Bot chat AI</span>
           </button>
         </div>
       </div>
@@ -361,7 +370,7 @@ export const Module6_AIStudio: React.FC = () => {
             <div className="space-y-1">
               <div className="font-bold text-slate-800">Cơ chế Sinh nhận xét Tự động (Autonomous Prose Generation):</div>
               <p className="leading-relaxed">
-                Quản trị viên <strong>chỉ cần quản lý các Danh mục &amp; Tiêu chí con</strong> để Gia sư tick chọn sau ca dạy. Khi kết nối API Gemini, hệ thống sẽ gom tất cả các đáp án gia sư đã tick cùng lời dặn dò, đưa vào <em>Chỉ đạo Sư phạm (System Instruction)</em> để AI <strong>tự động hành văn thành đoạn nhận xét hoàn chỉnh</strong>, mượt mà và giàu cảm xúc!
+                Tiêu chí và đáp án tại đây được dùng trực tiếp trong màn hình giáo viên. Khi kết nối Gemini, các lựa chọn của giáo viên cùng chỉ đạo giọng văn sẽ là dữ liệu đầu vào để AI viết nhận xét.
               </p>
             </div>
           </div>
@@ -369,25 +378,16 @@ export const Module6_AIStudio: React.FC = () => {
           {/* Bộ lọc môn & Buttons */}
           <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
-              <span className="text-xs font-bold text-slate-700">Môn học cấu hình:</span>
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-                <button
-                  onClick={() => setCurrentSubject('TOAN')}
-                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
-                    currentSubject === 'TOAN' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                Môn đang xem:
+                <select
+                  value={currentSubject}
+                  onChange={event => setCurrentSubject(event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-800"
                 >
-                  Môn Toán
-                </button>
-                <button
-                  onClick={() => setCurrentSubject('ENG')}
-                  className={`px-3.5 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
-                    currentSubject === 'ENG' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Môn Tiếng Anh
-                </button>
-              </div>
+                  {activeSubjects.map(subject => <option key={subject.id} value={subject.abbr}>{subject.name}</option>)}
+                </select>
+              </label>
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto justify-end">
@@ -415,12 +415,18 @@ export const Module6_AIStudio: React.FC = () => {
               <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">
-                    Cấu trúc Tiêu chí nhận xét môn {currentSubject === 'TOAN' ? 'Toán' : 'Tiếng Anh'}
+                    Cấu trúc tiêu chí nhận xét · {activeSubjects.find(subject => subject.abbr === currentSubject)?.name || currentSubject}
                   </h3>
                   <span className="text-[11px] text-slate-400">Gia sư tick chọn sau ca học</span>
                 </div>
 
                 <div className="space-y-4">
+                  {!filteredCategories.length && (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+                      <div className="font-semibold text-slate-700">Môn học này chưa có bộ tiêu chí</div>
+                      <p className="mt-1 text-[11px] text-slate-500">Tạo danh mục trước, sau đó thêm tiêu chí và đáp án để giáo viên sử dụng.</p>
+                    </div>
+                  )}
                   {filteredCategories.map((cat, cIdx) => (
                     <div key={cat.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
                       <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
@@ -616,8 +622,8 @@ export const Module6_AIStudio: React.FC = () => {
         <div className="space-y-6">
           <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-sm text-slate-800">Cơ sở Tri thức SOP Vận hành</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Tải lên các văn bản ngắn hoặc chỉnh sửa trực tiếp nội dung quy chế để AI tra cứu giải đáp giáo viên</p>
+              <h3 className="font-bold text-sm text-slate-800">Kho tài liệu tri thức</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Quản lý tài liệu dùng làm nguồn tham khảo cho Bot chat AI của giáo viên.</p>
             </div>
             <button
               onClick={() => {
@@ -631,7 +637,7 @@ export const Module6_AIStudio: React.FC = () => {
               className="px-4 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Thêm văn bản SOP mới</span>
+              <span>Thêm tài liệu</span>
             </button>
           </div>
 
@@ -691,14 +697,14 @@ export const Module6_AIStudio: React.FC = () => {
         </div>
       )}
 
-      {/* ================= TAB 3: CẤU HÌNH AI VẬN HÀNH & SANDBOX ================= */}
+      {/* ================= TAB 3: CẤU HÌNH BOT CHAT AI ================= */}
       {activeTab === 'rag-config' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Cột trái (6/12): Cấu hình */}
           <div className="lg:col-span-6 space-y-4">
             <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4 text-xs">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Cấu hình Quy tắc Phản hồi của AI Vận hành</h3>
+                <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Cấu hình Bot chat AI</h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">AI Rules</span>
               </div>
 
@@ -724,8 +730,8 @@ export const Module6_AIStudio: React.FC = () => {
 
               <div className="p-3 bg-orange-50/60 rounded-xl border border-orange-200 flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-slate-800">3. Chỉ trả lời trong tài liệu SOP (Strict Grounding)</div>
-                  <div className="text-[11px] text-slate-500">Tuyệt đối không tự suy diễn ngoài tài liệu SOP</div>
+                  <div className="font-bold text-slate-800">3. Giới hạn Bot trong kho tài liệu tri thức</div>
+                  <div className="text-[11px] text-slate-500">Không trả lời như thể đã có căn cứ nếu tài liệu không đề cập</div>
                 </div>
                 <input
                   type="checkbox"
@@ -747,10 +753,10 @@ export const Module6_AIStudio: React.FC = () => {
 
               <div className="flex justify-end pt-2">
                 <button
-                  onClick={() => showToast('Đã lưu toàn bộ cấu hình AI Vận hành thành công!', 'success')}
+                  onClick={() => showToast('Đã lưu cấu hình Bot chat AI!', 'success')}
                   className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg shadow-xs cursor-pointer"
                 >
-                  Lưu cấu hình AI Vận hành
+                  Lưu cấu hình Bot chat AI
                 </button>
               </div>
             </div>
@@ -765,9 +771,9 @@ export const Module6_AIStudio: React.FC = () => {
                     <Brain className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-xs text-slate-800">Sandbox Thử nghiệm AI Vận hành</h4>
+                    <h4 className="font-bold text-xs text-slate-800">Thử nghiệm Bot chat AI</h4>
                     <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Trực tuyến theo cấu hình
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Mô phỏng tra cứu · Chưa kết nối Gemini
                     </span>
                   </div>
                 </div>
@@ -830,7 +836,7 @@ export const Module6_AIStudio: React.FC = () => {
                   type="text"
                   value={sandboxInput}
                   onChange={e => setSandboxInput(e.target.value)}
-                  placeholder="Gõ câu hỏi thử nghiệm cho bot SOP..."
+                  placeholder="Đặt câu hỏi trong phạm vi kho tài liệu..."
                   className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-[#FF5C00]"
                 />
                 <button
@@ -903,12 +909,47 @@ export const Module6_AIStudio: React.FC = () => {
             </div>
             <form onSubmit={handleSaveCriterion} className="mt-4 space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Thuộc Danh mục:</label>
+                <label className="block font-semibold text-slate-700 mb-1">Áp dụng cho môn học:</label>
+                <details className="group relative">
+                  <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700">
+                    <span>{criterionSubjectKeys.length ? `${criterionSubjectKeys.length} môn được chọn` : 'Chọn môn học'}</span>
+                    <span className="text-slate-400">▾</span>
+                  </summary>
+                  <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                    {activeSubjects.map(subject => (
+                      <label key={subject.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={criterionSubjectKeys.includes(subject.abbr)}
+                          onChange={event => {
+                            setCriterionSubjectKeys(previous => event.target.checked
+                              ? [...previous, subject.abbr]
+                              : previous.filter(key => key !== subject.abbr));
+                          }}
+                          className="accent-[#FF5C00]"
+                        />
+                        <span>{subject.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Chọn nhiều môn để thêm hoặc đồng bộ cùng tiêu chí và đáp án vào từng môn.
+                </p>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Danh mục mẫu của môn {activeSubjects.find(subject => subject.abbr === currentSubject)?.name || currentSubject}:
+                </label>
                 <select
                   value={selectedParentCatId}
-                  onChange={e => setSelectedParentCatId(e.target.value)}
+                  onChange={e => {
+                    setSelectedParentCatId(e.target.value);
+                    if (!editingCriId) setCriterionSubjectKeys(previous => [...new Set([...previous, currentSubject])]);
+                  }}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
                 >
+                  {!filteredCategories.length && <option value="">Chưa có danh mục cho môn này</option>}
                   {filteredCategories.map(cat => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name}
@@ -918,7 +959,7 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tên Tiêu chí (Câu hỏi):</label>
+                <label className="block font-semibold text-slate-700 mb-1">Tên tiêu chí:</label>
                 <input
                   type="text"
                   required
@@ -1021,6 +1062,35 @@ export const Module6_AIStudio: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {!editingDocId && (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
+                  <label className="block font-semibold text-slate-700 mb-1">Tải tệp tri thức (.txt, .md)</label>
+                  <input
+                    type="file"
+                    accept=".txt,.md,text/plain,text/markdown"
+                    onChange={async event => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 1024 * 1024) {
+                        showToast('Tệp vượt quá 1 MB. Vui lòng chọn tệp nhỏ hơn.', 'error');
+                        event.target.value = '';
+                        return;
+                      }
+                      try {
+                        const content = await file.text();
+                        setDocTitle(file.name);
+                        setDocContent(content);
+                        if (!docSummary.trim()) setDocSummary(content.slice(0, 180));
+                      } catch {
+                        showToast('Không thể đọc tệp đã chọn. Vui lòng thử lại với tệp văn bản UTF-8.', 'error');
+                      }
+                    }}
+                    className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:font-semibold file:text-slate-700"
+                  />
+                  <p className="mt-1 text-[10px] text-slate-500">Tệp văn bản sẽ được nạp vào nội dung tài liệu để xem lại trước khi lưu. PDF sẽ hỗ trợ khi có bộ xử lý tài liệu.</p>
+                </div>
+              )}
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Nội dung tóm tắt ngắn:</label>

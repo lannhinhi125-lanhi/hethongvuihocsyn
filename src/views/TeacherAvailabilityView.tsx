@@ -104,17 +104,34 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
           cls.teacherName.includes(activeTeacher.name) ||
           activeTeacher.name.includes(cls.teacherName)
         ));
-      if (!isTeacherMatch) return false;
       if (!cls.schedule) return false;
 
       // Ví dụ: cls.schedule = 'T3 (18:00 - 19:30), T5 (18:00 - 19:30)'
       const parts = cls.schedule.split(',').map(p => p.trim());
-      return parts.some(part => {
+      const hasScheduledSlot = parts.some(part => {
         const hasDay = part.startsWith(targetDay) || part.includes(targetDay);
         const startTime = slotTimeRange ? slotTimeRange.split(' - ')[0] : '';
         const hasTime = (startTime && part.includes(startTime)) || (slotCode && part.includes(slotCode));
         return hasDay && hasTime;
       });
+      if (!hasScheduledSlot) return false;
+      if (isTeacherMatch) return true;
+
+      const targetDate = new Date(`${fromDate}T00:00:00`);
+      targetDate.setDate(targetDate.getDate() + dayKey);
+      const targetDateString = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+      const scheduledEntries = Array.from(
+        cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
+        match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, time: (match[2] || match[4] || '').trim() })
+      ).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).slice(0, 2);
+      const startTime = slotTimeRange.split(' - ')[0];
+      return cls.coverAssignments?.some(assignment => {
+        const scheduledEntry = scheduledEntries[assignment.sessionNum - 1];
+        return assignment.teacherId === activeTeacher.id &&
+          assignment.dateStr === targetDateString &&
+          scheduledEntry?.dayIndex === dayKey &&
+          scheduledEntry.time.includes(startTime);
+      }) || false;
     });
   };
 

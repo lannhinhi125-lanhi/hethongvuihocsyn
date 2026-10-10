@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
-import { StandardTimeFilter } from '../components/StandardTimeFilter';
 import {
-  Calendar,
   Filter,
-  ChevronDown,
-  Check,
-  X,
-  Clock,
-  User,
-  ShieldAlert,
-  AlertTriangle,
-  RotateCcw
 } from 'lucide-react';
 
 // Types cho Phân hệ 5
@@ -57,13 +47,6 @@ export interface MonitoringSession {
   isJustUpdated?: boolean;
 }
 
-// Danh mục tài khoản Vận hành trực ca (Tự động gán người xử lý)
-const OPS_ACCOUNTS: Record<string, { id: string; name: string; role: string; avatar: string }> = {
-  'OPS-002': { id: 'OPS-002', name: 'Trần Thị Mai Lan', role: 'Trực ca 1', avatar: 'TL' },
-  'OPS-001': { id: 'OPS-001', name: 'Nguyễn Văn Đức', role: 'Trưởng ca Vận hành', avatar: 'VD' },
-  'OPS-005': { id: 'OPS-005', name: 'Lê Hoàng Quân', role: 'Trực ca 2', avatar: 'HQ' }
-};
-
 // Danh mục Cây sự cố 2 cấp đồng bộ từ Master Data
 const INCIDENT_MASTER_DATA: Record<string, { code: string; name: string }[]> = {
   'GRP-TCH': [
@@ -82,17 +65,6 @@ const INCIDENT_MASTER_DATA: Record<string, { code: string; name: string }[]> = {
     { code: 'INC-SYS-02', name: 'Hệ thống LMS Vuihoc gián đoạn' }
   ]
 };
-
-// Dữ liệu giáo viên tiềm năng dạy thay
-const TEACHERS_COVER_DATABASE = [
-  { id: 'GV001', name: 'Nguyễn Văn An', subject: 'TOAN', status: 'Trống lịch 19:45' },
-  { id: 'GV002', name: 'Phạm Thái Hà', subject: 'TOAN', status: 'Trống lịch 18:00' },
-  { id: 'GV003', name: 'Đặng Quốc Huy', subject: 'TOAN', status: 'Trống lịch ca tối' },
-  { id: 'GV004', name: 'Ngô Minh Tuyết', subject: 'TOAN', status: 'Trống lịch ca tối' },
-  { id: 'GV005', name: 'Bùi Thu Ngân', subject: 'ANH', status: 'Trống lịch ca tối' },
-  { id: 'GV006', name: 'Trần Kim Oanh', subject: 'ANH', status: 'Trống lịch ca tối' },
-  { id: 'GV007', name: 'Lê Thu Trang', subject: 'ANH', status: 'Trống lịch ca tối' }
-];
 
 // Khởi tạo danh sách buổi học toàn hệ thống
 const initialSessionsList: MonitoringSession[] = [
@@ -611,41 +583,183 @@ const initialSessionsList: MonitoringSession[] = [
 ];
 
 export const Module5_OperationsMonitoring: React.FC = () => {
-  const { showToast } = useApp();
+  const { showToast, currentUser, classes, setClasses, teachers, timeSlots, students, levels, subjects, teachingCategories } = useApp();
 
-  // Phiên trực ban Vận hành đang đăng nhập
-  const [currentLoggedInOps, setCurrentLoggedInOps] = useState<string>('OPS-002');
-  const currentOps = OPS_ACCOUNTS[currentLoggedInOps] || OPS_ACCOUNTS['OPS-002'];
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const currentOps = { id: currentUser.id, name: currentUser.name };
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
 
-  // Đồng hồ hệ thống trực ban
-  const [systemClock, setSystemClock] = useState<string>('19:30:00 • Thứ Ba, 06/10/2026');
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });
-      setSystemClock(`${timeStr} • Thứ Ba, 06/10/2026`);
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Chế độ thời gian vận hành (Tháng?, Ngày bắt đầu, Ngày kết thúc, Tuần sau)
-  const [dateMode, setDateMode] = useState<'TODAY' | 'DAY' | 'WEEK' | 'MONTH'>('TODAY');
+  // Phạm vi thời gian đang xem
   const [selectedDate, setSelectedDate] = useState<string>('2026-10-06');
   const [dateFrom, setDateFrom] = useState<string>('2026-10-06');
   const [dateTo, setDateTo] = useState<string>('2026-10-06');
-  const [selectedWeek, setSelectedWeek] = useState<string>('W1');
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
+  const [specificDate, setSpecificDate] = useState('');
 
   // Tab chính
   const [activeTab, setActiveTab] = useState<'diary' | 'incidents'>('diary');
 
   // Danh sách ca dạy toàn hệ thống
   const [sessions, setSessions] = useState<MonitoringSession[]>(initialSessionsList);
+
+  useEffect(() => {
+    const classCheckins = new Map<string, { checkinTime: string; attendance: 'ATTENDED' | 'LATE'; teacherName: string }>();
+    classes.forEach(cls => Object.values(cls.activeSessions || {}).forEach(activeSession => {
+      if (!activeSession.checkinTime) return;
+      const date = activeSession.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+      const time = activeSession.dateStr.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0];
+      if (!date || !time) return;
+      classCheckins.set(`${cls.code}|${date}|${time}`, {
+        checkinTime: activeSession.checkinTime,
+        attendance: activeSession.teacherAttendance || 'ATTENDED',
+        teacherName: cls.teacherName
+      });
+    }));
+    if (!classCheckins.size) return;
+    setSessions(previous => previous.map(session => {
+      const checkin = classCheckins.get(`${session.classCode}|${session.sessionDate}|${session.timeSlot}`);
+      return checkin ? {
+        ...session,
+        primaryTeacher: checkin.teacherName,
+        attendance: checkin.attendance,
+        checkinTime: checkin.checkinTime,
+        isJustUpdated: true
+      } : session;
+    }));
+  }, [classes]);
+
+  useEffect(() => {
+    const startDate = dateFrom || (selectedMonth !== 'ALL' ? `${selectedMonth}-01` : (() => {
+      const today = new Date();
+      today.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    })());
+    const endDate = dateTo || (selectedMonth !== 'ALL'
+      ? `${selectedMonth}-${String(new Date(Number(selectedMonth.slice(0, 4)), Number(selectedMonth.slice(5, 7)), 0).getDate()).padStart(2, '0')}`
+      : startDate);
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    const generated: MonitoringSession[] = [];
+    classes.forEach(cls => {
+      const scheduleEntries = Array.from(
+        cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
+        match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, timeSlot: (match[2] || match[4] || '').trim() })
+      ).sort((a, b) => a.dayIndex - b.dayIndex || a.timeSlot.localeCompare(b.timeSlot)).slice(0, 2);
+      for (let day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
+        const dayIndex = (day.getDay() + 6) % 7;
+        scheduleEntries.forEach((entry, index) => {
+          if (entry.dayIndex !== dayIndex) return;
+          const sessionDate = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+          const sessionNum = index + 1;
+          const storedSession = cls.activeSessions?.[sessionNum];
+          const activeDate = storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+          const activeSession = activeDate === sessionDate ? storedSession : undefined;
+          const coverAssignment = cls.coverAssignments?.find(assignment =>
+            assignment.sessionNum === sessionNum && assignment.dateStr === sessionDate
+          );
+          const existing = sessions.find(session => session.classCode === cls.code && session.sessionDate === sessionDate && session.timeSlot === entry.timeSlot);
+          const assignedStudents = cls.studentIds.map(studentId => students.find(student => student.id === studentId)).filter((student): student is NonNullable<typeof student> => Boolean(student));
+          const sessionCode = existing?.sessionCode || `${cls.code}-${sessionDate}-${sessionNum}`;
+          const teacherAttendance = activeSession?.teacherAttendance || (activeSession?.checkinTime ? 'ATTENDED' : undefined);
+          generated.push({
+            ...(existing || {
+              sessionCode,
+              sessionDate,
+              classCode: cls.code,
+              className: cls.name,
+              levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
+              modelText: cls.model,
+              subject: cls.subject === 'SUB-ENG' ? 'ANH' : 'TOAN',
+              grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
+              timeSlot: entry.timeSlot,
+              room: cls.roomLink || 'Chưa gán phòng',
+              roomUrl: cls.roomLink,
+              recordingUrl: null,
+              primaryTeacher: cls.teacherName,
+              coverTeacher: null,
+              attendance: 'ABSENT',
+              checkinTime: null,
+              status: 'CHUA_HOC',
+              hasIncident: false,
+              incidentParent: null,
+              incidentChild: null,
+              incidentUrgency: null,
+              incidentStatus: null,
+              incidentNote: '',
+              handledByOpsId: null,
+              handledByName: null,
+              handledAt: null,
+              lessonDiary: '',
+              students: []
+            }),
+            className: cls.name,
+            primaryTeacher: cls.teacherName,
+            levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
+            subject: cls.subject === 'SUB-ENG' ? 'ANH' : 'TOAN',
+            grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
+            room: cls.roomLink || 'Chưa gán phòng',
+            roomUrl: cls.roomLink,
+            attendance: teacherAttendance || 'ABSENT',
+            checkinTime: activeSession?.checkinTime || existing?.checkinTime || null,
+            status: activeSession?.status === 'Đã hoàn thành'
+              ? 'DA_HOC'
+              : coverAssignment || activeSession?.coverTeacherId
+                ? 'DAY_THAY'
+              : existing?.status === 'DA_HOC'
+                ? 'DA_HOC'
+                : cls.status === 'Chờ khai giảng' && sessionNum === 1
+                  ? 'KHAI_GIANG'
+                  : existing?.status || 'CHUA_HOC',
+            coverTeacher: coverAssignment
+              ? coverAssignment.teacherName
+              : activeSession
+                ? activeSession.coverTeacherName || null
+              : existing?.coverTeacher || null,
+            students: assignedStudents.map(student => ({
+              name: student.name,
+              code: student.id,
+              gradeText: `${student.grade} - ${levels.find(level => level.code === student.level)?.name || student.level}`,
+              attendance: activeSession?.attendance?.[student.id] || 'Chưa điểm danh',
+              aiComment: '',
+              criteria: []
+            }))
+          });
+        });
+      }
+    });
+    if (!generated.length) return;
+    setSessions(previous => {
+      const merged = [...previous];
+      generated.forEach(session => {
+        const index = merged.findIndex(existing => existing.sessionCode === session.sessionCode);
+        if (index < 0) merged.push(session);
+        else {
+          const existing = merged[index];
+          merged[index] = {
+            ...existing,
+            className: session.className,
+            primaryTeacher: session.primaryTeacher,
+            levelText: session.levelText,
+            subject: session.subject,
+            grade: session.grade,
+            room: session.room,
+            roomUrl: session.roomUrl,
+            coverTeacher: session.coverTeacher,
+            attendance: session.checkinTime ? session.attendance : existing.attendance,
+            checkinTime: session.checkinTime || existing.checkinTime,
+            status: existing.status === 'DA_HOC'
+              ? existing.status
+              : session.coverTeacher
+                ? 'DAY_THAY'
+                : existing.hasIncident && existing.status !== 'DAY_THAY'
+                  ? existing.status
+                  : session.status,
+            students: session.students
+          };
+        }
+      });
+      return merged;
+    });
+  }, [classes, students, levels, dateFrom, dateTo, selectedMonth]);
 
   // Bộ lọc cột cho Tab 1 (Nhật ký & Giám sát buổi học)
   const [colFilterCode, setColFilterCode] = useState('');
@@ -654,6 +768,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [colFilterTime, setColFilterTime] = useState('ALL');
   const [colFilterAttendance, setColFilterAttendance] = useState('ALL');
   const [colFilterStatus, setColFilterStatus] = useState('ALL');
+  const [filterCategory, setFilterCategory] = useState('ALL');
+  const [filterSubject, setFilterSubject] = useState('ALL');
+  const [filterGrade, setFilterGrade] = useState('ALL');
+  const [filterLevel, setFilterLevel] = useState('ALL');
 
   // Bộ lọc cột cho Tab 2 (Thông tin Sự cố & Điều phối Dạy thay)
   const [incColFilterCode, setIncColFilterCode] = useState('');
@@ -681,6 +799,69 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [incHasCover, setIncHasCover] = useState<boolean>(false);
   const [incCoverTeacher, setIncCoverTeacher] = useState<string>('');
 
+  const coverCandidatesForSession = (session: MonitoringSession) => {
+    const normalizeTeacherName = (name: string) => name.replace(/^(Thầy|Cô)\s+/i, '').trim().toLocaleLowerCase('vi');
+    const weekday = (new Date(`${session.sessionDate}T00:00:00`).getDay() + 6) % 7;
+    const targetClass = classes.find(cls => cls.code === session.classCode);
+    const slot = timeSlots.find(item => item.status !== false && item.timeRange === session.timeSlot);
+    if (!targetClass || !slot) return [];
+
+    const targetSchedule = Array.from(
+      targetClass.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
+      match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, time: (match[2] || match[4] || '').trim() })
+    ).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).slice(0, 2);
+    const targetSessionNum = targetSchedule.findIndex(entry => entry.dayIndex === weekday && entry.time === session.timeSlot) + 1;
+    if (targetSessionNum < 1) return [];
+    const [startHour, startMinute] = session.timeSlot.split(' - ')[0].split(':').map(Number);
+    const [endHour, endMinute] = session.timeSlot.split(' - ')[1]?.split(':').map(Number) || [];
+    const start = startHour * 60 + startMinute;
+    const end = endHour * 60 + endMinute;
+    const overlapsTarget = (timeRange: string) => {
+      const [from, to] = timeRange.split(' - ').map(value => {
+        const [hour, minute] = value.split(':').map(Number);
+        return hour * 60 + minute;
+      });
+      return Number.isFinite(from) && Number.isFinite(to) && start < to && from < end;
+    };
+
+    const primaryTeacherHasConflict = (teacherId: string, teacherName: string) => classes.some(cls => {
+      if (cls.id === targetClass.id) return false;
+      const isPrimaryTeacher = cls.teacherId === teacherId ||
+        normalizeTeacherName(cls.teacherName) === normalizeTeacherName(teacherName);
+      if (!isPrimaryTeacher) return false;
+      return Array.from(
+        cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
+        match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, time: (match[2] || match[4] || '').trim() })
+      ).some(entry => entry.dayIndex === weekday && overlapsTarget(entry.time));
+    });
+
+    const coverTeacherHasConflict = (teacherId: string) => classes.some(cls => {
+      const assignedCoverConflicts = (cls.coverAssignments || []).some(assignment => {
+        if (assignment.teacherId !== teacherId || assignment.dateStr !== session.sessionDate ||
+          (cls.id === targetClass.id && assignment.sessionNum === targetSessionNum)) return false;
+        return true;
+      });
+      return assignedCoverConflicts || Object.values(cls.activeSessions || {}).some(activeSession => {
+        const activeDate = activeSession.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+        const activeTime = activeSession.dateStr.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0];
+        const isCurrentAssignment = cls.id === targetClass.id && activeSession.sessionNum === targetSessionNum;
+        return !isCurrentAssignment && activeDate === session.sessionDate &&
+          activeSession.coverTeacherId === teacherId && overlapsTarget(activeTime || '');
+      });
+    });
+
+    return teachers.filter(teacher => {
+      const subjectMatches = teacher.subject === (session.subject === 'ANH' ? 'SUB-ENG' : 'SUB-MATH');
+      const availability = teacher.schedule?.[slot.code] || teacher.schedule?.[slot.id];
+      return subjectMatches && availability?.[weekday] === 'free' &&
+        teacher.id !== targetClass.teacherId &&
+        normalizeTeacherName(teacher.name) !== normalizeTeacherName(targetClass.teacherName) &&
+        normalizeTeacherName(teacher.name) !== normalizeTeacherName(session.primaryTeacher) &&
+        teacher.status !== 'TAM_NGUNG' &&
+        !primaryTeacherHasConflict(teacher.id, teacher.name) && !coverTeacherHasConflict(teacher.id);
+    });
+  };
+
   // Điều hướng chuyển ngày nhanh
   const navigateDate = (delta: number) => {
     const parts = selectedDate.split('-');
@@ -691,16 +872,43 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     const day = String(d.getDate()).padStart(2, '0');
     const nextDate = `${y}-${m}-${day}`;
     setSelectedDate(nextDate);
-    if (nextDate === '2026-10-06') {
-      setDateMode('TODAY');
-    } else {
-      setDateMode('DAY');
+    setSpecificDate(nextDate);
+    setDateFrom(nextDate);
+    setDateTo(nextDate);
+  };
+
+  const applyWeekFilter = (offset: number) => {
+    const monday = new Date();
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + offset * 7);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const toInputDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const start = toInputDate(monday);
+    setDateFrom(start);
+    setDateTo(toInputDate(sunday));
+    setSelectedDate(start);
+    setSpecificDate('');
+    setSelectedMonth(start.slice(0, 7));
+  };
+
+  const applyMonthFilter = (month: string) => {
+    setSelectedMonth(month);
+    setSpecificDate('');
+    if (month === 'ALL') {
+      setDateFrom('');
+      setDateTo('');
+      return;
     }
+    const [year, monthNumber] = month.split('-').map(Number);
+    setDateFrom(`${month}-01`);
+    setDateTo(`${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, '0')}`);
   };
 
   // Lọc theo phạm vi ngày / tuần / tháng
   const dateFilteredSessions = sessions.filter(s => {
     if (!s.sessionDate) return true;
+    if (specificDate) return s.sessionDate === specificDate;
     if (dateFrom && dateTo) {
       return s.sessionDate >= dateFrom && s.sessionDate <= dateTo;
     }
@@ -712,8 +920,23 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     return true;
   });
 
+  const classForSession = (session: MonitoringSession) => classes.find(item => item.code === session.classCode);
+  const classCategoryForSession = (session: MonitoringSession) => {
+    const cls = classForSession(session);
+    return cls ? teachingCategories.find(category => category.options.some(option => option.id === cls.grade))?.id || 'ALL' : 'ALL';
+  };
+  const subjectCodeForSession = (session: MonitoringSession) => classForSession(session)?.subject || (session.subject === 'TOAN' ? 'SUB-MATH' : 'SUB-ENG');
+  const matchesCatalogFilters = (session: MonitoringSession) => {
+    const cls = classForSession(session);
+    return (filterCategory === 'ALL' || classCategoryForSession(session) === filterCategory) &&
+      (filterSubject === 'ALL' || subjectCodeForSession(session) === filterSubject) &&
+      (filterGrade === 'ALL' || cls?.grade === filterGrade) &&
+      (filterLevel === 'ALL' || cls?.level === filterLevel || session.levelText === levels.find(level => level.code === filterLevel)?.name);
+  };
+
   // Lọc Tab 1
   const diaryFilteredSessions = dateFilteredSessions.filter(s => {
+    if (!matchesCatalogFilters(s)) return false;
     if (colFilterCode && !s.sessionCode.toLowerCase().includes(colFilterCode.toLowerCase())) return false;
     if (colFilterClass && !(s.className.toLowerCase().includes(colFilterClass.toLowerCase()) || s.classCode.toLowerCase().includes(colFilterClass.toLowerCase()))) return false;
     if (colFilterTeacher) {
@@ -730,6 +953,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Lọc Tab 2
   const incidentFilteredSessions = dateFilteredSessions.filter(s => {
+    if (!matchesCatalogFilters(s)) return false;
     if (!s.hasIncident && s.status !== 'CO_SU_CO') return false;
     if (incColFilterCode && !s.sessionCode.toLowerCase().includes(incColFilterCode.toLowerCase())) return false;
     if (incColFilterClass && !(s.className.toLowerCase().includes(incColFilterClass.toLowerCase()) || s.classCode.toLowerCase().includes(incColFilterClass.toLowerCase()))) return false;
@@ -803,7 +1027,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
     if (session.coverTeacher) {
       setIncHasCover(true);
-      setIncCoverTeacher(session.coverTeacher);
+      setIncCoverTeacher(teachers.find(teacher => teacher.name === session.coverTeacher)?.id || '');
     } else {
       setIncHasCover(false);
       setIncCoverTeacher('');
@@ -828,10 +1052,45 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });
+    const resolvedIncidentStatus = incStatus === 'HUY_CA' ? 'DA_GIAI_QUYET' : incStatus;
+    const coverTeacher = teachers.find(teacher => teacher.id === incCoverTeacher);
+    const coverCandidates = coverCandidatesForSession(selectedIncidentSession);
+    const targetClass = classes.find(cls => cls.code === selectedIncidentSession.classCode);
+    const weekday = (new Date(`${selectedIncidentSession.sessionDate}T00:00:00`).getDay() + 6) % 7;
+    const targetSchedule = targetClass ? Array.from(
+      targetClass.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
+      match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, time: (match[2] || match[4] || '').trim() })
+    ).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).slice(0, 2) : [];
+    const sessionNum = targetSchedule.findIndex(entry =>
+      entry.dayIndex === weekday && entry.time === selectedIncidentSession.timeSlot
+    ) + 1;
 
     if (selectedIncidentSession.status !== 'DA_HOC' && incParent === 'GRP-TCH' && incHasCover && !incCoverTeacher) {
-      showToast('Vui lòng chọn giáo viên dạy thay từ danh sách cùng môn!', 'error');
+      showToast('Vui lòng chọn giáo viên dạy thay đang rảnh đúng ngày và khung giờ của ca này.', 'error');
       return;
+    }
+    if (selectedIncidentSession.status !== 'DA_HOC' && incParent === 'GRP-TCH' && incHasCover &&
+      (!targetClass || sessionNum < 1 || !coverTeacher || !coverCandidates.some(candidate => candidate.id === coverTeacher.id))) {
+      showToast('Không thể gán cover: giáo viên không còn rảnh đúng ca này hoặc ca chưa được nối với lịch lớp.', 'error');
+      return;
+    }
+
+    if (targetClass && sessionNum > 0 && selectedIncidentSession.status !== 'DA_HOC') {
+      setClasses(previous => previous.map(cls => {
+        if (cls.id !== targetClass.id) return cls;
+        const coverAssignments = (cls.coverAssignments || []).filter(assignment =>
+          assignment.sessionNum !== sessionNum || assignment.dateStr !== selectedIncidentSession.sessionDate
+        );
+        if (incParent === 'GRP-TCH' && incHasCover && coverTeacher) {
+          coverAssignments.push({
+            sessionNum,
+            dateStr: selectedIncidentSession.sessionDate,
+            teacherId: coverTeacher.id,
+            teacherName: coverTeacher.name
+          });
+        }
+        return { ...cls, coverAssignments };
+      }));
     }
 
     setSessions(prev => {
@@ -843,15 +1102,16 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           if (s.status !== 'DA_HOC') {
             if (incParent === 'GRP-TCH') {
               if (incHasCover && incCoverTeacher) {
-                nextCover = incCoverTeacher;
+                nextCover = coverTeacher?.name || null;
                 nextStatus = 'DAY_THAY';
               } else {
                 nextCover = null;
-                if (incStatus === 'HUY_CA') nextStatus = 'NGHI_HOC';
+                nextStatus = incStatus === 'HUY_CA' ? 'NGHI_HOC' : s.status === 'DAY_THAY' ? 'CHUA_HOC' : s.status;
               }
             } else {
               nextCover = null;
               if (incStatus === 'HUY_CA' || incChild === 'INC-STU-01') nextStatus = 'NGHI_HOC';
+              else if (s.status === 'DAY_THAY') nextStatus = 'CHUA_HOC';
             }
           }
 
@@ -861,7 +1121,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             incidentParent: incParent,
             incidentChild: incChild,
             incidentUrgency: incUrgency,
-            incidentStatus: incStatus,
+            incidentStatus: resolvedIncidentStatus,
             incidentNote: incNote,
             coverTeacher: nextCover,
             status: nextStatus,
@@ -979,107 +1239,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     );
   };
 
-  // Nhãn thời gian hiển thị
-  const getDateLabel = () => {
-    if (dateFrom && dateTo) {
-      if (dateFrom === dateTo) {
-        if (dateFrom === '2026-10-06') return 'Thứ Ba, 06/10/2026 (Hôm nay)';
-        if (dateFrom === '2026-10-05') return 'Thứ Hai, 05/10/2026 (Hôm qua)';
-        return `Ngày ${dateFrom}`;
-      }
-      return `${dateFrom.slice(8, 10)}/${dateFrom.slice(5, 7)} - ${dateTo.slice(8, 10)}/${dateTo.slice(5, 7)}`;
-    }
-    if (selectedMonth && selectedMonth !== 'ALL') {
-      return `Tháng ${selectedMonth}`;
-    }
-    return 'Toàn bộ thời gian';
-  };
-
   // Danh sách các ca học bị quá giờ chưa vào
   const overdueSessionsList = diaryFilteredSessions.filter(isShiftOverdueAndMissing);
 
   return (
     <div className="space-y-5 text-slate-700">
-      {/* ================= THANH ĐIỀU HÀNH & BỘ LỌC TRÊN NÓC (TINH GIẢN, NÚT LỌC SỔ HÀNG NGANG) ================= */}
-      <div className="bg-white p-2.5 px-3.5 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Đồng hồ hệ thống trực ban */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-mono text-slate-700">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{systemClock}</span>
-          </div>
-
-          {/* Nút mở Bộ lọc sổ sang từ cột bên phải */}
-          <button
-            type="button"
-            onClick={() => setIsTimeFilterOpen(true)}
-            className="px-3 py-1.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-[#FF5C00] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-            title="Mở bảng lọc thời gian & ca trực"
-          >
-            <Filter className="w-3.5 h-3.5 text-[#FF5C00]" />
-            <span>Lọc: <strong>{getDateLabel()}</strong></span>
-            <span className="px-1.5 py-0.2 rounded-md bg-white text-[#FF5C00] text-[10px] font-bold border border-orange-200">
-              {dateFilteredSessions.length} ca
-            </span>
-          </button>
-        </div>
-
-        {/* Tài khoản Vận hành siêu nhỏ gọn (Ấn vào mới sổ ra) */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 hover:border-slate-300 transition-colors cursor-pointer"
-            title="Đổi phiên trực ban Vận hành"
-          >
-            <span className="w-5 h-5 rounded-full bg-orange-100 text-[#FF5C00] font-bold text-[10px] flex items-center justify-center">
-              {currentOps.avatar}
-            </span>
-            <span className="font-semibold text-slate-800 hidden sm:inline">{currentOps.name}</span>
-            <span className="text-[10px] text-slate-500 font-normal">({currentOps.role})</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
-
-          {isUserMenuOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-40 text-xs animate-in fade-in slide-in-from-top-1">
-              <div className="px-3 py-1.5 border-b border-slate-100 font-bold text-slate-400 text-[10px] uppercase">
-                Chuyển phiên trực ban:
-              </div>
-              {Object.values(OPS_ACCOUNTS).map(acc => {
-                const isSelected = acc.id === currentLoggedInOps;
-                return (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    onClick={() => {
-                      setCurrentLoggedInOps(acc.id);
-                      setIsUserMenuOpen(false);
-                      showToast(`Phiên trực ban: ${acc.name}`, 'info');
-                    }}
-                    className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors cursor-pointer ${
-                      isSelected ? 'bg-orange-50 text-[#FF5C00] font-bold' : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px] flex items-center justify-center">
-                        {acc.avatar}
-                      </span>
-                      <div>
-                        <div className="font-semibold text-xs leading-tight">{acc.name}</div>
-                        <div className="text-[10px] text-slate-400">{acc.role}</div>
-                      </div>
-                    </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#FF5C00]" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* ================= 2 TAB NGANG CHUẨN ================= */}
-      <div className="flex items-center justify-between border-b border-slate-200">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200">
         <div className="flex items-center gap-2">
           {/* TAB 1: NHẬT KÝ & GIÁM SÁT BUỔI HỌC */}
           <button
@@ -1113,6 +1279,18 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             </span>
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsTimeFilterOpen(true)}
+          className="mb-1 shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-orange-300 hover:bg-orange-50 hover:text-[#FF5C00] flex items-center gap-1.5 cursor-pointer"
+          title="Mở bộ lọc nâng cao"
+        >
+          <Filter className="w-3.5 h-3.5 text-[#FF5C00]" />
+          <span className="hidden sm:inline">Bộ lọc</span>
+          <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-[#FF5C00]">
+            {dateFilteredSessions.length}
+          </span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
@@ -1279,22 +1457,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           {/* Giáo viên */}
                           <td className="py-3.5 px-3">
                             <div className="space-y-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase font-bold ${
-                                  isOverdue ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {isOverdue ? 'CHƯA VÀO' : 'CHÍNH'}
-                                </span>
-                                <span className={`font-semibold ${isOverdue ? 'text-rose-900 font-bold' : 'text-slate-800'}`}>
-                                  {s.primaryTeacher}
-                                </span>
-                              </div>
+                              <div className={`font-semibold ${isOverdue ? 'text-rose-900' : 'text-slate-800'}`}>{s.primaryTeacher}</div>
                               {s.coverTeacher && (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-bold bg-purple-600 text-white">
-                                    DẠY THAY
-                                  </span>
-                                  <span className="font-bold text-purple-700">{s.coverTeacher}</span>
+                                <div className="flex items-center gap-1.5 text-[11px]">
+                                  <span className="font-medium text-slate-500">Cover:</span>
+                                  <span className="font-semibold text-purple-700">{s.coverTeacher}</span>
                                   <button
                                     type="button"
                                     onClick={() => setCoverScheduleTeacherName(s.coverTeacher)}
@@ -1340,7 +1507,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                                 className="inline-flex items-center px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-semibold text-[11px] border border-rose-200"
                                 title="Đã đến giờ ca dạy nhưng Giáo viên chưa vào lớp"
                               >
-                                Chưa vào lớp (Quá giờ)
+                                Chưa vào lớp
                               </span>
                             ) : s.attendance === 'ATTENDED' ? (
                               <span
@@ -2040,7 +2207,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       {/* ================= MODAL 2: XỬ LÝ SỰ CỐ & ĐIỀU PHỐI COVER (TAB 2) ================= */}
       {selectedIncidentSession && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto text-xs">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto text-xs">
             {/* Header */}
             <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
               <div>
@@ -2049,7 +2216,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     {selectedIncidentSession.sessionCode}
                   </span>
                   <h3 className="font-bold text-base text-slate-800">
-                    Ghi nhận Sự cố &amp; Điều phối Dạy thay ca {selectedIncidentSession.sessionCode}
+                    Biên bản sự cố ca học
                   </h3>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
@@ -2066,49 +2233,39 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveIncidentSubmit} className="mt-4 space-y-4">
-              {/* Khối Vận hành trực phụ trách (Tự động gán) */}
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="block text-[10px] font-bold text-[#FF5C00] uppercase tracking-wider">
-                    Cán bộ Vận hành phụ trách xử lý (Tự động gán):
-                  </span>
-                  <div className="font-bold text-slate-800 text-xs">
-                    {currentOps.name} (Mã: {currentOps.id} &bull; {currentOps.role})
-                  </div>
+              <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-2 font-bold text-slate-800">Ca học cần xử lý</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-slate-600">
+                  <div>Lớp: <strong className="text-slate-800">{selectedIncidentSession.className} ({selectedIncidentSession.classCode})</strong></div>
+                  <div>Ngày: <strong className="text-slate-800">{new Date(`${selectedIncidentSession.sessionDate}T00:00:00`).toLocaleDateString('vi-VN')}</strong></div>
+                  <div>Giờ học: <strong className="text-slate-800">{selectedIncidentSession.timeSlot}</strong></div>
+                  <div>Giáo viên chính: <strong className="text-slate-800">{selectedIncidentSession.primaryTeacher}</strong></div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-emerald-700 border border-emerald-200">
-                  Phiên trực hợp lệ
-                </span>
-              </div>
-
-              {/* Cây phân loại sự cố (Đồng bộ Phân hệ 2) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="font-bold text-slate-800 flex items-center justify-between">
-                  <span>Phân loại Sự cố (Đồng bộ Cây Cha - Con từ Danh mục Dùng chung)</span>
-                  <span className="text-[10px] text-slate-500 font-semibold bg-white px-2 py-0.5 rounded border border-slate-200">
-                    NHOM_SU_CO &amp; LOAI_SU_CO
-                  </span>
+                <div className="mt-3 border-t border-slate-200 pt-2 text-[11px] text-slate-600">
+                  Người ghi nhận: <strong className="text-slate-800">{currentOps.name}</strong> ({currentOps.id})
                 </div>
+              </section>
 
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                <div className="font-bold text-slate-800">1. Phân loại sự cố</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
-                      Đối tượng phát sinh sự cố <span className="text-rose-500">*</span>
+                      Sự cố liên quan đến <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={incParent}
-                      onChange={e => handleIncParentChange(e.target.value as any)}
+                      onChange={e => handleIncParentChange(e.target.value as 'GRP-TCH' | 'GRP-STU' | 'GRP-SYS')}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
-                      <option value="GRP-TCH">Đối tượng: Giáo viên</option>
-                      <option value="GRP-STU">Đối tượng: Học sinh</option>
-                      <option value="GRP-SYS">Đối tượng: Kỹ thuật / Hệ thống LMS</option>
+                      <option value="GRP-TCH">Giáo viên</option>
+                      <option value="GRP-STU">Học sinh</option>
+                      <option value="GRP-SYS">Kỹ thuật / Hệ thống</option>
                     </select>
                   </div>
-
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
-                      Loại sự cố chi tiết <span className="text-rose-500">*</span>
+                      Loại sự cố <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={incChild}
@@ -2116,56 +2273,62 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
                       {(INCIDENT_MASTER_DATA[incParent] || []).map(item => (
-                        <option key={item.code} value={item.code}>
-                          {item.name}
-                        </option>
+                        <option key={item.code} value={item.code}>{item.name}</option>
                       ))}
                     </select>
                   </div>
                 </div>
+              </section>
 
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                <div className="font-bold text-slate-800">2. Tình trạng và diễn biến xử lý</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
-                      Tính chất thông báo <span className="text-rose-500">*</span>
+                      Thời điểm thông báo <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={incUrgency}
-                      onChange={e => setIncUrgency(e.target.value as any)}
+                      onChange={e => setIncUrgency(e.target.value as 'EMERGENCY' | 'ADVANCED')}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
-                      <option value="EMERGENCY">Chưa báo trước (Đột xuất sát giờ &lt; 2h)</option>
-                      <option value="ADVANCED">Có báo trước (&gt; 2h, có phép)</option>
+                      <option value="EMERGENCY">Đột xuất, báo trước dưới 2 giờ</option>
+                      <option value="ADVANCED">Có báo trước từ 2 giờ</option>
                     </select>
                   </div>
-
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
-                      Trạng thái giải quyết sự cố <span className="text-rose-500">*</span>
+                      Kết quả xử lý <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={incStatus}
-                      onChange={e => setIncStatus(e.target.value as any)}
+                      onChange={e => {
+                        const nextStatus = e.target.value as 'DA_GIAI_QUYET' | 'DANG_XU_LY' | 'HUY_CA';
+                        setIncStatus(nextStatus);
+                        if (nextStatus === 'HUY_CA') {
+                          setIncHasCover(false);
+                          setIncCoverTeacher('');
+                        }
+                      }}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
-                      <option value="DA_GIAI_QUYET">Đã giải quyết xong</option>
                       <option value="DANG_XU_LY">Đang xử lý / Chờ đối soát</option>
-                      <option value="HUY_CA">Hủy ca do sự cố</option>
+                      <option value="DA_GIAI_QUYET">Đã giải quyết</option>
+                      <option value="HUY_CA">Hủy ca do sự cố (đã giải quyết)</option>
                     </select>
                   </div>
                 </div>
-
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Biên bản xử lý &amp; Diễn biến trực ban:</label>
-                  <input
-                    type="text"
+                  <label className="block font-bold text-slate-700 mb-1">Nội dung ghi nhận</label>
+                  <textarea
+                    rows={3}
                     value={incNote}
                     onChange={e => setIncNote(e.target.value)}
-                    placeholder="Nhập tóm tắt diễn biến liên hệ giáo viên, phụ huynh..."
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:border-[#FF5C00]"
+                    placeholder="Ghi ngắn gọn diễn biến, người đã liên hệ và hướng xử lý tiếp theo..."
+                    className="w-full resize-y px-3 py-2 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                   />
                 </div>
-              </div>
+              </section>
 
               {/* Khối Điều phối Cover (Dạy thay) - chỉ dành cho Giáo viên */}
               {incParent === 'GRP-TCH' ? (
@@ -2175,20 +2338,26 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-2xl space-y-2.5">
+                    <div className="font-bold text-purple-900">3. Giáo viên dạy thay</div>
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={incHasCover}
                         onChange={e => setIncHasCover(e.target.checked)}
+                        disabled={incStatus === 'HUY_CA'}
                         className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 accent-purple-600"
                       />
-                      <span className="font-bold text-purple-900 text-xs">Chỉ định Giáo viên Dạy thay (Cover) cho ca này</span>
+                      <span className={`font-bold text-xs ${incStatus === 'HUY_CA' ? 'text-slate-500' : 'text-purple-900'}`}>Chỉ định Giáo viên Dạy thay (Cover) cho ca này</span>
                     </label>
 
-                    {incHasCover && (
+                    {incStatus === 'HUY_CA' ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-800">
+                        Ca đã chọn hủy nên không thể phân công giáo viên cover.
+                      </div>
+                    ) : incHasCover && (
                       <div className="space-y-1.5 pt-1">
                         <label className="block font-bold text-purple-900 text-[11px]">
-                          Chọn Giáo viên Cover (Hệ thống tự lọc GV cùng môn &amp; trống lịch):
+                          Chọn giáo viên cùng môn đã đăng ký rảnh đúng ngày và khung giờ:
                         </label>
                         <select
                           value={incCoverTeacher}
@@ -2196,15 +2365,21 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-purple-600"
                         >
                           <option value="">-- Chọn Giáo viên dạy thay --</option>
-                          {TEACHERS_COVER_DATABASE.filter(t => t.subject === selectedIncidentSession.subject && t.name !== selectedIncidentSession.primaryTeacher).map(t => (
-                            <option key={t.id} value={t.name}>
-                              {t.name} - Mã {t.id} - Môn {t.subject === 'TOAN' ? 'Toán' : 'Tiếng Anh'} - {t.status}
+                          {coverCandidatesForSession(selectedIncidentSession).map(teacher => (
+                            <option key={teacher.id} value={teacher.id}>
+                              {teacher.name} - Mã {teacher.id}
                             </option>
                           ))}
                         </select>
-                        <div className="text-[10px] text-purple-700">
-                          Sau khi lưu, buổi học sẽ được <strong>tự động nạp vào Lịch cá nhân</strong> của Giáo viên Cover này.
-                        </div>
+                        {coverCandidatesForSession(selectedIncidentSession).length === 0 ? (
+                          <div className="text-[10px] text-rose-700">
+                            Chưa có giáo viên đủ điều kiện. Giáo viên cần đăng ký rảnh đúng ca và không bị trùng lịch.
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-purple-700">
+                            Chỉ ca ngày {new Date(`${selectedIncidentSession.sessionDate}T00:00:00`).toLocaleDateString('vi-VN')} được thêm vào lịch cover; link phòng và học liệu lấy từ lớp này.
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2378,57 +2553,87 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       <FilterDrawer
         isOpen={isTimeFilterOpen}
         onClose={() => setIsTimeFilterOpen(false)}
-        title="Bộ lọc Giám sát & Vận hành"
-        subtitle="Chọn mốc thời gian, tháng, ngày bắt đầu - kết thúc, tuần và ca trực ban"
-        activeCount={dateFrom || dateTo || selectedMonth !== '2026-10' ? 2 : 1}
+        title="Bộ lọc giám sát ca"
+        subtitle="Chọn nhanh tuần, ngày cụ thể và tiêu chí lớp học"
+        activeCount={[
+          Boolean(specificDate),
+          Boolean(filterCategory !== 'ALL'),
+          Boolean(filterSubject !== 'ALL'),
+          Boolean(filterGrade !== 'ALL'),
+          Boolean(filterLevel !== 'ALL'),
+          Boolean(colFilterTime !== 'ALL')
+        ].filter(Boolean).length}
         onReset={() => {
-          setDateFrom('2026-10-06');
-          setDateTo('2026-10-06');
-          setSelectedMonth('2026-10');
-          setSelectedWeek('W1');
+          setSpecificDate('');
+          applyWeekFilter(0);
           setColFilterTime('ALL');
-          showToast('Đã đặt lại về ngày Hôm nay (06/10/2026)!', 'info');
+          setFilterCategory('ALL');
+          setFilterSubject('ALL');
+          setFilterGrade('ALL');
+          setFilterLevel('ALL');
         }}
-        onApply={() => {
-          showToast(`Đã áp dụng lọc: ${getDateLabel()}`, 'success');
-        }}
+        onApply={() => setIsTimeFilterOpen(false)}
       >
-        <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Mốc thời gian ca dạy & vận hành:"
-            month={selectedMonth}
-            onMonthChange={setSelectedMonth}
-            startDate={dateFrom}
-            onStartDateChange={setDateFrom}
-            endDate={dateTo}
-            onEndDateChange={setDateTo}
-            selectedWeek={selectedWeek}
-            onWeekChange={setSelectedWeek}
-            accentColor="orange"
-          />
-
-          <div className="space-y-1.5">
-            <label className="block font-bold text-slate-700">Khung giờ ca dạy:</label>
-            <select
-              value={colFilterTime}
-              onChange={e => setColFilterTime(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#FF5C00]"
-            >
-              <option value="ALL">Tất cả khung giờ trong ngày</option>
-              <option value="12:50 - 13:50">Ca Trưa: 12:50 - 13:50</option>
-              <option value="18:00 - 19:30">Ca 1: 18:00 - 19:30</option>
-              <option value="19:45 - 21:15">Ca 2: 19:45 - 21:15</option>
-            </select>
-          </div>
-
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-[11px] space-y-1">
-            <div className="font-bold flex items-center gap-1">
-              <span>⚡ Mẹo vận hành:</span>
+        <div className="space-y-5 text-xs">
+          <section className="space-y-3">
+            <div className="font-semibold text-slate-800">Thời gian</div>
+            <div className="grid grid-cols-3 gap-2">
+              {[-1, 0, 1].map(offset => <button key={offset} type="button" onClick={() => applyWeekFilter(offset)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 font-semibold text-slate-700 hover:border-orange-300 hover:bg-orange-50 hover:text-[#FF5C00]">
+                {offset === -1 ? 'Tuần trước' : offset === 0 ? 'Tuần này' : 'Tuần sau'}
+              </button>)}
             </div>
-            <div>
-              Ngoài bộ lọc thời gian tổng quát, bạn có thể lọc trực tiếp tại từng cột bảng (Mã buổi, Lớp học, Giáo viên, Khung giờ, Chuyên cần, Trạng thái).
+            <label className="block font-medium text-slate-600">Tháng
+              <select value={selectedMonth} onChange={event => applyMonthFilter(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+                <option value="ALL">Tất cả tháng</option>
+                {Array.from(new Set(sessions.map(session => session.sessionDate.slice(0, 7)))).sort().map(month => <option key={month} value={month}>{month.slice(5, 7)}/{month.slice(0, 4)}</option>)}
+              </select>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="font-medium text-slate-600">Từ ngày
+                <input type="date" value={dateFrom} onChange={event => { setDateFrom(event.target.value); setSpecificDate(''); }} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-slate-800" />
+              </label>
+              <label className="font-medium text-slate-600">Đến ngày
+                <input type="date" value={dateTo} onChange={event => { setDateTo(event.target.value); setSpecificDate(''); }} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-slate-800" />
+              </label>
             </div>
-          </div>
+            <label className="block font-medium text-slate-600">Hoặc chọn một ngày trong tuần
+              <input type="date" value={specificDate} min={dateFrom || undefined} max={dateTo || undefined} onChange={event => setSpecificDate(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-800" />
+            </label>
+          </section>
+
+          <section className="space-y-3 border-t border-slate-100 pt-4">
+            <div className="font-semibold text-slate-800">Thông tin lớp</div>
+            <label className="block font-medium text-slate-600">Loại lớp
+              <select value={filterCategory} onChange={event => setFilterCategory(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+                <option value="ALL">Tất cả loại lớp</option>
+                {teachingCategories.filter(category => category.status !== false).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </select>
+            </label>
+            <label className="block font-medium text-slate-600">Môn học
+              <select value={filterSubject} onChange={event => setFilterSubject(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+                <option value="ALL">Tất cả môn học</option>
+                {subjects.filter(subject => subject.status !== false).map(subject => <option key={subject.code} value={subject.code}>{subject.name}</option>)}
+              </select>
+            </label>
+            <label className="block font-medium text-slate-600">Khối / lớp
+              <select value={filterGrade} onChange={event => setFilterGrade(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+                <option value="ALL">Tất cả khối / lớp</option>
+                {Array.from(new Map(teachingCategories.flatMap(category => category.options.map(option => [option.id, option.label] as const))).entries()).map(([gradeId, gradeLabel]) => <option key={gradeId} value={gradeId}>{gradeLabel}</option>)}
+              </select>
+            </label>
+            <label className="block font-medium text-slate-600">Trình độ
+              <select value={filterLevel} onChange={event => setFilterLevel(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+                <option value="ALL">Tất cả trình độ</option>
+                {levels.filter(level => level.status !== false).map(level => <option key={level.code} value={level.code}>{level.name}</option>)}
+              </select>
+            </label>
+            <label className="block font-medium text-slate-600">Khung giờ
+              <select value={colFilterTime} onChange={event => setColFilterTime(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+                <option value="ALL">Tất cả khung giờ</option>
+                {Array.from(new Set(sessions.map(session => session.timeSlot))).map(slot => <option key={slot} value={slot}>{slot}</option>)}
+              </select>
+            </label>
+          </section>
         </div>
       </FilterDrawer>
 
