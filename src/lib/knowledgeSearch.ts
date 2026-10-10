@@ -10,6 +10,7 @@ export const findKnowledgeDocument = (query: string, documents: SOPDocument[]) =
   if (!terms.length) return undefined;
 
   return documents
+    .filter(document => document.isEnabled !== false)
     .map(document => {
       const searchableText = normalize(`${document.title} ${document.category} ${document.summary} ${document.content}`);
       return {

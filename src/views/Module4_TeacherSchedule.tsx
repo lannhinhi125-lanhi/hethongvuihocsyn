@@ -32,6 +32,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   // Bot chat tra cứu tài liệu tri thức; câu trả lời hiện là mô phỏng trước khi kết nối Gemini.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
+  const [isCloseChatConfirmOpen, setIsCloseChatConfirmOpen] = useState(false);
   const [botMessages, setBotMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
     {
       sender: 'bot',
@@ -54,10 +55,16 @@ export const Module4_TeacherSchedule: React.FC = () => {
     showToast('Đã xóa toàn bộ dữ liệu đoạn chat!', 'info');
   };
 
+  const handleConfirmCloseChat = () => {
+    setIsKnowledgeBotOpen(false);
+    setIsCloseChatConfirmOpen(false);
+    handleClearChat();
+  };
+
   // Trạng thái buổi học: CHUA_DIEN_RA (chưa diễn ra), DANG_HOC (đang học), DA_HOAN_THANH (đã hoàn thành)
   const [classLiveStatus, setClassLiveStatus] = useState<'CHUA_DIEN_RA' | 'DANG_HOC' | 'DA_HOAN_THANH'>('CHUA_DIEN_RA');
 
-  const quickQuestions = ragBotConfig.quickPrompts;
+  const quickQuestions = ragBotConfig.quickPrompts.filter(prompt => prompt.trim());
 
   const handleSendQuestion = (questionText?: string) => {
     const q = (questionText || chatInput).trim();
@@ -1195,12 +1202,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsKnowledgeBotOpen(false);
-                    handleClearChat();
-                  }}
+                  onClick={() => setIsCloseChatConfirmOpen(true)}
                   className="w-7 h-7 rounded-lg bg-white/15 hover:bg-white/30 flex items-center justify-center text-white cursor-pointer font-bold text-xs transition-colors"
-                  title="Đóng và xóa dữ liệu"
+                  title="Thoát cuộc trò chuyện"
+                  aria-label="Thoát cuộc trò chuyện"
                 >
                   ✕
                 </button>
@@ -1275,6 +1280,47 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 Gửi
               </button>
             </form>
+          </div>
+        )}
+
+        {isCloseChatConfirmOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="close-chat-title"
+              className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 id="close-chat-title" className="text-sm font-bold text-slate-800">
+                    Thoát cuộc trò chuyện?
+                  </h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                    Nếu thoát, nội dung cuộc trò chuyện hiện tại sẽ bị xóa và không thể khôi phục.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCloseChatConfirmOpen(false)}
+                  className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Ở lại
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCloseChat}
+                  className="rounded-lg bg-[#FF5C00] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#E05200]"
+                >
+                  Thoát và xóa
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

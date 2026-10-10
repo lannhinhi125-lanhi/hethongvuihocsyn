@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { CriteriaCategory, SOPDocument, RAGBotConfig } from '../types';
 import { findKnowledgeDocument } from '../lib/knowledgeSearch';
+import { extractDocumentText } from '../lib/documentExtraction';
 import {
   Sparkles,
   TreePine,
@@ -17,7 +18,13 @@ import {
   RotateCcw,
   CheckCircle,
   Brain,
-  Cpu
+  Cpu,
+  Search,
+  FileText,
+  Eye,
+  Upload,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 
 export const Module6_AIStudio: React.FC = () => {
@@ -38,6 +45,7 @@ export const Module6_AIStudio: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'criteria' | 'knowledge' | 'rag-config'>('criteria');
   const activeSubjects = subjects.filter(subject => subject.status);
+  const enabledKnowledgeDocuments = sopDocuments.filter(document => document.isEnabled !== false);
   const [currentSubject, setCurrentSubject] = useState('TOAN');
   const [criterionSubjectKeys, setCriterionSubjectKeys] = useState<string[]>(['TOAN']);
 
@@ -69,6 +77,12 @@ export const Module6_AIStudio: React.FC = () => {
   const [docCategory, setDocCategory] = useState('Sự cố & Báo nghỉ');
   const [docSummary, setDocSummary] = useState('');
   const [docContent, setDocContent] = useState('');
+  const [docSourceFileName, setDocSourceFileName] = useState('');
+  const [docSourceFileType, setDocSourceFileType] = useState<'PDF' | 'DOCX' | undefined>();
+  const [isExtractingDocument, setIsExtractingDocument] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState<SOPDocument | null>(null);
+  const [documentSearch, setDocumentSearch] = useState('');
+  const [documentCategoryFilter, setDocumentCategoryFilter] = useState('ALL');
 
   // Sandbox chat state
   const [sandboxMessages, setSandboxMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string; matchedDoc?: string }>>([
@@ -81,6 +95,11 @@ export const Module6_AIStudio: React.FC = () => {
 
   // Filtered categories
   const filteredCategories = criteriaCategories.filter(c => c.subject === currentSubject);
+  const filteredDocuments = sopDocuments.filter(document => {
+    const query = documentSearch.trim().toLocaleLowerCase('vi');
+    const matchesSearch = !query || `${document.title} ${document.sourceFileName || ''} ${document.summary}`.toLocaleLowerCase('vi').includes(query);
+    return matchesSearch && (documentCategoryFilter === 'ALL' || document.category === documentCategoryFilter);
+  });
 
   // Handlers for Category
   const openAddCategory = () => {
@@ -254,11 +273,46 @@ export const Module6_AIStudio: React.FC = () => {
     setDocCategory(doc.category);
     setDocSummary(doc.summary);
     setDocContent(doc.content);
+    setDocSourceFileName(doc.sourceFileName || '');
+    setDocSourceFileType(doc.sourceFileType);
+    setIsExtractingDocument(false);
     setIsDocModalOpen(true);
+  };
+
+  const handleDocumentFileSelect = async (file?: File) => {
+    if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (extension !== 'pdf' && extension !== 'docx') {
+      showToast('Chỉ hỗ trợ tải tài liệu PDF hoặc DOCX.', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Tệp vượt quá giới hạn 10 MB. Vui lòng chọn tệp nhỏ hơn.', 'error');
+      return;
+    }
+
+    setIsExtractingDocument(true);
+    try {
+      const content = await extractDocumentText(file);
+      setDocContent(content);
+      setDocTitle(previous => previous.trim() ? previous : file.name.replace(/\.(pdf|docx)$/i, ''));
+      setDocSourceFileName(file.name);
+      setDocSourceFileType(extension === 'pdf' ? 'PDF' : 'DOCX');
+      setDocSummary(previous => previous.trim() ? previous : content.replace(/\s+/g, ' ').slice(0, 180));
+      showToast('Đã đọc nội dung tài liệu. Kiểm tra thông tin rồi lưu để đưa vào phạm vi tra cứu bot.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Không thể đọc tài liệu đã chọn.', 'error');
+    } finally {
+      setIsExtractingDocument(false);
+    }
   };
 
   const handleSaveDocument = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isExtractingDocument) {
+      showToast('Vui lòng đợi đọc xong tệp trước khi lưu.', 'warning');
+      return;
+    }
     if (!docTitle.trim() || !docContent.trim()) return;
 
     if (editingDocId) {
@@ -271,25 +325,41 @@ export const Module6_AIStudio: React.FC = () => {
                 category: docCategory,
                 summary: docSummary.trim() || 'Quy chuẩn vận hành đã cập nhật',
                 content: docContent.trim(),
+                sourceFileName: docSourceFileName || d.sourceFileName,
+                sourceFileType: docSourceFileType || d.sourceFileType,
                 updatedAt: new Date().toLocaleDateString('vi-VN')
               }
             : d
         )
       );
-      showToast('Đã lưu nội dung & cập nhật Vector Index cho tài liệu!', 'success');
+      showToast('Đã cập nhật tài liệu trong phạm vi tra cứu bot.', 'success');
     } else {
       const newDoc: SOPDocument = {
-        id: `DOC-0${sopDocuments.length + 1}`,
+        id: `DOC-${Date.now()}`,
         title: docTitle.trim(),
         category: docCategory,
         summary: docSummary.trim() || 'Quy chuẩn vận hành mới',
         content: docContent.trim(),
+        sourceFileName: docSourceFileName,
+        sourceFileType: docSourceFileType,
+        isEnabled: true,
         updatedAt: new Date().toLocaleDateString('vi-VN')
       };
       setSopDocuments(prev => [...prev, newDoc]);
-      showToast('Đã thêm văn bản SOP mới vào kho tri thức!', 'success');
+      showToast('Đã thêm tài liệu vào phạm vi tra cứu bot.', 'success');
     }
     setIsDocModalOpen(false);
+  };
+
+  const toggleDocumentScope = (document: SOPDocument) => {
+    const isEnabled = document.isEnabled !== false;
+    setSopDocuments(previous => previous.map(item =>
+      item.id === document.id ? { ...item, isEnabled: !isEnabled } : item
+    ));
+    showToast(
+      isEnabled ? 'Đã loại tài liệu khỏi phạm vi tra cứu bot.' : 'Đã thêm tài liệu vào phạm vi tra cứu bot.',
+      'info'
+    );
   };
 
   // Sandbox chat
@@ -313,19 +383,8 @@ export const Module6_AIStudio: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-[#FF5C00] font-bold text-xs uppercase tracking-wide">
-              TRUNG TÂM CẤU HÌNH AI
-            </span>
-            <h2 className="text-xl font-bold text-slate-800">Quản trị Trí tuệ Nhân tạo (AI Studio)</h2>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Quản lý tiêu chí nhận xét dùng chung với giáo viên, kho tài liệu tri thức và cấu hình Bot chat AI.
-          </p>
-        </div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <h1 className="text-lg font-bold text-slate-800">Trợ lý AI</h1>
 
         {/* 3 Tabs */}
         <div className="flex items-center bg-slate-100 p-1 rounded-xl overflow-x-auto border border-slate-200/80 self-start lg:self-auto text-xs">
@@ -359,22 +418,8 @@ export const Module6_AIStudio: React.FC = () => {
         </div>
       </div>
 
-      {/* ================= TAB 1: TIÊU CHÍ NHẬN XÉT & CHỈ ĐẠO AI ================= */}
       {activeTab === 'criteria' && (
         <div className="space-y-6">
-          {/* Banner giải thích cơ chế */}
-          <div className="bg-gradient-to-r from-orange-50/80 via-blue-50/60 to-purple-50/60 border border-orange-200/80 rounded-xl p-4 flex items-start gap-3.5 text-xs text-slate-700">
-            <div className="w-8 h-8 rounded-lg bg-[#FF5C00] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div className="space-y-1">
-              <div className="font-bold text-slate-800">Cơ chế Sinh nhận xét Tự động (Autonomous Prose Generation):</div>
-              <p className="leading-relaxed">
-                Tiêu chí và đáp án tại đây được dùng trực tiếp trong màn hình giáo viên. Khi kết nối Gemini, các lựa chọn của giáo viên cùng chỉ đạo giọng văn sẽ là dữ liệu đầu vào để AI viết nhận xét.
-              </p>
-            </div>
-          </div>
-
           {/* Bộ lọc môn & Buttons */}
           <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
@@ -619,11 +664,11 @@ export const Module6_AIStudio: React.FC = () => {
 
       {/* ================= TAB 2: TÀI LIỆU TRI THỨC SOP ================= */}
       {activeTab === 'knowledge' && (
-        <div className="space-y-6">
-          <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-bold text-sm text-slate-800">Kho tài liệu tri thức</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Quản lý tài liệu dùng làm nguồn tham khảo cho Bot chat AI của giáo viên.</p>
+              <h3 className="font-bold text-sm text-slate-800">Thư viện tài liệu tri thức</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Tải PDF/DOCX để làm nguồn tham khảo cho Bot chat AI.</p>
             </div>
             <button
               onClick={() => {
@@ -632,49 +677,96 @@ export const Module6_AIStudio: React.FC = () => {
                 setDocCategory('Sự cố & Báo nghỉ');
                 setDocSummary('');
                 setDocContent('');
+                setDocSourceFileName('');
+                setDocSourceFileType(undefined);
+                setIsExtractingDocument(false);
                 setIsDocModalOpen(true);
               }}
-              className="px-4 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="px-3.5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
-              <PlusCircle className="w-4 h-4" />
+              <Upload className="w-4 h-4" />
               <span>Thêm tài liệu</span>
             </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
+          <div className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-white p-3 sm:flex-row">
+            <label className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={documentSearch}
+                onChange={event => setDocumentSearch(event.target.value)}
+                placeholder="Tìm tên hoặc tóm tắt tài liệu..."
+                className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs outline-none focus:border-orange-300"
+              />
+            </label>
+            <select
+              value={documentCategoryFilter}
+              onChange={event => setDocumentCategoryFilter(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
+            >
+              <option value="ALL">Tất cả phân loại</option>
+              {[...new Set(sopDocuments.map(document => document.category))].map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Tên quy chế / Hướng dẫn SOP</th>
+                    <th className="py-3 px-4">Tài liệu</th>
                     <th className="py-3 px-4">Phân loại</th>
-                    <th className="py-3 px-4">Nội dung tóm tắt</th>
-                    <th className="py-3 px-4">Cập nhật</th>
-                    <th className="py-3 px-4">Trạng thái AI</th>
+                    <th className="py-3 px-4">Tóm tắt</th>
+                    <th className="py-3 px-4">Phạm vi Bot</th>
                     <th className="py-3 px-4 text-center">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {sopDocuments.map(doc => (
+                  {filteredDocuments.map(doc => (
                     <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 font-bold text-slate-800">{doc.title}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-start gap-2">
+                          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#FF5C00]" />
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-800">{doc.title}</div>
+                            <div className="mt-0.5 text-[10px] text-slate-400">
+                              {doc.sourceFileName || 'Tài liệu mẫu'}{doc.sourceFileType ? ` · ${doc.sourceFileType}` : ''}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
                       <td className="py-3 px-4">
                         <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-semibold">{doc.category}</span>
                       </td>
                       <td className="py-3 px-4 text-slate-600 max-w-xs truncate">{doc.summary}</td>
-                      <td className="py-3 px-4 text-slate-500">{doc.updatedAt}</td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px]">
-                          <CheckCircle className="w-3.5 h-3.5" /> Đã Index
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleDocumentScope(doc)}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${doc.isEnabled === false ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}
+                          title={doc.isEnabled === false ? 'Bấm để đưa tài liệu vào phạm vi bot' : 'Bấm để loại tài liệu khỏi phạm vi bot'}
+                        >
+                          {doc.isEnabled === false ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
+                          {doc.isEnabled === false ? 'Đang tắt' : 'Đang dùng'}
+                        </button>
                       </td>
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            type="button"
+                            onClick={() => setViewingDocument(doc)}
+                            className="rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                            title="Xem nội dung đã trích xuất"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => openEditDocument(doc)}
                             className="px-2.5 py-1 rounded bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs flex items-center gap-1"
                           >
-                            <Pencil className="w-3 h-3" /> Sửa nội dung
+                            <Pencil className="w-3 h-3" /> Sửa
                           </button>
                           <button
                             onClick={() => {
@@ -690,8 +782,18 @@ export const Module6_AIStudio: React.FC = () => {
                       </td>
                     </tr>
                   ))}
+                  {!filteredDocuments.length && (
+                    <tr>
+                      <td colSpan={5} className="py-10 text-center text-slate-500">
+                        {sopDocuments.length ? 'Không tìm thấy tài liệu phù hợp.' : 'Chưa có tài liệu. Tải PDF hoặc DOCX để thêm nguồn cho bot.'}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+            </div>
+            <div className="border-t border-slate-100 px-4 py-2 text-[10px] text-slate-400">
+              Tài liệu đang dùng được tra cứu trong bản demo bằng tìm kiếm từ khóa; bản gốc chưa tải lên máy chủ/CSDL và chưa tạo vector index.
             </div>
           </div>
         </div>
@@ -708,8 +810,34 @@ export const Module6_AIStudio: React.FC = () => {
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">AI Rules</span>
               </div>
 
+              <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-slate-800">Phạm vi trả lời: tài liệu tri thức đang bật</div>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                      Bot chỉ tra cứu nội dung tài liệu được bật ở tab Tài liệu tri thức. Nếu không tìm thấy căn cứ phù hợp, bot sẽ dùng câu trả lời bên dưới; không tự trả lời ngoài phạm vi này.
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-orange-700">
+                    {enabledKnowledgeDocuments.length} tài liệu
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('knowledge')}
+                  className="mt-2 text-[11px] font-bold text-[#E05200] hover:underline"
+                >
+                  Quản lý tài liệu tri thức
+                </button>
+                {!enabledKnowledgeDocuments.length && (
+                  <p className="mt-2 text-[11px] font-semibold text-rose-700">
+                    Chưa có tài liệu nào được bật. Bot sẽ chỉ hiển thị câu trả lời khi không tìm thấy căn cứ.
+                  </p>
+                )}
+              </div>
+
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">1. Câu chào mở đầu (Welcome Greeting):</label>
+                <label className="block font-semibold text-slate-700 mb-1">Câu chào mở đầu</label>
                 <textarea
                   rows={2}
                   value={ragBotConfig.welcomeGreeting}
@@ -719,7 +847,7 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">2. Giọng văn &amp; Cách xưng hô:</label>
+                <label className="block font-semibold text-slate-700 mb-1">Giọng văn &amp; cách xưng hô</label>
                 <input
                   type="text"
                   value={ragBotConfig.personaTone}
@@ -728,27 +856,61 @@ export const Module6_AIStudio: React.FC = () => {
                 />
               </div>
 
-              <div className="p-3 bg-orange-50/60 rounded-xl border border-orange-200 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-slate-800">3. Giới hạn Bot trong kho tài liệu tri thức</div>
-                  <div className="text-[11px] text-slate-500">Không trả lời như thể đã có căn cứ nếu tài liệu không đề cập</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={ragBotConfig.strictGroundingOnly}
-                  onChange={e => setRagBotConfig(prev => ({ ...prev, strictGroundingOnly: e.target.checked }))}
-                  className="accent-[#FF5C00] w-5 h-5 cursor-pointer"
-                />
-              </div>
-
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">4. Câu trả lời khi KHÔNG có trong tài liệu (Fallback Response):</label>
+                <label className="block font-semibold text-slate-700 mb-1">Câu trả lời khi không tìm thấy căn cứ trong tài liệu</label>
                 <textarea
                   rows={3}
                   value={ragBotConfig.fallbackResponse}
                   onChange={e => setRagBotConfig(prev => ({ ...prev, fallbackResponse: e.target.value }))}
                   className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed"
                 />
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="block font-semibold text-slate-700">Câu hỏi gợi ý trong khung chat</label>
+                  <button
+                    type="button"
+                    onClick={() => setRagBotConfig(previous => ({ ...previous, quickPrompts: [...previous.quickPrompts, ''] }))}
+                    className="inline-flex shrink-0 items-center gap-1 font-bold text-[#E05200] hover:underline"
+                  >
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    Thêm câu hỏi
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {ragBotConfig.quickPrompts.map((prompt, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={prompt}
+                        onChange={event => setRagBotConfig(previous => ({
+                          ...previous,
+                          quickPrompts: previous.quickPrompts.map((item, itemIndex) => itemIndex === index ? event.target.value : item)
+                        }))}
+                        placeholder="Ví dụ: Quy trình báo nghỉ ca dạy?"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setRagBotConfig(previous => ({
+                          ...previous,
+                          quickPrompts: previous.quickPrompts.filter((_, itemIndex) => itemIndex !== index)
+                        }))}
+                        className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                        aria-label={`Xóa câu hỏi gợi ý ${index + 1}`}
+                        title="Xóa câu hỏi gợi ý"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {!ragBotConfig.quickPrompts.length && (
+                    <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
+                      Chưa có câu hỏi gợi ý. Giáo viên vẫn có thể tự nhập câu hỏi.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-end pt-2">
@@ -817,7 +979,7 @@ export const Module6_AIStudio: React.FC = () => {
 
               {/* Quick prompts */}
               <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-1.5 text-[10px]">
-                {ragBotConfig.quickPrompts.map((p, idx) => (
+                {ragBotConfig.quickPrompts.filter(prompt => prompt.trim()).map((p, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
@@ -1040,7 +1202,7 @@ export const Module6_AIStudio: React.FC = () => {
             <form onSubmit={handleSaveDocument} className="mt-4 space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Tên tài liệu (.txt, .pdf)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Tên hiển thị</label>
                   <input
                     type="text"
                     required
@@ -1063,37 +1225,32 @@ export const Module6_AIStudio: React.FC = () => {
                 </div>
               </div>
 
-              {!editingDocId && (
-                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
-                  <label className="block font-semibold text-slate-700 mb-1">Tải tệp tri thức (.txt, .md)</label>
-                  <input
-                    type="file"
-                    accept=".txt,.md,text/plain,text/markdown"
-                    onChange={async event => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 1024 * 1024) {
-                        showToast('Tệp vượt quá 1 MB. Vui lòng chọn tệp nhỏ hơn.', 'error');
-                        event.target.value = '';
-                        return;
-                      }
-                      try {
-                        const content = await file.text();
-                        setDocTitle(file.name);
-                        setDocContent(content);
-                        if (!docSummary.trim()) setDocSummary(content.slice(0, 180));
-                      } catch {
-                        showToast('Không thể đọc tệp đã chọn. Vui lòng thử lại với tệp văn bản UTF-8.', 'error');
-                      }
-                    }}
-                    className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:font-semibold file:text-slate-700"
-                  />
-                  <p className="mt-1 text-[10px] text-slate-500">Tệp văn bản sẽ được nạp vào nội dung tài liệu để xem lại trước khi lưu. PDF sẽ hỗ trợ khi có bộ xử lý tài liệu.</p>
-                </div>
-              )}
+              <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/50 p-3">
+                <label className="block font-semibold text-slate-700 mb-1">
+                  {editingDocId ? 'Tải tệp PDF/DOCX thay thế (không bắt buộc)' : 'Tải tài liệu nguồn PDF/DOCX'}
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  disabled={isExtractingDocument}
+                  onChange={event => void handleDocumentFileSelect(event.target.files?.[0])}
+                  className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:font-semibold file:text-slate-700 disabled:opacity-50"
+                />
+                {docSourceFileName && (
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    {docSourceFileName} · {docSourceFileType}
+                  </p>
+                )}
+                {isExtractingDocument ? (
+                  <p className="mt-1 text-[10px] font-medium text-orange-700">Đang trích xuất văn bản từ tài liệu...</p>
+                ) : (
+                  <p className="mt-1 text-[10px] text-slate-500">Hỗ trợ PDF có lớp văn bản và DOCX, tối đa 10 MB. PDF scan cần OCR nên hiện chưa đọc được.</p>
+                )}
+              </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nội dung tóm tắt ngắn:</label>
+                <label className="block font-semibold text-slate-700 mb-1">Mô tả ngắn để quản trị viên nhận biết:</label>
                 <input
                   type="text"
                   value={docSummary}
@@ -1102,15 +1259,10 @@ export const Module6_AIStudio: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nội dung chi tiết tài liệu (dùng để AI phân tích và tra cứu):</label>
-                <textarea
-                  rows={8}
-                  required
-                  value={docContent}
-                  onChange={e => setDocContent(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 font-mono text-[11px] leading-relaxed"
-                />
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-600">
+                {docContent
+                  ? `Đã trích xuất ${docContent.length.toLocaleString('vi-VN')} ký tự. Nội dung này được dùng làm phạm vi trả lời của bot.`
+                  : 'Chưa có nội dung tài liệu. Hãy chọn một tệp PDF hoặc DOCX để hệ thống trích xuất văn bản.'}
               </div>
 
               <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
@@ -1123,12 +1275,35 @@ export const Module6_AIStudio: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white font-bold cursor-pointer"
+                  disabled={isExtractingDocument || !docContent.trim()}
+                  className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white font-bold cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
-                  Lưu &amp; Cập nhật Vector Index
+                  Lưu tài liệu
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-100 p-5">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-bold text-slate-800">{viewingDocument.title}</h3>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {viewingDocument.sourceFileName || 'Tài liệu mẫu'} · {viewingDocument.category} · Cập nhật {viewingDocument.updatedAt}
+                </p>
+              </div>
+              <button type="button" onClick={() => setViewingDocument(null)} className="ml-3 text-slate-400 hover:text-slate-700" aria-label="Đóng">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-5">
+              <div className="mb-3 rounded-lg bg-slate-50 p-3 text-[11px] text-slate-600">{viewingDocument.summary}</div>
+              <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-slate-700">{viewingDocument.content}</pre>
+            </div>
           </div>
         </div>
       )}

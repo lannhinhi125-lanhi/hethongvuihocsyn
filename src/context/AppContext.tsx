@@ -573,9 +573,24 @@ const initialStudents: StudentRecord[] = [
     fatherPhone: '0934.777.666',
     motherName: 'Phạm Hải Yến (Mẹ)',
     motherPhone: '0934.888.999',
-    scheduleSlots: ['T3 (18:00 - 19:30)', 'T5 (18:00 - 19:30)'],
-    status: 'Chờ xếp lớp',
-    currentClassCode: 'Chưa xếp lớp'
+    scheduleSlots: ['T7 (12:50 - 13:50)'],
+    status: 'Đang học',
+    currentClassCode: 'TOAN_K03_DEMO_T7'
+  },
+  {
+    id: 'HS-2026-004',
+    name: 'Nguyễn Hà My',
+    grade: 'Lớp 4',
+    subject: 'SUB-ENG',
+    model: '1-1',
+    level: 'LVL-STD',
+    fatherName: 'Nguyễn Văn Hùng (Bố)',
+    fatherPhone: '0911.222.333',
+    motherName: 'Trần Thu Hà (Mẹ)',
+    motherPhone: '0911.333.444',
+    scheduleSlots: ['T7 (18:00 - 19:30)'],
+    status: 'Đang học',
+    currentClassCode: 'ENG_K04_DEMO_T7'
   }
 ];
 
@@ -696,6 +711,72 @@ const initialClasses: ClassItem[] = [
         attendance: { 'HS-2026-002': 'present' }
       }
     }
+  },
+  {
+    id: 'CLS-DEMO-MATH-T7',
+    code: 'TOAN_K03_DEMO_T7',
+    name: 'Toán Nền tảng Lớp 3 - Ca thứ Bảy',
+    grade: 'Lớp 3',
+    subject: 'SUB-MATH',
+    level: 'LVL-F2',
+    model: '1-1',
+    maxStudents: 1,
+    studentIds: ['HS-2026-003'],
+    schedule: 'T7 (12:50 - 13:50)',
+    roomLink: 'https://vuihoc.zoom.us/j/1003102026',
+    teacherName: 'Gia sư Lê Hoàng Nam',
+    teacherId: 'GV-003',
+    materials: [
+      {
+        month: '10/2026',
+        week: 'Tuần 1: Từ ngày 05/10/2026 đến ngày 11/10/2026',
+        session: 1,
+        title: 'Ôn tập phép nhân, phép chia và giải toán có lời văn',
+        slide: 'https://drive.google.com/file/d/demo-toan-t7-slide',
+        lms: 'https://vuihoc.vn/lms/demo-toan-t7'
+      }
+    ],
+    activeSessions: {
+      1: {
+        sessionNum: 1,
+        dateStr: '2026-10-10 12:50 - 13:50',
+        title: 'Ôn tập phép nhân, phép chia và giải toán có lời văn',
+        status: 'Đã hoàn thành',
+        checkinTime: '12:47:00',
+        teacherAttendance: 'ATTENDED',
+        checkinBy: 'Gia sư Lê Hoàng Nam',
+        materialGv: 'https://drive.google.com/file/d/demo-toan-t7-slide',
+        materialHs: 'https://drive.google.com/file/d/demo-toan-t7-student',
+        exerciseLms: 'https://vuihoc.vn/lms/demo-toan-t7',
+        attendance: { 'HS-2026-003': 'present' },
+        feedback: { 'HS-2026-003': 'Con tập trung, thực hiện tốt các phép tính và trình bày lời giải rõ ràng.' }
+      }
+    }
+  },
+  {
+    id: 'CLS-DEMO-ENG-T7',
+    code: 'ENG_K04_DEMO_T7',
+    name: 'Tiếng Anh Giao tiếp Lớp 4 - Ca thứ Bảy',
+    grade: 'Lớp 4',
+    subject: 'SUB-ENG',
+    level: 'LVL-STD',
+    model: '1-1',
+    maxStudents: 1,
+    studentIds: ['HS-2026-004'],
+    schedule: 'T7 (18:00 - 19:30)',
+    roomLink: 'https://classin.com/room/demo-eng-t7',
+    teacherName: 'Cô Vũ Phương Linh',
+    teacherId: 'GV-005',
+    materials: [
+      {
+        month: '10/2026',
+        week: 'Tuần 1: Từ ngày 05/10/2026 đến ngày 11/10/2026',
+        session: 1,
+        title: 'Daily routines: hỏi và trả lời về hoạt động hằng ngày',
+        slide: 'https://drive.google.com/file/d/demo-eng-t7-slide',
+        lms: 'https://vuihoc.vn/lms/demo-eng-t7'
+      }
+    ]
   }
 ];
 
@@ -1126,6 +1207,14 @@ const initialPayrollStore: Record<string, MonthPayrollData> = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [shouldSeedLinkedSamples] = useState(() => {
+    try {
+      return localStorage.getItem('vuihoc_linked_demo_samples_v1') !== 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const getStored = <T,>(key: string, fallback: T): T => {
     try {
       const item = localStorage.getItem(`${STORAGE_KEY}_${key}`);
@@ -1180,13 +1269,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // PH4 (Students & Classes)
-  const [students, setStudents] = useState<StudentRecord[]>(() => getStored('students', initialStudents));
+  const [students, setStudents] = useState<StudentRecord[]>(() => {
+    const stored = getStored<StudentRecord[]>('students', initialStudents);
+    if (!shouldSeedLinkedSamples) return stored;
+    const normalized = stored.map(student => student.id === 'HS-2026-003' && student.currentClassCode === 'Chưa xếp lớp'
+      ? { ...student, scheduleSlots: ['T7 (12:50 - 13:50)'], status: 'Đang học' as const, currentClassCode: 'TOAN_K03_DEMO_T7' }
+      : student);
+    const sampleStudent = initialStudents.find(student => student.id === 'HS-2026-004');
+    return sampleStudent && !normalized.some(student => student.id === sampleStudent.id)
+      ? [...normalized, sampleStudent]
+      : normalized;
+  });
   const [classes, setClasses] = useState<ClassItem[]>(() => {
     const stored = getStored<ClassItem[]>('classes', initialClasses);
+    let next = stored;
     if (!stored.some(c => c.id === 'CLS-1250' || c.code === 'TOAN_K04_VIP_1250')) {
-      return [initialClasses[0], ...stored];
+      next = [initialClasses[0], ...next];
     }
-    return stored;
+    if (shouldSeedLinkedSamples) {
+      const sampleClasses = initialClasses.filter(cls => cls.id.startsWith('CLS-DEMO-'));
+      next = [...next, ...sampleClasses.filter(sample => !next.some(cls => cls.id === sample.id))];
+    }
+    return next;
   });
 
   // PH6
@@ -1249,6 +1353,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3200);
   };
+
+  useEffect(() => {
+    if (!shouldSeedLinkedSamples) return;
+    try {
+      localStorage.setItem('vuihoc_linked_demo_samples_v1', 'true');
+    } catch {
+      showToast('Không thể đánh dấu dữ liệu mẫu đã liên kết trên thiết bị này.', 'warning');
+    }
+  }, [shouldSeedLinkedSamples]);
 
   // PH1 Actions
   const addUser = (newUser: Omit<UserAccount, 'id'>) => {

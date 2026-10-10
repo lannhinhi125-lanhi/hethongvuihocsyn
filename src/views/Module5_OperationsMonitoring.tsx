@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
 import {
+  CalendarDays,
   Filter,
+  TriangleAlert,
 } from 'lucide-react';
 
 // Types cho Phân hệ 5
@@ -579,6 +581,43 @@ const initialSessionsList: MonitoringSession[] = [
     handledAt: null,
     lessonDiary: '',
     students: []
+  },
+  {
+    sessionCode: 'TOAN_K03_DEMO_T7-2026-10-10-1',
+    sessionDate: '2026-10-10',
+    classCode: 'TOAN_K03_DEMO_T7',
+    className: 'Toán Nền tảng Lớp 3 - Ca thứ Bảy',
+    levelText: 'Nền tảng 2',
+    modelText: '1-1',
+    subject: 'TOAN',
+    grade: 3,
+    timeSlot: '12:50 - 13:50',
+    room: 'Zoom-DEMO-MATH-T7',
+    roomUrl: 'https://vuihoc.zoom.us/j/1003102026',
+    recordingUrl: null,
+    primaryTeacher: 'Gia sư Lê Hoàng Nam',
+    coverTeacher: null,
+    attendance: 'ATTENDED',
+    checkinTime: '12:47:00',
+    status: 'DA_HOC',
+    hasIncident: true,
+    incidentParent: 'GRP-SYS',
+    incidentChild: 'INC-SYS-01',
+    incidentUrgency: 'ADVANCED',
+    incidentStatus: 'DA_GIAI_QUYET',
+    incidentNote: 'Phòng học bị gián đoạn âm thanh đầu buổi; vận hành hướng dẫn chuyển thiết bị dự phòng, ca học đã hoàn thành.',
+    handledByOpsId: 'OPS-001',
+    handledByName: 'Nguyễn Văn Đức',
+    handledAt: '13:05:00',
+    lessonDiary: 'Ca học hoàn thành; sự cố thiết bị đã được xử lý trong buổi.',
+    students: [{
+      name: 'Đặng Tuấn Kiệt',
+      code: 'HS-2026-003',
+      gradeText: 'Lớp 3 - Trình độ Tiêu chuẩn',
+      attendance: 'Có mặt',
+      aiComment: 'Con tập trung, thực hiện tốt các phép tính và trình bày lời giải rõ ràng.',
+      criteria: []
+    }]
   }
 ];
 
@@ -589,10 +628,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
 
   // Phạm vi thời gian đang xem
-  const [selectedDate, setSelectedDate] = useState<string>('2026-10-06');
-  const [dateFrom, setDateFrom] = useState<string>('2026-10-06');
-  const [dateTo, setDateTo] = useState<string>('2026-10-06');
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
+  const [dateFrom, setDateFrom] = useState<string>(() => selectedDate);
+  const [dateTo, setDateTo] = useState<string>(() => selectedDate);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => selectedDate.slice(0, 7));
   const [specificDate, setSpecificDate] = useState('');
 
   // Tab chính
@@ -919,6 +961,16 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     }
     return true;
   });
+  const formatMonitoringDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  const today = new Date();
+  const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const periodStart = specificDate || dateFrom;
+  const periodEnd = specificDate || dateTo;
+  const viewingToday = periodStart === todayString && periodEnd === todayString;
 
   const classForSession = (session: MonitoringSession) => classes.find(item => item.code === session.classCode);
   const classCategoryForSession = (session: MonitoringSession) => {
@@ -1244,22 +1296,29 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   return (
     <div className="space-y-5 text-slate-700">
-      {/* ================= 2 TAB NGANG CHUẨN ================= */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold text-slate-800">Giám sát và sự cố</h1>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Theo dõi ca dạy, chuyên cần và xử lý sự cố; điều phối giáo viên dạy thay khi cần.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 xl:shrink-0">
+          <div className="flex w-fit items-center gap-1 rounded-xl border border-slate-200/70 bg-slate-50 p-1 text-xs">
           {/* TAB 1: NHẬT KÝ & GIÁM SÁT BUỔI HỌC */}
           <button
             type="button"
             onClick={() => setActiveTab('diary')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`rounded-lg border px-3 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'diary'
-                ? 'border-[#FF5C00] text-[#FF5C00]'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-orange-200/80 bg-white text-[#FF5C00] shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <span>1. Nhật ký &amp; Giám sát Buổi học</span>
+            <CalendarDays className="h-3.5 w-3.5" />
+            <span>Nhật ký &amp; giám sát</span>
             <span className="px-2 py-0.5 rounded-full bg-orange-100 text-[#FF5C00] text-[10px] font-bold">
-              {dateFilteredSessions.length}
+              {diaryFilteredSessions.length}
             </span>
           </button>
 
@@ -1267,30 +1326,29 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('incidents')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`rounded-lg border px-3 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'incidents'
-                ? 'border-[#FF5C00] text-[#FF5C00]'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-orange-200/80 bg-white text-[#FF5C00] shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <span>2. Thông tin Sự cố &amp; Điều phối Dạy thay</span>
+            <TriangleAlert className="h-3.5 w-3.5" />
+            <span>Sự cố &amp; điều phối dạy thay</span>
             <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
               {kpiIncTotal}
             </span>
           </button>
-        </div>
+          </div>
         <button
           type="button"
           onClick={() => setIsTimeFilterOpen(true)}
-          className="mb-1 shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-orange-300 hover:bg-orange-50 hover:text-[#FF5C00] flex items-center gap-1.5 cursor-pointer"
+          className="shrink-0 rounded-lg border border-slate-200/70 bg-white px-2.5 py-2 text-[11px] font-semibold text-slate-600 hover:border-orange-200 hover:bg-orange-50/60 hover:text-[#FF5C00] flex items-center gap-1 cursor-pointer"
           title="Mở bộ lọc nâng cao"
         >
-          <Filter className="w-3.5 h-3.5 text-[#FF5C00]" />
-          <span className="hidden sm:inline">Bộ lọc</span>
-          <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-[#FF5C00]">
-            {dateFilteredSessions.length}
-          </span>
+          <Filter className="h-3.5 w-3.5 text-[#FF5C00]" />
+          <span>Lọc</span>
         </button>
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -1298,10 +1356,22 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'diary' && (
         <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <h2 className="text-sm font-bold text-slate-800">
+              {viewingToday ? 'Các ca dạy hôm nay' : 'Các ca dạy theo thời gian đã chọn'}
+            </h2>
+            <span className="text-xs font-medium text-slate-500">
+              {periodStart && periodEnd
+                ? periodStart === periodEnd
+                  ? formatMonitoringDate(periodStart)
+                  : `${formatMonitoringDate(periodStart)} - ${formatMonitoringDate(periodEnd)}`
+                : 'Tất cả thời gian'}
+            </span>
+          </div>
           {/* 4 Thẻ KPI Tab 1 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div className="bg-white p-4 rounded-2xl border border-slate-200">
-              <div className="text-slate-400 text-xs mb-1">Tổng buổi học</div>
+              <div className="text-slate-400 text-xs mb-1">{viewingToday ? 'Tổng ca dạy hôm nay' : 'Tổng ca dạy'}</div>
               <div className="text-2xl font-black text-slate-800 font-mono">{kpiTotal}</div>
               <div className="text-[11px] text-slate-400 mt-1">Toán &amp; Tiếng Anh (Khối 1-5)</div>
             </div>
@@ -2144,7 +2214,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-[11px]">
-                                Điểm danh HS: <strong className="text-emerald-700">{stu.attendance}</strong>
+                                Điểm danh HS: <strong className="text-emerald-700">
+                                  {stu.attendance === 'present' ? 'Có mặt' : stu.attendance === 'late' ? 'Đi muộn' : stu.attendance === 'absent' ? 'Vắng mặt' : stu.attendance}
+                                </strong>
                               </span>
                               <span className="px-2.5 py-1 rounded-xl bg-orange-100 text-[#FF5C00] font-bold text-[11px]">
                                 Nhận xét AI đã lưu

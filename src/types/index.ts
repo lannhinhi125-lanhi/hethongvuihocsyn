@@ -234,6 +234,9 @@ export interface SOPDocument {
   summary: string;
   updatedAt: string;
   content: string;
+  sourceFileName?: string;
+  sourceFileType?: 'PDF' | 'DOCX';
+  isEnabled?: boolean;
 }
 
 export interface RAGBotConfig {
