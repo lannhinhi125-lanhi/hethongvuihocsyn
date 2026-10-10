@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 
 type ReportPeriod = 'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3';
+type DashboardRangePreset = 'CURRENT_MONTH' | 'PREVIOUS_MONTH' | 'LAST_3_MONTHS' | 'ALL' | 'CUSTOM';
 
 const toLocalIsoDate = (date: Date) => {
   const year = date.getFullYear();
@@ -55,6 +56,15 @@ const getMonthRange = (month: string) => {
     end: `${month}-${String(lastDay).padStart(2, '0')}`
   };
 };
+
+const formatMonthLabel = (month: string) => {
+  if (month === 'ALL') return 'Tất cả';
+  const [year, monthNumber] = month.split('-');
+  return `Tháng ${monthNumber}/${year}`;
+};
+
+const formatDateRangeLabel = (start: string, end: string) =>
+  `${start ? `${start.slice(8, 10)}/${start.slice(5, 7)}` : '...'} đến ${end ? `${end.slice(8, 10)}/${end.slice(5, 7)}` : '...'}`;
 
 const getDateFilterRange = (
   month: string,
@@ -119,12 +129,13 @@ export const Module8_Reports: React.FC = () => {
   // =========================================================================
   // TAB 1 (DASHBOARD): BỘ LỌC THỜI GIAN & CHẾ ĐỘ XEM ĐỘC LẬP
   // =========================================================================
+  const [dashRangePreset, setDashRangePreset] = useState<DashboardRangePreset>('CURRENT_MONTH');
   const [dashTimeframe, setDashTimeframe] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('MONTH');
   const [dashViewMode, setDashViewMode] = useState<'visual' | 'table' | 'both'>('visual');
   const [dashSearchMetric, setDashSearchMetric] = useState('');
   const [hoveredTrendPoint, setHoveredTrendPoint] = useState<number | null>(null);
   // Mốc thời gian linh hoạt (Từ ngày - Đến ngày) & Tháng
-  const [dashMonth, setDashMonth] = useState('2026-10');
+  const [dashMonth, setDashMonth] = useState(() => toLocalIsoDate(new Date()).slice(0, 7));
   const [dashDateFrom, setDashDateFrom] = useState('');
   const [dashDateTo, setDashDateTo] = useState('');
   const [clsMonth, setClsMonth] = useState('2026-10');
@@ -139,14 +150,6 @@ export const Module8_Reports: React.FC = () => {
   const [incMonth, setIncMonth] = useState('2026-10');
   const [incDateFrom, setIncDateFrom] = useState('');
   const [incDateTo, setIncDateTo] = useState('');
-  const [matMonth, setMatMonth] = useState('2026-10');
-  const [matDateFrom, setMatDateFrom] = useState('');
-  const [matDateTo, setMatDateTo] = useState('');
-  const [matWeek, setMatWeek] = useState('ALL');
-  const [inspMonth, setInspMonth] = useState('2026-10');
-  const [inspDateFrom, setInspDateFrom] = useState('');
-  const [inspDateTo, setInspDateTo] = useState('');
-  const [inspWeek, setInspWeek] = useState('ALL');
 
   // =========================================================================
   // TAB 2 (BÁO CÁO CỐ ĐỊNH): NÚT CHỌN LOẠI BÁO CÁO & CHẾ ĐỘ XEM
@@ -164,6 +167,7 @@ export const Module8_Reports: React.FC = () => {
 
   // 1. Bộ lọc riêng cho Báo cáo Lớp học mới
   const [clsPeriod, setClsPeriod] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('ALL');
+  const [clsSelectedWeek, setClsSelectedWeek] = useState('ALL');
   const [clsFilterCode, setClsFilterCode] = useState('');
   const [clsFilterName, setClsFilterName] = useState('');
   const [clsFilterGrade, setClsFilterGrade] = useState('ALL');
@@ -173,6 +177,7 @@ export const Module8_Reports: React.FC = () => {
 
   // 2. Bộ lọc riêng cho Báo cáo Học sinh mới
   const [stuPeriod, setStuPeriod] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('ALL');
+  const [stuSelectedWeek, setStuSelectedWeek] = useState('ALL');
   const [stuFilterCode, setStuFilterCode] = useState('');
   const [stuFilterName, setStuFilterName] = useState('');
   const [stuFilterGrade, setStuFilterGrade] = useState('ALL');
@@ -182,6 +187,7 @@ export const Module8_Reports: React.FC = () => {
 
   // 3. Bộ lọc riêng cho Báo cáo Gia sư mới
   const [tutPeriod, setTutPeriod] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('ALL');
+  const [tutSelectedWeek, setTutSelectedWeek] = useState('ALL');
   const [tutFilterCode, setTutFilterCode] = useState('');
   const [tutFilterName, setTutFilterName] = useState('');
   const [tutFilterSubject, setTutFilterSubject] = useState('ALL');
@@ -189,17 +195,15 @@ export const Module8_Reports: React.FC = () => {
   const [tutFilterStatus, setTutFilterStatus] = useState('ALL');
 
   // 4. Bộ lọc riêng cho Báo cáo Sự cố
-  const [incPeriod, setIncPeriod] = useState<'ALL' | 'W1' | 'W2' | 'W3' | 'W4' | 'W5'>('ALL');
+  const [incPeriod, setIncPeriod] = useState<'ALL' | 'W1' | 'W2' | 'W3' | 'W4' | 'W5' | 'THIS_WEEK' | 'NEXT_WEEK'>('ALL');
   const [incFilterPeriod, setIncFilterPeriod] = useState('');
   const [incFilterUrgent, setIncFilterUrgent] = useState('ALL');
   const [incFilterMain, setIncFilterMain] = useState('');
 
   // 5. Bộ lọc riêng cho Ma trận Ca dạy
-  const [matPeriod, setMatPeriod] = useState<'ALL' | 'MONTH' | 'Q3'>('ALL');
   const [matFilterSubject, setMatFilterSubject] = useState('ALL');
 
   // 6. Bộ lọc riêng cho Đánh giá Dự giờ & Xếp hạng GV
-  const [inspPeriod, setInspPeriod] = useState<'ALL' | 'MONTH' | 'Q3'>('ALL');
   const [inspFilterCode, setInspFilterCode] = useState('');
   const [inspFilterName, setInspFilterName] = useState('');
   const [inspFilterSubject, setInspFilterSubject] = useState('ALL');
@@ -272,9 +276,12 @@ export const Module8_Reports: React.FC = () => {
   const clsDateRange = getDateFilterRange(clsMonth, clsDateFrom, clsDateTo, clsPeriod);
   const stuDateRange = getDateFilterRange(stuMonth, stuDateFrom, stuDateTo, stuPeriod);
   const tutDateRange = getDateFilterRange(tutMonth, tutDateFrom, tutDateTo, tutPeriod);
-  const incDateRange = getDateFilterRange(incMonth, incDateFrom, incDateTo);
-  const matDateRange = getDateFilterRange(matMonth, matDateFrom, matDateTo);
-  const inspDateRange = getDateFilterRange(inspMonth, inspDateFrom, inspDateTo);
+  const incDateRange = getDateFilterRange(
+    incMonth,
+    incDateFrom,
+    incDateTo,
+    incPeriod === 'THIS_WEEK' || incPeriod === 'NEXT_WEEK' ? 'WEEK' : 'ALL'
+  );
   const dashDateRange = getDateFilterRange(
     dashMonth,
     dashDateFrom,
@@ -342,7 +349,6 @@ export const Module8_Reports: React.FC = () => {
   // 4. Dữ liệu lọc riêng cho Sự cố
   const filteredIncidents = useMemo(() => {
     return rawIncidents.filter(i => {
-      if (incPeriod !== 'ALL' && i.periodCode !== incPeriod) return false;
       if (!dateRangesOverlap(i.dateFrom, i.dateTo, incDateRange)) return false;
       if (incFilterPeriod && !i.period.toLowerCase().includes(incFilterPeriod.toLowerCase())) return false;
       if (incFilterUrgent === 'URGENT' && i.urgent <= i.notice) return false;
@@ -354,17 +360,12 @@ export const Module8_Reports: React.FC = () => {
 
   // 5. Dữ liệu lọc riêng cho Ma trận
   const filteredMatrix = useMemo(() => {
-    return rawMatrix.filter(m => {
-      if (!matDateRange.start && !matDateRange.end) return matFilterSubject === 'ALL' || m.code === matFilterSubject;
-      if (matFilterSubject !== 'ALL' && m.code !== matFilterSubject) return false;
-      return true;
-    });
-  }, [rawMatrix, matFilterSubject, matDateRange]);
+    return rawMatrix.filter(m => matFilterSubject === 'ALL' || m.code === matFilterSubject);
+  }, [rawMatrix, matFilterSubject]);
 
   // 6. Dữ liệu lọc riêng cho Dự giờ GV
   const filteredInspection = useMemo(() => {
     return rawTeachersInspection.filter(t => {
-      if (inspDateRange.start || inspDateRange.end) return false;
       if (inspFilterCode && !t.id.toLowerCase().includes(inspFilterCode.toLowerCase())) return false;
       if (inspFilterName && !t.name.toLowerCase().includes(inspFilterName.toLowerCase())) return false;
       if (inspFilterSubject !== 'ALL' && t.subjectCode !== inspFilterSubject) return false;
@@ -376,13 +377,153 @@ export const Module8_Reports: React.FC = () => {
       }
       return true;
     });
-  }, [rawTeachersInspection, inspDateRange, inspFilterCode, inspFilterName, inspFilterSubject, inspFilterRank, inspFilterScore]);
+  }, [rawTeachersInspection, inspFilterCode, inspFilterName, inspFilterSubject, inspFilterRank, inspFilterScore]);
+
+  const dashboardIncidents = useMemo(() => rawIncidents.filter(incident =>
+    dateRangesOverlap(incident.dateFrom, incident.dateTo, dashDateRange) &&
+    (!dashSearchMetric || incident.period.toLocaleLowerCase('vi').includes(dashSearchMetric.trim().toLocaleLowerCase('vi')))
+  ), [rawIncidents, dashDateRange, dashSearchMetric]);
+
+  const dashboardRows = useMemo(() => dashboardIncidents.map(incident => {
+    const periodClasses = rawClasses.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo);
+    const periodStudents = rawStudents.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo);
+    const fullClasses = periodClasses.filter(item => item.status.toLowerCase().includes('đủ trần')).length;
+    const avgInspectionScore = rawTeachersInspection.length
+      ? rawTeachersInspection.reduce((total, teacher) => total + teacher.avg, 0) / rawTeachersInspection.length
+      : 0;
+
+    return {
+      incident,
+      classCount: periodClasses.length,
+      studentCount: periodStudents.length,
+      occupancyRate: periodClasses.length ? Math.round((fullClasses / periodClasses.length) * 100) : 0,
+      avgInspectionScore
+    };
+  }), [dashboardIncidents, rawClasses, rawStudents, rawTeachersInspection]);
+
+  const dashboardIncidentStats = useMemo(() => {
+    const totalSessions = dashboardIncidents.reduce((total, incident) => total + incident.total, 0);
+    const incidentCount = dashboardIncidents.reduce((total, incident) => total + incident.incidents, 0);
+    const urgent = dashboardIncidents.reduce((total, incident) => total + incident.urgent, 0);
+    const notice = dashboardIncidents.reduce((total, incident) => total + incident.notice, 0);
+    const urgentTotal = urgent + notice;
+
+    return {
+      incidentCount,
+      urgent,
+      notice,
+      incidentRate: totalSessions ? Number(((incidentCount / totalSessions) * 100).toFixed(2)) : 0,
+      safeRate: totalSessions ? Number((100 - (incidentCount / totalSessions) * 100).toFixed(2)) : 100,
+      urgentRate: urgentTotal ? Math.round((urgent / urgentTotal) * 100) : 0
+    };
+  }, [dashboardIncidents]);
+
+  const dashboardTrendPoints = useMemo(() => {
+    const eventDates = [...rawClasses.map(item => item.date), ...rawStudents.map(item => item.date)].sort();
+    if (eventDates.length === 0) return [];
+    const startDate = dashDateRange.start || eventDates[0];
+    const endDate = dashDateRange.end || eventDates[eventDates.length - 1];
+    if (startDate > endDate) return [];
+
+    const points: Array<{ label: string; start: string; end: string; students: number; classes: number; x: number; studentY: number; classY: number }> = [];
+    const cursor = new Date(`${startDate}T00:00:00`);
+    const rangeEnd = new Date(`${endDate}T00:00:00`);
+    while (cursor <= rangeEnd && points.length < 54) {
+      const bucketStart = toLocalIsoDate(cursor);
+      const bucketEndDate = new Date(cursor);
+      bucketEndDate.setDate(bucketEndDate.getDate() + 6);
+      if (bucketEndDate > rangeEnd) bucketEndDate.setTime(rangeEnd.getTime());
+      const bucketEnd = toLocalIsoDate(bucketEndDate);
+      points.push({
+        label: `${bucketStart.slice(8, 10)}/${bucketStart.slice(5, 7)} - ${bucketEnd.slice(8, 10)}/${bucketEnd.slice(5, 7)}`,
+        start: bucketStart,
+        end: bucketEnd,
+        students: rawStudents.filter(item => item.date >= bucketStart && item.date <= bucketEnd).length,
+        classes: rawClasses.filter(item => item.date >= bucketStart && item.date <= bucketEnd).length,
+        x: 30,
+        studentY: 160,
+        classY: 160
+      });
+      cursor.setDate(cursor.getDate() + 7);
+    }
+
+    const maximum = Math.max(1, ...points.flatMap(point => [point.students, point.classes]));
+    return points.map((point, index) => ({
+      ...point,
+      x: points.length === 1 ? 250 : 30 + index * (440 / (points.length - 1)),
+      studentY: 160 - (point.students / maximum) * 125,
+      classY: 160 - (point.classes / maximum) * 125
+    }));
+  }, [rawClasses, rawStudents, dashDateRange]);
+
+  const dashboardStudentTotal = dashboardTrendPoints.reduce((total, point) => total + point.students, 0);
+  const dashboardClassTotal = dashboardTrendPoints.reduce((total, point) => total + point.classes, 0);
+
+  const setDashboardRange = (preset: DashboardRangePreset) => {
+    const today = new Date();
+    const currentMonth = toLocalIsoDate(today).slice(0, 7);
+    setDashRangePreset(preset);
+    setDashSearchMetric('');
+
+    if (preset === 'CURRENT_MONTH') {
+      setDashMonth(currentMonth);
+      setDashDateFrom('');
+      setDashDateTo('');
+      setDashTimeframe('MONTH');
+      return;
+    }
+
+    if (preset === 'PREVIOUS_MONTH') {
+      const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const monthValue = toLocalIsoDate(previousMonth).slice(0, 7);
+      setDashMonth(monthValue);
+      setDashDateFrom('');
+      setDashDateTo('');
+      setDashTimeframe('MONTH');
+      return;
+    }
+
+    if (preset === 'LAST_3_MONTHS') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+      setDashMonth('ALL');
+      setDashDateFrom(toLocalIsoDate(firstDay));
+      setDashDateTo(toLocalIsoDate(today));
+      setDashTimeframe('ALL');
+      return;
+    }
+
+    if (preset === 'ALL') {
+      setDashMonth('ALL');
+      setDashDateFrom('');
+      setDashDateTo('');
+      setDashTimeframe('ALL');
+      return;
+    }
+
+    setDashMonth('ALL');
+    setDashDateFrom('');
+    setDashDateTo('');
+    setDashTimeframe('ALL');
+  };
+
+  const dashboardRangeLabel = dashRangePreset === 'CURRENT_MONTH'
+    ? formatMonthLabel(dashMonth)
+    : dashRangePreset === 'PREVIOUS_MONTH'
+      ? formatMonthLabel(dashMonth)
+      : dashRangePreset === 'LAST_3_MONTHS'
+        ? '3 tháng gần nhất'
+        : dashRangePreset === 'ALL'
+          ? 'Toàn thời gian'
+          : dashDateFrom || dashDateTo
+            ? formatDateRangeLabel(dashDateFrom, dashDateTo)
+            : 'Chọn khoảng ngày';
 
   // Reset functions riêng cho từng phần
   const resetClsFilters = () => {
     setClsDateFrom('');
     setClsDateTo('');
     setClsPeriod('ALL');
+    setClsSelectedWeek('ALL');
     setClsFilterCode('');
     setClsFilterName('');
     setClsFilterGrade('ALL');
@@ -396,6 +537,7 @@ export const Module8_Reports: React.FC = () => {
     setStuDateFrom('');
     setStuDateTo('');
     setStuPeriod('ALL');
+    setStuSelectedWeek('ALL');
     setStuFilterCode('');
     setStuFilterName('');
     setStuFilterGrade('ALL');
@@ -409,6 +551,7 @@ export const Module8_Reports: React.FC = () => {
     setTutDateFrom('');
     setTutDateTo('');
     setTutPeriod('ALL');
+    setTutSelectedWeek('ALL');
     setTutFilterCode('');
     setTutFilterName('');
     setTutFilterSubject('ALL');
@@ -426,13 +569,11 @@ export const Module8_Reports: React.FC = () => {
   };
 
   const resetMatFilters = () => {
-    setMatPeriod('ALL');
     setMatFilterSubject('ALL');
     showToast('Đã đặt lại bộ lọc Ma trận!', 'info');
   };
 
   const resetInspFilters = () => {
-    setInspPeriod('ALL');
     setInspFilterCode('');
     setInspFilterName('');
     setInspFilterSubject('ALL');
@@ -657,9 +798,9 @@ export const Module8_Reports: React.FC = () => {
                 title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
               >
                 <Filter className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Bộ lọc: <strong>{dashDateFrom || dashDateTo ? `${dashDateFrom || '...'} đến ${dashDateTo || '...'}` : (dashTimeframe === 'ALL' ? 'Tất cả' : dashTimeframe === 'WEEK' ? 'Tuần này' : dashTimeframe === 'MONTH' ? 'Tháng 10/2026' : 'Quý III')}</strong></span>
+                <span>Bộ lọc: <strong>{dashboardRangeLabel}</strong></span>
                 <span className="px-1.5 py-0.2 rounded-md bg-white text-indigo-700 text-[10px] font-bold border border-indigo-200">
-                  {rawIncidents.length} kỳ
+                  {dashboardIncidents.length} kỳ
                 </span>
               </button>
             </div>
@@ -702,8 +843,8 @@ export const Module8_Reports: React.FC = () => {
               <button
                 onClick={() => {
                   let csv = 'Tuan_Ky,Lop_Moi_Mo,Hoc_Sinh_Moi,Ty_Le_Lap_Day_Tran,Ty_Le_Loi_Su_Co,Diem_TB_Du_Gio\n';
-                  rawIncidents.forEach((inc, idx) => {
-                    csv += `"${inc.period}",${18 + idx * 4},${40 + idx * 8},"${clsStats.fullRate}%","${inc.rateStr}",9.2\n`;
+                  dashboardRows.forEach(({ incident, classCount, studentCount, occupancyRate, avgInspectionScore }) => {
+                    csv += `"${incident.period}",${classCount},${studentCount},"${occupancyRate}%","${incident.rateStr}",${avgInspectionScore.toFixed(2)}\n`;
                   });
                   downloadCsv(csv, 'Dashboard_Tong_Quan_Van_Hanh.csv');
                 }}
@@ -731,55 +872,48 @@ export const Module8_Reports: React.FC = () => {
                 <div className="flex items-center gap-4 text-xs">
                   <div className="flex items-center gap-1.5">
                     <span className="w-3.5 h-1.5 bg-emerald-500 rounded" />
-                    <span className="font-semibold text-slate-700">Học sinh mới (+42%)</span>
+                    <span className="font-semibold text-slate-700">Học sinh mới ({dashboardStudentTotal})</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-3.5 h-1.5 bg-indigo-600 rounded" />
-                    <span className="font-semibold text-slate-700">Lớp học mới (+38%)</span>
+                    <span className="font-semibold text-slate-700">Lớp học mới ({dashboardClassTotal})</span>
                   </div>
                 </div>
               </div>
 
-              {/* SVG Line Chart minh họa sắc nét */}
-              <div className="h-60 relative flex flex-col justify-end pt-3">
-                <svg className="w-full h-48 overflow-visible" viewBox="0 0 500 180">
-                  <line x1="0" y1="30" x2="500" y2="30" stroke="#F1F5F9" strokeWidth="1" />
-                  <line x1="0" y1="80" x2="500" y2="80" stroke="#F1F5F9" strokeWidth="1" />
-                  <line x1="0" y1="130" x2="500" y2="130" stroke="#F1F5F9" strokeWidth="1" />
-
-                  {/* Đường HS mới (Màu xanh emerald) */}
-                  <path
-                    d="M 30,150 Q 150,110 270,70 T 470,25"
-                    fill="none"
-                    stroke="#10B981"
-                    strokeWidth="3.5"
-                  />
-                  {/* Đường Lớp mới (Màu indigo) */}
-                  <path
-                    d="M 30,165 Q 150,140 270,110 T 470,75"
-                    fill="none"
-                    stroke="#4F46E5"
-                    strokeWidth="3.5"
-                  />
-
-                  <circle cx="30" cy="150" r="4.5" fill="#10B981" />
-                  <circle cx="170" cy="105" r="4.5" fill="#10B981" />
-                  <circle cx="310" cy="65" r="4.5" fill="#10B981" />
-                  <circle cx="470" cy="25" r="5.5" fill="#10B981" />
-
-                  <circle cx="30" cy="165" r="4.5" fill="#4F46E5" />
-                  <circle cx="170" cy="138" r="4.5" fill="#4F46E5" />
-                  <circle cx="310" cy="105" r="4.5" fill="#4F46E5" />
-                  <circle cx="470" cy="75" r="5.5" fill="#4F46E5" />
-                </svg>
-
-                <div className="flex justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-100 font-medium">
-                  <span>Tuần 1 (01-07/09)</span>
-                  <span>Tuần 2 (08-14/09)</span>
-                  <span>Tuần 3 (15-21/09)</span>
-                  <span>Tuần 4 (22-28/09)</span>
-                  <span>Hiện tại ({dashTimeframe === 'WEEK' ? 'Tuần này' : '10/2026'})</span>
+              <div className="relative pt-3">
+              {hoveredTrendPoint !== null && dashboardTrendPoints[hoveredTrendPoint] && (
+                <div className="absolute right-2 top-1 z-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-lg">
+                  <div className="font-bold text-slate-800">{dashboardTrendPoints[hoveredTrendPoint].label}</div>
+                  <div className="mt-1 text-emerald-700">Học sinh mới: {dashboardTrendPoints[hoveredTrendPoint].students}</div>
+                  <div className="text-indigo-700">Lớp học mới: {dashboardTrendPoints[hoveredTrendPoint].classes}</div>
                 </div>
+              )}
+              <svg className="h-48 w-full overflow-visible" viewBox="0 0 500 180" role="img" aria-label="Xu hướng học sinh mới và lớp học mới theo tuần">
+                {[30, 80, 130].map(y => <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="#F1F5F9" strokeWidth="1" />)}
+                {dashboardTrendPoints.length > 1 && (
+                  <>
+                    <polyline points={dashboardTrendPoints.map(point => `${point.x},${point.studentY}`).join(' ')} fill="none" stroke="#10B981" strokeWidth="3.5" />
+                    <polyline points={dashboardTrendPoints.map(point => `${point.x},${point.classY}`).join(' ')} fill="none" stroke="#4F46E5" strokeWidth="3.5" />
+                  </>
+                )}
+                {dashboardTrendPoints.map((point, index) => (
+                  <g key={point.start} onMouseEnter={() => setHoveredTrendPoint(index)} onMouseLeave={() => setHoveredTrendPoint(null)}>
+                    <circle cx={point.x} cy={point.studentY} r="8" fill="transparent" />
+                    <circle cx={point.x} cy={point.studentY} r={hoveredTrendPoint === index ? 6 : 4.5} fill="#10B981" />
+                    <circle cx={point.x} cy={point.classY} r="8" fill="transparent" />
+                    <circle cx={point.x} cy={point.classY} r={hoveredTrendPoint === index ? 6 : 4.5} fill="#4F46E5" />
+                    <title>{`${point.label} | Học sinh mới: ${point.students} | Lớp học mới: ${point.classes}`}</title>
+                  </g>
+                ))}
+              </svg>
+              <div className="flex justify-between gap-1 border-t border-slate-100 pt-2 text-[10px] font-medium text-slate-400">
+                {dashboardTrendPoints.map((point, index) => (
+                  <span key={point.start} className={index > 0 && index < dashboardTrendPoints.length - 1 ? 'hidden sm:inline' : 'truncate'}>
+                    {point.label}
+                  </span>
+                ))}
+              </div>
               </div>
             </div>
 
@@ -839,7 +973,7 @@ export const Module8_Reports: React.FC = () => {
                     <p className="text-[10px] text-slate-400">Mục tiêu kiểm soát &lt; 2.5%</p>
                   </div>
                   <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold text-[10px]">
-                    SLA: {incStats.rate}%
+                    Lỗi: {dashboardIncidentStats.incidentRate}%
                   </span>
                 </div>
 
@@ -856,7 +990,7 @@ export const Module8_Reports: React.FC = () => {
                       />
                       <path
                         className="text-emerald-500"
-                        strokeDasharray="97.5, 100"
+                        strokeDasharray={`${dashboardIncidentStats.safeRate}, 100`}
                         strokeWidth="3.5"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -865,8 +999,8 @@ export const Module8_Reports: React.FC = () => {
                       />
                       <path
                         className="text-rose-500"
-                        strokeDasharray="2.5, 100"
-                        strokeDashoffset="-97.5"
+                        strokeDasharray={`${dashboardIncidentStats.incidentRate}, 100`}
+                        strokeDashoffset={`-${dashboardIncidentStats.safeRate}`}
                         strokeWidth="3.8"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -875,7 +1009,7 @@ export const Module8_Reports: React.FC = () => {
                       />
                     </svg>
                     <div className="absolute text-center">
-                      <span className="text-xs font-black text-slate-800 block">97.5%</span>
+                      <span className="text-xs font-black text-slate-800 block">{dashboardIncidentStats.safeRate}%</span>
                       <span className="text-[9px] text-emerald-600 font-bold uppercase">Chuẩn</span>
                     </div>
                   </div>
@@ -883,11 +1017,11 @@ export const Module8_Reports: React.FC = () => {
                   <div className="space-y-1.5 text-[11px]">
                     <div className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                      <span className="font-medium text-slate-700">Ca an toàn: <strong>97.5%</strong></span>
+                      <span className="font-medium text-slate-700">Ca an toàn: <strong>{dashboardIncidentStats.safeRate}%</strong></span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                      <span className="font-medium text-slate-700">Sự cố đột xuất: <strong>{incStats.rate}%</strong></span>
+                      <span className="font-medium text-slate-700">Tỷ lệ sự cố: <strong>{dashboardIncidentStats.incidentRate}%</strong></span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
@@ -897,8 +1031,8 @@ export const Module8_Reports: React.FC = () => {
                 </div>
 
                 <div className="p-2 bg-rose-50/70 rounded-xl text-[10px] text-rose-800 flex items-center justify-between font-medium">
-                  <span>Sự cố &lt; 2h: <strong>{incStats.urgent} ca ({incStats.urgentRate}%)</strong></span>
-                  <span>Báo trước: <strong>{incStats.notice} ca</strong></span>
+                  <span>Sự cố &lt; 2h: <strong>{dashboardIncidentStats.urgent} ca ({dashboardIncidentStats.urgentRate}%)</strong></span>
+                  <span>Báo trước: <strong>{dashboardIncidentStats.notice} ca</strong></span>
                 </div>
               </div>
 
@@ -962,6 +1096,9 @@ export const Module8_Reports: React.FC = () => {
                 </div>
               </div>
             </div>
+            <p className="text-[10px] text-slate-500">
+              Cơ cấu ca dạy và đánh giá dự giờ là snapshot tổng hợp chưa có ngày chi tiết; đường xu hướng và chỉ số sự cố thay đổi theo bộ lọc thời gian.
+            </p>
             </>
           )}
 
@@ -972,7 +1109,7 @@ export const Module8_Reports: React.FC = () => {
                 <span className="font-bold text-xs text-slate-800 uppercase tracking-wider">
                   Bảng Tổng hợp Chỉ số Vận hành theo Chu kỳ
                 </span>
-                <span className="text-[11px] text-slate-500 font-mono">5 kỳ đối soát</span>
+                <span className="text-[11px] text-slate-500 font-mono">{dashboardRows.length} kỳ đối soát</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
@@ -1004,28 +1141,33 @@ export const Module8_Reports: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {rawIncidents
-                      .filter(inc => !dashSearchMetric || inc.period.toLowerCase().includes(dashSearchMetric.toLowerCase()))
-                      .map((inc, idx) => (
-                        <tr key={inc.period} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3 px-3 font-semibold text-slate-800">{inc.period}</td>
-                          <td className="py-3 px-3 text-center font-bold text-indigo-600">{18 + idx * 4} lớp</td>
-                          <td className="py-3 px-3 text-center font-bold text-emerald-600">{40 + idx * 8} HS</td>
+                    {dashboardRows.map(({ incident, classCount, studentCount, occupancyRate, avgInspectionScore }) => (
+                        <tr key={incident.period} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-3 font-semibold text-slate-800">{incident.period}</td>
+                          <td className="py-3 px-3 text-center font-bold text-indigo-600">{classCount} lớp</td>
+                          <td className="py-3 px-3 text-center font-bold text-emerald-600">{studentCount} HS</td>
                           <td className="py-3 px-3 text-center">
                             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              {80 + idx * 4}%
+                              {occupancyRate}%
                             </span>
                           </td>
                           <td className="py-3 px-3 text-center">
                             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                              {inc.rateStr}
+                              {incident.rateStr}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-center text-purple-700 font-bold">
-                            {(8.8 + idx * 0.1).toFixed(1)} / 10
+                            {avgInspectionScore.toFixed(2)} / 10
                           </td>
                         </tr>
                       ))}
+                    {dashboardRows.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                          Không có dữ liệu trong khoảng thời gian đã chọn.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1259,7 +1401,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Bộ lọc: <strong>{clsDateFrom || clsDateTo ? `${clsDateFrom || '...'} đến ${clsDateTo || '...'}` : (clsPeriod === 'ALL' ? 'Tất cả' : clsPeriod === 'WEEK' ? 'Tuần này' : clsPeriod === 'MONTH' ? 'Tháng 10/2026' : 'Quý III')}</strong></span>
+                    <span>Bộ lọc: <strong>{clsDateFrom || clsDateTo ? formatDateRangeLabel(clsDateFrom, clsDateTo) : formatMonthLabel(clsMonth)}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-indigo-700 text-[10px] font-bold border border-indigo-200">
                       {filteredClasses.length} lớp
                     </span>
@@ -1501,7 +1643,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Bộ lọc: <strong>{stuDateFrom || stuDateTo ? `${stuDateFrom || '...'} đến ${stuDateTo || '...'}` : (stuPeriod === 'ALL' ? 'Tất cả' : stuPeriod === 'WEEK' ? 'Tuần này' : stuPeriod === 'MONTH' ? 'Tháng 10/2026' : 'Quý III')}</strong></span>
+                    <span>Bộ lọc: <strong>{stuDateFrom || stuDateTo ? formatDateRangeLabel(stuDateFrom, stuDateTo) : formatMonthLabel(stuMonth)}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-emerald-700 text-[10px] font-bold border border-emerald-200">
                       {filteredStudents.length} HS
                     </span>
@@ -1729,7 +1871,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Bộ lọc: <strong>{tutDateFrom || tutDateTo ? `${tutDateFrom || '...'} đến ${tutDateTo || '...'}` : (tutPeriod === 'ALL' ? 'Tất cả' : tutPeriod === 'WEEK' ? 'Tuần này' : tutPeriod === 'MONTH' ? 'Tháng 10/2026' : 'Quý III')}</strong></span>
+                    <span>Bộ lọc: <strong>{tutDateFrom || tutDateTo ? formatDateRangeLabel(tutDateFrom, tutDateTo) : formatMonthLabel(tutMonth)}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-purple-700 text-[10px] font-bold border border-purple-200">
                       {filteredTutors.length} gia sư
                     </span>
@@ -1940,7 +2082,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Bộ lọc: <strong>{incPeriod === 'ALL' ? 'Tất cả 5 tuần' : `Tuần ${incPeriod}`}</strong></span>
+                    <span>Bộ lọc: <strong>{incPeriod === 'ALL' ? 'Tất cả' : incPeriod === 'THIS_WEEK' ? 'Tuần này' : incPeriod === 'NEXT_WEEK' ? 'Tuần sau' : `Tuần ${incPeriod.slice(1)}`}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-rose-700 text-[10px] font-bold border border-rose-200">
                       {filteredIncidents.length} kỳ
                     </span>
@@ -1983,7 +2125,7 @@ export const Module8_Reports: React.FC = () => {
                     </div>
                     {/* Thanh minh họa so sánh các tuần */}
                     <div className="space-y-2 pt-1 text-xs">
-                      {rawIncidents.map(inc => (
+                      {filteredIncidents.map(inc => (
                         <div key={inc.period} className="flex items-center gap-2">
                           <span className="w-24 text-[10px] text-slate-500 truncate">{inc.period}</span>
                           <div className="flex-1 h-3 rounded-full bg-slate-100 overflow-hidden flex">
@@ -2136,7 +2278,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Bộ lọc: <strong>{matPeriod === 'ALL' ? 'Tất cả các kỳ' : matPeriod === 'MONTH' ? 'Tháng 10/2026' : 'Quý III'}</strong></span>
+                    <span>Dữ liệu: <strong>Snapshot tổng hợp</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-indigo-700 text-[10px] font-bold border border-indigo-200">
                       {filteredMatrix.length} môn
                     </span>
@@ -2297,7 +2439,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Bộ lọc: <strong>{inspPeriod === 'ALL' ? 'Tất cả xếp hạng' : inspPeriod === 'MONTH' ? 'Tháng 10/2026' : 'Quý III'}</strong></span>
+                    <span>Dữ liệu: <strong>Snapshot tổng hợp</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-purple-700 text-[10px] font-bold border border-purple-200">
                       {filteredInspection.length} GV
                     </span>
@@ -2510,44 +2652,65 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isDashFilterOpen}
         onClose={() => setIsDashFilterOpen(false)}
         title="Bộ lọc Dashboard Vận hành"
-        subtitle="Chọn chu kỳ đối soát và mốc ngày linh hoạt"
-        activeCount={dashDateFrom || dashDateTo || dashTimeframe !== 'MONTH' ? 2 : 1}
+        subtitle="Chọn nhanh khoảng thời gian cần xem"
+        activeCount={dashRangePreset === 'CURRENT_MONTH' ? 0 : 1}
         onReset={() => {
-          setDashTimeframe('MONTH');
-          setDashMonth('2026-10');
-          setDashDateFrom('');
-          setDashDateTo('');
-          setDashSearchMetric('');
+          setDashboardRange('CURRENT_MONTH');
           showToast('Đã đặt lại bộ lọc Dashboard!', 'info');
         }}
         onApply={() => {
           showToast('Đã áp dụng bộ lọc Dashboard!', 'success');
         }}
       >
-        <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Mốc thời gian phân tích Dashboard:"
-            month={dashMonth}
-            onMonthChange={setDashMonth}
-            startDate={dashDateFrom}
-            onStartDateChange={setDashDateFrom}
-            endDate={dashDateTo}
-            onEndDateChange={setDashDateTo}
-            selectedWeek={dashTimeframe === 'WEEK' ? 'W1' : 'ALL'}
-            onWeekChange={w => setDashTimeframe(w === 'ALL' ? 'ALL' : 'WEEK')}
-            accentColor="indigo"
-          />
-
-          <div className="space-y-1">
-            <label className="block font-bold text-slate-700">Lọc từ khóa chu kỳ:</label>
-            <input
-              type="text"
-              value={dashSearchMetric}
-              onChange={e => setDashSearchMetric(e.target.value)}
-              placeholder="Nhập tên chu kỳ (vd: Tuần 1, Tuần 2)..."
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
-            />
+        <div className="space-y-3 text-xs">
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ['CURRENT_MONTH', 'Tháng này'],
+              ['PREVIOUS_MONTH', 'Tháng trước'],
+              ['LAST_3_MONTHS', '3 tháng gần nhất'],
+              ['ALL', 'Toàn thời gian'],
+              ['CUSTOM', 'Tùy chỉnh ngày']
+            ] as const).map(([preset, label]) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setDashboardRange(preset)}
+                aria-pressed={dashRangePreset === preset}
+                className={`${preset === 'CUSTOM' ? 'col-span-2' : ''} rounded-xl border px-3 py-2.5 text-left font-semibold transition-colors ${
+                  dashRangePreset === preset
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+
+          {dashRangePreset === 'CUSTOM' && (
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3">
+              <label className="space-y-1 font-semibold text-slate-600">
+                <span>Từ ngày</span>
+                <input
+                  type="date"
+                  value={dashDateFrom}
+                  max={dashDateTo || undefined}
+                  onChange={event => setDashDateFrom(event.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-slate-800"
+                />
+              </label>
+              <label className="space-y-1 font-semibold text-slate-600">
+                <span>Đến ngày</span>
+                <input
+                  type="date"
+                  value={dashDateTo}
+                  min={dashDateFrom || undefined}
+                  onChange={event => setDashDateTo(event.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-slate-800"
+                />
+              </label>
+            </div>
+          )}
         </div>
       </FilterDrawer>
 
@@ -2581,8 +2744,11 @@ export const Module8_Reports: React.FC = () => {
             onStartDateChange={setClsDateFrom}
             endDate={clsDateTo}
             onEndDateChange={setClsDateTo}
-            selectedWeek={clsPeriod === 'WEEK' ? 'W1' : 'ALL'}
-            onWeekChange={w => setClsPeriod(w === 'ALL' ? 'ALL' : 'WEEK')}
+            selectedWeek={clsSelectedWeek}
+            onWeekChange={w => {
+              setClsSelectedWeek(w);
+              setClsPeriod(w === 'ALL' ? 'ALL' : 'WEEK');
+            }}
             accentColor="indigo"
           />
 
@@ -2677,8 +2843,11 @@ export const Module8_Reports: React.FC = () => {
             onStartDateChange={setStuDateFrom}
             endDate={stuDateTo}
             onEndDateChange={setStuDateTo}
-            selectedWeek={stuPeriod === 'WEEK' ? 'W1' : 'ALL'}
-            onWeekChange={w => setStuPeriod(w === 'ALL' ? 'ALL' : 'WEEK')}
+            selectedWeek={stuSelectedWeek}
+            onWeekChange={w => {
+              setStuSelectedWeek(w);
+              setStuPeriod(w === 'ALL' ? 'ALL' : 'WEEK');
+            }}
             accentColor="emerald"
           />
 
@@ -2754,8 +2923,11 @@ export const Module8_Reports: React.FC = () => {
             onStartDateChange={setTutDateFrom}
             endDate={tutDateTo}
             onEndDateChange={setTutDateTo}
-            selectedWeek={tutPeriod === 'WEEK' ? 'W1' : 'ALL'}
-            onWeekChange={w => setTutPeriod(w === 'ALL' ? 'ALL' : 'WEEK')}
+            selectedWeek={tutSelectedWeek}
+            onWeekChange={w => {
+              setTutSelectedWeek(w);
+              setTutPeriod(w === 'ALL' ? 'ALL' : 'WEEK');
+            }}
             accentColor="purple"
           />
 
@@ -2827,7 +2999,7 @@ export const Module8_Reports: React.FC = () => {
             endDate={incDateTo}
             onEndDateChange={setIncDateTo}
             selectedWeek={incPeriod}
-            onWeekChange={w => setIncPeriod(w as any)}
+            onWeekChange={w => setIncPeriod(w as typeof incPeriod)}
             accentColor="rose"
           />
 
@@ -2851,31 +3023,15 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isMatFilterOpen}
         onClose={() => setIsMatFilterOpen(false)}
         title="Bộ lọc Ma trận Ca dạy"
-        subtitle="Lọc theo tháng, ngày bắt đầu - kết thúc, tuần và phân nhóm bộ môn"
-        activeCount={(matPeriod !== 'ALL' ? 1 : 0) + (matDateFrom || matDateTo ? 1 : 0) + (matFilterSubject !== 'ALL' ? 1 : 0)}
-        onReset={() => {
-          resetMatFilters();
-          setMatMonth('2026-10');
-          setMatDateFrom('');
-          setMatDateTo('');
-          setMatWeek('ALL');
-        }}
+        subtitle="Dữ liệu ma trận là snapshot tổng hợp, hiện chỉ lọc được theo bộ môn"
+        activeCount={matFilterSubject !== 'ALL' ? 1 : 0}
+        onReset={resetMatFilters}
         onApply={() => showToast('Đã áp dụng bộ lọc Ma trận!', 'success')}
       >
         <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Kỳ đối soát & Mốc thời gian ca dạy:"
-            month={matMonth}
-            onMonthChange={setMatMonth}
-            startDate={matDateFrom}
-            onStartDateChange={setMatDateFrom}
-            endDate={matDateTo}
-            onEndDateChange={setMatDateTo}
-            selectedWeek={matWeek}
-            onWeekChange={setMatWeek}
-            accentColor="indigo"
-          />
-
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
+            Dữ liệu mẫu hiện không có ngày chi tiết nên không thể lọc theo thời gian.
+          </p>
           <div className="space-y-1.5">
             <label className="block font-bold text-slate-700">Phân loại bộ môn:</label>
             <select
@@ -2896,36 +3052,20 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isInspFilterOpen}
         onClose={() => setIsInspFilterOpen(false)}
         title="Bộ lọc Đánh giá Dự giờ & Xếp hạng GV"
-        subtitle="Lọc theo tháng, ngày bắt đầu - kết thúc, tuần, phân hạng sư phạm và bộ môn"
+        subtitle="Lọc theo phân hạng sư phạm và bộ môn; số liệu hiện là snapshot tổng hợp"
         activeCount={
-          (inspPeriod !== 'ALL' ? 1 : 0) +
-          (inspDateFrom || inspDateTo ? 1 : 0) +
           (inspFilterSubject !== 'ALL' ? 1 : 0) +
-          (inspFilterRank !== 'ALL' ? 1 : 0)
+          (inspFilterRank !== 'ALL' ? 1 : 0) +
+          (inspFilterScore !== 'ALL' ? 1 : 0) +
+          (inspFilterCode || inspFilterName ? 1 : 0)
         }
-        onReset={() => {
-          resetInspFilters();
-          setInspMonth('2026-10');
-          setInspDateFrom('');
-          setInspDateTo('');
-          setInspWeek('ALL');
-        }}
+        onReset={resetInspFilters}
         onApply={() => showToast('Đã áp dụng bộ lọc Dự giờ!', 'success')}
       >
         <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Kỳ đánh giá & Mốc thời gian dự giờ:"
-            month={inspMonth}
-            onMonthChange={setInspMonth}
-            startDate={inspDateFrom}
-            onStartDateChange={setInspDateFrom}
-            endDate={inspDateTo}
-            onEndDateChange={setInspDateTo}
-            selectedWeek={inspWeek}
-            onWeekChange={setInspWeek}
-            accentColor="purple"
-          />
-
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
+            Dữ liệu mẫu hiện không có ngày chi tiết nên không thể lọc theo thời gian.
+          </p>
           <div className="space-y-1.5">
             <label className="block font-bold text-slate-700">Phân hạng chất lượng:</label>
             <select

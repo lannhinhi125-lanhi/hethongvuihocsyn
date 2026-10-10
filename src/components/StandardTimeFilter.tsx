@@ -22,6 +22,23 @@ export interface StandardTimeFilterProps {
   accentColor?: 'indigo' | 'orange' | 'rose' | 'purple' | 'emerald';
 }
 
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const weeksListFor = (month: string) => {
+  if (month === 'ALL') return { start: '', end: '' };
+  const [year, monthNumber] = month.split('-').map(Number);
+  if (!year || !monthNumber) return { start: '', end: '' };
+  return {
+    start: `${month}-01`,
+    end: `${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, '0')}`
+  };
+};
+
 export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
   label = 'Mốc thời gian phân tích',
   month,
@@ -40,44 +57,67 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
 
   const [activeWeekId, setActiveWeekId] = useState<string>(selectedWeek || 'ALL');
 
-  // Sinh danh sách các tuần dựa theo Tháng được chọn
+  useEffect(() => {
+    setActiveWeekId(selectedWeek || 'ALL');
+  }, [selectedWeek]);
+
   const weeksList: WeekItem[] = useMemo(() => {
-    if (currentMonth === '2026-09') {
-      return [
-        { id: 'ALL', name: 'Cả tháng 9', range: '01/09 - 30/09', start: '2026-09-01', end: '2026-09-30' },
-        { id: 'W1', name: 'Tuần 1', range: '01/09 - 07/09', start: '2026-09-01', end: '2026-09-07' },
-        { id: 'W2', name: 'Tuần 2', range: '08/09 - 14/09', start: '2026-09-08', end: '2026-09-14' },
-        { id: 'W3', name: 'Tuần 3', range: '15/09 - 21/09', start: '2026-09-15', end: '2026-09-21' },
-        { id: 'W4', name: 'Tuần 4', range: '22/09 - 28/09', start: '2026-09-22', end: '2026-09-28' },
-        { id: 'W5', name: 'Tuần 5', range: '29/09 - 30/09', start: '2026-09-29', end: '2026-09-30' }
-      ];
-    } else if (currentMonth === '2026-10') {
-      return [
-        { id: 'ALL', name: 'Cả tháng 10', range: '01/10 - 31/10', start: '2026-10-01', end: '2026-10-31' },
-        { id: 'W1', name: 'Tuần 1', range: '01/10 - 07/10', start: '2026-10-01', end: '2026-10-07' },
-        { id: 'W2', name: 'Tuần 2', range: '08/10 - 14/10', start: '2026-10-08', end: '2026-10-14' },
-        { id: 'W3', name: 'Tuần 3', range: '15/10 - 21/10', start: '2026-10-15', end: '2026-10-21' },
-        { id: 'W4', name: 'Tuần 4', range: '22/10 - 28/10', start: '2026-10-22', end: '2026-10-28' },
-        { id: 'W5', name: 'Tuần 5', range: '29/10 - 31/10', start: '2026-10-29', end: '2026-10-31' }
-      ];
-    } else if (currentMonth === '2026-11') {
-      return [
-        { id: 'ALL', name: 'Cả tháng 11', range: '01/11 - 30/11', start: '2026-11-01', end: '2026-11-30' },
-        { id: 'W1', name: 'Tuần 1', range: '01/11 - 07/11', start: '2026-11-01', end: '2026-11-07' },
-        { id: 'W2', name: 'Tuần 2', range: '08/11 - 14/11', start: '2026-11-08', end: '2026-11-14' },
-        { id: 'W3', name: 'Tuần 3', range: '15/11 - 21/11', start: '2026-11-15', end: '2026-11-21' },
-        { id: 'W4', name: 'Tuần 4', range: '22/11 - 28/11', start: '2026-11-22', end: '2026-11-28' },
-        { id: 'W5', name: 'Tuần 5', range: '29/11 - 30/11', start: '2026-11-29', end: '2026-11-30' }
-      ];
-    } else {
-      return [
-        { id: 'ALL', name: 'Tất cả các mốc', range: 'Toàn thời gian', start: '', end: '' },
-        { id: 'W1', name: 'Tuần 1', range: '01 - 07', start: '2026-10-01', end: '2026-10-07' },
-        { id: 'W2', name: 'Tuần 2', range: '08 - 14', start: '2026-10-08', end: '2026-10-14' },
-        { id: 'W3', name: 'Tuần 3', range: '15 - 21', start: '2026-10-15', end: '2026-10-21' },
-        { id: 'W4', name: 'Tuần 4', range: '22 - 28', start: '2026-10-22', end: '2026-10-28' }
-      ];
+    if (currentMonth === 'ALL') {
+      return [{ id: 'ALL', name: 'Tất cả các mốc', range: 'Toàn thời gian', start: '', end: '' }];
     }
+    const [year, monthNumber] = currentMonth.split('-').map(Number);
+    if (!year || !monthNumber) return [];
+    const daysInMonth = new Date(year, monthNumber, 0).getDate();
+    const monthName = new Date(year, monthNumber - 1, 1).toLocaleDateString('vi-VN', { month: 'long' });
+    const weeks: WeekItem[] = [{
+      id: 'ALL',
+      name: `Cả tháng ${monthNumber}`,
+      range: `01/${String(monthNumber).padStart(2, '0')} - ${daysInMonth}/${String(monthNumber).padStart(2, '0')}`,
+      start: `${currentMonth}-01`,
+      end: `${currentMonth}-${String(daysInMonth).padStart(2, '0')}`
+    }];
+    for (let startDay = 1, week = 1; startDay <= daysInMonth; startDay += 7, week += 1) {
+      const endDay = Math.min(startDay + 6, daysInMonth);
+      weeks.push({
+        id: `W${week}`,
+        name: `Tuần ${week}`,
+        range: `${String(startDay).padStart(2, '0')}/${String(monthNumber).padStart(2, '0')} - ${String(endDay).padStart(2, '0')}/${String(monthNumber).padStart(2, '0')}`,
+        start: `${currentMonth}-${String(startDay).padStart(2, '0')}`,
+        end: `${currentMonth}-${String(endDay).padStart(2, '0')}`
+      });
+    }
+    return weeks.map(week => ({ ...week, name: week.id === 'ALL' ? `Cả ${monthName}` : week.name }));
+  }, [currentMonth]);
+
+  const monthOptions = useMemo(() => {
+    const selectedParts = currentMonth === 'ALL' ? [] : currentMonth.split('-').map(Number);
+    const anchor = selectedParts.length === 2 && selectedParts[0] && selectedParts[1]
+      ? new Date(selectedParts[0], selectedParts[1] - 1, 1)
+      : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const currentMonthValue = toDateInputValue(new Date()).slice(0, 7);
+    const options = Array.from({ length: 13 }, (_, index) => {
+      const date = new Date(anchor.getFullYear(), anchor.getMonth() + index - 6, 1);
+      const value = toDateInputValue(date).slice(0, 7);
+      return {
+        value,
+        label: `Tháng ${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}${value === currentMonthValue ? ' (Hiện tại)' : ''}`
+      };
+    });
+    if (currentMonth !== 'ALL' && !options.some(option => option.value === currentMonth)) {
+      const [year, monthNumber] = currentMonth.split('-').map(Number);
+      options.push({
+        value: currentMonth,
+        label: `Tháng ${String(monthNumber).padStart(2, '0')}/${year}${currentMonth === currentMonthValue ? ' (Hiện tại)' : ''}`
+      });
+      options.sort((left, right) => left.value.localeCompare(right.value));
+    }
+    return options;
+  }, [currentMonth]);
+
+  const academicYearLabel = useMemo(() => {
+    const monthDate = currentMonth === 'ALL' ? new Date() : new Date(`${currentMonth}-01T00:00:00`);
+    const startYear = monthDate.getFullYear() - (monthDate.getMonth() + 1 < 8 ? 1 : 0);
+    return `Năm học ${startYear} - ${startYear + 1}`;
   }, [currentMonth]);
 
   // Xử lý khi người dùng chọn tháng
@@ -85,27 +125,11 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
     if (onMonthChange) onMonthChange(newMonth);
     else setInternalMonth(newMonth);
 
-    if (newMonth === '2026-09') {
-      onStartDateChange('2026-09-01');
-      onEndDateChange('2026-09-30');
-      setActiveWeekId('ALL');
-      if (onWeekChange) onWeekChange('ALL');
-    } else if (newMonth === '2026-10') {
-      onStartDateChange('2026-10-01');
-      onEndDateChange('2026-10-31');
-      setActiveWeekId('ALL');
-      if (onWeekChange) onWeekChange('ALL');
-    } else if (newMonth === '2026-11') {
-      onStartDateChange('2026-11-01');
-      onEndDateChange('2026-11-30');
-      setActiveWeekId('ALL');
-      if (onWeekChange) onWeekChange('ALL');
-    } else if (newMonth === 'ALL') {
-      onStartDateChange('');
-      onEndDateChange('');
-      setActiveWeekId('ALL');
-      if (onWeekChange) onWeekChange('ALL');
-    }
+    const selectedMonth = weeksListFor(newMonth);
+    onStartDateChange(selectedMonth.start);
+    onEndDateChange(selectedMonth.end);
+    setActiveWeekId('ALL');
+    if (onWeekChange) onWeekChange('ALL');
   };
 
   // Xử lý khi người dùng chọn tuần
@@ -118,40 +142,43 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
 
   // Xử lý chuyển sang Tuần Sau theo yêu cầu người dùng
   const handleNextWeek = () => {
-    // Nếu đang ở W1 -> sang W2 (12/10 - 18/10), nếu đang có startDate -> cộng 7 ngày
-    if (startDate) {
-      const dStart = new Date(startDate);
-      dStart.setDate(dStart.getDate() + 7);
-      const nextStartStr = dStart.toISOString().slice(0, 10);
+    const baseStart = startDate || toDateInputValue(new Date());
+    const nextWeekStart = new Date(`${baseStart}T00:00:00`);
+    if (!startDate) nextWeekStart.setDate(nextWeekStart.getDate() - ((nextWeekStart.getDay() + 6) % 7));
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    const nextStart = toDateInputValue(nextWeekStart);
+    const nextWeekEnd = new Date(nextWeekStart);
+    nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
+    const nextEnd = toDateInputValue(nextWeekEnd);
+    const nextMonth = nextStart.slice(0, 7);
 
-      const dEnd = new Date(endDate || startDate);
-      dEnd.setDate(dEnd.getDate() + 7);
-      const nextEndStr = dEnd.toISOString().slice(0, 10);
-
-      onStartDateChange(nextStartStr);
-      onEndDateChange(nextEndStr);
-      setActiveWeekId('NEXT_WEEK');
-      if (onWeekChange) onWeekChange('NEXT_WEEK');
-    } else {
-      // Mặc định tuần sau tháng 10: 12/10 - 18/10
-      onStartDateChange('2026-10-12');
-      onEndDateChange('2026-10-18');
-      setActiveWeekId('W2');
-      if (onWeekChange) onWeekChange('W2');
-    }
+    onMonthChange?.(nextMonth);
+    if (!onMonthChange) setInternalMonth(nextMonth);
+    onStartDateChange(nextStart);
+    onEndDateChange(nextEnd);
+    setActiveWeekId('NEXT_WEEK');
+    if (onWeekChange) onWeekChange('NEXT_WEEK');
   };
 
   const handleThisWeek = () => {
-    onStartDateChange('2026-10-05');
-    onEndDateChange('2026-10-11');
-    setActiveWeekId('W1');
-    if (onWeekChange) onWeekChange('W1');
+    const weekStartDate = new Date();
+    weekStartDate.setDate(weekStartDate.getDate() - ((weekStartDate.getDay() + 6) % 7));
+    const weekStart = toDateInputValue(weekStartDate);
+    weekStartDate.setDate(weekStartDate.getDate() + 6);
+    const weekEnd = toDateInputValue(weekStartDate);
+    onMonthChange?.(weekStart.slice(0, 7));
+    if (!onMonthChange) setInternalMonth(weekStart.slice(0, 7));
+    onStartDateChange(weekStart);
+    onEndDateChange(weekEnd);
+    setActiveWeekId('THIS_WEEK');
+    if (onWeekChange) onWeekChange('THIS_WEEK');
   };
 
   // Tính toán nhãn tuần hiển thị
   const computedActiveWeekLabel = useMemo(() => {
-    if (activeWeekId === 'NEXT_WEEK') {
-      return `Tuần sau (${startDate.slice(8, 10)}/${startDate.slice(5, 7)} - ${endDate.slice(8, 10)}/${endDate.slice(5, 7)})`;
+    if (activeWeekId === 'NEXT_WEEK' || activeWeekId === 'THIS_WEEK') {
+      const label = activeWeekId === 'THIS_WEEK' ? 'Tuần này' : 'Tuần sau';
+      return `${label} (${startDate.slice(8, 10)}/${startDate.slice(5, 7)} - ${endDate.slice(8, 10)}/${endDate.slice(5, 7)})`;
     }
     const matched = weeksList.find(w => w.id === activeWeekId);
     if (matched && matched.id !== 'ALL') {
@@ -201,17 +228,16 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
             <span>Tháng:</span>
           </label>
-          <span className="text-[10px] text-slate-400 font-semibold">Năm học 2026 - 2027</span>
+          <span className="text-[10px] text-slate-400 font-semibold">{academicYearLabel}</span>
         </div>
         <select
           value={currentMonth}
           onChange={e => handleMonthChange(e.target.value)}
           className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 ${colorStyles.border} focus:outline-none cursor-pointer shadow-2xs`}
         >
-          <option value="2026-10">Tháng 10/2026 (Hiện tại)</option>
-          <option value="2026-09">Tháng 09/2026</option>
-          <option value="2026-11">Tháng 11/2026</option>
-          <option value="2026-12">Tháng 12/2026</option>
+          {monthOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
           <option value="ALL">Tất cả các tháng</option>
         </select>
       </div>
@@ -254,7 +280,7 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
             type="button"
             onClick={handleThisWeek}
             className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-bold transition-all cursor-pointer text-center ${
-              activeWeekId === 'W1'
+              activeWeekId === 'THIS_WEEK'
                 ? `${colorStyles.activeBtn} shadow-xs`
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
@@ -265,7 +291,7 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
             type="button"
             onClick={handleNextWeek}
             className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-bold transition-all cursor-pointer text-center ${
-              activeWeekId === 'W2' || activeWeekId === 'NEXT_WEEK'
+              activeWeekId === 'NEXT_WEEK'
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-300'
                 : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 font-extrabold'
             }`}
