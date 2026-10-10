@@ -1221,7 +1221,6 @@ const createOctoberPayrollSample = (septemberData: MonthPayrollData): MonthPayro
   });
 
   const disputes = septemberData.disputes.map(dispute => {
-    const sessionDate = dispute.sessionTime?.match(/(\d{2})\/09\/2026/)?.[1];
     return {
       ...dispute,
       id: dispute.id.replace(/^DSP-09/, 'DSP-10'),
