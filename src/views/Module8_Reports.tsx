@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
-import { StandardTimeFilter } from '../components/StandardTimeFilter';
 import {
   PieChart,
   TrendingUp,
@@ -19,13 +18,13 @@ import {
   Clock,
   Table,
   Calendar,
-  Layers,
   Sparkles,
   BarChart3,
   BookOpen,
   GraduationCap,
   ShieldAlert,
   Grid,
+  ChevronLeft,
   ChevronRight,
   Eye,
   SlidersHorizontal,
@@ -38,6 +37,34 @@ import {
 
 type ReportPeriod = 'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3';
 type DashboardRangePreset = 'CURRENT_MONTH' | 'PREVIOUS_MONTH' | 'LAST_3_MONTHS' | 'ALL' | 'CUSTOM';
+type FixedReportId = 'fixed_new_classes' | 'fixed_new_students' | 'fixed_new_tutors' | 'fixed_incident_trend' | 'fixed_matrix' | 'fixed_inspection';
+
+const REPORT_PAGE_SIZE = 25;
+
+const ReportPagination: React.FC<{
+  total: number;
+  page: number;
+  onPageChange: (page: number) => void;
+}> = ({ total, page, onPageChange }) => {
+  if (total <= REPORT_PAGE_SIZE) return null;
+  const pageCount = Math.ceil(total / REPORT_PAGE_SIZE);
+  const firstRow = page * REPORT_PAGE_SIZE + 1;
+  const lastRow = Math.min(total, firstRow + REPORT_PAGE_SIZE - 1);
+  return (
+    <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">
+      <span>Hiển thị {firstRow}–{lastRow} / {total.toLocaleString()} kết quả</span>
+      <div className="flex items-center gap-2">
+        <button type="button" disabled={page === 0} onClick={() => onPageChange(page - 1)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+          Trước
+        </button>
+        <span>{page + 1} / {pageCount}</span>
+        <button type="button" disabled={page >= pageCount - 1} onClick={() => onPageChange(page + 1)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 font-semibold enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+          Sau
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const toLocalIsoDate = (date: Date) => {
   const year = date.getFullYear();
@@ -65,6 +92,24 @@ const formatMonthLabel = (month: string) => {
 
 const formatDateRangeLabel = (start: string, end: string) =>
   `${start ? `${start.slice(8, 10)}/${start.slice(5, 7)}` : '...'} đến ${end ? `${end.slice(8, 10)}/${end.slice(5, 7)}` : '...'}`;
+
+const shiftDate = (value: string, days: number) => {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return toLocalIsoDate(date);
+};
+
+const daysBetween = (start: string, end: string) => {
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+  return Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+};
+
+const compareCount = (current: number, previous: number, unit: string) => {
+  const difference = current - previous;
+  if (difference === 0) return `Không đổi so với kỳ trước`;
+  return `${difference > 0 ? 'Tăng' : 'Giảm'} ${Math.abs(difference)} ${unit} so với kỳ trước`;
+};
 
 const getDateFilterRange = (
   month: string,
@@ -131,43 +176,33 @@ export const Module8_Reports: React.FC = () => {
   // =========================================================================
   const [dashRangePreset, setDashRangePreset] = useState<DashboardRangePreset>('CURRENT_MONTH');
   const [dashTimeframe, setDashTimeframe] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('MONTH');
-  const [dashViewMode, setDashViewMode] = useState<'visual' | 'table' | 'both'>('visual');
+  const [dashViewMode, setDashViewMode] = useState<'visual' | 'table'>('visual');
   const [dashSearchMetric, setDashSearchMetric] = useState('');
   const [hoveredTrendPoint, setHoveredTrendPoint] = useState<number | null>(null);
   // Mốc thời gian linh hoạt (Từ ngày - Đến ngày) & Tháng
   const [dashMonth, setDashMonth] = useState(() => toLocalIsoDate(new Date()).slice(0, 7));
   const [dashDateFrom, setDashDateFrom] = useState('');
   const [dashDateTo, setDashDateTo] = useState('');
-  const [clsMonth, setClsMonth] = useState('2026-10');
-  const [clsDateFrom, setClsDateFrom] = useState('');
-  const [clsDateTo, setClsDateTo] = useState('');
-  const [stuMonth, setStuMonth] = useState('2026-10');
-  const [stuDateFrom, setStuDateFrom] = useState('');
-  const [stuDateTo, setStuDateTo] = useState('');
-  const [tutMonth, setTutMonth] = useState('2026-10');
-  const [tutDateFrom, setTutDateFrom] = useState('');
-  const [tutDateTo, setTutDateTo] = useState('');
-  const [incMonth, setIncMonth] = useState('2026-10');
-  const [incDateFrom, setIncDateFrom] = useState('');
-  const [incDateTo, setIncDateTo] = useState('');
+  const [detailDateFrom, setDetailDateFrom] = useState(() => {
+    const today = new Date();
+    return toLocalIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+  });
+  const [detailDateTo, setDetailDateTo] = useState(() => toLocalIsoDate(new Date()));
 
   // =========================================================================
   // TAB 2 (BÁO CÁO CỐ ĐỊNH): NÚT CHỌN LOẠI BÁO CÁO & CHẾ ĐỘ XEM
   // =========================================================================
-  const [selectedFixedReport, setSelectedFixedReport] = useState<
-    'fixed_new_classes' | 'fixed_new_students' | 'fixed_new_tutors' | 'fixed_incident_trend' | 'fixed_matrix' | 'fixed_inspection'
-  >('fixed_new_classes');
+  const [selectedFixedReport, setSelectedFixedReport] = useState<FixedReportId>('fixed_new_classes');
+  const [detailPage, setDetailPage] = useState(0);
 
-  // Chế độ xem: Biểu đồ tỉ lệ trực quan | Bảng chi tiết | Kết hợp cả hai
-  const [fixedViewMode, setFixedViewMode] = useState<'visual' | 'table' | 'both'>('both');
+  // Chế độ xem báo cáo: biểu đồ hoặc bảng
+  const [fixedViewMode, setFixedViewMode] = useState<'visual' | 'table'>('visual');
 
   // =========================================================================
-  // BỘ LỌC RIÊNG CHO TỪNG BÁO CÁO (LỌC TRÊN NÓC SỔ NGANG + LỌC TRÊN TỪNG CỘT BẢNG)
+  // Bộ lọc riêng cho từng báo cáo
   // =========================================================================
 
   // 1. Bộ lọc riêng cho Báo cáo Lớp học mới
-  const [clsPeriod, setClsPeriod] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('ALL');
-  const [clsSelectedWeek, setClsSelectedWeek] = useState('ALL');
   const [clsFilterCode, setClsFilterCode] = useState('');
   const [clsFilterName, setClsFilterName] = useState('');
   const [clsFilterGrade, setClsFilterGrade] = useState('ALL');
@@ -176,8 +211,6 @@ export const Module8_Reports: React.FC = () => {
   const [clsFilterStatus, setClsFilterStatus] = useState('ALL');
 
   // 2. Bộ lọc riêng cho Báo cáo Học sinh mới
-  const [stuPeriod, setStuPeriod] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('ALL');
-  const [stuSelectedWeek, setStuSelectedWeek] = useState('ALL');
   const [stuFilterCode, setStuFilterCode] = useState('');
   const [stuFilterName, setStuFilterName] = useState('');
   const [stuFilterGrade, setStuFilterGrade] = useState('ALL');
@@ -186,8 +219,6 @@ export const Module8_Reports: React.FC = () => {
   const [stuFilterStatus, setStuFilterStatus] = useState('ALL');
 
   // 3. Bộ lọc riêng cho Báo cáo Gia sư mới
-  const [tutPeriod, setTutPeriod] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('ALL');
-  const [tutSelectedWeek, setTutSelectedWeek] = useState('ALL');
   const [tutFilterCode, setTutFilterCode] = useState('');
   const [tutFilterName, setTutFilterName] = useState('');
   const [tutFilterSubject, setTutFilterSubject] = useState('ALL');
@@ -195,7 +226,6 @@ export const Module8_Reports: React.FC = () => {
   const [tutFilterStatus, setTutFilterStatus] = useState('ALL');
 
   // 4. Bộ lọc riêng cho Báo cáo Sự cố
-  const [incPeriod, setIncPeriod] = useState<'ALL' | 'W1' | 'W2' | 'W3' | 'W4' | 'W5' | 'THIS_WEEK' | 'NEXT_WEEK'>('ALL');
   const [incFilterPeriod, setIncFilterPeriod] = useState('');
   const [incFilterUrgent, setIncFilterUrgent] = useState('ALL');
   const [incFilterMain, setIncFilterMain] = useState('');
@@ -273,15 +303,11 @@ export const Module8_Reports: React.FC = () => {
     { id: 'GV-007', name: 'Phạm Hải Nam', subject: 'Toán', subjectCode: 'TOAN', avg: 6.38, rank: 'Hạng D (Chưa đạt)', rankCode: 'D', total: 24, punctualityPct: 83.3, punctuality: '83.3%', plan: 'Tạm dừng nhận lớp • Đào tạo lại' }
   ], []);
 
-  const clsDateRange = getDateFilterRange(clsMonth, clsDateFrom, clsDateTo, clsPeriod);
-  const stuDateRange = getDateFilterRange(stuMonth, stuDateFrom, stuDateTo, stuPeriod);
-  const tutDateRange = getDateFilterRange(tutMonth, tutDateFrom, tutDateTo, tutPeriod);
-  const incDateRange = getDateFilterRange(
-    incMonth,
-    incDateFrom,
-    incDateTo,
-    incPeriod === 'THIS_WEEK' || incPeriod === 'NEXT_WEEK' ? 'WEEK' : 'ALL'
-  );
+  const detailDateRange = { start: detailDateFrom, end: detailDateTo };
+  const clsDateRange = detailDateRange;
+  const stuDateRange = detailDateRange;
+  const tutDateRange = detailDateRange;
+  const incDateRange = detailDateRange;
   const dashDateRange = getDateFilterRange(
     dashMonth,
     dashDateFrom,
@@ -356,7 +382,7 @@ export const Module8_Reports: React.FC = () => {
       if (incFilterMain && !i.main.toLowerCase().includes(incFilterMain.toLowerCase())) return false;
       return true;
     });
-  }, [rawIncidents, incPeriod, incDateRange, incFilterPeriod, incFilterUrgent, incFilterMain]);
+  }, [rawIncidents, incDateRange, incFilterPeriod, incFilterUrgent, incFilterMain]);
 
   // 5. Dữ liệu lọc riêng cho Ma trận
   const filteredMatrix = useMemo(() => {
@@ -417,6 +443,93 @@ export const Module8_Reports: React.FC = () => {
       urgentRate: urgentTotal ? Math.round((urgent / urgentTotal) * 100) : 0
     };
   }, [dashboardIncidents]);
+
+  const dashboardClasses = rawClasses.filter(item => isDateInRange(item.date, dashDateRange));
+  const dashboardStudents = rawStudents.filter(item => isDateInRange(item.date, dashDateRange));
+  const dashboardAvailableClasses = dashboardClasses.filter(item => item.status.toLowerCase().includes('trống'));
+  const dashboardWaitingStudents = dashboardStudents.filter(item => item.status.toLowerCase().includes('ghép'));
+  const dashboardMathClasses = dashboardClasses.filter(item => item.subjectCode === 'TOAN').length;
+  const dashboardEnglishClasses = dashboardClasses.length - dashboardMathClasses;
+  const dashboardMathClassRate = dashboardClasses.length ? Math.round((dashboardMathClasses / dashboardClasses.length) * 100) : 0;
+  const dashboardEnglishClassRate = dashboardClasses.length ? 100 - dashboardMathClassRate : 0;
+  const dashboardAssignedStudents = dashboardStudents.length - dashboardWaitingStudents.length;
+  const dashboardAssignedRate = dashboardStudents.length ? Math.round((dashboardAssignedStudents / dashboardStudents.length) * 100) : 0;
+  const previousDashboardRange = dashDateRange.start && dashDateRange.end
+    ? {
+        start: shiftDate(dashDateRange.start, -daysBetween(dashDateRange.start, dashDateRange.end)),
+        end: shiftDate(dashDateRange.start, -1)
+      }
+    : null;
+  const previousDashboardClasses = previousDashboardRange
+    ? rawClasses.filter(item => isDateInRange(item.date, previousDashboardRange))
+    : [];
+  const previousDashboardStudents = previousDashboardRange
+    ? rawStudents.filter(item => isDateInRange(item.date, previousDashboardRange))
+    : [];
+  const previousAvailableClassCount = previousDashboardClasses.filter(item => item.status.toLowerCase().includes('trống')).length;
+  const previousWaitingStudentCount = previousDashboardStudents.filter(item => item.status.toLowerCase().includes('ghép')).length;
+  const previousDashboardIncidents = previousDashboardRange
+    ? rawIncidents.filter(item => dateRangesOverlap(item.dateFrom, item.dateTo, previousDashboardRange))
+    : [];
+  const previousIncidentTotal = previousDashboardIncidents.reduce((total, incident) => total + incident.total, 0);
+  const previousIncidentCount = previousDashboardIncidents.reduce((total, incident) => total + incident.incidents, 0);
+  const previousIncidentRate = previousIncidentTotal ? (previousIncidentCount / previousIncidentTotal) * 100 : 0;
+  const incidentRateDifference = dashboardIncidentStats.incidentRate - previousIncidentRate;
+  const incidentRateComparison = incidentRateDifference === 0
+    ? 'Không đổi'
+    : `${incidentRateDifference > 0 ? 'Tăng' : 'Giảm'} ${Math.abs(incidentRateDifference).toFixed(2)} điểm %`;
+  const showPeriodComparison = Boolean(previousDashboardRange);
+  const currentReportTotal = selectedFixedReport === 'fixed_new_classes'
+    ? filteredClasses.length
+    : selectedFixedReport === 'fixed_new_students'
+      ? filteredStudents.length
+      : selectedFixedReport === 'fixed_new_tutors'
+        ? filteredTutors.length
+        : selectedFixedReport === 'fixed_incident_trend'
+          ? filteredIncidents.length
+          : selectedFixedReport === 'fixed_matrix'
+            ? filteredMatrix.length
+            : filteredInspection.length;
+  const currentReportPage = Math.min(detailPage, Math.max(0, Math.ceil(currentReportTotal / REPORT_PAGE_SIZE) - 1));
+
+  useEffect(() => {
+    if (detailPage !== currentReportPage) setDetailPage(currentReportPage);
+  }, [detailPage, currentReportPage]);
+
+  const openDashboardDetail = (report: FixedReportId, status?: 'AVAILABLE') => {
+    const eventDates = [
+      ...rawClasses.map(item => item.date),
+      ...rawStudents.map(item => item.date),
+      ...rawTutors.map(item => item.date),
+      ...rawIncidents.flatMap(item => [item.dateFrom, item.dateTo])
+    ].sort();
+    setSelectedFixedReport(report);
+    setDetailPage(0);
+    setFixedViewMode('table');
+    setCurrentMainTab('fixed');
+    setDetailDateFrom(dashDateRange.start || eventDates[0] || '');
+    setDetailDateTo(dashDateRange.end || eventDates[eventDates.length - 1] || '');
+    setClsFilterCode('');
+    setClsFilterName('');
+    setClsFilterGrade('ALL');
+    setClsFilterSubject('ALL');
+    setClsFilterModel('ALL');
+    setClsFilterStatus(report === 'fixed_new_classes' ? status || 'ALL' : 'ALL');
+    setStuFilterCode('');
+    setStuFilterName('');
+    setStuFilterGrade('ALL');
+    setStuFilterSubject('ALL');
+    setStuFilterModel('ALL');
+    setStuFilterStatus(report === 'fixed_new_students' ? status || 'ALL' : 'ALL');
+    setIncFilterPeriod('');
+    setIncFilterUrgent('ALL');
+    setIncFilterMain('');
+  };
+
+  const selectFixedReport = (report: FixedReportId) => {
+    setSelectedFixedReport(report);
+    setDetailPage(0);
+  };
 
   const dashboardTrendPoints = useMemo(() => {
     const eventDates = [...rawClasses.map(item => item.date), ...rawStudents.map(item => item.date)].sort();
@@ -518,12 +631,27 @@ export const Module8_Reports: React.FC = () => {
             ? formatDateRangeLabel(dashDateFrom, dashDateTo)
             : 'Chọn khoảng ngày';
 
+  const detailUsesDateRange = selectedFixedReport !== 'fixed_matrix' && selectedFixedReport !== 'fixed_inspection';
+  const shiftDetailRange = (direction: -1 | 1) => {
+    if (!detailDateFrom || !detailDateTo) return;
+    const duration = daysBetween(detailDateFrom, detailDateTo);
+    const shift = duration * direction;
+    setDetailDateFrom(current => shiftDate(current, shift));
+    setDetailDateTo(current => shiftDate(current, shift));
+  };
+
+  const changeDetailStart = (value: string) => {
+    setDetailDateFrom(value);
+    if (value > detailDateTo) setDetailDateTo(value);
+  };
+
+  const changeDetailEnd = (value: string) => {
+    setDetailDateTo(value);
+    if (value < detailDateFrom) setDetailDateFrom(value);
+  };
+
   // Reset functions riêng cho từng phần
   const resetClsFilters = () => {
-    setClsDateFrom('');
-    setClsDateTo('');
-    setClsPeriod('ALL');
-    setClsSelectedWeek('ALL');
     setClsFilterCode('');
     setClsFilterName('');
     setClsFilterGrade('ALL');
@@ -534,10 +662,6 @@ export const Module8_Reports: React.FC = () => {
   };
 
   const resetStuFilters = () => {
-    setStuDateFrom('');
-    setStuDateTo('');
-    setStuPeriod('ALL');
-    setStuSelectedWeek('ALL');
     setStuFilterCode('');
     setStuFilterName('');
     setStuFilterGrade('ALL');
@@ -548,10 +672,6 @@ export const Module8_Reports: React.FC = () => {
   };
 
   const resetTutFilters = () => {
-    setTutDateFrom('');
-    setTutDateTo('');
-    setTutPeriod('ALL');
-    setTutSelectedWeek('ALL');
     setTutFilterCode('');
     setTutFilterName('');
     setTutFilterSubject('ALL');
@@ -561,7 +681,6 @@ export const Module8_Reports: React.FC = () => {
   };
 
   const resetIncFilters = () => {
-    setIncPeriod('ALL');
     setIncFilterPeriod('');
     setIncFilterUrgent('ALL');
     setIncFilterMain('');
@@ -668,39 +787,39 @@ export const Module8_Reports: React.FC = () => {
       {/* ========================================================================= */}
       {/* 4 THẺ METRICS TỔNG QUAN HỆ THỐNG */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+      {currentMainTab === 'dashboard' && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <button type="button" title="Xem danh sách lớp còn chỗ trong khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_new_classes', 'AVAILABLE')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-indigo-300 hover:shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">LỚP MỞ TRONG THÁNG</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">LỚP CÒN CHỖ</span>
             <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <BookOpen className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-2">
-            <div className="text-xl font-bold text-slate-900 tracking-tight">{clsStats.total} Lớp</div>
+            <div className="text-xl font-bold text-slate-900 tracking-tight">{dashboardAvailableClasses.length} Lớp</div>
             <div className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>{clsStats.fullRate}% đạt trần sĩ số</span>
+              <span>{showPeriodComparison ? compareCount(dashboardAvailableClasses.length, previousAvailableClassCount, 'lớp') : 'Trong khoảng thời gian đã chọn'}</span>
             </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+        <button type="button" title="Xem danh sách học sinh chờ ghép trong khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_new_students', 'AVAILABLE')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-emerald-300 hover:shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">HỌC SINH TIẾP NHẬN</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">HỌC SINH CHỜ GHÉP</span>
             <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <GraduationCap className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-2">
-            <div className="text-xl font-bold text-slate-900 tracking-tight">{stuStats.total} Học sinh</div>
+            <div className="text-xl font-bold text-slate-900 tracking-tight">{dashboardWaitingStudents.length} Học sinh</div>
             <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
-              Ghép lớp thành công: {stuStats.assignedRate}%
+              {showPeriodComparison ? compareCount(dashboardWaitingStudents.length, previousWaitingStudentCount, 'học sinh') : 'Trong khoảng thời gian đã chọn'}
             </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+        <button type="button" title="Mở báo cáo sự cố theo khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_incident_trend')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-rose-300 hover:shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">TỶ LỆ LỖI VẬN HÀNH</span>
             <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
@@ -708,24 +827,32 @@ export const Module8_Reports: React.FC = () => {
             </div>
           </div>
           <div className="mt-2">
-            <div className="text-xl font-bold text-rose-600 tracking-tight">{incStats.rate}%</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Mục tiêu kiểm soát &lt; 2.5%</div>
+            <div className="text-xl font-bold text-rose-600 tracking-tight">{dashboardIncidentStats.incidentRate}%</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              {showPeriodComparison
+                ? `Kỳ trước: ${previousIncidentRate.toFixed(2)}% · ${incidentRateComparison}`
+                : 'So sánh kỳ trước: chưa đủ dữ liệu'}
+            </div>
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+        <button type="button" title="Mở danh sách sự cố trong khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_incident_trend')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-rose-300 hover:shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">ĐẠT CHUẨN SƯ PHẠM</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">SỐ CA SỰ CỐ</span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Award className="w-3.5 h-3.5" />
+              <AlertTriangle className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="mt-2">
-            <div className="text-xl font-bold text-slate-900 tracking-tight">{inspStats.qualifiedRate}%</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Điểm TB dự giờ: {inspStats.avgScore} / 10</div>
+            <div className="text-xl font-bold text-slate-900 tracking-tight">{dashboardIncidentStats.incidentCount}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              {showPeriodComparison
+                ? compareCount(dashboardIncidentStats.incidentCount, previousIncidentCount, 'ca')
+                : 'So sánh kỳ trước: chưa đủ dữ liệu'}
+            </div>
           </div>
-        </div>
-      </div>
+        </button>
+      </div>}
 
       {/* ========================================================================= */}
       {/* HEADER BANNER & THANH 3 TABS CHÍNH */}
@@ -736,6 +863,7 @@ export const Module8_Reports: React.FC = () => {
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-600">
               <PieChart className="w-4 h-4" />
               <span>Trung tâm Báo cáo &amp; Thống kê Vận hành</span>
+              <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">DỮ LIỆU MẪU</span>
             </div>
             <h2 className="text-base font-bold text-slate-900 mt-0.5">Báo cáo &amp; Thống kê Vận hành Lớp học</h2>
           </div>
@@ -763,7 +891,7 @@ export const Module8_Reports: React.FC = () => {
           >
             <BarChart3 className="w-4 h-4" />
             <div className="text-left">
-              <div className="font-semibold text-xs">1. Dashboard Tỷ lệ &amp; Xu hướng</div>
+              <div className="font-semibold text-xs">Tổng quan</div>
             </div>
           </button>
 
@@ -777,7 +905,7 @@ export const Module8_Reports: React.FC = () => {
           >
             <FolderOpen className="w-4 h-4" />
             <div className="text-left">
-              <div className="font-semibold text-xs">2. Báo cáo Nghiệp vụ Cố định</div>
+              <div className="font-semibold text-xs">Báo cáo chi tiết</div>
             </div>
           </button>
         </div>
@@ -800,13 +928,13 @@ export const Module8_Reports: React.FC = () => {
                 <Filter className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Bộ lọc: <strong>{dashboardRangeLabel}</strong></span>
                 <span className="px-1.5 py-0.2 rounded-md bg-white text-indigo-700 text-[10px] font-bold border border-indigo-200">
-                  {dashboardIncidents.length} kỳ
+                {dashboardIncidents.length.toLocaleString()} kỳ
                 </span>
               </button>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Nút chuyển đổi chế độ xem Dashboard: Biểu đồ trực quan | Bảng | Cả hai */}
+              {/* Chọn một kiểu xem để giữ dashboard gọn, dễ theo dõi */}
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
                 <button
                   type="button"
@@ -816,7 +944,7 @@ export const Module8_Reports: React.FC = () => {
                   }`}
                 >
                   <TrendingUp className="w-3 h-3" />
-                  <span>Biểu đồ & Tỉ lệ</span>
+                  <span>Biểu đồ</span>
                 </button>
                 <button
                   type="button"
@@ -827,16 +955,6 @@ export const Module8_Reports: React.FC = () => {
                 >
                   <Table className="w-3 h-3" />
                   <span>Bảng số liệu</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDashViewMode('both')}
-                  className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                    dashViewMode === 'both' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Layers className="w-3 h-3" />
-                  <span>Cả hai</span>
                 </button>
               </div>
 
@@ -857,7 +975,7 @@ export const Module8_Reports: React.FC = () => {
           </div>
 
           {/* Biểu đồ đường cong tăng trưởng (khi ở chế độ visual hoặc both) */}
-          {(dashViewMode === 'visual' || dashViewMode === 'both') && (
+          {dashViewMode === 'visual' && (
             <>
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
@@ -919,50 +1037,40 @@ export const Module8_Reports: React.FC = () => {
 
             {/* HỆ THỐNG BIỂU ĐỒ BỔ SUNG TRỰC QUAN DASHBOARD */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* 1. Biểu đồ Cột Chồng: Tỷ trọng Ca dạy theo Bộ Môn qua các Chu Kỳ */}
+              {/* Phân bố lớp mới theo môn trong khoảng đang xem */}
               <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div>
-                    <h5 className="font-bold text-slate-800 text-xs">Cơ cấu Ca Dạy Theo Bộ Môn</h5>
-                    <p className="text-[10px] text-slate-400">Tỷ lệ Toán vs Tiếng Anh</p>
+                    <h5 className="font-bold text-slate-800 text-xs">Lớp mới theo môn</h5>
+                    <p className="text-[10px] text-slate-400">Trong khoảng thời gian đang xem</p>
                   </div>
                   <span className="px-2 py-0.5 rounded-md bg-orange-50 text-[#FF5C00] font-bold text-[10px]">
-                    2,840 ca
+                    {dashboardClasses.length} lớp
                   </span>
                 </div>
 
                 <div className="space-y-2 pt-1 text-xs">
                   <div>
                     <div className="flex justify-between text-[11px] font-semibold text-slate-700 mb-1">
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#FF5C00]" /> Môn Toán: 1,620 ca</span>
-                      <span className="font-bold text-[#FF5C00]">57.0%</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#FF5C00]" /> Môn Toán: {dashboardMathClasses} lớp</span>
+                      <span className="font-bold text-[#FF5C00]">{dashboardMathClassRate}%</span>
                     </div>
                     <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
-                      <div className="h-full bg-[#FF5C00] rounded-full transition-all" style={{ width: '57%' }} />
+                      <div className="h-full bg-[#FF5C00] rounded-full transition-all" style={{ width: `${dashboardMathClassRate}%` }} />
                     </div>
                   </div>
 
                   <div>
                     <div className="flex justify-between text-[11px] font-semibold text-slate-700 mb-1">
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-600" /> Tiếng Anh & IELTS: 1,220 ca</span>
-                      <span className="font-bold text-indigo-600">43.0%</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-600" /> Tiếng Anh & IELTS: {dashboardEnglishClasses} lớp</span>
+                      <span className="font-bold text-indigo-600">{dashboardEnglishClassRate}%</span>
                     </div>
                     <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
-                      <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: '43%' }} />
+                      <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${dashboardEnglishClassRate}%` }} />
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-center text-[10px]">
-                  <div className="p-2 bg-slate-50 rounded-xl">
-                    <span className="text-slate-400 block font-medium">Toán K1 - 5</span>
-                    <strong className="text-slate-800 text-xs font-bold">1,125 ca (69%)</strong>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-xl">
-                    <span className="text-slate-400 block font-medium">Anh K1 - 5</span>
-                    <strong className="text-slate-800 text-xs font-bold">880 ca (72%)</strong>
-                  </div>
-                </div>
               </div>
 
               {/* 2. Biểu đồ Donut Tỷ lệ Lỗi theo Chu kỳ và Mục tiêu SLA */}
@@ -1025,7 +1133,7 @@ export const Module8_Reports: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                      <span className="font-medium text-slate-700">Dạy thay cứu ca: <strong>1.2%</strong></span>
+                      <span className="font-medium text-slate-700">Tổng ca theo dõi: <strong>{dashboardIncidents.reduce((total, incident) => total + incident.total, 0).toLocaleString()}</strong></span>
                     </div>
                   </div>
                 </div>
@@ -1097,13 +1205,13 @@ export const Module8_Reports: React.FC = () => {
               </div>
             </div>
             <p className="text-[10px] text-slate-500">
-              Cơ cấu ca dạy và đánh giá dự giờ là snapshot tổng hợp chưa có ngày chi tiết; đường xu hướng và chỉ số sự cố thay đổi theo bộ lọc thời gian.
+              Các biểu đồ lớp mới, học sinh và sự cố áp dụng khoảng ngày đã chọn; dữ liệu Ma trận ca dạy và Dự giờ là snapshot tổng hợp.
             </p>
             </>
           )}
 
           {/* Bảng số liệu chi tiết Dashboard (khi ở chế độ table hoặc both) */}
-          {(dashViewMode === 'table' || dashViewMode === 'both') && (
+          {dashViewMode === 'table' && (
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
               <div className="p-3 px-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                 <span className="font-bold text-xs text-slate-800 uppercase tracking-wider">
@@ -1120,7 +1228,7 @@ export const Module8_Reports: React.FC = () => {
                       <th className="py-2.5 px-3 text-center min-w-[120px]">HỌC SINH MỚI</th>
                       <th className="py-2.5 px-3 text-center min-w-[130px]">LẤP ĐẦY TRẦN (%)</th>
                       <th className="py-2.5 px-3 text-center min-w-[130px]">TỶ LỆ LỖI (%)</th>
-                      <th className="py-2.5 px-3 text-center min-w-[130px]">ĐÁNH GIÁ CHUẨN</th>
+                      <th className="py-2.5 px-3 text-center min-w-[130px]">ĐIỂM DỰ GIỜ (SNAPSHOT)</th>
                     </tr>
                     {/* Hàng tìm kiếm theo từng trường */}
                     <tr className="bg-white border-t border-slate-200 normal-case font-normal text-slate-600">
@@ -1177,23 +1285,92 @@ export const Module8_Reports: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: BÁO CÁO NGHIỆP VỤ CỐ ĐỊNH (LỌC TRÊN NÓC SỔ NGANG + LỌC CỘT TỪNG PHẦN) */}
+      {/* TAB 2: BÁO CÁO CHI TIẾT */}
       {/* ========================================================================= */}
       {currentMainTab === 'fixed' && (
         <div className="space-y-4 animate-in fade-in duration-200">
-          {/* Thanh chọn 1 báo cáo duy nhất & Chế độ xem */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+            {detailUsesDateRange ? (
+              <>
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Khoảng thời gian báo cáo</div>
+                  <div className="text-[10px] text-slate-500">Dùng chung cho các báo cáo có ngày phát sinh</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label="Khoảng thời gian trước"
+                    title="Lùi một khoảng tương đương"
+                    onClick={() => shiftDetailRange(-1)}
+                    disabled={!detailDateFrom || !detailDateTo}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-500">
+                    <span>Từ</span>
+                    <input
+                      type="date"
+                      value={detailDateFrom}
+                      max={detailDateTo}
+                      onChange={event => changeDetailStart(event.target.value)}
+                      className="min-w-0 bg-transparent text-xs text-slate-800 outline-none"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-500">
+                    <span>Đến</span>
+                    <input
+                      type="date"
+                      value={detailDateTo}
+                      min={detailDateFrom}
+                      onChange={event => changeDetailEnd(event.target.value)}
+                      className="min-w-0 bg-transparent text-xs text-slate-800 outline-none"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    aria-label="Khoảng thời gian tiếp theo"
+                    title="Tiến một khoảng tương đương"
+                    onClick={() => shiftDetailRange(1)}
+                    disabled={!detailDateFrom || !detailDateTo}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date();
+                      setDetailDateFrom(toLocalIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)));
+                      setDetailDateTo(toLocalIsoDate(today));
+                    }}
+                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+                  >
+                    Tháng này
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-start gap-2 text-[11px] text-amber-800">
+                <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Đây là snapshot tổng hợp, chưa có ngày phát sinh để lọc chính xác theo khoảng thời gian.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Chọn báo cáo và chế độ hiển thị */}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
-                  DANH MỤC BÁO CÁO NGHIỆP VỤ (LỌC RIÊNG BIỆT TỪNG PHẦN)
+                  BÁO CÁO CHI TIẾT
                 </div>
                 <h3 className="text-sm font-bold text-slate-900 mt-0.5">
-                  Chọn Báo cáo cần xem &amp; đối soát số liệu
+                  Chọn một báo cáo để xem số liệu
                 </h3>
               </div>
 
-              {/* Nút chuyển đổi chế độ xem: Biểu đồ & Tỉ lệ | Bảng chi tiết | Kết hợp cả hai */}
+              {/* Chọn một kiểu xem để dễ tập trung vào dữ liệu */}
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start lg:self-auto text-xs">
                 <button
                   type="button"
@@ -1205,7 +1382,7 @@ export const Module8_Reports: React.FC = () => {
                   }`}
                 >
                   <PieChart className="w-3.5 h-3.5" />
-                  <span>Biểu đồ &amp; Tỉ lệ trực quan</span>
+                  <span>Biểu đồ</span>
                 </button>
                 <button
                   type="button"
@@ -1219,26 +1396,14 @@ export const Module8_Reports: React.FC = () => {
                   <Table className="w-3.5 h-3.5" />
                   <span>Bảng số liệu chi tiết</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFixedViewMode('both')}
-                  className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    fixedViewMode === 'both'
-                      ? 'bg-white text-indigo-600 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Kết hợp cả hai</span>
-                </button>
               </div>
             </div>
 
-            {/* LƯỚI 6 NÚT CHỌN LOẠI BÁO CÁO */}
+            {/* Danh mục báo cáo */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
               <button
                 type="button"
-                onClick={() => setSelectedFixedReport('fixed_new_classes')}
+                onClick={() => selectFixedReport('fixed_new_classes')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedFixedReport === 'fixed_new_classes'
                     ? 'bg-indigo-50/70 border-indigo-500 shadow-2xs ring-1 ring-indigo-500/20'
@@ -1263,7 +1428,7 @@ export const Module8_Reports: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setSelectedFixedReport('fixed_new_students')}
+                onClick={() => selectFixedReport('fixed_new_students')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedFixedReport === 'fixed_new_students'
                     ? 'bg-indigo-50/70 border-indigo-500 shadow-2xs ring-1 ring-indigo-500/20'
@@ -1288,7 +1453,7 @@ export const Module8_Reports: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setSelectedFixedReport('fixed_new_tutors')}
+                onClick={() => selectFixedReport('fixed_new_tutors')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedFixedReport === 'fixed_new_tutors'
                     ? 'bg-indigo-50/70 border-indigo-500 shadow-2xs ring-1 ring-indigo-500/20'
@@ -1313,7 +1478,7 @@ export const Module8_Reports: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setSelectedFixedReport('fixed_incident_trend')}
+                onClick={() => selectFixedReport('fixed_incident_trend')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedFixedReport === 'fixed_incident_trend'
                     ? 'bg-rose-50/70 border-rose-500 shadow-2xs ring-1 ring-rose-500/20'
@@ -1338,7 +1503,7 @@ export const Module8_Reports: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setSelectedFixedReport('fixed_matrix')}
+                onClick={() => selectFixedReport('fixed_matrix')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedFixedReport === 'fixed_matrix'
                     ? 'bg-indigo-50/70 border-indigo-500 shadow-2xs ring-1 ring-indigo-500/20'
@@ -1352,7 +1517,7 @@ export const Module8_Reports: React.FC = () => {
                     <Grid className="w-3 h-3" />
                   </div>
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                    2,840 ca
+                    {matStats.totalSessions.toLocaleString()} ca
                   </span>
                 </div>
                 <div className="mt-2">
@@ -1363,7 +1528,7 @@ export const Module8_Reports: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setSelectedFixedReport('fixed_inspection')}
+                onClick={() => selectFixedReport('fixed_inspection')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                   selectedFixedReport === 'fixed_inspection'
                     ? 'bg-indigo-50/70 border-indigo-500 shadow-2xs ring-1 ring-indigo-500/20'
@@ -1401,7 +1566,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Bộ lọc: <strong>{clsDateFrom || clsDateTo ? formatDateRangeLabel(clsDateFrom, clsDateTo) : formatMonthLabel(clsMonth)}</strong></span>
+                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-indigo-700 text-[10px] font-bold border border-indigo-200">
                       {filteredClasses.length} lớp
                     </span>
@@ -1433,7 +1598,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               {/* Tỉ lệ trực quan */}
-              {(fixedViewMode === 'visual' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
@@ -1482,7 +1647,7 @@ export const Module8_Reports: React.FC = () => {
               )}
 
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
-              {(fixedViewMode === 'table' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -1592,7 +1757,7 @@ export const Module8_Reports: React.FC = () => {
                             </td>
                           </tr>
                         ) : (
-                          filteredClasses.map(c => (
+                          filteredClasses.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(c => (
                             <tr key={c.code} className="hover:bg-slate-50/70 transition-colors">
                               <td className="py-3 px-3 font-bold font-mono text-indigo-600">{c.code}</td>
                               <td className="py-3 px-3 font-semibold text-slate-800">{c.name}</td>
@@ -1625,6 +1790,7 @@ export const Module8_Reports: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  <ReportPagination total={filteredClasses.length} page={currentReportPage} onPageChange={setDetailPage} />
                 </div>
               )}
             </div>
@@ -1643,7 +1809,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Bộ lọc: <strong>{stuDateFrom || stuDateTo ? formatDateRangeLabel(stuDateFrom, stuDateTo) : formatMonthLabel(stuMonth)}</strong></span>
+                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-emerald-700 text-[10px] font-bold border border-emerald-200">
                       {filteredStudents.length} HS
                     </span>
@@ -1675,7 +1841,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               {/* Tỉ lệ trực quan */}
-              {(fixedViewMode === 'visual' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
@@ -1720,7 +1886,7 @@ export const Module8_Reports: React.FC = () => {
               )}
 
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
-              {(fixedViewMode === 'table' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -1827,7 +1993,7 @@ export const Module8_Reports: React.FC = () => {
                             </td>
                           </tr>
                         ) : (
-                          filteredStudents.map(s => (
+                          filteredStudents.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(s => (
                             <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
                               <td className="py-3 px-3 font-bold font-mono text-emerald-600">{s.id}</td>
                               <td className="py-3 px-3 font-semibold text-slate-800">{s.name}</td>
@@ -1853,6 +2019,7 @@ export const Module8_Reports: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  <ReportPagination total={filteredStudents.length} page={currentReportPage} onPageChange={setDetailPage} />
                 </div>
               )}
             </div>
@@ -1871,7 +2038,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Bộ lọc: <strong>{tutDateFrom || tutDateTo ? formatDateRangeLabel(tutDateFrom, tutDateTo) : formatMonthLabel(tutMonth)}</strong></span>
+                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-purple-700 text-[10px] font-bold border border-purple-200">
                       {filteredTutors.length} gia sư
                     </span>
@@ -1903,7 +2070,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               {/* Tỉ lệ trực quan Báo cáo Gia sư */}
-              {(fixedViewMode === 'visual' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
@@ -1948,7 +2115,7 @@ export const Module8_Reports: React.FC = () => {
               )}
 
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
-              {(fixedViewMode === 'table' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2040,7 +2207,7 @@ export const Module8_Reports: React.FC = () => {
                             </td>
                           </tr>
                         ) : (
-                          filteredTutors.map(t => (
+                          filteredTutors.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(t => (
                             <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
                               <td className="py-3 px-3 font-bold font-mono text-purple-600">{t.id}</td>
                               <td className="py-3 px-3 font-semibold text-slate-800">{t.name}</td>
@@ -2064,6 +2231,7 @@ export const Module8_Reports: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  <ReportPagination total={filteredTutors.length} page={currentReportPage} onPageChange={setDetailPage} />
                 </div>
               )}
             </div>
@@ -2082,7 +2250,7 @@ export const Module8_Reports: React.FC = () => {
                     title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
                   >
                     <Filter className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Bộ lọc: <strong>{incPeriod === 'ALL' ? 'Tất cả' : incPeriod === 'THIS_WEEK' ? 'Tuần này' : incPeriod === 'NEXT_WEEK' ? 'Tuần sau' : `Tuần ${incPeriod.slice(1)}`}</strong></span>
+                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
                     <span className="px-1.5 py-0.2 rounded-md bg-white text-rose-700 text-[10px] font-bold border border-rose-200">
                       {filteredIncidents.length} kỳ
                     </span>
@@ -2114,7 +2282,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               {/* Tỉ lệ trực quan Báo cáo Sự cố */}
-              {(fixedViewMode === 'visual' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
@@ -2166,7 +2334,7 @@ export const Module8_Reports: React.FC = () => {
               )}
 
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
-              {(fixedViewMode === 'table' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2236,7 +2404,7 @@ export const Module8_Reports: React.FC = () => {
                             </td>
                           </tr>
                         ) : (
-                          filteredIncidents.map(i => (
+                          filteredIncidents.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(i => (
                             <tr key={i.period} className="hover:bg-slate-50/70 transition-colors">
                               <td className="py-3 px-3 font-semibold text-slate-800">{i.period}</td>
                               <td className="py-3 px-3 text-center text-slate-700 font-semibold">{i.total}</td>
@@ -2260,6 +2428,7 @@ export const Module8_Reports: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  <ReportPagination total={filteredIncidents.length} page={currentReportPage} onPageChange={setDetailPage} />
                 </div>
               )}
             </div>
@@ -2309,13 +2478,17 @@ export const Module8_Reports: React.FC = () => {
                 </div>
               </div>
 
+              <p className="px-1 text-[11px] text-slate-500">
+                Snapshot tổng hợp: số liệu hiện không gắn ngày chi tiết, nên bộ lọc thời gian chưa áp dụng cho báo cáo này.
+              </p>
+
               {/* Tỉ lệ trực quan Báo cáo Ma trận ca dạy */}
-              {(fixedViewMode === 'visual' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-800">Tỷ trọng Ca Dạy theo Bộ Môn</span>
-                      <span className="text-xs font-semibold text-slate-500">Tổng 2,840 ca</span>
+                      <span className="text-xs font-semibold text-slate-500">Tổng {matStats.totalSessions.toLocaleString()} ca</span>
                     </div>
                     <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
                       <div style={{ width: `${matStats.toanRate}%` }} className="bg-[#FF5C00] h-full" />
@@ -2347,11 +2520,11 @@ export const Module8_Reports: React.FC = () => {
                       </div>
                       <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                         <div className="text-[10px] text-slate-500">THCS (K6-9)</div>
-                        <div className="text-sm font-bold text-slate-900 mt-0.5">460 ca</div>
+                        <div className="text-sm font-bold text-slate-900 mt-0.5">{filteredMatrix.reduce((total, item) => total + item.thcs, 0).toLocaleString()} ca</div>
                       </div>
                       <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                         <div className="text-[10px] text-slate-500">THPT &amp; IELTS</div>
-                        <div className="text-sm font-bold text-slate-900 mt-0.5">375 ca</div>
+                        <div className="text-sm font-bold text-slate-900 mt-0.5">{filteredMatrix.reduce((total, item) => total + item.thpt + item.ielts, 0).toLocaleString()} ca</div>
                       </div>
                     </div>
                   </div>
@@ -2359,7 +2532,7 @@ export const Module8_Reports: React.FC = () => {
               )}
 
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
-              {(fixedViewMode === 'table' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2393,7 +2566,7 @@ export const Module8_Reports: React.FC = () => {
                       </thead>
 
                       <tbody className="divide-y divide-slate-100 font-medium">
-                        {filteredMatrix.map(m => (
+                        {filteredMatrix.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(m => (
                           <tr key={m.code} className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3.5 px-3 font-bold text-slate-900 flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: m.color }} />
@@ -2416,11 +2589,12 @@ export const Module8_Reports: React.FC = () => {
                           <td className="py-3 px-3 text-center">460</td>
                           <td className="py-3 px-3 text-center">240</td>
                           <td className="py-3 px-3 text-center">135</td>
-                          <td className="py-3 px-3 text-right text-indigo-600 font-bold">2,840 ca</td>
+                          <td className="py-3 px-3 text-right text-indigo-600 font-bold">{matStats.totalSessions.toLocaleString()} ca</td>
                         </tr>
                       </tfoot>
                     </table>
                   </div>
+                  <ReportPagination total={filteredMatrix.length} page={currentReportPage} onPageChange={setDetailPage} />
                 </div>
               )}
             </div>
@@ -2470,8 +2644,12 @@ export const Module8_Reports: React.FC = () => {
                 </div>
               </div>
 
+              <p className="px-1 text-[11px] text-slate-500">
+                Snapshot tổng hợp: số liệu hiện không gắn ngày chi tiết, nên bộ lọc thời gian chưa áp dụng cho báo cáo này.
+              </p>
+
               {/* Tỉ lệ trực quan Báo cáo Dự giờ */}
-              {(fixedViewMode === 'visual' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
@@ -2517,7 +2695,7 @@ export const Module8_Reports: React.FC = () => {
               )}
 
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
-              {(fixedViewMode === 'table' || fixedViewMode === 'both') && (
+              {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -2605,7 +2783,7 @@ export const Module8_Reports: React.FC = () => {
                       </thead>
 
                       <tbody className="divide-y divide-slate-100 font-medium">
-                        {filteredInspection.map(t => (
+                        {filteredInspection.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(t => (
                           <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3 px-3 font-bold font-mono text-slate-900">{t.id}</td>
                             <td className="py-3 px-3 font-semibold text-slate-800">{t.name}</td>
@@ -2634,6 +2812,7 @@ export const Module8_Reports: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  <ReportPagination total={filteredInspection.length} page={currentReportPage} onPageChange={setDetailPage} />
                 </div>
               )}
             </div>
@@ -2719,39 +2898,18 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isClsFilterOpen}
         onClose={() => setIsClsFilterOpen(false)}
         title="Bộ lọc Báo cáo Lớp học mới"
-        subtitle="Lọc chi tiết theo thời gian tạo mã, môn học, khối lớp, mô hình và tình trạng trần"
+        subtitle="Tìm theo mã/tên lớp và lọc theo môn, khối, mô hình, sĩ số"
         activeCount={
-          (clsPeriod !== 'ALL' ? 1 : 0) +
-          (clsDateFrom || clsDateTo ? 1 : 0) +
           (clsFilterGrade !== 'ALL' ? 1 : 0) +
           (clsFilterSubject !== 'ALL' ? 1 : 0) +
           (clsFilterModel !== 'ALL' ? 1 : 0) +
           (clsFilterStatus !== 'ALL' ? 1 : 0) +
           (clsFilterCode || clsFilterName ? 1 : 0)
         }
-        onReset={() => {
-          resetClsFilters();
-          setClsMonth('2026-10');
-        }}
+        onReset={resetClsFilters}
         onApply={() => showToast('Đã áp dụng bộ lọc Lớp học!', 'success')}
       >
         <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Mốc thời gian tạo mã lớp học:"
-            month={clsMonth}
-            onMonthChange={setClsMonth}
-            startDate={clsDateFrom}
-            onStartDateChange={setClsDateFrom}
-            endDate={clsDateTo}
-            onEndDateChange={setClsDateTo}
-            selectedWeek={clsSelectedWeek}
-            onWeekChange={w => {
-              setClsSelectedWeek(w);
-              setClsPeriod(w === 'ALL' ? 'ALL' : 'WEEK');
-            }}
-            accentColor="indigo"
-          />
-
           <div className="space-y-1.5">
             <label className="block font-bold text-slate-700">Bộ môn học:</label>
             <select
@@ -2819,38 +2977,17 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isStuFilterOpen}
         onClose={() => setIsStuFilterOpen(false)}
         title="Bộ lọc Học sinh mới tiếp nhận"
-        subtitle="Lọc theo ngày tiếp nhận, khối lớp, môn học, mô hình ghép lớp"
+        subtitle="Tìm theo mã/tên học sinh và lọc theo khối, môn, mô hình, trạng thái"
         activeCount={
-          (stuPeriod !== 'ALL' ? 1 : 0) +
-          (stuDateFrom || stuDateTo ? 1 : 0) +
           (stuFilterGrade !== 'ALL' ? 1 : 0) +
           (stuFilterSubject !== 'ALL' ? 1 : 0) +
           (stuFilterModel !== 'ALL' ? 1 : 0) +
           (stuFilterStatus !== 'ALL' ? 1 : 0)
         }
-        onReset={() => {
-          resetStuFilters();
-          setStuMonth('2026-10');
-        }}
+        onReset={resetStuFilters}
         onApply={() => showToast('Đã áp dụng bộ lọc Học sinh!', 'success')}
       >
         <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Thời gian tiếp nhận hồ sơ học sinh:"
-            month={stuMonth}
-            onMonthChange={setStuMonth}
-            startDate={stuDateFrom}
-            onStartDateChange={setStuDateFrom}
-            endDate={stuDateTo}
-            onEndDateChange={setStuDateTo}
-            selectedWeek={stuSelectedWeek}
-            onWeekChange={w => {
-              setStuSelectedWeek(w);
-              setStuPeriod(w === 'ALL' ? 'ALL' : 'WEEK');
-            }}
-            accentColor="emerald"
-          />
-
           <div className="space-y-1.5">
             <label className="block font-bold text-slate-700">Môn học:</label>
             <select
@@ -2903,10 +3040,8 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isTutFilterOpen}
         onClose={() => setIsTutFilterOpen(false)}
         title="Bộ lọc Gia sư mới gia nhập"
-        subtitle="Lọc theo ngày tiếp nhận, môn giảng dạy, khối lớp và trạng thái nhận lớp"
+        subtitle="Tìm theo mã/tên gia sư và lọc theo môn, khối, trạng thái"
         activeCount={
-          (tutPeriod !== 'ALL' ? 1 : 0) +
-          (tutDateFrom || tutDateTo ? 1 : 0) +
           (tutFilterSubject !== 'ALL' ? 1 : 0) +
           (tutFilterGrade !== 'ALL' ? 1 : 0) +
           (tutFilterStatus !== 'ALL' ? 1 : 0)
@@ -2915,22 +3050,6 @@ export const Module8_Reports: React.FC = () => {
         onApply={() => showToast('Đã áp dụng bộ lọc Gia sư!', 'success')}
       >
         <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Mốc thời gian tiếp nhận Gia sư mới:"
-            month={tutMonth}
-            onMonthChange={setTutMonth}
-            startDate={tutDateFrom}
-            onStartDateChange={setTutDateFrom}
-            endDate={tutDateTo}
-            onEndDateChange={setTutDateTo}
-            selectedWeek={tutSelectedWeek}
-            onWeekChange={w => {
-              setTutSelectedWeek(w);
-              setTutPeriod(w === 'ALL' ? 'ALL' : 'WEEK');
-            }}
-            accentColor="purple"
-          />
-
           <div className="space-y-1.5">
             <label className="block font-bold text-slate-700">Bộ môn giảng dạy:</label>
             <select
@@ -2979,30 +3098,12 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isIncFilterOpen}
         onClose={() => setIsIncFilterOpen(false)}
         title="Bộ lọc Báo cáo Sự cố Vận hành"
-        subtitle="Lọc theo tháng, ngày bắt đầu - kết thúc, tuần đối soát và mức độ khẩn cấp"
-        activeCount={(incPeriod !== 'ALL' ? 1 : 0) + (incDateFrom || incDateTo ? 1 : 0) + (incFilterUrgent !== 'ALL' ? 1 : 0)}
-        onReset={() => {
-          resetIncFilters();
-          setIncMonth('2026-10');
-          setIncDateFrom('');
-          setIncDateTo('');
-        }}
+        subtitle="Lọc theo mức độ khẩn cấp và nguyên nhân"
+        activeCount={(incFilterUrgent !== 'ALL' ? 1 : 0) + (incFilterMain ? 1 : 0)}
+        onReset={resetIncFilters}
         onApply={() => showToast('Đã áp dụng bộ lọc Sự cố!', 'success')}
       >
         <div className="space-y-4 text-xs">
-          <StandardTimeFilter
-            label="Chu kỳ đối soát & Mốc thời gian sự cố:"
-            month={incMonth}
-            onMonthChange={setIncMonth}
-            startDate={incDateFrom}
-            onStartDateChange={setIncDateFrom}
-            endDate={incDateTo}
-            onEndDateChange={setIncDateTo}
-            selectedWeek={incPeriod}
-            onWeekChange={w => setIncPeriod(w as typeof incPeriod)}
-            accentColor="rose"
-          />
-
           <div className="space-y-1.5">
             <label className="block font-bold text-slate-700">Mức độ khẩn cấp:</label>
             <select
