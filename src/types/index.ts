@@ -165,7 +165,7 @@ export interface ClassRoomSession {
   sessionNum: number;
   dateStr: string;
   title: string;
-  status: 'Chưa diễn ra' | 'Đã hoàn thành' | 'Nghỉ có phép' | 'Dạy thay' | 'Khai giảng';
+  status: 'Chưa diễn ra' | 'Đang học' | 'Đã hoàn thành' | 'Nghỉ có phép' | 'Dạy thay' | 'Khai giảng';
   checkinTime?: string;
   teacherAttendance?: 'ATTENDED' | 'LATE';
   checkinBy?: string;
@@ -176,6 +176,7 @@ export interface ClassRoomSession {
   exerciseLms: string;
   attendance?: Record<string, 'present' | 'late' | 'absent'>;
   feedback?: Record<string, string>;
+  feedbackCriteria?: Record<string, Record<string, string>>;
 }
 
 export interface ClassCoverAssignment {

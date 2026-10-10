@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   X,
   CheckCircle,
-  Video,
   BookOpen,
   AlertTriangle,
   Trash2,
@@ -100,8 +99,11 @@ export const Module4_TeacherSchedule: React.FC = () => {
   // AI Review modal state
   const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
   const [aiReviewStudentName, setAiReviewStudentName] = useState('Trần Gia Bảo');
+  const [aiReviewStudentId, setAiReviewStudentId] = useState('');
   const [aiGeneratedText, setAiGeneratedText] = useState('');
   const [selectedCriterionOptions, setSelectedCriterionOptions] = useState<Record<string, string>>({});
+  const [aiGenerationCount, setAiGenerationCount] = useState(0);
+  const [isCriteriaSaved, setIsCriteriaSaved] = useState(false);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -119,6 +121,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
       : undefined;
     if (currStatus === 'Đã hoàn thành') {
       setClassLiveStatus('DA_HOAN_THANH');
+    } else if (currStatus === 'Đang học' || (
+      storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === sessionDate && storedSession.checkinTime
+    )) {
+      setClassLiveStatus('DANG_HOC');
     } else {
       setClassLiveStatus('CHUA_DIEN_RA');
     }
@@ -156,7 +162,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
           sessionNum: selectedSessionNum,
           dateStr: `${dateStr} ${schedule?.time || activeSession?.dateStr.split(' ').slice(1).join(' ') || ''}`.trim(),
           title: selectedClassMaterial?.title || activeSession?.title || `Buổi ${selectedSessionNum}`,
-          status: activeSession?.status || 'Chưa diễn ra',
+          status: 'Đang học',
           materialGv: selectedClassMaterial?.slide || activeSession?.materialGv || '',
           materialHs: activeSession?.materialHs || '',
           exerciseLms: selectedClassMaterial?.lms || activeSession?.exerciseLms || '',
@@ -198,21 +204,88 @@ export const Module4_TeacherSchedule: React.FC = () => {
     showToast('Xác nhận hoàn tất ca dạy thành công! Nhật ký ca học đã được lưu vào hệ thống.', 'success');
   };
 
-  const handleOpenAiReview = (studentName: string) => {
+  const handleOpenAiReview = (studentId: string, studentName: string) => {
+    if (classLiveStatus !== 'DANG_HOC') {
+      showToast('Chưa thể tạo nhận xét khi ca học chưa bắt đầu. Vui lòng vào lớp trước.', 'warning');
+      return;
+    }
     setAiReviewStudentName(studentName);
-    setSelectedCriterionOptions({});
+    setAiReviewStudentId(studentId);
+    const savedCriteria = selectedClass?.activeSessions?.[selectedSessionNum]?.feedbackCriteria?.[studentId];
+    setSelectedCriterionOptions(savedCriteria || {});
     setAiGeneratedText('');
+    setIsCriteriaSaved(Boolean(savedCriteria));
+    try {
+      const storedCount = Number(localStorage.getItem(`vuihoc_ai_review_count_${selectedTeacherId}_${studentId}`) || 0);
+      setAiGenerationCount(Number.isFinite(storedCount) ? storedCount : 0);
+    } catch {
+      showToast('Không thể đọc số lượt tạo nhận xét AI đã sử dụng.', 'error');
+      setAiGenerationCount(2);
+    }
     setIsAiReviewModalOpen(true);
   };
 
-  const handleRegenerateAi = () => {
-    const selectedFeedback = reviewCriteria.flatMap(category => category.criteria.flatMap(criterion => {
-      const selectedOptionId = selectedCriterionOptions[criterion.id];
-      const selectedOption = criterion.options.find(option => option.id === selectedOptionId);
-      return selectedOption ? [selectedOption.label] : [];
+  const handleSaveReviewCriteria = () => {
+    if (classLiveStatus !== 'DANG_HOC') {
+      showToast('Chỉ có thể lưu tiêu chí khi ca học đang diễn ra.', 'warning');
+      return;
+    }
+    const allCriteria = reviewCriteria.flatMap(category => category.criteria);
+    if (!allCriteria.length || allCriteria.some(criterion => !selectedCriterionOptions[criterion.id])) {
+      showToast('Vui lòng chọn đáp án cho tất cả tiêu chí trước khi tiếp tục.', 'warning');
+      return;
+    }
+    if (!selectedClass) return;
+    const dateStr = selectedSessionDate || fromDate;
+    setClasses(previous => previous.map(cls => {
+      if (cls.id !== selectedClass.id) return cls;
+      const activeSession = cls.activeSessions?.[selectedSessionNum];
+      const keepSession = activeSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === dateStr;
+      return {
+        ...cls,
+        activeSessions: {
+          ...(cls.activeSessions || {}),
+          [selectedSessionNum]: {
+            ...(keepSession ? activeSession : {
+              sessionNum: selectedSessionNum,
+              dateStr,
+              title: selectedClassMaterial?.title || `Buổi ${selectedSessionNum}`,
+              status: 'Đang học' as const,
+              materialGv: selectedClassMaterial?.slide || '',
+              materialHs: '',
+              exerciseLms: selectedClassMaterial?.lms || ''
+            }),
+            feedbackCriteria: {
+              ...(keepSession ? activeSession?.feedbackCriteria : {}),
+              [aiReviewStudentId]: { ...selectedCriterionOptions }
+            }
+          }
+        }
+      };
     }));
-    if (!selectedFeedback.length) {
-      showToast('Vui lòng chọn kết quả cho ít nhất một tiêu chí trước khi tạo nhận xét.', 'warning');
+    setIsCriteriaSaved(true);
+    showToast('Đã lưu các tiêu chí nhận xét cho học sinh.', 'success');
+  };
+
+  const handleRegenerateAi = () => {
+    if (classLiveStatus !== 'DANG_HOC') {
+      showToast('Chỉ có thể tạo nhận xét khi ca học đang diễn ra.', 'warning');
+      return;
+    }
+    if (!isCriteriaSaved) {
+      showToast('Vui lòng lưu đầy đủ tiêu chí trước khi dùng AI tạo nhận xét.', 'warning');
+      return;
+    }
+    if (aiGenerationCount >= 2) {
+      showToast('Bạn đã sử dụng hết 2 lượt tạo nhận xét AI cho học sinh này.', 'warning');
+      return;
+    }
+    const selectedFeedback = reviewCriteria.flatMap(category => category.criteria.map(criterion => {
+      const selectedOptionId = selectedCriterionOptions[criterion.id];
+      return criterion.options.find(option => option.id === selectedOptionId)?.label;
+    }));
+    if (!selectedFeedback.length || selectedFeedback.some(option => !option)) {
+      showToast('Vui lòng hoàn tất tất cả tiêu chí trước khi dùng AI.', 'warning');
       return;
     }
 
@@ -220,18 +293,77 @@ export const Module4_TeacherSchedule: React.FC = () => {
       ? subjects.find(subject => subject.code === selectedClass.subject)?.name || selectedClass.subject
       : 'buổi học';
     const detail = selectedFeedback.join('; ');
+    const toneName = toneDirectives[activeToneKey]?.name || 'Khích lệ';
     const generatedText = activeToneKey === 'chuan-muc'
       ? `Nhận xét buổi học môn ${subjectName} của ${aiReviewStudentName}: ${detail}.`
       : activeToneKey === 'ngan-gon'
         ? `${aiReviewStudentName} (${subjectName}): ${detail}.`
         : `Hôm nay ${aiReviewStudentName} học môn ${subjectName}: ${detail}. Thầy/Cô ghi nhận nỗ lực của con và sẽ tiếp tục đồng hành ở buổi học sau.`;
+    try {
+      const usageKey = `vuihoc_ai_review_count_${selectedTeacherId}_${aiReviewStudentId}`;
+      const storedCount = Number(localStorage.getItem(usageKey) || 0);
+      const nextCount = Math.max(aiGenerationCount, storedCount) + 1;
+      if (nextCount > 2) {
+        setAiGenerationCount(2);
+        showToast('Bạn đã sử dụng hết 2 lượt tạo nhận xét AI cho học sinh này.', 'warning');
+        return;
+      }
+      localStorage.setItem(usageKey, String(nextCount));
+      setAiGenerationCount(nextCount);
+    } catch {
+      showToast('Không thể lưu số lượt sử dụng AI. Nhận xét chưa được tạo.', 'error');
+      return;
+    }
     setAiGeneratedText(generatedText);
-    showToast('Đã tạo bản nhận xét xem trước từ các tiêu chí giáo viên đã chọn.', 'info');
+    showToast(`Đã tạo bản nhận xét xem trước theo giọng văn ${toneName}.`, 'info');
   };
 
   const handleSaveAiReview = () => {
+    if (classLiveStatus !== 'DANG_HOC') {
+      showToast('Chỉ có thể lưu nhận xét khi ca học đang diễn ra.', 'warning');
+      return;
+    }
+    if (!isCriteriaSaved) {
+      showToast('Vui lòng lưu đầy đủ tiêu chí trước khi tạo nhận xét.', 'warning');
+      return;
+    }
+    if (!selectedClass || !aiGeneratedText.trim()) {
+      showToast('Vui lòng nhập nhận xét hoặc dùng AI tạo nội dung trước khi lưu.', 'warning');
+      return;
+    }
+    const dateStr = selectedSessionDate || fromDate;
+    setClasses(previous => previous.map(cls => {
+      if (cls.id !== selectedClass.id) return cls;
+      const activeSession = cls.activeSessions?.[selectedSessionNum];
+      const keepSession = activeSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === dateStr;
+      return {
+        ...cls,
+        activeSessions: {
+          ...(cls.activeSessions || {}),
+          [selectedSessionNum]: {
+            ...(keepSession ? activeSession : {
+              sessionNum: selectedSessionNum,
+              dateStr,
+              title: selectedClassMaterial?.title || `Buổi ${selectedSessionNum}`,
+              status: 'Chưa diễn ra' as const,
+              materialGv: selectedClassMaterial?.slide || '',
+              materialHs: '',
+              exerciseLms: selectedClassMaterial?.lms || ''
+            }),
+            feedback: {
+              ...(keepSession ? activeSession?.feedback : {}),
+              [aiReviewStudentId]: aiGeneratedText.trim()
+            },
+            feedbackCriteria: {
+              ...(keepSession ? activeSession?.feedbackCriteria : {}),
+              [aiReviewStudentId]: { ...selectedCriterionOptions }
+            }
+          }
+        }
+      };
+    }));
     setIsAiReviewModalOpen(false);
-    showToast(`Đã lưu nhận xét AI cho học sinh [${aiReviewStudentName}]!`, 'success');
+    showToast(`Đã lưu tiêu chí và nhận xét cho học sinh [${aiReviewStudentName}]!`, 'success');
   };
 
   const defaultTeacher = teachers.find(
@@ -341,7 +473,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Bấm trực tiếp vào từng ca dạy trên bảng để xem thông tin lớp, link vào phòng học Zoom/ClassIn và học liệu bài giảng.
+          Chọn ca dạy để xem thông tin lớp và học liệu; nhấn “Vào lớp” để mở phòng học.
           </p>
         </div>
 
@@ -544,9 +676,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         <div className="mt-1 text-[10px] text-slate-600">{cls.name}</div>
                         {coverAssignment && <div className="mt-1 text-[10px] font-semibold text-purple-800">{coverAssignment.teacherName}</div>}
                         <div className="mt-1.5 line-clamp-2 text-[11px] font-medium text-slate-800">{material?.title || 'Chưa có học liệu được gắn'}</div>
-                        <div className={`mt-2 flex items-center gap-1 border-t border-emerald-200/60 pt-1.5 text-[10px] ${cls.roomLink ? 'text-emerald-700' : 'text-slate-400'}`}>
-                          <Video className="h-3.5 w-3.5" /> {cls.roomLink ? 'Có link phòng' : 'Chưa có link phòng'}
-                        </div>
                       </button>)}
                     </div>
                   </td>)}
@@ -672,10 +801,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between text-xs">
                     <div>
                       <div className="font-bold text-slate-800">Tài khoản giảng dạy</div>
-                      <div className="text-[11px] text-slate-400 mt-1">Phòng Zoom do Vận hành gán:</div>
-                      <div className="text-[11px] font-mono text-slate-600 truncate">
-                        {selectedClass.roomLink || 'Chưa gán link phòng'}
-                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1">Nhấn “Vào lớp” để mở phòng học trực tuyến.</div>
                     </div>
 
                     <button
@@ -795,11 +921,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
                                 </td>
                                 <td className="py-3 text-right">
                                   <button
-                                    onClick={() => handleOpenAiReview(studentDisplayName)}
-                                    className="px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs border border-orange-200 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                    type="button"
+                                    onClick={() => handleOpenAiReview(sid, studentDisplayName)}
+                                    disabled={classLiveStatus !== 'DANG_HOC'}
+                                    title={classLiveStatus !== 'DANG_HOC' ? 'Chỉ tạo nhận xét sau khi đã vào lớp.' : undefined}
+                                    className="px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs border border-orange-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed"
                                   >
                                     <Sparkles className="w-3.5 h-3.5" />
-                                    <span>Tạo Nhận xét AI</span>
+                                    <span>Tạo nhận xét</span>
                                   </button>
                                 </td>
                               </tr>
@@ -893,18 +1022,18 @@ export const Module4_TeacherSchedule: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Tiêu chí nhận xét · {subjects.find(subject => subject.abbr === selectedSubjectKey)?.name || selectedSubjectKey}
+            <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1 text-xs">
+              <section className="space-y-2">
+                <label className="block font-semibold text-slate-700">
+                  Tiêu chí bắt buộc · {subjects.find(subject => subject.abbr === selectedSubjectKey)?.name || selectedSubjectKey}
                 </label>
-                <div className="max-h-56 overflow-y-auto space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                   {reviewCriteria.length ? reviewCriteria.map(category => (
                     <section key={category.id} className="space-y-2">
                       <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{category.name}</h4>
                       {category.criteria.map(criterion => (
                         <fieldset key={criterion.id} className="rounded-lg border border-slate-200 bg-white p-2.5">
-                          <legend className="px-1 font-semibold text-slate-800">{criterion.name}</legend>
+                          <legend className="px-1 font-semibold text-slate-800">{criterion.name} <span className="text-rose-500">*</span></legend>
                           <div className="mt-1 space-y-1.5">
                             {criterion.options.map(option => (
                               <label key={option.id} className="flex cursor-pointer items-start gap-2 text-slate-600">
@@ -913,7 +1042,11 @@ export const Module4_TeacherSchedule: React.FC = () => {
                                   name={`review-${criterion.id}`}
                                   value={option.id}
                                   checked={selectedCriterionOptions[criterion.id] === option.id}
-                                  onChange={() => setSelectedCriterionOptions(previous => ({ ...previous, [criterion.id]: option.id }))}
+                                  onChange={() => {
+                                    setSelectedCriterionOptions(previous => ({ ...previous, [criterion.id]: option.id }));
+                                    setIsCriteriaSaved(false);
+                                    setAiGeneratedText('');
+                                  }}
                                   className="mt-0.5 accent-[#FF5C00]"
                                 />
                                 <span>{option.label}</span>
@@ -925,80 +1058,73 @@ export const Module4_TeacherSchedule: React.FC = () => {
                     </section>
                   )) : (
                     <p className="py-3 text-center text-slate-500">
-                      Chưa có tiêu chí cho môn này. Quản trị viên có thể cấu hình trong AI Studio.
+                      Chưa có tiêu chí cho môn này. Quản trị viên cần cấu hình trong AI Studio.
                     </p>
                   )}
                 </div>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Chọn một mức đánh giá cho từng tiêu chí. Danh sách này đồng bộ từ cấu hình AI Studio.
+                <p className="text-[10px] text-slate-500">
+                  Bắt buộc chọn một đáp án cho từng tiêu chí. Lưu tiêu chí trước khi tạo nhận xét.
                 </p>
-                <p className="mt-1 text-[10px] text-indigo-600">
-                  Giọng văn đang cấu hình: {toneDirectives[activeToneKey]?.name || 'Mặc định'} · Bản xem trước chưa gọi Gemini.
-                </p>
-              </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[10px] font-semibold ${isCriteriaSaved ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {isCriteriaSaved ? 'Đã lưu tiêu chí' : 'Tiêu chí chưa được lưu'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSaveReviewCriteria}
+                    disabled={!reviewCriteria.some(category => category.criteria.length > 0)}
+                    className="rounded-lg bg-slate-800 px-3 py-2 text-[11px] font-bold text-white hover:bg-slate-700 disabled:bg-slate-300 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    Lưu tiêu chí
+                  </button>
+                </div>
+              </section>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-slate-700">Lời nhận xét tự động (AI sinh):</label>
-                  <div className="flex items-center gap-2">
-                    {aiGeneratedText && (
-                      <button
-                        type="button"
-                        onClick={() => setAiGeneratedText('')}
-                        className="text-slate-400 hover:text-rose-600 font-bold text-[11px] flex items-center gap-1 cursor-pointer"
-                        title="Xóa nội dung đang soạn"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                        <span>Xóa chữ</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleRegenerateAi}
-                      className="text-[#FF5C00] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Sinh lại</span>
-                    </button>
+              <section className="space-y-2 border-t border-slate-100 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <label className="font-semibold text-slate-700">Nội dung nhận xét</label>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Giọng văn: {toneDirectives[activeToneKey]?.name || 'Mặc định'} · Còn {Math.max(0, 2 - aiGenerationCount)}/2 lượt AI cho học sinh này.
+                    </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateAi}
+                    disabled={!isCriteriaSaved || aiGenerationCount >= 2}
+                    className="shrink-0 rounded-lg bg-orange-50 px-3 py-2 text-[11px] font-bold text-[#FF5C00] hover:bg-orange-100 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="mr-1 inline h-3.5 w-3.5" />
+                    Dùng AI
+                  </button>
                 </div>
                 <textarea
-                  rows={4}
+                  rows={5}
                   value={aiGeneratedText}
                   onChange={e => setAiGeneratedText(e.target.value)}
-                  placeholder="Nhận xét của AI hoặc nhập nhận xét của Thầy/Cô..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#FF5C00] leading-relaxed text-slate-700"
+                  placeholder="Viết nhận xét cho học sinh hoặc lưu tiêu chí rồi dùng AI tạo bản nháp..."
+                  className="w-full rounded-xl border border-slate-200 p-3 text-xs leading-relaxed text-slate-700 focus:border-[#FF5C00] focus:outline-none"
                 />
-              </div>
+                <p className="text-[10px] text-slate-500">Có thể tự viết hoặc chỉnh sửa nội dung AI trước khi lưu.</p>
+              </section>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
               <button
                 type="button"
-                onClick={() => setAiGeneratedText('')}
-                className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl font-bold transition-colors cursor-pointer"
+                onClick={() => setIsAiReviewModalOpen(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
               >
-                Xóa nội dung
+                Đóng
               </button>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAiReviewModalOpen(false);
-                    setAiGeneratedText('');
-                  }}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveAiReview}
-                  className="px-4 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
-                >
-                  Lưu nhận xét
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveAiReview}
+                disabled={!isCriteriaSaved}
+                className="rounded-xl bg-[#FF5C00] px-4 py-2 font-bold text-white shadow-xs hover:bg-[#E05200] disabled:bg-slate-300 cursor-pointer disabled:cursor-not-allowed"
+              >
+                Tạo nhận xét
+              </button>
             </div>
           </div>
         </div>
