@@ -213,7 +213,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
       dayIndex: match[3] ? 6 : Number(match[1]) - 2,
       time: (match[2] || match[4] || '').trim()
     })
-  ).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).map((entry, index) => ({ ...entry, session: index + 1 }));
+  ).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).slice(0, 2).map((entry, index) => ({ ...entry, session: index + 1 }));
 
   const selectedWeekMaterial = (cls: ClassItem, session: number) => (cls.materials || []).find(material => {
     if (material.session !== session) return false;
