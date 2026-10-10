@@ -69,6 +69,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const [staffTypeFilter, setStaffTypeFilter] = useState<'ALL' | 'GIAO_VIEN' | 'GIA_SU'>('ALL');
   const [subjectFilter, setSubjectFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [payrollSentFilter, setPayrollSentFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [staffIdFilter, setStaffIdFilter] = useState('');
@@ -186,6 +187,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       if (staffTypeFilter !== 'ALL' && (t.staffRole || 'GIAO_VIEN') !== staffTypeFilter) return false;
       if (subjectFilter !== 'ALL' && t.subject !== subjectFilter) return false;
       if (statusFilter !== 'ALL' && t.reconcileStatus !== statusFilter) return false;
+      if (payrollSentFilter !== 'ALL' && String(Boolean(t.payrollSent)) !== payrollSentFilter) return false;
       if (staffIdFilter && !t.teacherId.toLocaleLowerCase('vi').includes(staffIdFilter.trim().toLocaleLowerCase('vi'))) return false;
       if (staffNameFilter && !t.teacherName.toLocaleLowerCase('vi').includes(staffNameFilter.trim().toLocaleLowerCase('vi'))) return false;
       const sessions = t.sessions || [];
@@ -209,7 +211,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       }
       return true;
     });
-  }, [monthData.teachers, staffTypeFilter, subjectFilter, statusFilter, staffIdFilter, staffNameFilter, summaryRanges, searchTerm]);
+  }, [monthData.teachers, staffTypeFilter, subjectFilter, statusFilter, payrollSentFilter, staffIdFilter, staffNameFilter, summaryRanges, searchTerm]);
 
   // Toàn bộ buổi học trong kỳ
   const allSessionsWithStaff = useMemo(() => {
@@ -289,7 +291,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   const activeFilterCount = (activeTab === 'summary'
     ? [
-        staffTypeFilter !== 'ALL', subjectFilter !== 'ALL', statusFilter !== 'ALL',
+        staffTypeFilter !== 'ALL', subjectFilter !== 'ALL', statusFilter !== 'ALL', payrollSentFilter !== 'ALL',
         staffIdFilter.trim().length > 0, staffNameFilter.trim().length > 0, searchTerm.trim().length > 0,
         ...Object.values(summaryRanges).flatMap(range => [range.min.length > 0, range.max.length > 0])
       ]
@@ -313,6 +315,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     setStaffTypeFilter('ALL');
     setSubjectFilter('ALL');
     setStatusFilter('ALL');
+    setPayrollSentFilter('ALL');
     setSearchTerm('');
     setStaffIdFilter('');
     setStaffNameFilter('');
@@ -491,8 +494,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   const sendableTeacherIds = filteredStaff
     .filter(teacher =>
-      (teacher.staffRole || 'GIAO_VIEN') === 'GIA_SU' &&
-      ['CHO_GUI', 'DA_XU_LY_GT'].includes(teacher.reconcileStatus) &&
+      !teacher.payrollSent &&
       !monthData.isLocked
     )
     .map(teacher => teacher.teacherId);
@@ -736,7 +738,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Send className="h-3.5 w-3.5" />
-                Gửi tất cả đang chờ ({sendableTeacherIds.length})
+                Gửi tất cả GV chưa gửi ({sendableTeacherIds.length})
               </button>
             )}
             {activeTab === 'disputes' && (
@@ -767,7 +769,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   <th className="py-3 px-3 text-center">
                     <input
                       type="checkbox"
-                      aria-label="Chọn tất cả gia sư đang chờ gửi"
+                      aria-label="Chọn tất cả giáo viên chưa gửi"
                       checked={sendableTeacherIds.length > 0 && sendableTeacherIds.every(id => selectedTeacherIds.includes(id))}
                       disabled={sendableTeacherIds.length === 0}
                       onChange={toggleVisibleTeacherSelection}
@@ -776,20 +778,20 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   </th>
                   <th className="py-3 px-3">{columnTextFilter('Mã nhân sự', staffIdFilter, setStaffIdFilter)}</th>
                   <th className="py-3 px-3">{columnTextFilter('Họ và tên', staffNameFilter, setStaffNameFilter)}</th>
-                  <th className="py-3 px-3">{columnSelectFilter('Phân loại', staffTypeFilter, value => setStaffTypeFilter(value as typeof staffTypeFilter), [{ value: 'GIAO_VIEN', label: 'Giáo viên' }, { value: 'GIA_SU', label: 'Gia sư' }])}</th>
+                  <th className="py-3 px-3">{columnSelectFilter('Phân loại', staffTypeFilter, value => setStaffTypeFilter(value as typeof staffTypeFilter), [{ value: 'GIAO_VIEN', label: 'Giáo viên' }])}</th>
                   <th className="py-3 px-3">{columnSelectFilter('Chuyên trách', subjectFilter, setSubjectFilter, [{ value: 'TOAN', label: 'Toán' }, { value: 'ANH', label: 'Tiếng Anh' }])}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Buổi chuẩn', summaryRanges.standardSessions, range => setSummaryRanges(previous => ({ ...previous, standardSessions: range })))}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Buổi sự cố', summaryRanges.incidentSessions, range => setSummaryRanges(previous => ({ ...previous, incidentSessions: range })))}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Công buổi chuẩn', summaryRanges.standardCredit, range => setSummaryRanges(previous => ({ ...previous, standardCredit: range })), '0.1')}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Công buổi sự cố', summaryRanges.incidentCredit, range => setSummaryRanges(previous => ({ ...previous, incidentCredit: range })), '0.1')}</th>
                   <th className="py-3 px-3 text-right">{columnRangeFilter('Tổng công', summaryRanges.totalCredit, range => setSummaryRanges(previous => ({ ...previous, totalCredit: range })), '0.1')}</th>
+                  <th className="py-3 px-3 text-center">{columnSelectFilter('Trạng thái gửi', payrollSentFilter, setPayrollSentFilter, [{ value: 'true', label: 'Đã gửi' }, { value: 'false', label: 'Chưa gửi' }])}</th>
                   <th className="py-3 px-3 text-center">{columnSelectFilter('Trạng thái đối soát', statusFilter, setStatusFilter, [{ value: 'CHO_GUI', label: 'Chờ gửi đối soát' }, { value: 'DA_GUI', label: 'Đã gửi nhân sự' }, { value: 'CO_GIAI_TRINH', label: 'Có giải trình' }, { value: 'DA_XU_LY_GT', label: 'Đã xử lý giải trình' }, { value: 'DA_CHOT', label: 'Đã chốt công' }])}</th>
                   <th className="py-3 px-3 text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredStaff.map(t => {
-                  const isTutor = (t.staffRole || 'GIAO_VIEN') === 'GIA_SU';
                   const standardSessionCount = (t.sessions || []).filter(session => !isIncidentSession(session)).length;
                   const incidentSessionCount = (t.sessions || []).filter(isIncidentSession).length;
                   const { standardCredit, incidentCredit } = getCreditBreakdown(t.sessions || []);
@@ -798,7 +800,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   return (
                     <tr key={t.teacherId} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-3 text-center">
-                        {isTutor && ['CHO_GUI', 'DA_XU_LY_GT'].includes(t.reconcileStatus) && !monthData.isLocked && (
+                        {!t.payrollSent && !monthData.isLocked && (
                           <input
                             type="checkbox"
                             aria-label={`Chọn ${t.teacherName} để gửi đối soát`}
@@ -813,15 +815,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
                         <div className="font-bold text-slate-800">{t.teacherName}</div>
                       </td>
                       <td className="py-3 px-3">
-                        {isTutor ? (
-                          <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-semibold text-[11px]">
-                            Gia sư
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 font-semibold text-[11px]">
-                            Giáo viên
-                          </span>
-                        )}
+                        <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 font-semibold text-[11px]">
+                          Giáo viên
+                        </span>
                       </td>
                       <td className="py-3 px-3 font-medium text-slate-600">{t.subjectName}</td>
                       <td className="py-3 px-3 text-center font-semibold text-slate-700">{standardSessionCount}</td>
@@ -832,6 +828,13 @@ export const Module7_WorkReconciliation: React.FC = () => {
                         <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
                           {totalCredit.toFixed(1)}
                         </span>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        {t.payrollSent ? (
+                          <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Đã gửi</span>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">Chưa gửi</span>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-center">
                         {t.reconcileStatus === 'DA_CHOT' ? (
@@ -858,17 +861,16 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       </td>
                       <td className="py-3 px-3 text-center">
                         <div className="flex justify-center gap-1">
-                          {isTutor && ['CHO_GUI', 'DA_XU_LY_GT'].includes(t.reconcileStatus) && !monthData.isLocked && (
-                            <button
-                              type="button"
-                              onClick={() => sendPayrollToTeachers(selectedMonth, [t.teacherId])}
-                              className="rounded-md p-1.5 text-blue-700 hover:bg-blue-50 cursor-pointer"
-                              title="Gửi đối soát cho gia sư"
-                              aria-label={`Gửi đối soát cho ${t.teacherName}`}
-                            >
-                              <Send className="h-4 w-4" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => sendPayrollToTeachers(selectedMonth, [t.teacherId])}
+                            disabled={t.payrollSent || monthData.isLocked}
+                            className="rounded-md p-1.5 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                            title={t.payrollSent ? 'Đã gửi đối soát' : 'Gửi đối soát cho giáo viên'}
+                            aria-label={`${t.payrollSent ? 'Đã gửi đối soát cho' : 'Gửi đối soát cho'} ${t.teacherName}`}
+                          >
+                            <Send className="h-4 w-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -943,9 +945,8 @@ export const Module7_WorkReconciliation: React.FC = () => {
                         <div className="text-[11px] text-slate-500">{teacherId} · {isTutor ? 'Gia sư' : 'Giáo viên'} · {subject === 'ANH' ? 'Tiếng Anh' : 'Toán'}</div>
                       </td>
                       <td className="py-3 px-3 font-semibold text-slate-800">
-                        {session.className}
-                        <div className="text-[11px] font-mono text-slate-500">{session.classCode} · {session.model || '1-3'}</div>
-                        <div className="text-[11px] text-slate-500">{getSessionStudentNames(session)}</div>
+                        <div className="font-mono">{session.classCode}</div>
+                        <div className="text-[11px] font-normal text-slate-500">Mô hình {session.model || '1-3'}</div>
                       </td>
                       <td className="py-3 px-3">
                         <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold ${
@@ -980,8 +981,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
                               setNewCoeff(session.creditCoeff);
                               setEditNote(session.hrPayNote);
                             }}
-                            className="rounded-md p-1.5 text-blue-700 hover:bg-blue-50 cursor-pointer"
-                            title="Sửa hệ số công"
+                            disabled={monthData.isLocked}
+                            className="rounded-md p-1.5 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                            title={monthData.isLocked ? 'Mở khóa kỳ để sửa hệ số công' : 'Sửa hệ số công'}
                             aria-label={`Sửa hệ số công buổi ${session.id}`}
                           >
                             <Edit3 className="w-4 h-4" />
@@ -1544,7 +1546,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <div><dt className="text-slate-500">Nhân sự</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.teacherName} ({viewingSession.teacherId}) · {viewingSession.staffRole === 'GIA_SU' ? 'Gia sư' : 'Giáo viên'}</dd></div>
                 <div><dt className="text-slate-500">Môn học</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.subject === 'ANH' ? 'Tiếng Anh' : 'Toán'}</dd></div>
                 <div><dt className="text-slate-500">Ngày & giờ</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.dayOfWeek}, {viewingSession.session.dateStr} · {viewingSession.session.time}</dd></div>
-                <div><dt className="text-slate-500">Lớp / mô hình</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.className} · {viewingSession.session.model || '1-3'}<div className="mt-0.5 font-mono text-[11px] text-slate-500">{viewingSession.session.classCode}</div></dd></div>
+                <div><dt className="text-slate-500">Lớp học</dt><dd className="mt-1 font-mono font-semibold text-slate-800">{viewingSession.session.classCode}<div className="mt-0.5 font-sans text-[11px] font-normal text-slate-500">Mô hình {viewingSession.session.model || '1-3'}</div></dd></div>
                 <div><dt className="text-slate-500">Học sinh / sĩ số</dt><dd className="mt-1 font-semibold text-slate-800">{getSessionStudentNames(viewingSession.session)} · {viewingSession.session.studentCount ?? viewingSession.session.studentNames?.length ?? 3} HS</dd></div>
                 <div><dt className="text-slate-500">Phân loại</dt><dd className="mt-1 font-semibold text-slate-800">{isIncidentSession(viewingSession.session) ? 'Buổi sự cố' : 'Buổi chuẩn'}{viewingSession.session.type === 'COVER' ? ' · Cover' : ''}</dd></div>
                 <div><dt className="text-slate-500">Điểm danh vào / ra</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.checkin} / {viewingSession.session.checkout}</dd></div>

@@ -307,6 +307,7 @@ export interface TeacherPayrollSummary {
   lateSessions: number;
   emergencySessions: number;
   approvedExplanations: number;
+  payrollSent?: boolean;
   reconcileStatus: 'CHO_GUI' | 'DA_GUI' | 'CO_GIAI_TRINH' | 'DA_XU_LY_GT' | 'DA_CHOT';
   sessions: SessionPayrollRecord[];
 }

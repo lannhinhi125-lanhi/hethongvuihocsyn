@@ -36,6 +36,71 @@ import {
   ChevronDown
 } from 'lucide-react';
 
+type ReportPeriod = 'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3';
+
+const toLocalIsoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getMonthRange = (month: string) => {
+  if (month === 'ALL') return { start: '', end: '' };
+  const [year, monthNumber] = month.split('-').map(Number);
+  if (!year || !monthNumber) return { start: '', end: '' };
+  const lastDay = new Date(year, monthNumber, 0).getDate();
+  return {
+    start: `${month}-01`,
+    end: `${month}-${String(lastDay).padStart(2, '0')}`
+  };
+};
+
+const getDateFilterRange = (
+  month: string,
+  startDate: string,
+  endDate: string,
+  period: ReportPeriod = 'ALL'
+) => {
+  const today = new Date();
+  let range = period === 'Q3'
+    ? { start: `${month.slice(0, 4) || today.getFullYear()}-07-01`, end: `${month.slice(0, 4) || today.getFullYear()}-09-30` }
+    : period === 'TODAY'
+    ? { start: toLocalIsoDate(today), end: toLocalIsoDate(today) }
+    : period === 'WEEK' && !startDate && !endDate
+    ? (() => {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        firstDay.setDate(firstDay.getDate() - ((firstDay.getDay() + 6) % 7));
+        const lastDay = new Date(firstDay);
+        lastDay.setDate(lastDay.getDate() + 6);
+        return { start: toLocalIsoDate(firstDay), end: toLocalIsoDate(lastDay) };
+      })()
+    : period === 'MONTH' || (period === 'ALL' && month !== 'ALL')
+    ? getMonthRange(month)
+    : { start: '', end: '' };
+
+  if (period !== 'Q3' && period !== 'TODAY' && period !== 'WEEK' && month !== 'ALL') {
+    const monthRange = getMonthRange(month);
+    range = {
+      start: range.start && range.start > monthRange.start ? range.start : monthRange.start,
+      end: range.end && range.end < monthRange.end ? range.end : monthRange.end
+    };
+  }
+
+  if (startDate && (!range.start || startDate > range.start)) range.start = startDate;
+  if (endDate && (!range.end || endDate < range.end)) range.end = endDate;
+  return range;
+};
+
+const isDateInRange = (date: string, range: { start: string; end: string }) =>
+  (!range.start || date >= range.start) && (!range.end || date <= range.end);
+
+const dateRangesOverlap = (
+  from: string,
+  to: string,
+  range: { start: string; end: string }
+) => (!range.start || to >= range.start) && (!range.end || from <= range.end);
+
 export const Module8_Reports: React.FC = () => {
   const { showToast } = useApp();
 
@@ -57,6 +122,7 @@ export const Module8_Reports: React.FC = () => {
   const [dashTimeframe, setDashTimeframe] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3'>('MONTH');
   const [dashViewMode, setDashViewMode] = useState<'visual' | 'table' | 'both'>('visual');
   const [dashSearchMetric, setDashSearchMetric] = useState('');
+  const [hoveredTrendPoint, setHoveredTrendPoint] = useState<number | null>(null);
   // Mốc thời gian linh hoạt (Từ ngày - Đến ngày) & Tháng
   const [dashMonth, setDashMonth] = useState('2026-10');
   const [dashDateFrom, setDashDateFrom] = useState('');
@@ -203,6 +269,19 @@ export const Module8_Reports: React.FC = () => {
     { id: 'GV-007', name: 'Phạm Hải Nam', subject: 'Toán', subjectCode: 'TOAN', avg: 6.38, rank: 'Hạng D (Chưa đạt)', rankCode: 'D', total: 24, punctualityPct: 83.3, punctuality: '83.3%', plan: 'Tạm dừng nhận lớp • Đào tạo lại' }
   ], []);
 
+  const clsDateRange = getDateFilterRange(clsMonth, clsDateFrom, clsDateTo, clsPeriod);
+  const stuDateRange = getDateFilterRange(stuMonth, stuDateFrom, stuDateTo, stuPeriod);
+  const tutDateRange = getDateFilterRange(tutMonth, tutDateFrom, tutDateTo, tutPeriod);
+  const incDateRange = getDateFilterRange(incMonth, incDateFrom, incDateTo);
+  const matDateRange = getDateFilterRange(matMonth, matDateFrom, matDateTo);
+  const inspDateRange = getDateFilterRange(inspMonth, inspDateFrom, inspDateTo);
+  const dashDateRange = getDateFilterRange(
+    dashMonth,
+    dashDateFrom,
+    dashDateTo,
+    dashTimeframe === 'Q3' ? 'Q3' : dashTimeframe
+  );
+
   // =========================================================================
   // DỮ LIỆU ĐÃ QUA BỘ LỌC TỪNG PHẦN (INDEPENDENT DATA FILTERING)
   // =========================================================================
@@ -210,12 +289,7 @@ export const Module8_Reports: React.FC = () => {
   // 1. Dữ liệu lọc riêng cho Lớp học mới
   const filteredClasses = useMemo(() => {
     return rawClasses.filter(c => {
-      if (clsPeriod === 'TODAY' && c.date !== '2026-10-06') return false;
-      if (clsPeriod === 'WEEK' && !(c.date >= '2026-10-05' && c.date <= '2026-10-11')) return false;
-      if (clsPeriod === 'MONTH' && !c.date.startsWith('2026-10')) return false;
-      if (clsPeriod === 'Q3' && !(c.date >= '2026-07-01' && c.date <= '2026-09-30')) return false;
-      if (clsDateFrom && c.date < clsDateFrom) return false;
-      if (clsDateTo && c.date > clsDateTo) return false;
+      if (!isDateInRange(c.date, clsDateRange)) return false;
 
       if (clsFilterCode && !c.code.toLowerCase().includes(clsFilterCode.toLowerCase())) return false;
       if (clsFilterName && !c.name.toLowerCase().includes(clsFilterName.toLowerCase())) return false;
@@ -228,17 +302,12 @@ export const Module8_Reports: React.FC = () => {
       }
       return true;
     });
-  }, [rawClasses, clsPeriod, clsFilterCode, clsFilterName, clsFilterGrade, clsFilterSubject, clsFilterModel, clsFilterStatus, clsDateFrom, clsDateTo]);
+  }, [rawClasses, clsDateRange, clsFilterCode, clsFilterName, clsFilterGrade, clsFilterSubject, clsFilterModel, clsFilterStatus]);
 
   // 2. Dữ liệu lọc riêng cho Học sinh mới
   const filteredStudents = useMemo(() => {
     return rawStudents.filter(s => {
-      if (stuPeriod === 'TODAY' && s.date !== '2026-10-06') return false;
-      if (stuPeriod === 'WEEK' && !(s.date >= '2026-10-05' && s.date <= '2026-10-11')) return false;
-      if (stuPeriod === 'MONTH' && !s.date.startsWith('2026-10')) return false;
-      if (stuPeriod === 'Q3' && !(s.date >= '2026-07-01' && s.date <= '2026-09-30')) return false;
-      if (stuDateFrom && s.date < stuDateFrom) return false;
-      if (stuDateTo && s.date > stuDateTo) return false;
+      if (!isDateInRange(s.date, stuDateRange)) return false;
 
       if (stuFilterCode && !s.id.toLowerCase().includes(stuFilterCode.toLowerCase())) return false;
       if (stuFilterName && !s.name.toLowerCase().includes(stuFilterName.toLowerCase())) return false;
@@ -251,17 +320,12 @@ export const Module8_Reports: React.FC = () => {
       }
       return true;
     });
-  }, [rawStudents, stuPeriod, stuFilterCode, stuFilterName, stuFilterGrade, stuFilterSubject, stuFilterModel, stuFilterStatus, stuDateFrom, stuDateTo]);
+  }, [rawStudents, stuDateRange, stuFilterCode, stuFilterName, stuFilterGrade, stuFilterSubject, stuFilterModel, stuFilterStatus]);
 
   // 3. Dữ liệu lọc riêng cho Gia sư mới
   const filteredTutors = useMemo(() => {
     return rawTutors.filter(t => {
-      if (tutPeriod === 'TODAY' && t.date !== '2026-10-06') return false;
-      if (tutPeriod === 'WEEK' && !(t.date >= '2026-10-05' && t.date <= '2026-10-11')) return false;
-      if (tutPeriod === 'MONTH' && !t.date.startsWith('2026-10')) return false;
-      if (tutPeriod === 'Q3' && !(t.date >= '2026-07-01' && t.date <= '2026-09-30')) return false;
-      if (tutDateFrom && t.date < tutDateFrom) return false;
-      if (tutDateTo && t.date > tutDateTo) return false;
+      if (!isDateInRange(t.date, tutDateRange)) return false;
 
       if (tutFilterCode && !t.id.toLowerCase().includes(tutFilterCode.toLowerCase())) return false;
       if (tutFilterName && !t.name.toLowerCase().includes(tutFilterName.toLowerCase())) return false;
@@ -273,33 +337,34 @@ export const Module8_Reports: React.FC = () => {
       }
       return true;
     });
-  }, [rawTutors, tutPeriod, tutFilterCode, tutFilterName, tutFilterSubject, tutFilterGrade, tutFilterStatus, tutDateFrom, tutDateTo]);
+  }, [rawTutors, tutDateRange, tutFilterCode, tutFilterName, tutFilterSubject, tutFilterGrade, tutFilterStatus]);
 
   // 4. Dữ liệu lọc riêng cho Sự cố
   const filteredIncidents = useMemo(() => {
     return rawIncidents.filter(i => {
       if (incPeriod !== 'ALL' && i.periodCode !== incPeriod) return false;
-      if (incDateFrom && i.dateTo < incDateFrom) return false;
-      if (incDateTo && i.dateFrom > incDateTo) return false;
+      if (!dateRangesOverlap(i.dateFrom, i.dateTo, incDateRange)) return false;
       if (incFilterPeriod && !i.period.toLowerCase().includes(incFilterPeriod.toLowerCase())) return false;
       if (incFilterUrgent === 'URGENT' && i.urgent <= i.notice) return false;
       if (incFilterUrgent === 'NOTICE' && i.notice < i.urgent) return false;
       if (incFilterMain && !i.main.toLowerCase().includes(incFilterMain.toLowerCase())) return false;
       return true;
     });
-  }, [rawIncidents, incPeriod, incFilterPeriod, incFilterUrgent, incFilterMain, incDateFrom, incDateTo]);
+  }, [rawIncidents, incPeriod, incDateRange, incFilterPeriod, incFilterUrgent, incFilterMain]);
 
   // 5. Dữ liệu lọc riêng cho Ma trận
   const filteredMatrix = useMemo(() => {
     return rawMatrix.filter(m => {
+      if (!matDateRange.start && !matDateRange.end) return matFilterSubject === 'ALL' || m.code === matFilterSubject;
       if (matFilterSubject !== 'ALL' && m.code !== matFilterSubject) return false;
       return true;
     });
-  }, [rawMatrix, matFilterSubject]);
+  }, [rawMatrix, matFilterSubject, matDateRange]);
 
   // 6. Dữ liệu lọc riêng cho Dự giờ GV
   const filteredInspection = useMemo(() => {
     return rawTeachersInspection.filter(t => {
+      if (inspDateRange.start || inspDateRange.end) return false;
       if (inspFilterCode && !t.id.toLowerCase().includes(inspFilterCode.toLowerCase())) return false;
       if (inspFilterName && !t.name.toLowerCase().includes(inspFilterName.toLowerCase())) return false;
       if (inspFilterSubject !== 'ALL' && t.subjectCode !== inspFilterSubject) return false;
@@ -311,7 +376,7 @@ export const Module8_Reports: React.FC = () => {
       }
       return true;
     });
-  }, [rawTeachersInspection, inspFilterCode, inspFilterName, inspFilterSubject, inspFilterRank, inspFilterScore]);
+  }, [rawTeachersInspection, inspDateRange, inspFilterCode, inspFilterName, inspFilterSubject, inspFilterRank, inspFilterScore]);
 
   // Reset functions riêng cho từng phần
   const resetClsFilters = () => {

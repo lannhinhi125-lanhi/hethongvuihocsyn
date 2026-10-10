@@ -202,6 +202,40 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   }
 
   const isTutor = myRecord.staffRole === 'GIA_SU';
+  const isPayrollPublished = Boolean(myRecord.payrollSent);
+
+  if (!isPayrollPublished) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">Đối soát công cá nhân</h2>
+            <p className="mt-1 text-xs text-slate-500">{myRecord.teacherName} · {myRecord.teacherId}</p>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <Calendar className="h-4 w-4" />
+            Kỳ công
+            <select
+              value={selectedMonth}
+              onChange={event => setSelectedMonth(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800"
+            >
+              {payrollMonthOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
+          <Clock className="mx-auto h-8 w-8 text-amber-500" />
+          <h3 className="mt-3 text-sm font-bold text-slate-800">Bảng công chưa được gửi</h3>
+          <p className="mt-1 text-xs text-slate-600">
+            Bảng công kỳ {selectedMonth} sẽ hiển thị tại đây sau khi bộ phận quản lý gửi đối soát.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -323,24 +357,26 @@ export const TeacherWorkReconciliationView: React.FC = () => {
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase">Trạng thái kỳ</div>
+          <div className="text-[11px] font-semibold text-slate-500 uppercase">Trạng thái gửi đối soát</div>
           <div className="mt-1">
-            {monthData.isLocked ? (
+            {myRecord.payrollSent ? (
               <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-bold text-xs">
-                Đã chốt gửi tính công
-              </span>
-            ) : myRecord.reconcileStatus === 'CO_GIAI_TRINH' ? (
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold text-xs">
-                Đang chờ giải trình
+                Đã gửi
               </span>
             ) : (
-              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-xs">
-                Đã xác nhận công
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full font-bold text-xs">
+                Chưa gửi
               </span>
             )}
           </div>
           <div className="text-[11px] text-slate-400 mt-0.5">
-            {myDisputes.length > 0 ? `${myDisputes.length} đơn giải trình` : 'Chưa có khiếu nại'}
+            {monthData.isLocked
+              ? 'Kỳ công đã chốt'
+              : myRecord.reconcileStatus === 'CO_GIAI_TRINH'
+              ? 'Có giải trình đang xử lý'
+              : myDisputes.length > 0
+              ? `${myDisputes.length} đơn giải trình`
+              : 'Trạng thái đối soát kỳ này'}
           </div>
         </div>
       </div>

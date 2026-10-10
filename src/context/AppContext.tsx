@@ -1267,6 +1267,7 @@ const createOctoberPayrollSample = (septemberData: MonthPayrollData): MonthPayro
         lateSessions: countType('LATE'),
         emergencySessions: countType('EMERGENCY'),
         approvedExplanations: countType('APPROVED_EXPLANATION'),
+        payrollSent: false,
         reconcileStatus: disputes.some(dispute => dispute.teacherId === teacher.teacherId)
           ? 'CO_GIAI_TRINH' as const
           : 'CHO_GUI' as const,
@@ -1381,7 +1382,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {
       ...initialPayrollStore,
       ...stored,
-      '2026-10': stored['2026-10'] || initialPayrollStore['2026-10']
+      '2026-10': stored['2026-10'] || initialPayrollStore['2026-10'],
+      ...Object.fromEntries(
+        Object.entries({ ...initialPayrollStore, ...stored }).map(([month, data]) => [
+          month,
+          {
+            ...data,
+            teachers: data.teachers.map(teacher => ({
+              ...teacher,
+              staffRole: 'GIAO_VIEN',
+              staffRoleName: 'Giáo viên',
+              payrollSent: teacher.payrollSent ?? data.isLocked,
+              sessions: teacher.sessions.map(session => ({
+                ...session,
+                staffRole: 'GIAO_VIEN',
+                staffRoleName: 'Giáo viên'
+              }))
+            })),
+            disputes: data.disputes.map(dispute => ({
+              ...dispute,
+              staffRole: 'GIAO_VIEN'
+            }))
+          }
+        ])
+      )
     };
   });
 
@@ -1682,7 +1706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return s;
           });
-          return { ...t, sessions: updatedSessions };
+          return { ...t, payrollSent: false, sessions: updatedSessions };
         }
         return t;
       });
@@ -1700,6 +1724,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // PH7 Actions
   const updateSessionCredit = (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => {
+    if (payrollStore[month]?.isLocked) {
+      showToast('Không thể sửa công khi kỳ đã khóa. Hãy mở khóa kỳ trước khi điều chỉnh.', 'error');
+      return;
+    }
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -1715,7 +1743,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return s;
           });
-          return { ...t, sessions: updatedSessions };
+          return { ...t, payrollSent: false, sessions: updatedSessions };
         }
         return t;
       });
@@ -1727,7 +1755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
     });
-    showToast(`Đã cập nhật hệ số buổi học [${sessionId}] sang ${newCoeff}.`, 'success');
+    showToast(`Đã cập nhật hệ số buổi học [${sessionId}] sang ${newCoeff}; cần gửi lại bảng công đã cập nhật cho giáo viên.`, 'success');
   };
 
   const sendPayrollToTeachers = (month: string, teacherIds: string[]) => {
@@ -1738,14 +1766,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? currentMonthData.teachers
             .filter(teacher =>
               teacherIdSet.has(teacher.teacherId) &&
-              (teacher.staffRole || 'GIAO_VIEN') === 'GIA_SU' &&
-              ['CHO_GUI', 'DA_XU_LY_GT'].includes(teacher.reconcileStatus)
+              (teacher.staffRole || 'GIAO_VIEN') === 'GIAO_VIEN' &&
+              !teacher.payrollSent
             )
             .map(teacher => teacher.teacherId)
         : []
     );
     if (sendableTeacherIds.size === 0) {
-      showToast('Không có gia sư nào đang chờ gửi đối soát trong lựa chọn này.', 'info');
+      showToast('Không có giáo viên nào chưa gửi đối soát trong lựa chọn này.', 'info');
       return;
     }
 
@@ -1757,14 +1785,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         [month]: {
           ...currentMonthData,
           teachers: currentMonthData.teachers.map(teacher =>
-            sendableTeacherIds.has(teacher.teacherId) && ['CHO_GUI', 'DA_XU_LY_GT'].includes(teacher.reconcileStatus)
-              ? { ...teacher, reconcileStatus: 'DA_GUI' }
+            sendableTeacherIds.has(teacher.teacherId) && !teacher.payrollSent
+            ? {
+                ...teacher,
+                reconcileStatus: ['CHO_GUI', 'DA_XU_LY_GT'].includes(teacher.reconcileStatus)
+                  ? 'DA_GUI'
+                  : teacher.reconcileStatus,
+                payrollSent: true
+              }
               : teacher
           )
         }
       };
     });
-    showToast(`Đã gửi đối soát cho ${sendableTeacherIds.size} gia sư trong kỳ ${month}.`, 'success');
+    showToast(`Đã gửi đối soát cho ${sendableTeacherIds.size} giáo viên chưa gửi trong kỳ ${month}.`, 'success');
   };
 
   const submitDispute = (month: string, dispute: DisputeItem) => {
@@ -1806,6 +1840,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const reviewDispute = (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => {
+    const monthIsLocked = payrollStore[month]?.isLocked ?? false;
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -1867,6 +1902,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             approvedExplanations: Math.max(0, (t.approvedExplanations || 0) + approvedDelta),
             emergencySessions: Math.max(0, (t.emergencySessions || 0) + emergencyDelta),
             reconcileStatus: hasPendingDispute ? 'CO_GIAI_TRINH' as const : 'DA_XU_LY_GT' as const,
+            payrollSent: false,
             sessions: updatedSessions
           };
         }
@@ -1883,7 +1919,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    showToast(`Đã gửi kết quả ${status === 'DA_DUYET' ? 'chấp nhận' : 'từ chối'} giải trình cho giáo viên.`, 'success');
+    showToast(
+      monthIsLocked
+        ? `Đã xử lý giải trình. Hãy mở khóa kỳ ${month}, sau đó gửi lại bảng công đã cập nhật cho giáo viên.`
+        : 'Đã xử lý giải trình. Bảng công chuyển sang Chưa gửi; hãy gửi lại để giáo viên xem kết quả.',
+      'success'
+    );
   };
 
   const lockPayrollMonth = (month: string) => {
@@ -1895,7 +1936,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         [month]: {
           ...currentMonthData,
           isLocked: true,
-          teachers: currentMonthData.teachers.map(t => ({ ...t, reconcileStatus: 'DA_CHOT' as const }))
+          teachers: currentMonthData.teachers.map(t => ({
+            ...t,
+            reconcileStatus: 'DA_CHOT' as const,
+            payrollSent: true
+          }))
         }
       };
     });
@@ -1911,7 +1956,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         [month]: {
           ...currentMonthData,
           isLocked: false,
-          teachers: currentMonthData.teachers.map(t => ({ ...t, reconcileStatus: 'DA_GUI' as const }))
+          teachers: currentMonthData.teachers.map(t => ({
+            ...t,
+            reconcileStatus: t.reconcileStatus === 'DA_CHOT' ? 'DA_GUI' as const : t.reconcileStatus
+          }))
         }
       };
     });
@@ -1962,6 +2010,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           emergencySessions: 0,
           approvedExplanations: 0,
           reconcileStatus: 'CHO_GUI' as const,
+          payrollSent: false,
           sessions: []
         })),
         disputes: []
