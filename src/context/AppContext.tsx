@@ -109,9 +109,10 @@ interface AppContextType {
   // PH7: Payroll & Disputes
   payrollStore: Record<string, MonthPayrollData>;
   setPayrollStore: React.Dispatch<React.SetStateAction<Record<string, MonthPayrollData>>>;
-  updateSessionCredit: (month: string, teacherId: string, sessionId: string, newCoeff: number) => void;
+  updateSessionCredit: (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => void;
+  sendPayrollToTeachers: (month: string, teacherIds: string[]) => void;
   submitDispute: (month: string, dispute: DisputeItem) => void;
-  reviewDispute: (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string) => void;
+  reviewDispute: (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => void;
   lockPayrollMonth: (month: string) => void;
   unlockPayrollMonth: (month: string, reason: string) => void;
 
@@ -888,7 +889,8 @@ const initialPayrollStore: Record<string, MonthPayrollData> = {
             time: '18:00 - 19:30',
             classCode: 'TOAN_K03_NT2_13_01',
             className: 'Toán Lớp 3 Nền tảng 2',
-            studentName: 'Em Trần Gia Bảo (1-3)',
+            studentName: 'Trần Gia Bảo',
+            studentNames: ['Trần Gia Bảo', 'Đặng Tuấn Kiệt', 'Nguyễn Hà My'],
             type: 'STANDARD',
             statusText: 'Dạy chuẩn',
             checkin: '17:56 (Đúng giờ)',
@@ -915,7 +917,8 @@ const initialPayrollStore: Record<string, MonthPayrollData> = {
             time: '18:00 - 19:30',
             classCode: 'TOAN_K03_NT2_13_01',
             className: 'Toán Lớp 3 Nền tảng 2',
-            studentName: 'Em Trần Gia Bảo (1-3)',
+            studentName: 'Trần Gia Bảo',
+            studentNames: ['Trần Gia Bảo', 'Đặng Tuấn Kiệt', 'Nguyễn Hà My'],
             type: 'LATE',
             statusText: 'Đi muộn 15 phút (Đã bù giờ đủ)',
             checkin: '18:15 (Trễ 15p)',
@@ -942,7 +945,8 @@ const initialPayrollStore: Record<string, MonthPayrollData> = {
             time: '18:00 - 19:30',
             classCode: 'TOAN_K03_NT2_13_01',
             className: 'Toán Lớp 3 Nền tảng 2',
-            studentName: 'Em Trần Gia Bảo (1-3)',
+            studentName: 'Trần Gia Bảo',
+            studentNames: ['Trần Gia Bảo', 'Đặng Tuấn Kiệt', 'Nguyễn Hà My'],
             type: 'COVER',
             statusText: 'Dạy thay đồng nghiệp (Cover)',
             checkin: '17:58 (Đúng giờ)',
@@ -969,7 +973,8 @@ const initialPayrollStore: Record<string, MonthPayrollData> = {
             time: '18:00 - 19:30',
             classCode: 'TOAN_K03_NT2_13_01',
             className: 'Toán Lớp 3 Nền tảng 2',
-            studentName: 'Em Trần Gia Bảo (1-3)',
+            studentName: 'Trần Gia Bảo',
+            studentNames: ['Trần Gia Bảo', 'Đặng Tuấn Kiệt', 'Nguyễn Hà My'],
             type: 'STUDENT_CANCELED',
             statusText: 'HS xin nghỉ gấp sát giờ (Đang giải trình)',
             checkin: '17:55 (Đã trực phòng)',
@@ -1138,7 +1143,8 @@ const initialPayrollStore: Record<string, MonthPayrollData> = {
             time: '18:00 - 19:30',
             classCode: 'TOAN_GS_K04_13_01',
             className: 'Gia sư Nhóm nhỏ Toán Lớp 4 (1-3)',
-            studentName: 'Nhóm 3 học sinh (1-3)',
+            studentName: 'Trần Gia Bảo',
+            studentNames: ['Trần Gia Bảo', 'Đặng Tuấn Kiệt', 'Nguyễn Hà My'],
             type: 'STANDARD',
             statusText: 'Dạy chuẩn nhóm 1-3',
             checkin: '17:56 (Đúng giờ)',
@@ -1205,6 +1211,74 @@ const initialPayrollStore: Record<string, MonthPayrollData> = {
     ]
   }
 };
+
+const createOctoberPayrollSample = (septemberData: MonthPayrollData): MonthPayrollData => {
+  const sessionIdMap = new Map<string, string>();
+  septemberData.teachers.forEach(teacher => {
+    teacher.sessions.forEach(session => {
+      sessionIdMap.set(session.id, session.id.replace(/^S-09/, 'S-10'));
+    });
+  });
+
+  const disputes = septemberData.disputes.map(dispute => {
+    const sessionDate = dispute.sessionTime?.match(/(\d{2})\/09\/2026/)?.[1];
+    return {
+      ...dispute,
+      id: dispute.id.replace(/^DSP-09/, 'DSP-10'),
+      sessionId: dispute.sessionId ? sessionIdMap.get(dispute.sessionId) || dispute.sessionId : undefined,
+      sessionTime: dispute.sessionTime?.replace(/\/09\/2026/g, '/10/2026'),
+      status: 'CHO_DUYET' as const,
+      adminNote: ''
+    };
+  });
+  const disputedSessionIds = new Set(disputes.map(dispute => dispute.sessionId).filter(Boolean));
+
+  return {
+    isLocked: false,
+    adminSentNotice: true,
+    teachers: septemberData.teachers.map(teacher => {
+      const sessions = teacher.sessions.map(session => {
+        const date = new Date(`${session.date}T12:00:00`);
+        date.setMonth(date.getMonth() + 1);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${day}/${month}/${year}`;
+
+        return {
+          ...session,
+          id: sessionIdMap.get(session.id) || session.id,
+          date: `${year}-${month}-${day}`,
+          dateStr,
+          dayOfWeek: date.toLocaleDateString('vi-VN', { weekday: 'long' }),
+          reconcileStatus: disputedSessionIds.has(sessionIdMap.get(session.id) || '')
+            ? 'CO_GIAI_TRINH' as const
+            : 'CHO_DOI_SOAT' as const,
+          dispute: null
+        };
+      });
+      const countType = (type: SessionPayrollRecord['type']) =>
+        sessions.filter(session => session.type === type).length;
+
+      return {
+        ...teacher,
+        standardSessions: countType('STANDARD'),
+        coverSessions: countType('COVER'),
+        studentCanceledSessions: countType('STUDENT_CANCELED'),
+        lateSessions: countType('LATE'),
+        emergencySessions: countType('EMERGENCY'),
+        approvedExplanations: countType('APPROVED_EXPLANATION'),
+        reconcileStatus: disputes.some(dispute => dispute.teacherId === teacher.teacherId)
+          ? 'CO_GIAI_TRINH' as const
+          : 'CHO_GUI' as const,
+        sessions
+      };
+    }),
+    disputes
+  };
+};
+
+initialPayrollStore['2026-10'] = createOctoberPayrollSample(initialPayrollStore['2026-09']);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [shouldSeedLinkedSamples] = useState(() => {
@@ -1303,7 +1377,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   // PH7
-  const [payrollStore, setPayrollStore] = useState<Record<string, MonthPayrollData>>(() => getStored('payrollStore', initialPayrollStore));
+  const [payrollStore, setPayrollStore] = useState<Record<string, MonthPayrollData>>(() => {
+    const stored = getStored<Record<string, MonthPayrollData>>('payrollStore', initialPayrollStore);
+    return {
+      ...initialPayrollStore,
+      ...stored,
+      '2026-10': stored['2026-10'] || initialPayrollStore['2026-10']
+    };
+  });
 
   // Tự động chuyển workspace khi đổi user
   useEffect(() => {
@@ -1619,7 +1700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // PH7 Actions
-  const updateSessionCredit = (month: string, teacherId: string, sessionId: string, newCoeff: number) => {
+  const updateSessionCredit = (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => {
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -1630,7 +1711,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return {
                 ...s,
                 creditCoeff: newCoeff,
-                hrPayNote: `Hưởng ${newCoeff} công`
+                hrPayNote: note?.trim() || `Hệ số được cập nhật: ${newCoeff}`
               };
             }
             return s;
@@ -1647,7 +1728,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
     });
-    showToast(`Đã cập nhật hệ số hưởng công ca [${sessionId}] sang ${newCoeff} công!`, 'success');
+    showToast(`Đã cập nhật hệ số buổi học [${sessionId}] sang ${newCoeff}.`, 'success');
+  };
+
+  const sendPayrollToTeachers = (month: string, teacherIds: string[]) => {
+    const teacherIdSet = new Set(teacherIds);
+    const currentMonthData = payrollStore[month];
+    const sendableTeacherIds = new Set(
+      currentMonthData && !currentMonthData.isLocked
+        ? currentMonthData.teachers
+            .filter(teacher =>
+              teacherIdSet.has(teacher.teacherId) &&
+              (teacher.staffRole || 'GIAO_VIEN') === 'GIA_SU' &&
+              ['CHO_GUI', 'DA_XU_LY_GT'].includes(teacher.reconcileStatus)
+            )
+            .map(teacher => teacher.teacherId)
+        : []
+    );
+    if (sendableTeacherIds.size === 0) {
+      showToast('Không có gia sư nào đang chờ gửi đối soát trong lựa chọn này.', 'info');
+      return;
+    }
+
+    setPayrollStore(prev => {
+      const currentMonthData = prev[month];
+      if (!currentMonthData || currentMonthData.isLocked) return prev;
+      return {
+        ...prev,
+        [month]: {
+          ...currentMonthData,
+          teachers: currentMonthData.teachers.map(teacher =>
+            sendableTeacherIds.has(teacher.teacherId) && ['CHO_GUI', 'DA_XU_LY_GT'].includes(teacher.reconcileStatus)
+              ? { ...teacher, reconcileStatus: 'DA_GUI' }
+              : teacher
+          )
+        }
+      };
+    });
+    showToast(`Đã gửi đối soát cho ${sendableTeacherIds.size} gia sư trong kỳ ${month}.`, 'success');
   };
 
   const submitDispute = (month: string, dispute: DisputeItem) => {
@@ -1688,7 +1806,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Đã gửi đơn giải trình thành công! Đang chờ Quản trị viên duyệt.`, 'success');
   };
 
-  const reviewDispute = (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string) => {
+  const reviewDispute = (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => {
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -1705,6 +1823,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const updatedTeachers = currentMonthData.teachers.map(t => {
         if (t.teacherId === targetDispute.teacherId) {
+          const hasPendingDispute = updatedDisputes.some(
+            dispute => dispute.teacherId === t.teacherId && dispute.status === 'CHO_DUYET'
+          );
           let approvedDelta = 0;
           let emergencyDelta = 0;
 
@@ -1724,7 +1845,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   ...s,
                   type: 'APPROVED_EXPLANATION' as const,
                   statusText: 'Đã duyệt GT (Miễn phạt)',
-                  hrPayNote: '0 công (Đã miễn phạt)',
+                  creditCoeff,
+                  hrPayNote: note.trim() || `Đã duyệt giải trình · Hệ số ${creditCoeff}`,
                   dispute: updatedDisputeObj
                 };
               } else {
@@ -1732,7 +1854,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   ...s,
                   type: 'EMERGENCY' as const,
                   statusText: status === 'TU_CHOI' ? 'Bị từ chối GT' : 'Đang chờ duyệt GT',
-                  hrPayNote: '0 công (Xét phạt HR)',
+                  creditCoeff,
+                  hrPayNote: note.trim() || `Từ chối giải trình · Hệ số ${creditCoeff}`,
                   dispute: updatedDisputeObj
                 };
               }
@@ -1744,7 +1867,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ...t,
             approvedExplanations: Math.max(0, (t.approvedExplanations || 0) + approvedDelta),
             emergencySessions: Math.max(0, (t.emergencySessions || 0) + emergencyDelta),
-            reconcileStatus: status === 'DA_DUYET' ? 'DA_XU_LY_GT' as const : t.reconcileStatus,
+            reconcileStatus: hasPendingDispute ? 'CO_GIAI_TRINH' as const : 'DA_XU_LY_GT' as const,
             sessions: updatedSessions
           };
         }
@@ -1761,7 +1884,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    showToast(`Đã cập nhật xử lý đơn giải trình sang: ${status === 'DA_DUYET' ? 'Đã duyệt (Miễn phạt)' : status === 'TU_CHOI' ? 'Từ chối' : 'Chờ duyệt'}!`, 'success');
+    showToast(`Đã gửi kết quả ${status === 'DA_DUYET' ? 'chấp nhận' : 'từ chối'} giải trình cho giáo viên.`, 'success');
   };
 
   const lockPayrollMonth = (month: string) => {
@@ -1913,6 +2036,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         payrollStore,
         setPayrollStore,
         updateSessionCredit,
+        sendPayrollToTeachers,
         submitDispute,
         reviewDispute,
         lockPayrollMonth,

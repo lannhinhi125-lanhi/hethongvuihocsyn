@@ -17,12 +17,14 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { SessionPayrollRecord, DisputeItem } from '../types';
+import { getCurrentPayrollMonth, getPayrollMonthOptions } from '../lib/payrollPeriods';
 
 export const TeacherWorkReconciliationView: React.FC = () => {
   const { currentUser, payrollStore, submitDispute, showToast } = useApp();
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-09');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
+  const payrollMonthOptions = getPayrollMonthOptions();
   const [showDisputeModal, setShowDisputeModal] = useState<boolean>(false);
   const [selectedSessionForDispute, setSelectedSessionForDispute] = useState<SessionPayrollRecord | null>(null);
   const [disputeType, setDisputeType] = useState<string>('Học sinh xin nghỉ sát giờ nhưng bị tính vắng');
@@ -172,8 +174,29 @@ export const TeacherWorkReconciliationView: React.FC = () => {
 
   if (!myRecord) {
     return (
-      <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500">
-        Không tìm thấy thông tin ca dạy của tài khoản này trong kỳ {selectedMonth}.
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">Đối soát công cá nhân</h2>
+            <p className="mt-1 text-xs text-slate-500">Chọn kỳ hiện tại hoặc tháng trước để xem bảng công.</p>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <Calendar className="h-4 w-4" />
+            Kỳ công
+            <select
+              value={selectedMonth}
+              onChange={event => setSelectedMonth(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800"
+            >
+              {payrollMonthOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+          Chưa có dữ liệu đối soát công của bạn trong {selectedMonth}.
+        </div>
       </div>
     );
   }
@@ -218,8 +241,9 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               onChange={e => setSelectedMonth(e.target.value)}
               className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-hidden pr-2 cursor-pointer"
             >
-              <option value="2026-09">Kỳ Tháng 09/2026</option>
-              <option value="2026-10">Kỳ Tháng 10/2026</option>
+              {payrollMonthOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
 

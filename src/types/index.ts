@@ -259,6 +259,7 @@ export interface SessionPayrollRecord {
   classCode: string;
   className: string;
   studentName: string;
+  studentNames?: string[];
   type: 'STANDARD' | 'COVER' | 'STUDENT_CANCELED' | 'LATE' | 'EMERGENCY' | 'APPROVED_EXPLANATION';
   statusText: string;
   checkin: string;
