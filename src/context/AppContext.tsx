@@ -85,7 +85,7 @@ interface AppContextType {
   updateStudent: (id: string, updates: Partial<StudentRecord>) => void;
   deleteStudent: (id: string) => void;
   addClass: (cls: ClassItem) => void;
-  updateClass: (id: string, updates: Partial<ClassItem>) => void;
+  updateClass: (id: string, updates: Partial<ClassItem>, successMessage?: string) => void;
   deleteClass: (id: string) => void;
   batchAssignMaterials: (classIds: string[], materials: ClassItem['materials']) => void;
   batchImportRoomLinks: (updates: { classCode: string; roomLink: string }[]) => { updated: number; skipped: number };
@@ -1342,7 +1342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Khởi tạo thành công lớp [${cls.code}]!`, 'success');
   };
 
-  const updateClass = (id: string, updates: Partial<ClassItem>) => {
+  const updateClass = (id: string, updates: Partial<ClassItem>, successMessage?: string) => {
     const previousClass = classes.find(item => item.id === id);
     setClasses(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
     if (previousClass && (updates.studentIds !== undefined || updates.code !== undefined)) {
@@ -1359,7 +1359,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return student;
       }));
     }
-    showToast('Cập nhật lớp học thành công!', 'success');
+    showToast(successMessage || 'Cập nhật lớp học thành công!', 'success');
   };
 
   const deleteClass = (id: string) => {
@@ -1379,8 +1379,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const batchAssignMaterials = (classIds: string[], newMaterials: ClassItem['materials']) => {
     setClasses(prev => prev.map(c => {
       if (classIds.includes(c.id)) {
-        const existingWeek = newMaterials[0]?.week;
-        const filtered = (c.materials || []).filter(m => m.week !== existingWeek);
+        const targetMonth = newMaterials[0]?.month;
+        const targetWeek = newMaterials[0]?.week;
+        const filtered = (c.materials || []).filter(m => m.month !== targetMonth || m.week !== targetWeek);
         return {
           ...c,
           materials: [...filtered, ...newMaterials]

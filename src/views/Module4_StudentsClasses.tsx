@@ -1,5 +1,6 @@
 import { ClassDetailsModal } from '../components/ClassDetailsModal';
 import { MultiSelectColumnFilter, CheckboxFilterOptions, type FilterOption } from '../components/MultiSelectColumnFilter';
+import { createPortal } from 'react-dom';
 import { StudentSchedulePicker } from '../components/StudentSchedulePicker';
 import { ClassSuggestions } from '../components/ClassSuggestions';
 import { ColumnFilter } from '../components/ColumnFilter';
@@ -32,8 +33,68 @@ import {
   Sparkles,
   Zap,
   AlertTriangle,
-  Filter
+  Filter,
+  ChevronDown
 } from 'lucide-react';
+
+type TeachingWeek = { month: string; label: string; start: Date; end: Date };
+
+const formatTeachingDate = (date: Date) =>
+  `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+
+const teachingWeekForDate = (date: Date): TeachingWeek => {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const weekdayOffset = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - weekdayOffset);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const firstOfMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+  const firstMonday = new Date(firstOfMonth);
+  firstMonday.setDate(firstMonday.getDate() + ((8 - firstMonday.getDay()) % 7));
+  const weekNumber = Math.floor((start.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return {
+    month: `${String(start.getMonth() + 1).padStart(2, '0')}/${start.getFullYear()}`,
+    label: `Tuần ${weekNumber}: Từ ngày ${formatTeachingDate(start)} đến ngày ${formatTeachingDate(end)}`,
+    start,
+    end
+  };
+};
+
+const teachingWeeksForMonth = (month: string): TeachingWeek[] => {
+  const [monthNumber, year] = month.split('/').map(Number);
+  if (!monthNumber || !year) return [];
+  const firstOfMonth = new Date(year, monthNumber - 1, 1);
+  const lastOfMonth = new Date(year, monthNumber, 0);
+  const firstMonday = new Date(firstOfMonth);
+  firstMonday.setDate(firstMonday.getDate() + ((8 - firstMonday.getDay()) % 7));
+  const weeks: TeachingWeek[] = [];
+  for (const monday = firstMonday; monday <= lastOfMonth; monday.setDate(monday.getDate() + 7)) {
+    weeks.push(teachingWeekForDate(monday));
+  }
+  return weeks;
+};
+
+const monthFromTeachingWeek = (week: string) => {
+  const date = week.match(/Từ ngày \d{2}\/\d{2}\/(\d{4})/);
+  const month = week.match(/Từ ngày \d{2}\/(\d{2})\//);
+  return date && month ? `${month[1]}/${date[1]}` : '';
+};
+
+const sortTeachingWeekLabels = (weeks: string[]) => Array.from(new Set(weeks)).sort((a, b) => {
+  const dateA = a.match(/Từ ngày (\d{2})\/(\d{2})\/(\d{4})/);
+  const dateB = b.match(/Từ ngày (\d{2})\/(\d{2})\/(\d{4})/);
+  if (!dateA || !dateB) return a.localeCompare(b);
+  return new Date(Number(dateA[3]), Number(dateA[2]) - 1, Number(dateA[1])).getTime() -
+    new Date(Number(dateB[3]), Number(dateB[2]) - 1, Number(dateB[1])).getTime();
+});
+
+const shiftTeachingWeek = (offset: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offset * 7);
+  return teachingWeekForDate(date);
+};
+
+const INITIAL_TEACHING_WEEK = teachingWeekForDate(new Date());
 
 export const Module4_StudentsClasses: React.FC = () => {
   const {
@@ -240,34 +301,153 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Material Batch Modal state
   const [isBatchMaterialModalOpen, setIsBatchMaterialModalOpen] = useState(false);
-  const [batchMonth, setBatchMonth] = useState('10/2026');
-  const [batchWeek, setBatchWeek] = useState('Tuần 1: Từ ngày 05/10/2026 đến ngày 11/10/2026');
+  const [batchMonth, setBatchMonth] = useState(INITIAL_TEACHING_WEEK.month);
+  const [batchWeek, setBatchWeek] = useState(INITIAL_TEACHING_WEEK.label);
   const [batchSubject, setBatchSubject] = useState('SUB-MATH');
-  const [batchGrade, setBatchGrade] = useState('Lớp 3');
-  const [batchB1Title, setBatchB1Title] = useState('Giải bài toán bằng 3 bước tính (tiết 2)');
-  const [batchB1Slide, setBatchB1Slide] = useState('https://drive.google.com/file/d/slide-b1');
-  const [batchB1Lms, setBatchB1Lms] = useState('https://vuihoc.vn/lms/exercise/toan3_b1');
-  const [batchB2Title, setBatchB2Title] = useState('Đơn vị đo góc. Góc nhọn - góc tù - góc bẹt');
-  const [batchB2Slide, setBatchB2Slide] = useState('https://drive.google.com/file/d/slide-b2');
-  const [batchB2Lms, setBatchB2Lms] = useState('https://vuihoc.vn/lms/exercise/toan3_b2');
+  const [batchCategoryId, setBatchCategoryId] = useState('');
+  const [batchGradeIds, setBatchGradeIds] = useState<string[]>([]);
+  const [batchLevelIds, setBatchLevelIds] = useState<string[]>([]);
+  const [batchB1Title, setBatchB1Title] = useState('');
+  const [batchB1Slide, setBatchB1Slide] = useState('');
+  const [batchB1Lms, setBatchB1Lms] = useState('');
+  const [batchB2Title, setBatchB2Title] = useState('');
+  const [batchB2Slide, setBatchB2Slide] = useState('');
+  const [batchB2Lms, setBatchB2Lms] = useState('');
   const [batchSelectedClassIds, setBatchSelectedClassIds] = useState<string[]>([]);
+  type MaterialFilterKey = 'code' | 'name' | 'subject' | 'gradeSubject' | 'category' | 'grade' | 'level' | 'model' | 'status' | 'materialStatus' | 'lessonOne' | 'lessonTwo';
+  const [materialFilters, setMaterialFilters] = useState<Partial<Record<MaterialFilterKey, string[]>>>({});
+  const [isMaterialFilterOpen, setIsMaterialFilterOpen] = useState(false);
+  const [materialMonthFilter, setMaterialMonthFilter] = useState(INITIAL_TEACHING_WEEK.month);
+  const [materialWeekFilter, setMaterialWeekFilter] = useState(INITIAL_TEACHING_WEEK.label);
+  const [isBatchGradeDropdownOpen, setIsBatchGradeDropdownOpen] = useState(false);
+  const [isBatchLevelDropdownOpen, setIsBatchLevelDropdownOpen] = useState(false);
+  const [isBatchClassDropdownOpen, setIsBatchClassDropdownOpen] = useState(false);
+  const [materialDetails, setMaterialDetails] = useState<{ item: ClassItem; month: string; week: string; materials: ClassItem['materials'] } | null>(null);
+  const [editingMaterialClassId, setEditingMaterialClassId] = useState<string | null>(null);
+  const [pendingMaterialDelete, setPendingMaterialDelete] = useState<{ item: ClassItem; month: string; week: string } | null>(null);
 
   // Import Room Excel Modal state
   const [isImportRoomModalOpen, setIsImportRoomModalOpen] = useState(false);
 
-  // Month week schedule options
-  const monthWeeksMap: Record<string, string[]> = {
-    '10/2026': [
-      'Tuần 1: Từ ngày 05/10/2026 đến ngày 11/10/2026',
-      'Tuần 2: Từ ngày 12/10/2026 đến ngày 18/10/2026',
-      'Tuần 3: Từ ngày 19/10/2026 đến ngày 25/10/2026',
-      'Tuần 4: Từ ngày 26/10/2026 đến ngày 01/11/2026'
-    ],
-    '11/2026': [
-      'Tuần 1: Từ ngày 02/11/2026 đến ngày 08/11/2026',
-      'Tuần 2: Từ ngày 09/11/2026 đến ngày 15/11/2026'
-    ]
+  const materialMonths = useMemo(() => Array.from(new Set(
+    classes.flatMap(item => (item.materials || []).map(material => material.month)).filter(Boolean)
+  )).sort((a, b) => {
+    const [monthA, yearA] = a.split('/').map(Number);
+    const [monthB, yearB] = b.split('/').map(Number);
+    return yearB - yearA || monthB - monthA;
+  }), [classes]);
+
+  const batchMonths = Array.from(new Set([
+    ...Array.from({ length: 25 }, (_, index) => {
+      const date = new Date();
+      date.setDate(1);
+      date.setMonth(date.getMonth() + index - 12);
+      return `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+    }),
+    ...materialMonths
+  ])).sort((a, b) => {
+    const [monthA, yearA] = a.split('/').map(Number);
+    const [monthB, yearB] = b.split('/').map(Number);
+    return yearA - yearB || monthA - monthB;
+  });
+  const weeksForMonth = (month: string) => sortTeachingWeekLabels([
+    ...teachingWeeksForMonth(month).map(week => week.label),
+    ...classes.flatMap(item => (item.materials || [])
+      .filter(material => material.month === month)
+      .map(material => material.week))
+  ]);
+  const materialWeeks = useMemo(() => sortTeachingWeekLabels(
+    classes.flatMap(item => (item.materials || [])
+      .filter(material => !materialMonthFilter || material.month === materialMonthFilter)
+      .map(material => material.week))
+  ), [classes, materialMonthFilter]);
+  const weeksForBatchMonth = weeksForMonth(batchMonth);
+  const weeksForFilterMonth = materialMonthFilter ? weeksForMonth(materialMonthFilter) : materialWeeks;
+
+  const activeTeachingCategories = teachingCategories.filter(category => category.status !== false);
+  const materialFilterOptions: Record<MaterialFilterKey, FilterOption[]> = {
+    code: Array.from(new Set(classes.map(item => item.code))).map(value => ({ value, label: value })),
+    name: Array.from(new Set(classes.map(item => item.name))).map(value => ({ value, label: value })),
+    subject: subjects.map(item => ({ value: item.code, label: item.name })),
+    gradeSubject: Array.from(new Set(classes.map(item => `${item.grade} / ${item.subject}`))).map(value => ({ value, label: `${gradeName(value.split(' / ')[0])} / ${subjectName(value.split(' / ')[1])}` })),
+    category: activeTeachingCategories.map(item => ({ value: item.id, label: item.name })),
+    grade: gradeOptions.map(item => ({ value: item.id, label: item.label })),
+    level: levels.map(item => ({ value: item.code, label: item.name })),
+    model: models.map(item => ({ value: item.code, label: item.name })),
+    status: classStatuses.map(value => ({ value, label: value })),
+    materialStatus: [{ value: 'assigned', label: 'Đã có học liệu' }, { value: 'missing', label: 'Chưa có học liệu' }],
+    lessonOne: Array.from(new Set(classes.flatMap(item => item.materials || []).filter(material => material.session === 1).map(material => material.title).filter(Boolean))).map(value => ({ value, label: value })),
+    lessonTwo: Array.from(new Set(classes.flatMap(item => item.materials || []).filter(material => material.session === 2).map(material => material.title).filter(Boolean))).map(value => ({ value, label: value }))
   };
+  const setMaterialFilter = (key: MaterialFilterKey, values: string[]) => {
+    setMaterialFilters(previous => ({ ...previous, [key]: values }));
+  };
+  const materialColumnFilter = (label: string, key: MaterialFilterKey) => (
+    <MultiSelectColumnFilter
+      label={label}
+      values={materialFilters[key] || []}
+      options={materialFilterOptions[key]}
+      onChange={values => setMaterialFilter(key, values)}
+    />
+  );
+  const activeMaterialFilterCount =
+    Object.values(materialFilters).filter(values => values?.length).length +
+    Number(Boolean(materialMonthFilter)) + Number(Boolean(materialWeekFilter));
+
+  const materialRowsForView = useMemo(() => classes.map(item => {
+    const allMaterials = item.materials || [];
+    const groupMap = new Map<string, ClassItem['materials']>();
+    allMaterials.forEach(material => {
+      const key = `${material.month}\u0000${material.week}`;
+      groupMap.set(key, [...(groupMap.get(key) || []), material]);
+    });
+    const groups = Array.from(groupMap, ([key, materials]) => {
+      const [month, week] = key.split('\u0000');
+      return { month, week, materials, start: teachingWeekForDate(new Date(
+        Number(week.match(/Từ ngày \d{2}\/\d{2}\/(\d{4})/)?.[1] || '2000'),
+        Number(week.match(/Từ ngày \d{2}\/(\d{2})\//)?.[1] || '1') - 1,
+        Number(week.match(/Từ ngày (\d{2})\//)?.[1] || '1')
+      )).start };
+    }).sort((a, b) => b.start.getTime() - a.start.getTime());
+    const selectedGroup = groups.find(group =>
+      (!materialMonthFilter || group.month === materialMonthFilter) &&
+      (!materialWeekFilter || group.week === materialWeekFilter)
+    );
+    const row = selectedGroup || { month: '', week: '', materials: [] as ClassItem['materials'] };
+    return { item, ...row };
+  }).filter(({ item, materials }) => {
+      const selected = (key: MaterialFilterKey) => materialFilters[key] || [];
+      const categoryId = classCategoryId(item);
+      const hasMaterials = materials.length > 0;
+      const titleOne = materials.find(material => material.session === 1)?.title || '';
+      const titleTwo = materials.find(material => material.session === 2)?.title || '';
+      return (!selected('code').length || selected('code').includes(item.code)) &&
+        (!selected('name').length || selected('name').includes(item.name)) &&
+        (!selected('subject').length || selected('subject').includes(item.subject)) &&
+        (!selected('gradeSubject').length || selected('gradeSubject').includes(`${item.grade} / ${item.subject}`)) &&
+        (!selected('category').length || selected('category').includes(categoryId)) &&
+        (!selected('grade').length || selected('grade').includes(item.grade)) &&
+        (!selected('level').length || selected('level').includes(item.level)) &&
+        (!selected('model').length || selected('model').includes(item.model)) &&
+        (!selected('status').length || selected('status').includes(item.status || 'Đang học')) &&
+        (!selected('lessonOne').length || selected('lessonOne').includes(titleOne)) &&
+        (!selected('lessonTwo').length || selected('lessonTwo').includes(titleTwo)) &&
+        (!selected('materialStatus').length || selected('materialStatus').includes(hasMaterials ? 'assigned' : 'missing'));
+  }), [classes, materialFilters, materialMonthFilter, materialWeekFilter]);
+
+  const applyMaterialWeek = (offset: number) => {
+    const week = shiftTeachingWeek(offset);
+    setMaterialMonthFilter(week.month);
+    setMaterialWeekFilter(week.label);
+  };
+
+  const batchEligibleClasses = useMemo(() => classes.filter(item =>
+    Boolean(batchCategoryId) &&
+    classCategoryId(item) === batchCategoryId &&
+    batchGradeIds.includes(item.grade) &&
+    batchLevelIds.includes(item.level) &&
+    item.subject === batchSubject
+  ), [classes, batchCategoryId, batchGradeIds, batchLevelIds, batchSubject]);
 
   // Helper auto class code
   const generateClassCode = (subject: string, grade: string, level: string, model: string) => {
@@ -671,21 +851,107 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Batch materials
   const openBatchMaterials = () => {
-    setBatchMonth('10/2026');
-    setBatchWeek(monthWeeksMap['10/2026'][0]);
-    setBatchSubject('SUB-MATH');
-    setBatchGrade('Lớp 3');
-    const matchedIds = classes
-      .filter(c => c.subject === 'SUB-MATH' && c.grade === 'Lớp 3')
-      .map(c => c.id);
-    setBatchSelectedClassIds(matchedIds);
+    setEditingMaterialClassId(null);
+    const week = materialWeekFilter || INITIAL_TEACHING_WEEK.label;
+    const month = materialMonthFilter || monthFromTeachingWeek(week) || INITIAL_TEACHING_WEEK.month;
+    const categoryId = materialFilters.category?.[0] ||
+      teachingCategories.find(category => category.options.some(option => option.id === materialFilters.grade?.[0]))?.id ||
+      activeTeachingCategories[0]?.id || '';
+    const categoryGrades = activeTeachingCategories.find(category => category.id === categoryId)?.options.map(option => option.id) || [];
+    const selectedGrades = materialFilters.grade?.length
+      ? materialFilters.grade.filter(grade => categoryGrades.includes(grade))
+      : categoryGrades;
+    const selectedLevels = materialFilters.level?.length ? materialFilters.level : activeLevels.map(level => level.code);
+    const selectedSubject = materialFilters.subject?.[0] || activeSubjects[0]?.code || '';
+    setBatchMonth(month);
+    setBatchWeek(week);
+    setBatchCategoryId(categoryId);
+    setBatchGradeIds(selectedGrades);
+    setBatchLevelIds(selectedLevels);
+    setBatchSubject(selectedSubject);
+    setBatchSelectedClassIds(classes.filter(item =>
+      Boolean(categoryId) &&
+      classCategoryId(item) === categoryId &&
+      selectedGrades.includes(item.grade) &&
+      selectedLevels.includes(item.level) &&
+      item.subject === selectedSubject
+    ).map(item => item.id));
+    const existing = classes.find(item => item.id === classes.find(candidate =>
+      candidate.subject === selectedSubject &&
+      classCategoryId(candidate) === categoryId &&
+      selectedGrades.includes(candidate.grade) &&
+      selectedLevels.includes(candidate.level)
+    )?.id)?.materials.filter(material => material.month === month && material.week === week) || [];
+    const existingOne = existing.find(material => material.session === 1);
+    const existingTwo = existing.find(material => material.session === 2);
+    setBatchB1Title(existingOne?.title || '');
+    setBatchB1Slide(existingOne?.slide || '');
+    setBatchB1Lms(existingOne?.lms || '');
+    setBatchB2Title(existingTwo?.title || '');
+    setBatchB2Slide(existingTwo?.slide || '');
+    setBatchB2Lms(existingTwo?.lms || '');
+    setIsBatchGradeDropdownOpen(false);
+    setIsBatchLevelDropdownOpen(false);
+    setIsBatchClassDropdownOpen(false);
     setIsBatchMaterialModalOpen(true);
+  };
+
+  const openMaterialDetails = (item: ClassItem, month: string, week: string, materials: ClassItem['materials']) => {
+    setMaterialDetails({ item, month, week, materials });
+  };
+
+  const openEditMaterials = (item: ClassItem, month: string, week: string, materials: ClassItem['materials']) => {
+    const categoryId = classCategoryId(item);
+    const sessionOne = materials.find(material => material.session === 1);
+    const sessionTwo = materials.find(material => material.session === 2);
+    setEditingMaterialClassId(item.id);
+    setBatchMonth(month);
+    setBatchWeek(week);
+    setBatchCategoryId(categoryId);
+    setBatchGradeIds([item.grade]);
+    setBatchLevelIds([item.level]);
+    setBatchSubject(item.subject);
+    setBatchSelectedClassIds([item.id]);
+    setBatchB1Title(sessionOne?.title || '');
+    setBatchB1Slide(sessionOne?.slide || '');
+    setBatchB1Lms(sessionOne?.lms || '');
+    setBatchB2Title(sessionTwo?.title || '');
+    setBatchB2Slide(sessionTwo?.slide || '');
+    setBatchB2Lms(sessionTwo?.lms || '');
+    setIsBatchMaterialModalOpen(true);
+  };
+
+  const handleDeleteMaterials = () => {
+    if (!pendingMaterialDelete) return;
+    const { item, month, week } = pendingMaterialDelete;
+    updateClass(item.id, {
+      materials: (item.materials || []).filter(material => material.month !== month || material.week !== week)
+    }, 'Đã xóa học liệu của lớp trong tuần đã chọn.');
+    setPendingMaterialDelete(null);
+  };
+
+  const applyBatchQuickWeek = (offset: number) => {
+    const week = shiftTeachingWeek(offset);
+    setBatchMonth(week.month);
+    setBatchWeek(week.label);
+    setIsBatchGradeDropdownOpen(false);
+    setIsBatchLevelDropdownOpen(false);
+    setIsBatchClassDropdownOpen(false);
   };
 
   const handleExecuteBatchMaterials = (e: React.FormEvent) => {
     e.preventDefault();
     if (batchSelectedClassIds.length === 0) {
       showToast('Vui lòng chọn ít nhất 1 lớp học để phân phối học liệu!', 'error');
+      return;
+    }
+    const selectedEligibleClassIds = batchSelectedClassIds.filter(id => batchEligibleClasses.some(item => item.id === id));
+    if (!selectedEligibleClassIds.length) {
+      showToast('Không có lớp nào phù hợp với loại lớp, môn học, khối và trình độ đã chọn.', 'error');
+      return;
+    }
+    if (!batchWeek) {
+      showToast('Vui lòng chọn tuần phân phối học liệu.', 'error');
       return;
     }
 
@@ -708,8 +974,9 @@ export const Module4_StudentsClasses: React.FC = () => {
       }
     ];
 
-    batchAssignMaterials(batchSelectedClassIds, newMaterials);
+    batchAssignMaterials(selectedEligibleClassIds, newMaterials);
     setIsBatchMaterialModalOpen(false);
+    setEditingMaterialClassId(null);
   };
 
   // Download template for room links
@@ -952,7 +1219,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <h2 className="text-base font-bold text-slate-800">Phân Phối Học Liệu Cho Các Lớp Học</h2>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Phân bổ học liệu (Buổi 1 &amp; Buổi 2) theo Tháng &amp; Tuần thực tế. Hỗ trợ gán trước theo lịch, tự động cập nhật và ghi đè dữ liệu cũ.
+                Theo dõi học liệu đã gắn theo khối, lớp, trạng thái và lịch sử từng tháng/tuần.
               </p>
             </div>
 
@@ -981,76 +1248,80 @@ export const Module4_StudentsClasses: React.FC = () => {
             </div>
           </div>
 
-          {/* Bảng danh sách lớp kèm học liệu */}
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Tra cứu học liệu đã phân phối</h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">Lọc theo từng cột hoặc mở bộ lọc nâng cao để tra cứu theo khối, trạng thái và thời gian.</p>
+              </div>
+              <button type="button" onClick={() => setIsMaterialFilterOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                <Filter className="h-4 w-4 text-[#FF5C00]" /> Bộ lọc nâng cao
+                {activeMaterialFilterCount > 0 && <span className="rounded-full bg-[#FF5C00] px-1.5 py-0.5 text-[10px] text-white">{activeMaterialFilterCount}</span>}
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-slate-600">Số lớp: <strong className="text-slate-800">{materialRowsForView.length}</strong></span>
+              <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-blue-700">Lớp có học liệu: <strong>{materialRowsForView.filter(({ materials }) => materials.length > 0).length}</strong></span>
+              <span className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-emerald-700">Số buổi đã gắn: <strong>{materialRowsForView.reduce((total, { materials }) => total + materials.length, 0)}</strong></span>
+            </div>
+          </section>
+
+          {/* Bảng lịch sử học liệu theo lớp */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[1200px] text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="py-3.5 px-4 font-mono">Mã Lớp</th>
-                    <th className="py-3.5 px-4">Tên Lớp</th>
-                    <th className="py-3.5 px-4">Khối &amp; Môn</th>
-                    <th className="py-3.5 px-4">Link Phòng Học</th>
-                    <th className="py-3.5 px-4">Trạng thái Học Liệu</th>
-                    <th className="py-3.5 px-4">Chi tiết Buổi đã nạp</th>
-                    <th className="py-3.5 px-4 text-center">Thao tác</th>
+                    <th className="py-3.5 px-4 font-mono">{materialColumnFilter('Mã lớp', 'code')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Tên lớp', 'name')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Khối / Môn', 'gradeSubject')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Mô hình', 'model')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Trình độ', 'level')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 1', 'lessonOne')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 2', 'lessonTwo')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Trạng thái', 'materialStatus')}</th>
+                    <th className="py-3.5 px-4 text-center">Hành động</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-normal">
-                  {classes.map(c => {
-                    const hasRoom = !!c.roomLink;
-                    const hasMat = (c.materials || []).length > 0;
-
+                  {materialRowsForView.map(({ item: c, month, week, materials }) => {
+                    const hasMat = materials.length > 0;
+                    const sessionOne = materials.find(material => material.session === 1);
+                    const sessionTwo = materials.find(material => material.session === 2);
                     return (
                       <tr key={c.id} className="hover:bg-slate-50/80">
                         <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{c.code}</td>
                         <td className="py-3 px-4 font-bold text-slate-800">{c.name}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold text-xs">{c.grade}</span>
-                          <div className="text-[11px] text-[#FF5C00] font-bold mt-0.5">
-                            {subjectName(c.subject)}
-                          </div>
+                        <td className="py-3 px-4 font-medium text-slate-700">
+                          <span className="block">{gradeName(c.grade)}</span>
+                          <span className="mt-0.5 block text-[10px] text-slate-500">{subjectName(c.subject)}</span>
                         </td>
-                        <td className="py-3 px-4">
-                          {hasRoom ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px]">
-                              <CheckCircle className="w-3.5 h-3.5" /> Đã có link phòng
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-medium text-[10px]">
-                              Chưa có link
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap text-slate-700">{models.find(model => model.code === c.model)?.name || c.model}</td>
+                        <td className="py-3 px-4 whitespace-nowrap"><span className="rounded bg-blue-50 px-2 py-1 text-blue-700">{levelName(c.level)}</span></td>
+                        <td className="py-3 px-4 min-w-44 text-slate-700">{sessionOne?.title || <span className="text-slate-400">Chưa gắn</span>}</td>
+                        <td className="py-3 px-4 min-w-44 text-slate-700">{sessionTwo?.title || <span className="text-slate-400">Chưa gắn</span>}</td>
+                        <td className="py-3 px-4 whitespace-nowrap">
                           {hasMat ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[10px]">
-                              Đã nạp {c.materials.length} buổi
+                              <CheckCircle className="w-3.5 h-3.5" /> Đã gắn {materials.length} buổi
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-medium text-[10px] border border-amber-200">
-                              Chưa có học liệu
+                              Chưa có trong kỳ này
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-slate-600">
-                          {hasMat ? (
-                            c.materials.map(m => `B${m.session} (${m.week.split(':')[0]})`).join(', ')
-                          ) : (
-                            <span className="text-slate-400 italic">Chưa nạp</span>
-                          )}
-                        </td>
                         <td className="py-3 px-4 text-center">
-                          <button
-                            onClick={() => openEditClass(c)}
-                            className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Pencil className="w-3 h-3" /> Sửa Lớp / Link
-                          </button>
+                          <div className="flex justify-center gap-2">
+                            <button type="button" title="Chi tiết học liệu" aria-label={`Chi tiết học liệu lớp ${c.name}`} onClick={() => openMaterialDetails(c, month, week, materials)} className="rounded p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-3.5 w-3.5" /></button>
+                            <button type="button" title="Sửa học liệu" aria-label={`Sửa học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => openEditMaterials(c, month, week, materials)} className="rounded p-1.5 text-[#FF5C00] hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button type="button" title="Xóa học liệu" aria-label={`Xóa học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => setPendingMaterialDelete({ item: c, month, week })} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </div>
                         </td>
                       </tr>
                     );
                   })}
+                  {!materialRowsForView.length && <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-500">Không có lớp nào khớp với bộ lọc hiện tại.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -1069,6 +1340,56 @@ export const Module4_StudentsClasses: React.FC = () => {
           </div>
         </div>
       </div>}
+      {pendingMaterialDelete && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setPendingMaterialDelete(null)} onKeyDown={event => { if (event.key === 'Escape') setPendingMaterialDelete(null); }}>
+        <div role="alertdialog" aria-modal="true" aria-labelledby="material-delete-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={event => event.stopPropagation()}>
+          <h3 id="material-delete-title" className="text-base font-bold text-slate-800">Xác nhận xóa học liệu</h3>
+          <p className="mt-3 text-sm text-slate-600">Xóa toàn bộ học liệu của lớp <strong>{pendingMaterialDelete.item.name}</strong> trong tuần <strong>{pendingMaterialDelete.week}</strong>?</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" autoFocus onClick={() => setPendingMaterialDelete(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
+            <button type="button" onClick={handleDeleteMaterials} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Xóa học liệu</button>
+          </div>
+        </div>
+      </div>}
+      {materialDetails && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/55 p-4" onClick={() => setMaterialDetails(null)} onKeyDown={event => { if (event.key === 'Escape') setMaterialDetails(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="material-details-title" className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6" onClick={event => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 id="material-details-title" className="text-base font-bold text-slate-800">Chi tiết học liệu</h2>
+                <p className="mt-1 font-mono text-xs font-semibold text-[#FF5C00]">{materialDetails.item.code} · {materialDetails.item.name}</p>
+              </div>
+              <button type="button" aria-label="Đóng chi tiết học liệu" onClick={() => setMaterialDetails(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-5 w-5" /></button>
+            </div>
+            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-2">
+              {[
+                ['Loại lớp', classCategoryName(materialDetails.item)],
+                ['Khối / Môn', `${gradeName(materialDetails.item.grade)} / ${subjectName(materialDetails.item.subject)}`],
+                ['Trình độ', levelName(materialDetails.item.level)],
+                ['Mô hình lớp', models.find(model => model.code === materialDetails.item.model)?.name || materialDetails.item.model],
+                ['Giáo viên', materialDetails.item.teacherName || 'Chưa phân công'],
+                ['Thời gian', materialDetails.week ? `${materialDetails.month} · ${materialDetails.week}` : 'Chưa có học liệu trong tuần này']
+              ].map(([label, value]) => <div key={label}><dt className="text-slate-500">{label}</dt><dd className="mt-1 font-semibold text-slate-800">{value}</dd></div>)}
+              <div className="sm:col-span-2"><dt className="text-slate-500">Phòng Zoom/ClassIn</dt><dd className="mt-1">{materialDetails.item.roomLink ? <a href={materialDetails.item.roomLink} target="_blank" rel="noreferrer" className="break-all font-medium text-indigo-600 hover:underline">{materialDetails.item.roomLink}</a> : <span className="text-slate-400">Chưa có link phòng</span>}</dd></div>
+            </dl>
+            <div className="mt-5 space-y-3">
+              {[1, 2].map(sessionNumber => {
+                const material = materialDetails.materials.find(item => item.session === sessionNumber);
+                return <section key={sessionNumber} className="rounded-xl border border-slate-200 p-4">
+                  <h3 className="text-sm font-bold text-slate-800">Buổi {sessionNumber}</h3>
+                  {material ? <>
+                    <p className="mt-2 text-sm font-semibold text-slate-700">{material.title || 'Chưa có tên bài học'}</p>
+                    <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                      <div><span className="block text-slate-500">Slide</span>{material.slide ? <a href={material.slide} target="_blank" rel="noreferrer" className="mt-1 block break-all font-medium text-indigo-600 hover:underline">Mở slide ↗<span className="sr-only"> {material.slide}</span></a> : <span className="mt-1 block text-slate-400">Chưa có link</span>}</div>
+                      <div><span className="block text-slate-500">Bài tập LMS</span>{material.lms ? <a href={material.lms} target="_blank" rel="noreferrer" className="mt-1 block break-all font-medium text-indigo-600 hover:underline">Mở bài tập ↗<span className="sr-only"> {material.lms}</span></a> : <span className="mt-1 block text-slate-400">Chưa có link</span>}</div>
+                    </div>
+                  </> : <p className="mt-2 text-xs text-slate-400">Chưa gắn học liệu cho buổi này trong tuần được chọn.</p>}
+                </section>;
+              })}
+            </div>
+            <div className="mt-5 flex justify-end border-t border-slate-100 pt-4"><button type="button" onClick={() => setMaterialDetails(null)} className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700">Đóng</button></div>
+          </div>
+        </div>, document.body
+      )}
       {/* ================= MODAL: TIẾP NHẬN HỌC SINH MỚI ================= */}
       {isStudentModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -1467,48 +1788,170 @@ export const Module4_StudentsClasses: React.FC = () => {
       {/* ================= MODAL: PHÂN PHỐI HỌC LIỆU HÀNG LOẠT ================= */}
       {isBatchMaterialModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="font-bold text-base text-slate-800">Phân Phối Học Liệu Cho Các Lớp Học</h3>
-                <p className="text-xs text-slate-400">Chọn Tháng &amp; Tuần thực tế, nạp nội dung Buổi 1 &amp; 2</p>
+                <h3 className="font-bold text-base text-slate-800">{editingMaterialClassId ? 'Chỉnh Sửa Học Liệu' : 'Phân Phối Học Liệu Cho Các Lớp Học'}</h3>
+                <p className="text-xs text-slate-400">{editingMaterialClassId ? 'Cập nhật nội dung học liệu của lớp trong tuần đã chọn' : 'Chọn kỳ học, loại lớp, khối/trình độ và các lớp nhận học liệu'}</p>
               </div>
-              <button onClick={() => setIsBatchMaterialModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setIsBatchMaterialModalOpen(false); setEditingMaterialClassId(null); }} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleExecuteBatchMaterials} className="mt-4 space-y-4 text-xs">
-              <div className="p-3.5 bg-orange-50/50 rounded-xl border border-orange-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {editingMaterialClassId ? <div className="rounded-xl border border-orange-100 bg-orange-50/50 p-3.5 text-slate-700">
+                Đang chỉnh sửa học liệu của lớp <strong>{classes.find(item => item.id === editingMaterialClassId)?.name}</strong> trong <strong>{batchMonth} · {batchWeek}</strong>.
+              </div> : <div className="rounded-xl border border-orange-100 bg-orange-50/50 p-3.5">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-700">Thời gian phân phối</span>
+                  <div className="flex gap-1.5">
+                    {([-1, 0, 1] as const).map(offset => {
+                      const quickWeek = shiftTeachingWeek(offset);
+                      return <button key={offset} type="button" onClick={() => applyBatchQuickWeek(offset)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${batchWeek === quickWeek.label ? 'border-orange-500 bg-orange-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-orange-50'}`}>
+                        {offset === -1 ? 'Tuần trước' : offset === 0 ? 'Tuần hiện tại' : 'Tuần sau'}
+                      </button>;
+                    })}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">1. Chọn Tháng học</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Tháng</label>
                   <select
                     value={batchMonth}
                     onChange={e => {
-                      setBatchMonth(e.target.value);
-                      setBatchWeek(monthWeeksMap[e.target.value]?.[0] || '');
+                      const month = e.target.value;
+                      const weeks = weeksForMonth(month);
+                      setBatchMonth(month);
+                      setBatchWeek(weeks[0] || '');
                     }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-bold text-slate-800"
                   >
-                    <option value="10/2026">Tháng 10/2026 (Hiện tại)</option>
-                    <option value="11/2026">Tháng 11/2026 (Gán trước lịch)</option>
+                    {batchMonths.map(month => <option key={month} value={month}>{month}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">2. Chọn Tuần học</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Tuần học &amp; ngày thực tế</label>
                   <select
                     value={batchWeek}
-                    onChange={e => setBatchWeek(e.target.value)}
+                    onChange={e => {
+                      setBatchWeek(e.target.value);
+                      const weekMonth = monthFromTeachingWeek(e.target.value);
+                      if (weekMonth) setBatchMonth(weekMonth);
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
                   >
-                    {(monthWeeksMap[batchMonth] || []).map(w => (
+                    {weeksForBatchMonth.map(w => (
                       <option key={w} value={w}>
                         {w}
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
+                </div>
+              </div>}
+
+              {editingMaterialClassId ? <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <span className="text-slate-500">Lớp nhận học liệu</span>
+                <p className="mt-1 font-semibold text-slate-800">{classes.find(item => item.id === editingMaterialClassId)?.code} · {classes.find(item => item.id === editingMaterialClassId)?.name}</p>
+              </div> : <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
+                <label className="block font-semibold text-slate-700">
+                  Loại lớp
+                  <select
+                    value={batchCategoryId}
+                    onChange={event => {
+                      const categoryId = event.target.value;
+                      const grades = activeTeachingCategories.find(category => category.id === categoryId)?.options.map(option => option.id) || [];
+                      setBatchCategoryId(categoryId);
+                      setBatchGradeIds(grades);
+                      setBatchSelectedClassIds([]);
+                    }}
+                    required
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800"
+                  >
+                    <option value="">Chọn loại lớp</option>
+                    {activeTeachingCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                  </select>
+                </label>
+                <label className="block font-semibold text-slate-700">
+                  Môn học
+                  <select value={batchSubject} onChange={event => { setBatchSubject(event.target.value); setBatchSelectedClassIds([]); }} required className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800">
+                    <option value="">Chọn môn học</option>
+                    {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
+                  </select>
+                </label>
+                <div className="relative">
+                  <span className="block font-semibold text-slate-700">Lớp/khối trong loại lớp</span>
+                  <button type="button" aria-expanded={isBatchGradeDropdownOpen} onClick={() => { setIsBatchGradeDropdownOpen(open => !open); setIsBatchLevelDropdownOpen(false); setIsBatchClassDropdownOpen(false); }} className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left font-normal text-slate-700">
+                    <span>{batchGradeIds.length ? `${batchGradeIds.length} mục đã chọn` : 'Chọn lớp/khối'}</span><ChevronDown className="h-4 w-4" />
+                  </button>
+                  {isBatchGradeDropdownOpen && <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                    <CheckboxFilterOptions
+                      label="Lớp/khối"
+                      values={batchGradeIds}
+                      options={(activeTeachingCategories.find(category => category.id === batchCategoryId)?.options || []).map(option => ({ value: option.id, label: option.label }))}
+                      onChange={values => {
+                        setBatchGradeIds(values);
+                        const eligibleIds = classes.filter(item =>
+                          Boolean(batchCategoryId) &&
+                          classCategoryId(item) === batchCategoryId &&
+                          values.includes(item.grade) &&
+                          batchLevelIds.includes(item.level) &&
+                          item.subject === batchSubject
+                        ).map(item => item.id);
+                        setBatchSelectedClassIds(previous => previous.filter(id => eligibleIds.includes(id)));
+                      }}
+                    />
+                  </div>}
+                </div>
+                <div className="relative">
+                  <span className="block font-semibold text-slate-700">Trình độ lớp</span>
+                  <button type="button" aria-expanded={isBatchLevelDropdownOpen} onClick={() => { setIsBatchLevelDropdownOpen(open => !open); setIsBatchGradeDropdownOpen(false); setIsBatchClassDropdownOpen(false); }} className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left font-normal text-slate-700">
+                    <span>{batchLevelIds.length ? `${batchLevelIds.length} trình độ đã chọn` : 'Chọn trình độ'}</span><ChevronDown className="h-4 w-4" />
+                  </button>
+                  {isBatchLevelDropdownOpen && <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                    <CheckboxFilterOptions
+                      label="Trình độ lớp"
+                      values={batchLevelIds}
+                      options={activeLevels.map(level => ({ value: level.code, label: level.name }))}
+                      onChange={values => {
+                        setBatchLevelIds(values);
+                        const eligibleIds = classes.filter(item =>
+                          Boolean(batchCategoryId) &&
+                          classCategoryId(item) === batchCategoryId &&
+                          batchGradeIds.includes(item.grade) &&
+                          values.includes(item.level) &&
+                          item.subject === batchSubject
+                        ).map(item => item.id);
+                        setBatchSelectedClassIds(previous => previous.filter(id => eligibleIds.includes(id)));
+                      }}
+                    />
+                  </div>}
+                </div>
+                <div className="relative sm:col-span-2">
+                  <span className="block font-semibold text-slate-700">Chọn lớp nhận học liệu ({batchSelectedClassIds.length} lớp)</span>
+                  <button type="button" aria-expanded={isBatchClassDropdownOpen} onClick={() => { setIsBatchClassDropdownOpen(open => !open); setIsBatchGradeDropdownOpen(false); setIsBatchLevelDropdownOpen(false); }} className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left font-normal text-slate-700">
+                    <span>{batchSelectedClassIds.length ? `${batchSelectedClassIds.length} lớp đã chọn` : 'Chọn một hoặc nhiều lớp'}</span><ChevronDown className="h-4 w-4" />
+                  </button>
+                  {isBatchClassDropdownOpen && <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                    <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2 text-[11px]">
+                      <span className="text-slate-500">{batchEligibleClasses.length} lớp phù hợp với tiêu chí đã chọn</span>
+                      <div className="flex gap-3 font-semibold text-[#FF5C00]">
+                        <button type="button" onClick={() => setBatchSelectedClassIds(batchEligibleClasses.map(item => item.id))}>Chọn tất cả</button>
+                        <button type="button" onClick={() => setBatchSelectedClassIds([])}>Bỏ chọn</button>
+                      </div>
+                    </div>
+                    <div className="max-h-48 space-y-1 overflow-y-auto">
+                      {batchEligibleClasses.map(item => <label key={item.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 hover:bg-orange-50">
+                        <input type="checkbox" checked={batchSelectedClassIds.includes(item.id)} onChange={event => setBatchSelectedClassIds(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} className="accent-[#FF5C00]" />
+                        <span className="font-mono font-semibold text-[#FF5C00]">{item.code}</span><span className="text-slate-700">{item.name}</span>
+                        <span className="ml-auto text-slate-400">{item.grade} · {levelName(item.level)}</span>
+                      </label>)}
+                      {!batchEligibleClasses.length && <p className="py-4 text-center text-slate-400">Không có lớp phù hợp. Hãy điều chỉnh loại lớp, môn, khối hoặc trình độ.</p>}
+                    </div>
+                  </div>}
+                </div>
+              </div>}
 
               {/* Buổi 1 & 2 */}
               <div className="space-y-3">
@@ -1571,46 +2014,10 @@ export const Module4_StudentsClasses: React.FC = () => {
                 </div>
               </div>
 
-              {/* Chọn lớp áp dụng */}
-              <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-2">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="font-bold text-slate-800">
-                    Chọn các lớp áp dụng ({batchSelectedClassIds.length} lớp):
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setBatchSelectedClassIds(classes.map(c => c.id))}
-                    className="text-[#FF5C00] font-bold text-xs hover:underline cursor-pointer"
-                  >
-                    Chọn tất cả
-                  </button>
-                </div>
-                <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-lg">
-                  {classes.map(c => (
-                    <label key={c.id} className="p-2 flex items-center justify-between hover:bg-slate-50 cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={batchSelectedClassIds.includes(c.id)}
-                          onChange={e => {
-                            if (e.target.checked) setBatchSelectedClassIds(prev => [...prev, c.id]);
-                            else setBatchSelectedClassIds(prev => prev.filter(id => id !== c.id));
-                          }}
-                          className="accent-[#FF5C00]"
-                        />
-                        <span className="font-mono font-bold text-[#FF5C00]">{c.code}</span>
-                        <span className="text-slate-800 font-medium">{c.name}</span>
-                      </div>
-                      <span className="text-[11px] text-slate-400 font-mono">{c.grade}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsBatchMaterialModalOpen(false)}
+                  onClick={() => { setIsBatchMaterialModalOpen(false); setEditingMaterialClassId(null); }}
                   className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium cursor-pointer"
                 >
                   Hủy bỏ
@@ -1619,7 +2026,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
                 >
-                  Xác nhận phân phối học liệu
+                  {editingMaterialClassId ? 'Lưu thay đổi' : 'Xác nhận lưu'}
                 </button>
               </div>
             </form>
@@ -1682,6 +2089,68 @@ export const Module4_StudentsClasses: React.FC = () => {
           </div>
         </div>
       )}
+
+      <FilterDrawer
+        isOpen={isMaterialFilterOpen}
+        onClose={() => setIsMaterialFilterOpen(false)}
+        title="Bộ lọc Phân phối Học liệu"
+        subtitle="Lọc theo thông tin lớp, danh mục, trạng thái và thời gian phân phối"
+        activeCount={activeMaterialFilterCount}
+        onReset={() => {
+          setMaterialFilters({});
+          setMaterialMonthFilter(INITIAL_TEACHING_WEEK.month);
+          setMaterialWeekFilter(INITIAL_TEACHING_WEEK.label);
+        }}
+        onApply={() => setIsMaterialFilterOpen(false)}
+      >
+        <div className="space-y-4 text-xs">
+          <section className="space-y-3">
+            <h4 className="font-semibold text-slate-700">Thời gian</h4>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([-1, 0, 1] as const).map(offset => {
+                const quickWeek = shiftTeachingWeek(offset);
+                return <button key={offset} type="button" onClick={() => applyMaterialWeek(offset)} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${materialWeekFilter === quickWeek.label ? 'border-orange-500 bg-orange-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-orange-50'}`}>
+                  {offset === -1 ? 'Tuần trước' : offset === 0 ? 'Tuần này' : 'Tuần sau'}
+                </button>;
+              })}
+            </div>
+            <label className="block font-semibold text-slate-600">Tháng
+              <select value={materialMonthFilter} onChange={event => {
+                const month = event.target.value;
+                setMaterialMonthFilter(month);
+                setMaterialWeekFilter(month ? weeksForMonth(month)[0] || '' : '');
+              }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800">
+                <option value="">Tất cả tháng</option>
+                {batchMonths.map(month => <option key={month} value={month}>{month}</option>)}
+              </select>
+            </label>
+            <label className="block font-semibold text-slate-600">Tuần học
+              <select value={materialWeekFilter} onChange={event => {
+                const week = event.target.value;
+                setMaterialWeekFilter(week);
+                if (week) setMaterialMonthFilter(monthFromTeachingWeek(week));
+              }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800">
+                <option value="">Tất cả tuần</option>
+                {weeksForFilterMonth.map(week => <option key={week} value={week}>{week}</option>)}
+              </select>
+            </label>
+          </section>
+          {([
+            ['Loại lớp', 'category'],
+            ['Trình độ', 'level'],
+            ['Môn học', 'subject'],
+            ['Trạng thái học liệu', 'materialStatus']
+          ] as [string, MaterialFilterKey][]).map(([label, key]) => (
+            <section key={key} className="space-y-2 border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-slate-700">{label}</h4>
+                <button type="button" className="text-[#FF5C00]" onClick={() => setMaterialFilter(key, [])}>Xóa lọc</button>
+              </div>
+              <CheckboxFilterOptions label={label} values={materialFilters[key] || []} options={materialFilterOptions[key]} onChange={values => setMaterialFilter(key, values)} />
+            </section>
+          ))}
+        </div>
+      </FilterDrawer>
 
       {/* 1. DRAWER BỘ LỌC HỌC SINH (TAB 1) */}
       <FilterDrawer
