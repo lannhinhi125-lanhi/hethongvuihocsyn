@@ -83,7 +83,7 @@ export const Module2_MasterData: React.FC = () => {
 
   // 1. Subject Handlers
   const openSubjectModal = (item?: (typeof subjects)[0]) => {
-    if (!requirePermission("Cấu hình Môn học (Toán, Tiếng Anh) & Khối lớp")) return;
+    if (!requirePermission("Quản lý danh mục môn học")) return;
     if (item) {
       setEditingSubjectId(item.id);
       setSubCode(item.code);
@@ -102,7 +102,7 @@ export const Module2_MasterData: React.FC = () => {
 
   const handleSaveSubject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Cấu hình Môn học (Toán, Tiếng Anh) & Khối lớp")) return;
+    if (!requirePermission("Quản lý danh mục môn học")) return;
     e.preventDefault();
     if (!subName.trim()) return;
 
@@ -134,7 +134,7 @@ export const Module2_MasterData: React.FC = () => {
 
   // 2. Level Handlers
   const openLevelModal = (item?: (typeof levels)[0]) => {
-    if (!requirePermission("Cấu hình Khung chương trình / Trình độ")) return;
+    if (!requirePermission("Quản lý danh mục trình độ")) return;
     if (item) {
       setEditingLevelId(item.id);
       setLvlCode(item.code);
@@ -155,7 +155,7 @@ export const Module2_MasterData: React.FC = () => {
 
   const handleSaveLevel = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Cấu hình Khung chương trình / Trình độ")) return;
+    if (!requirePermission("Quản lý danh mục trình độ")) return;
     e.preventDefault();
     if (!lvlName.trim()) return;
 
@@ -309,7 +309,7 @@ export const Module2_MasterData: React.FC = () => {
 
   // 5. Model Handlers
   const openModelModal = (item?: (typeof models)[0]) => {
-    if (!requirePermission("Cấu hình Mô hình lớp & Sĩ số trần (1-1, 1-3, 1-5)")) return;
+    if (!requirePermission("Quản lý mô hình lớp và sĩ số tối đa")) return;
     if (item) {
       setEditingModelId(item.id);
       setModCode(item.code);
@@ -326,7 +326,7 @@ export const Module2_MasterData: React.FC = () => {
 
   const handleSaveModel = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Cấu hình Mô hình lớp & Sĩ số trần (1-1, 1-3, 1-5)")) return;
+    if (!requirePermission("Quản lý mô hình lớp và sĩ số tối đa")) return;
     e.preventDefault();
     if (!modName.trim()) return;
 

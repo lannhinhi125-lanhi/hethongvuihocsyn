@@ -24,7 +24,7 @@ const cls: ClassItem = { id: 'c', code: 'C', name: 'Class', grade: '', subject: 
 assert.equal(classChangeAllowed([cls], [{ ...cls, name: 'changed' }], can()), false);
 assert.equal(classChangeAllowed([cls], [{ ...cls, studentIds: ['s'] }], can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')), true);
 assert.equal(classChangeAllowed([cls], [{ ...cls, teacherId: 'other' }], can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')), false);
-assert.equal(classChangeAllowed([], [{ ...cls, studentIds: ['s'] }], can('Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc')), false);
+assert.equal(classChangeAllowed([], [{ ...cls, studentIds: ['s'] }], can('Tạo, sửa, xóa lớp và cập nhật link phòng học')), false);
 const checkedIn: ClassItem = { ...cls, activeSessions: { 1: { sessionNum: 1, dateStr: '2026-10-05', title: 'Session', status: 'Đang học', materialGv: '', materialHs: '', exerciseLms: '', checkinTime: '18:00' } } };
 const checkin = can('Giáo viên Check-in / Check-out vào ca dạy');
 assert.equal(classChangeAllowed([cls], [checkedIn], checkin, 't'), true);

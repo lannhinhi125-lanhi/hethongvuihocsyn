@@ -3,16 +3,16 @@ import { changedFields, hasPermission } from './accessControl';
 export type PermissionCheck = (feature: string) => boolean;
 export function classChangeAllowed(before: ClassItem[], after: ClassItem[], can: PermissionCheck, ownTeacherId?: string, ownTeacherName?: string): boolean {
   const previous = new Map(before.map(item => [item.id, item]));
-  if (before.some(item => !after.some(row => row.id === item.id)) && !can('Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc')) return false;
+  if (before.some(item => !after.some(row => row.id === item.id)) && !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')) return false;
   return after.every(item => {
     const old = previous.get(item.id);
-    if (!old) return can('Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc') && (!item.studentIds.length || can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) && (!item.teacherId && !item.teacherName || can('Phân công giáo viên (Khớp nối môn và lịch rảnh)'));
+    if (!old) return can('Tạo, sửa, xóa lớp và cập nhật link phòng học') && (!item.studentIds.length || can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) && (!item.teacherId && !item.teacherName || can('Phân công giáo viên (Khớp nối môn và lịch rảnh)'));
     return changedFields(old, item).every(field => {
       if (field === 'studentIds') return can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)');
       if (['teacherId', 'teacherName'].includes(field)) return can('Phân công giáo viên (Khớp nối môn và lịch rảnh)');
-      if (field === 'materials') return can('Nạp học liệu: Thêm theo tuần & Excel mẫu');
-      if (field === 'coverAssignments') return can('Quét giáo viên rảnh cùng môn để dạy thay (Cover)');
-      if (field !== 'activeSessions') return can('Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc');
+      if (field === 'materials') return can('Thêm, sửa, xóa và nạp học liệu theo tuần');
+      if (field === 'coverAssignments') return can('Tìm và phân công giáo viên dạy thay');
+      if (field !== 'activeSessions') return can('Tạo, sửa, xóa lớp và cập nhật link phòng học');
       if (can('Ghi nhận và xử lý sự cố ca dạy')) return true;
       if (!ownTeacherId) return false;
       const previousSessions = old.activeSessions || {}, sessions = item.activeSessions || {};
@@ -35,10 +35,10 @@ export function teacherChangeAllowed(before: TeacherProfile[], after: TeacherPro
   if (before.some(item => !after.some(row => row.id === item.id)) && !profile()) return false;
   return after.every(item => {
     const old = before.find(row => row.id === item.id);
-    if (!old) return profile() || can('Tạo hồ sơ giáo viên (Gán 1 môn Toán/Anh)');
+    if (!old) return profile() || can('Tạo hồ sơ và cấp tài khoản giáo viên');
     return changedFields(old, item).every(field => {
       if (['schedule', 'freeSlots', 'busySlots', 'isFull'].includes(field)) return ownTeacherId === item.id && can('Giáo viên đăng ký lịch rảnh theo tuần');
-      if (['evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores', 'evaluationReports'].includes(field)) return can('Thực hiện chấm điểm dự giờ sư phạm (3 tiêu chí)');
+      if (['evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores', 'evaluationReports'].includes(field)) return can('Chấm điểm và cập nhật báo cáo dự giờ');
       return profile();
     });
   });

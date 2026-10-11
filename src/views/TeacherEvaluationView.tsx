@@ -77,7 +77,7 @@ export const TeacherEvaluationView: React.FC = () => {
 
   const handleCreateReportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Thực hiện chấm điểm dự giờ sư phạm (3 tiêu chí)")) return;
+    if (!requirePermission("Chấm điểm và cập nhật báo cáo dự giờ")) return;
     e.preventDefault();
     if (isTeacherAccount || !currentTeacher) return;
     const finalScore = Number(((newTc1 * 0.25) + (newTc2 * 0.5) + (newTc3 * 0.25)).toFixed(1));

@@ -16,3 +16,16 @@ assert.ok(!serializePermissions(catalog.features.slice(1), 'ADMIN').includes('PH
 assert.deepEqual(new Set(expandPermissions(serializePermissions(admin, 'ADMIN'), 'ADMIN')), new Set(admin));
 assert.equal(expandPermissions(['ALL'], 'TEACHER').some(feature => admin.includes(feature)), false);
 console.log('Passed: portal grouping, legacy permission expansion, read-only scope and module serialization.');
+
+
+assert.deepEqual(expandPermissions(['Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc'], 'ADMIN'), ['Tạo, sửa, xóa lớp và cập nhật link phòng học']);
+assert.deepEqual(expandPermissions(['Xem tổng hợp lịch rảnh & Khóa sổ đăng ký tuần'], 'ADMIN'), ['Xem hồ sơ, lịch rảnh, thời khóa biểu và kết quả dự giờ giáo viên']);
+assert.deepEqual(expandPermissions(['Xuất danh sách hồ sơ giáo viên ra file Excel'], 'ADMIN'), []);
+assert.deepEqual(expandPermissions(['Xác nhận bảng công cá nhân'], 'TEACHER'), []);
+assert.deepEqual(expandPermissions(['Khóa sổ Chốt công & Xuất file Excel bàn giao'], 'ADMIN'), ['Khóa, mở kỳ công và xuất CSV / in bảng công']);
+for (const modules of Object.values(permissionModules)) {
+  const labels = modules.flatMap(module => module.features);
+  assert.equal(new Set(labels).size, labels.length, 'Permission criteria must not repeat');
+  assert.ok(!labels.some(label => /Khóa sổ đăng ký tuần|trạng thái khóa tuần|hạn lớp theo gói|Xác nhận bảng công cá nhân|Xuất danh sách hồ sơ giáo viên/.test(label)));
+}
+console.log('Passed: current criteria, removed unavailable actions and compatibility with saved permission labels.');

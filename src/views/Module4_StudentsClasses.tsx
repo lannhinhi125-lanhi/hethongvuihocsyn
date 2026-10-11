@@ -658,7 +658,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Lưu hồ sơ và mở ngay luồng Tạo lớp mới (1-1 hoặc 1-n khi chưa có lớp ghép)
   const handleSaveAndCreateClass = () => {
-    if (!requirePermission("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")) return;
+    if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     if (!validateStudentForm()) return;
     if (!stdName.trim()) {
       showToast('Vui lòng nhập họ tên học sinh!', 'error');
@@ -722,7 +722,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Class CRUD
   const openCreateClass = (preStudent?: StudentRecord) => {
-    if (!requirePermission("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")) return;
+    if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     setEditingClassId(null);
     const targetGrade = preStudent ? preStudent.grade : gradeOptions[0]?.id || '';
     const targetSub = preStudent ? preStudent.subject : activeSubjects[0]?.code || '';
@@ -787,7 +787,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const handleSaveClassSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")) return;
+    if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     e.preventDefault();
     if (!clsName.trim()) return;
     const category = teachingCategories.find(item => item.id === clsCategory);
@@ -868,7 +868,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Batch materials
   const openBatchMaterials = () => {
-    if (!requirePermission("Nạp học liệu: Thêm theo tuần & Excel mẫu")) return;
+    if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     setEditingMaterialClassId(null);
     const week = materialWeekFilter || INITIAL_TEACHING_WEEK.label;
     const month = materialMonthFilter || monthFromTeachingWeek(week) || INITIAL_TEACHING_WEEK.month;
@@ -919,7 +919,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   };
 
   const openEditMaterials = (item: ClassItem, month: string, week: string, materials: ClassItem['materials']) => {
-    if (!requirePermission("Nạp học liệu: Thêm theo tuần & Excel mẫu")) return;
+    if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     const categoryId = classCategoryId(item);
     const sessionOne = materials.find(material => material.session === 1);
     const sessionTwo = materials.find(material => material.session === 2);
@@ -941,7 +941,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   };
 
   const handleDeleteMaterials = () => {
-    if (!requirePermission("Nạp học liệu: Thêm theo tuần & Excel mẫu")) return;
+    if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     if (!pendingMaterialDelete) return;
     const { item, month, week } = pendingMaterialDelete;
     updateClass(item.id, {
@@ -961,7 +961,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const handleExecuteBatchMaterials = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Nạp học liệu: Thêm theo tuần & Excel mẫu")) return;
+    if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     e.preventDefault();
     if (batchSelectedClassIds.length === 0) {
       showToast('Vui lòng chọn ít nhất 1 lớp học để phân phối học liệu!', 'error');
@@ -1029,7 +1029,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   };
 
   const handleImportRoomExcelDemo = () => {
-    if (!requirePermission("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")) return;
+    if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     const missing = classes.filter(c => !c.roomLink || c.roomLink.trim() === '');
     if (missing.length === 0) {
       showToast('Tất cả các lớp đều đã có link phòng học trước đó!', 'info');
@@ -1248,7 +1248,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-2.5">
               <button
-                disabled={!can("Nạp học liệu: Thêm theo tuần & Excel mẫu")} onClick={openBatchMaterials}
+                disabled={!can("Thêm, sửa, xóa và nạp học liệu theo tuần")} onClick={openBatchMaterials}
                 className="px-4 py-2.5 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
               >
                 <FolderKanban className="w-4 h-4 font-bold" />
@@ -1369,7 +1369,7 @@ export const Module4_StudentsClasses: React.FC = () => {
           <p className="mt-3 text-sm text-slate-600">Xóa toàn bộ học liệu của lớp <strong>{pendingMaterialDelete.item.name}</strong> trong tuần <strong>{pendingMaterialDelete.week}</strong>?</p>
           <div className="mt-5 flex justify-end gap-2">
             <button type="button" autoFocus onClick={() => setPendingMaterialDelete(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
-            <button type="button" disabled={!can("Nạp học liệu: Thêm theo tuần & Excel mẫu")} onClick={handleDeleteMaterials} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Xóa học liệu</button>
+            <button type="button" disabled={!can("Thêm, sửa, xóa và nạp học liệu theo tuần")} onClick={handleDeleteMaterials} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Xóa học liệu</button>
           </div>
         </div>
       </div>}
@@ -1462,7 +1462,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 </button>
                 {(!editingStudentId || !assignedClass(students.find(item => item.id === editingStudentId))) && <button
                   type="button"
-                  disabled={!can("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")} onClick={handleSaveAndCreateClass}
+                  disabled={!can("Tạo, sửa, xóa lớp và cập nhật link phòng học")} onClick={handleSaveAndCreateClass}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   {stdModel === '1-1' ? (
@@ -2102,7 +2102,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   Hủy bỏ
                 </button>
                 <button
-                  disabled={!can("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")} onClick={handleImportRoomExcelDemo}
+                  disabled={!can("Tạo, sửa, xóa lớp và cập nhật link phòng học")} onClick={handleImportRoomExcelDemo}
                   className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs cursor-pointer"
                 >
                   Bắt đầu nạp link phòng

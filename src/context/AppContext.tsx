@@ -1519,7 +1519,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createTeacherWithAccount: AppContextType['createTeacherWithAccount'] = (profile) => {
-    if (!can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') && !can('Tạo hồ sơ giáo viên (Gán 1 môn Toán/Anh)')) { showToast('Bạn chưa được cấp quyền tạo hồ sơ giáo viên.', 'error'); return null; }
+    if (!can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') && !can('Tạo hồ sơ và cấp tài khoản giáo viên')) { showToast('Bạn chưa được cấp quyền tạo hồ sơ giáo viên.', 'error'); return null; }
     const email = profile.email.trim().toLowerCase();
     if (!profile.name.trim() || !email || users.some(u => u.email.trim().toLowerCase() === email) || teachers.some(t => t.email.trim().toLowerCase() === email)) { showToast('Tên/email không hợp lệ hoặc email đã được sử dụng.', 'error'); return null; }
     const category = teachingCategories.find(c => c.id === profile.levelId && c.status !== false);
@@ -1585,7 +1585,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addClass = (cls: ClassItem) => {
     if (!classChangeAllowed([], [cls], can)) { showToast('Bạn chưa có đủ quyền tạo lớp và gán học sinh/giáo viên.', 'error'); return; }
-    if (!permit("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")) return;
+    if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     setClasses(prev => [cls, ...prev]);
     if (cls.studentIds && cls.studentIds.length > 0) {
       setStudents(prev => prev.map(s => {
@@ -1621,7 +1621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteClass = (id: string) => {
-    if (!permit("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")) return;
+    if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     const cls = classes.find(c => c.id === id);
     if (cls && cls.studentIds) {
       setStudents(prev => prev.map(s => {
@@ -1636,7 +1636,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const batchAssignMaterials = (classIds: string[], newMaterials: ClassItem['materials']) => {
-    if (!permit("Nạp học liệu: Thêm theo tuần & Excel mẫu")) return;
+    if (!permit("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     setClasses(prev => prev.map(c => {
       if (classIds.includes(c.id)) {
         const targetMonth = newMaterials[0]?.month;
@@ -1653,7 +1653,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const batchImportRoomLinks = (updates: { classCode: string; roomLink: string }[]) => {
-    if (!permit("Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc")) return { updated: 0, skipped: 0 };
+    if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return { updated: 0, skipped: 0 };
     let updated = 0;
     let skipped = 0;
     setClasses(prev => prev.map(c => {
@@ -1720,7 +1720,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const assignCoverTeacher = (sessionId: string, newTeacherName: string) => {
-    if (!permit("Quét giáo viên rảnh cùng môn để dạy thay (Cover)")) return;
+    if (!permit("Tìm và phân công giáo viên dạy thay")) return;
     setPayrollStore(prev => {
       const monthKey = '2026-09';
       const monthData = prev[monthKey];
@@ -1983,7 +1983,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const lockPayrollMonth = (month: string) => {
-    if (!permit("Khóa sổ Chốt công & Xuất file Excel bàn giao")) return;
+    if (!permit("Khóa, mở kỳ công và xuất CSV / in bảng công")) return;
     const issue = payrollLockIssue(payrollStore[month]);
     if (issue) { showToast(issue, 'warning'); return; }
     setPayrollStore(prev => {
@@ -2006,7 +2006,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const unlockPayrollMonth = (month: string, reason: string) => {
-    if (!permit("Khóa sổ Chốt công & Xuất file Excel bàn giao")) return;
+    if (!permit("Khóa, mở kỳ công và xuất CSV / in bảng công")) return;
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -2103,15 +2103,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTeachingCategories: guardedSetter(setTeachingCategories, 'Cấu hình Cấp học & Lớp dạy'),
         createTeacherWithAccount,
         subjects,
-        setSubjects: guardedSetter(setSubjects, 'Cấu hình Môn học (Toán, Tiếng Anh) & Khối lớp'),
+        setSubjects: guardedSetter(setSubjects, 'Quản lý danh mục môn học'),
         levels,
-        setLevels: guardedSetter(setLevels, 'Cấu hình Khung chương trình / Trình độ'),
+        setLevels: guardedSetter(setLevels, 'Quản lý danh mục trình độ'),
         timeSlots,
         setTimeSlots: guardedSetter(setTimeSlots, 'Cấu hình Khung giờ ca dạy chuẩn (Time Slot)'),
         packages,
-        setPackages: guardedSetter(setPackages, 'Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc'),
+        setPackages: guardedSetter(setPackages, 'Tạo, sửa, xóa lớp và cập nhật link phòng học'),
         models,
-        setModels: guardedSetter(setModels, 'Cấu hình Mô hình lớp & Sĩ số trần (1-1, 1-3, 1-5)'),
+        setModels: guardedSetter(setModels, 'Quản lý mô hình lớp và sĩ số tối đa'),
         incidents,
         setIncidents: guardedSetter(setIncidents, (before, after) => incidentChangeAllowed(before, after, can)),
         teachers,

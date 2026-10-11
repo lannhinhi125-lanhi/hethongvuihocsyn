@@ -51,7 +51,7 @@ export const Module3_Teachers: React.FC = () => {
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
   const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>(['1-1', '1-n']);
-  const canCreateProfiles = can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') || can('Tạo hồ sơ giáo viên (Gán 1 môn Toán/Anh)');
+  const canCreateProfiles = can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') || can('Tạo hồ sơ và cấp tài khoản giáo viên');
   const canManageProfiles = canManageTeacherProfiles(currentUser, roleGroups);
   const activeSubjects = subjects.filter(subject => subject.status);
   const activeCategories = teachingCategories.filter(category => category.status !== false);
@@ -332,7 +332,7 @@ export const Module3_Teachers: React.FC = () => {
 
   const handleSubmitGrading = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Thực hiện chấm điểm dự giờ sư phạm (3 tiêu chí)")) return;
+    if (!requirePermission("Chấm điểm và cập nhật báo cáo dự giờ")) return;
     e.preventDefault();
     if (!gradingTeacher || !selectedSessionForGrading) return;
     const recipient = resolveTeacherAccount(gradingTeacher, users);

@@ -227,15 +227,15 @@ export const Module8_Reports: React.FC = () => {
   // TAB 2 (BÁO CÁO CỐ ĐỊNH): NÚT CHỌN LOẠI BÁO CÁO & CHẾ ĐỘ XEM
   // =========================================================================
   const [selectedFixedReport, setSelectedFixedReport] = useState<FixedReportId>('fixed_new_classes');
-  const reportPermission = (report: FixedReportId) => ['fixed_incident_trend', 'fixed_inspection'].includes(report) ? 'Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn' : 'Xem Báo cáo giáo viên, lớp học & hạn lớp theo gói';
+  const reportPermission = (report: FixedReportId) => ['fixed_incident_trend', 'fixed_inspection'].includes(report) ? 'Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn' : 'Xem báo cáo giáo viên, học sinh và lớp học';
   const canDashboard = can('Xem Dashboard chỉ số KPI & Biểu đồ tổng quan');
-  const canFixed = can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Xem Báo cáo giáo viên, lớp học & hạn lớp theo gói');
+  const canFixed = can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Xem báo cáo giáo viên, học sinh và lớp học');
   const canCustom = can('Công cụ tạo báo cáo tùy biến (Dynamic Report)');
   useEffect(() => {
     if (currentMainTab === 'dashboard' && !canDashboard || currentMainTab === 'fixed' && !canFixed || currentMainTab === 'custom' && !canCustom) {
       if (canDashboard) setCurrentMainTab('dashboard'); else if (canFixed) setCurrentMainTab('fixed'); else if (canCustom) setCurrentMainTab('custom');
     }
-    if (!can(reportPermission(selectedFixedReport))) setSelectedFixedReport(can('Xem Báo cáo giáo viên, lớp học & hạn lớp theo gói') ? 'fixed_new_classes' : 'fixed_incident_trend');
+    if (!can(reportPermission(selectedFixedReport))) setSelectedFixedReport(can('Xem báo cáo giáo viên, học sinh và lớp học') ? 'fixed_new_classes' : 'fixed_incident_trend');
   }, [canDashboard, canFixed, canCustom, selectedFixedReport, currentMainTab]);
 
   const [detailPage, setDetailPage] = useState(0);

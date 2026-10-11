@@ -382,7 +382,7 @@ export const Module6_AIStudio: React.FC = () => {
   // Sandbox chat
   const handleSandboxSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requirePermission("Chatbot AI 24/7 tra cứu quy chế & nghiệp vụ")) return;
+    if (!requirePermission("Sử dụng chatbot tra cứu quy chế và nghiệp vụ")) return;
     e.preventDefault();
     const query = sandboxInput.trim();
     if (!query) return;

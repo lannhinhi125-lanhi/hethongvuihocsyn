@@ -1106,7 +1106,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     e.preventDefault();
     if (!selectedIncidentSession) return;
-    if (incHasCover && !requirePermission('Quét giáo viên rảnh cùng môn để dạy thay (Cover)')) return;
+    if (incHasCover && !requirePermission('Tìm và phân công giáo viên dạy thay')) return;
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });

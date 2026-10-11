@@ -390,7 +390,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   // Hàm xuất CSV / Excel UTF-8 kèm BOM
   const handleDownloadCsv = () => {
-    if (!requirePermission("Khóa sổ Chốt công & Xuất file Excel bàn giao")) return;
+    if (!requirePermission("Khóa, mở kỳ công và xuất CSV / in bảng công")) return;
     const headers = [
       'STT',
       'Mã nhân sự',
@@ -1524,7 +1524,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  if (!requirePermission("Khóa sổ Chốt công & Xuất file Excel bàn giao")) return;
+                  if (!requirePermission("Khóa, mở kỳ công và xuất CSV / in bảng công")) return;
                   window.print();
                   setShowPrintModal(false);
                 }}
