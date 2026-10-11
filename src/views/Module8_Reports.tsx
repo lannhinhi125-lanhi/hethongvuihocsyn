@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { CustomReportBuilder } from '../components/CustomReportBuilder';
+import { makeReportDatasets } from '../lib/reportDatasets';
 import { FilterDrawer } from '../components/FilterDrawer';
 import {
   PieChart,
@@ -40,6 +42,36 @@ type DashboardRangePreset = 'CURRENT_MONTH' | 'PREVIOUS_MONTH' | 'LAST_3_MONTHS'
 type FixedReportId = 'fixed_new_classes' | 'fixed_new_students' | 'fixed_new_tutors' | 'fixed_incident_trend' | 'fixed_matrix' | 'fixed_inspection';
 
 const REPORT_PAGE_SIZE = 25;
+
+const DashboardMetric: React.FC<{
+  label: string;
+  value: React.ReactNode;
+  description: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  alert?: boolean;
+}> = ({ label, value, description, icon, onClick, alert = false }) => (
+  <button type="button" onClick={onClick} title={description}
+    className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-2xs transition hover:border-indigo-300 focus-visible:outline-2 focus-visible:outline-indigo-500">
+    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${alert ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600'}`}>{icon}</span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[11px] font-medium leading-4 text-slate-500">{label}</span>
+      <span className={`block text-lg font-bold leading-6 tabular-nums ${alert ? 'text-rose-600' : 'text-slate-900'}`}>{value}</span>
+      <span className="block truncate text-[10px] leading-4 text-slate-500">{description}</span>
+    </span>
+  </button>
+);
+
+const summarizeInspection = (items: Array<{ rankCode: string; avg: number }>) => {
+  const total = items.length;
+  const rankA = items.filter(item => item.rankCode === 'A').length;
+  const rankB = items.filter(item => item.rankCode === 'B').length;
+  const rankC = items.filter(item => item.rankCode === 'C').length;
+  const rankD = items.filter(item => item.rankCode === 'D').length;
+  const avgScore = total ? (items.reduce((sum, item) => sum + item.avg, 0) / total).toFixed(2) : '0';
+  const qualifiedRate = total ? Math.round((rankA + rankB) / total * 100) : 0;
+  return { total, rankA, rankB, rankC, rankD, avgScore, qualifiedRate };
+};
 
 const ReportPagination: React.FC<{
   total: number;
@@ -160,7 +192,7 @@ export const Module8_Reports: React.FC = () => {
   const { showToast } = useApp();
 
   // 2 Tab chính của hệ thống Báo cáo - Dashboard là mặc định khi vào báo cáo theo yêu cầu
-  const [currentMainTab, setCurrentMainTab] = useState<'dashboard' | 'fixed'>('dashboard');
+  const [currentMainTab, setCurrentMainTab] = useState<'dashboard' | 'fixed' | 'custom'>('dashboard');
 
   // Trạng thái mở/đóng dải lọc sổ ngang của từng tab/báo cáo độc lập ("trên nóc")
   const [isDashFilterOpen, setIsDashFilterOpen] = useState(false);
@@ -303,6 +335,11 @@ export const Module8_Reports: React.FC = () => {
     { id: 'GV-007', name: 'Phạm Hải Nam', subject: 'Toán', subjectCode: 'TOAN', avg: 6.38, rank: 'Hạng D (Chưa đạt)', rankCode: 'D', total: 24, punctualityPct: 83.3, punctuality: '83.3%', plan: 'Tạm dừng nhận lớp • Đào tạo lại' }
   ], []);
 
+  const customDatasets = useMemo(() => makeReportDatasets({
+    classes: rawClasses, students: rawStudents, teachers: rawTutors,
+    incidents: rawIncidents, inspections: rawTeachersInspection
+  }), [rawClasses, rawStudents, rawTutors, rawIncidents, rawTeachersInspection]);
+
   const detailDateRange = { start: detailDateFrom, end: detailDateTo };
   const clsDateRange = detailDateRange;
   const stuDateRange = detailDateRange;
@@ -411,8 +448,8 @@ export const Module8_Reports: React.FC = () => {
   ), [rawIncidents, dashDateRange, dashSearchMetric]);
 
   const dashboardRows = useMemo(() => dashboardIncidents.map(incident => {
-    const periodClasses = rawClasses.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo);
-    const periodStudents = rawStudents.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo);
+    const periodClasses = rawClasses.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
+    const periodStudents = rawStudents.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
     const fullClasses = periodClasses.filter(item => item.status.toLowerCase().includes('đủ trần')).length;
     const avgInspectionScore = rawTeachersInspection.length
       ? rawTeachersInspection.reduce((total, teacher) => total + teacher.avg, 0) / rawTeachersInspection.length
@@ -425,7 +462,7 @@ export const Module8_Reports: React.FC = () => {
       occupancyRate: periodClasses.length ? Math.round((fullClasses / periodClasses.length) * 100) : 0,
       avgInspectionScore
     };
-  }), [dashboardIncidents, rawClasses, rawStudents, rawTeachersInspection]);
+  }), [dashboardIncidents, rawClasses, rawStudents, rawTeachersInspection, dashDateRange.start, dashDateRange.end]);
 
   const dashboardIncidentStats = useMemo(() => {
     const totalSessions = dashboardIncidents.reduce((total, incident) => total + incident.total, 0);
@@ -435,11 +472,12 @@ export const Module8_Reports: React.FC = () => {
     const urgentTotal = urgent + notice;
 
     return {
+      totalSessions,
       incidentCount,
       urgent,
       notice,
       incidentRate: totalSessions ? Number(((incidentCount / totalSessions) * 100).toFixed(2)) : 0,
-      safeRate: totalSessions ? Number((100 - (incidentCount / totalSessions) * 100).toFixed(2)) : 100,
+      safeRate: totalSessions ? Number((100 - (incidentCount / totalSessions) * 100).toFixed(2)) : 0,
       urgentRate: urgentTotal ? Math.round((urgent / urgentTotal) * 100) : 0
     };
   }, [dashboardIncidents]);
@@ -479,6 +517,9 @@ export const Module8_Reports: React.FC = () => {
     ? 'Không đổi'
     : `${incidentRateDifference > 0 ? 'Tăng' : 'Giảm'} ${Math.abs(incidentRateDifference).toFixed(2)} điểm %`;
   const showPeriodComparison = Boolean(previousDashboardRange);
+  const canCompareIncidentPeriods = showPeriodComparison &&
+    dashboardIncidentStats.totalSessions > 0 && previousIncidentTotal > 0 &&
+    !dashboardIncidents.some(current => previousDashboardIncidents.some(previous => previous.periodCode === current.periodCode));
   const currentReportTotal = selectedFixedReport === 'fixed_new_classes'
     ? filteredClasses.length
     : selectedFixedReport === 'fixed_new_students'
@@ -541,10 +582,11 @@ export const Module8_Reports: React.FC = () => {
     const points: Array<{ label: string; start: string; end: string; students: number; classes: number; x: number; studentY: number; classY: number }> = [];
     const cursor = new Date(`${startDate}T00:00:00`);
     const rangeEnd = new Date(`${endDate}T00:00:00`);
-    while (cursor <= rangeEnd && points.length < 54) {
+    const bucketDays = Math.max(7, Math.ceil(daysBetween(startDate, endDate) / 54));
+    while (cursor <= rangeEnd) {
       const bucketStart = toLocalIsoDate(cursor);
       const bucketEndDate = new Date(cursor);
-      bucketEndDate.setDate(bucketEndDate.getDate() + 6);
+      bucketEndDate.setDate(bucketEndDate.getDate() + bucketDays - 1);
       if (bucketEndDate > rangeEnd) bucketEndDate.setTime(rangeEnd.getTime());
       const bucketEnd = toLocalIsoDate(bucketEndDate);
       points.push({
@@ -557,7 +599,7 @@ export const Module8_Reports: React.FC = () => {
         studentY: 160,
         classY: 160
       });
-      cursor.setDate(cursor.getDate() + 7);
+      cursor.setDate(cursor.getDate() + bucketDays);
     }
 
     const maximum = Math.max(1, ...points.flatMap(point => [point.students, point.classes]));
@@ -632,6 +674,30 @@ export const Module8_Reports: React.FC = () => {
             : 'Chọn khoảng ngày';
 
   const detailUsesDateRange = selectedFixedReport !== 'fixed_matrix' && selectedFixedReport !== 'fixed_inspection';
+  const detailReportNames: Record<FixedReportId, string> = {
+    fixed_new_classes: 'Lớp học mới',
+    fixed_new_students: 'Học sinh mới',
+    fixed_new_tutors: 'Giáo viên mới',
+    fixed_incident_trend: 'Sự cố vận hành',
+    fixed_matrix: 'Ma trận ca dạy',
+    fixed_inspection: 'Dự giờ & Xếp hạng'
+  };
+  const detailFilterCounts: Record<FixedReportId, number> = {
+    fixed_new_classes: [clsFilterCode, clsFilterName, clsFilterGrade !== 'ALL', clsFilterSubject !== 'ALL', clsFilterModel !== 'ALL', clsFilterStatus !== 'ALL'].filter(Boolean).length,
+    fixed_new_students: [stuFilterCode, stuFilterName, stuFilterGrade !== 'ALL', stuFilterSubject !== 'ALL', stuFilterModel !== 'ALL', stuFilterStatus !== 'ALL'].filter(Boolean).length,
+    fixed_new_tutors: [tutFilterCode, tutFilterName, tutFilterSubject !== 'ALL', tutFilterGrade !== 'ALL', tutFilterStatus !== 'ALL'].filter(Boolean).length,
+    fixed_incident_trend: [incFilterPeriod, incFilterUrgent !== 'ALL', incFilterMain].filter(Boolean).length,
+    fixed_matrix: Number(matFilterSubject !== 'ALL'),
+    fixed_inspection: [inspFilterCode, inspFilterName, inspFilterSubject !== 'ALL', inspFilterRank !== 'ALL', inspFilterScore !== 'ALL'].filter(Boolean).length
+  };
+  const openDetailFilters = () => {
+    const openers: Record<FixedReportId, (open: boolean) => void> = {
+      fixed_new_classes: setIsClsFilterOpen, fixed_new_students: setIsStuFilterOpen,
+      fixed_new_tutors: setIsTutFilterOpen, fixed_incident_trend: setIsIncFilterOpen,
+      fixed_matrix: setIsMatFilterOpen, fixed_inspection: setIsInspFilterOpen
+    };
+    openers[selectedFixedReport](true);
+  };
   const shiftDetailRange = (direction: -1 | 1) => {
     if (!detailDateFrom || !detailDateTo) return;
     const duration = daysBetween(detailDateFrom, detailDateTo);
@@ -757,16 +823,8 @@ export const Module8_Reports: React.FC = () => {
     return { totalSessions, toanSessions, engSessions, toanRate, engRate, primaryTotal, primaryRate };
   }, [filteredMatrix]);
 
-  const inspStats = useMemo(() => {
-    const total = filteredInspection.length;
-    const rankA = filteredInspection.filter(t => t.rankCode === 'A').length;
-    const rankB = filteredInspection.filter(t => t.rankCode === 'B').length;
-    const rankC = filteredInspection.filter(t => t.rankCode === 'C').length;
-    const rankD = filteredInspection.filter(t => t.rankCode === 'D').length;
-    const avgScore = total > 0 ? (filteredInspection.reduce((acc, t) => acc + t.avg, 0) / total).toFixed(2) : '0';
-    const qualifiedRate = total > 0 ? Math.round(((rankA + rankB) / total) * 100) : 0;
-    return { total, rankA, rankB, rankC, rankD, avgScore, qualifiedRate };
-  }, [filteredInspection]);
+  const inspStats = useMemo(() => summarizeInspection(filteredInspection), [filteredInspection]);
+  const dashboardInspectionStats = useMemo(() => summarizeInspection(rawTeachersInspection), [rawTeachersInspection]);
 
   // Export CSV
   const downloadCsv = (csvContent: string, filename: string) => {
@@ -787,72 +845,22 @@ export const Module8_Reports: React.FC = () => {
       {/* ========================================================================= */}
       {/* 4 THẺ METRICS TỔNG QUAN HỆ THỐNG */}
       {/* ========================================================================= */}
-      {currentMainTab === 'dashboard' && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <button type="button" title="Xem danh sách lớp còn chỗ trong khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_new_classes', 'AVAILABLE')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-indigo-300 hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">LỚP CÒN CHỖ</span>
-            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <BookOpen className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-xl font-bold text-slate-900 tracking-tight">{dashboardAvailableClasses.length} Lớp</div>
-            <div className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>{showPeriodComparison ? compareCount(dashboardAvailableClasses.length, previousAvailableClassCount, 'lớp') : 'Trong khoảng thời gian đã chọn'}</span>
-            </div>
-          </div>
-        </button>
-
-        <button type="button" title="Xem danh sách học sinh chờ ghép trong khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_new_students', 'AVAILABLE')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-emerald-300 hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">HỌC SINH CHỜ GHÉP</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <GraduationCap className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-xl font-bold text-slate-900 tracking-tight">{dashboardWaitingStudents.length} Học sinh</div>
-            <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
-              {showPeriodComparison ? compareCount(dashboardWaitingStudents.length, previousWaitingStudentCount, 'học sinh') : 'Trong khoảng thời gian đã chọn'}
-            </div>
-          </div>
-        </button>
-
-        <button type="button" title="Mở báo cáo sự cố theo khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_incident_trend')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-rose-300 hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">TỶ LỆ LỖI VẬN HÀNH</span>
-            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              <ShieldAlert className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-xl font-bold text-rose-600 tracking-tight">{dashboardIncidentStats.incidentRate}%</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">
-              {showPeriodComparison
-                ? `Kỳ trước: ${previousIncidentRate.toFixed(2)}% · ${incidentRateComparison}`
-                : 'So sánh kỳ trước: chưa đủ dữ liệu'}
-            </div>
-          </div>
-        </button>
-
-        <button type="button" title="Mở danh sách sự cố trong khoảng thời gian đã chọn" onClick={() => openDashboardDetail('fixed_incident_trend')} className="cursor-pointer bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-left transition hover:border-rose-300 hover:shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">SỐ CA SỰ CỐ</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <AlertTriangle className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-xl font-bold text-slate-900 tracking-tight">{dashboardIncidentStats.incidentCount}</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">
-              {showPeriodComparison
-                ? compareCount(dashboardIncidentStats.incidentCount, previousIncidentCount, 'ca')
-                : 'So sánh kỳ trước: chưa đủ dữ liệu'}
-            </div>
-          </div>
-        </button>
-      </div>}
+      {currentMainTab === 'dashboard' && (
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <DashboardMetric label="Lớp còn chỗ" value={`${dashboardAvailableClasses.length} lớp`}
+            description={showPeriodComparison ? compareCount(dashboardAvailableClasses.length, previousAvailableClassCount, 'lớp') : 'Trong khoảng thời gian đã chọn'}
+            icon={<BookOpen className="h-4 w-4" />} onClick={() => openDashboardDetail('fixed_new_classes', 'AVAILABLE')} />
+          <DashboardMetric label="Học sinh chờ ghép" value={`${dashboardWaitingStudents.length} HS`}
+            description={showPeriodComparison ? compareCount(dashboardWaitingStudents.length, previousWaitingStudentCount, 'học sinh') : 'Trong khoảng thời gian đã chọn'}
+            icon={<GraduationCap className="h-4 w-4" />} onClick={() => openDashboardDetail('fixed_new_students', 'AVAILABLE')} />
+          <DashboardMetric label="Tỷ lệ sự cố" value={dashboardIncidentStats.totalSessions ? `${dashboardIncidentStats.incidentRate}%` : '—'}
+            description={canCompareIncidentPeriods ? `Kỳ trước: ${previousIncidentRate.toFixed(2)}% · ${incidentRateComparison}` : 'Chưa đủ dữ liệu so sánh kỳ trước'}
+            icon={<ShieldAlert className="h-4 w-4" />} onClick={() => openDashboardDetail('fixed_incident_trend')} alert />
+          <DashboardMetric label="Ca có sự cố" value={dashboardIncidentStats.incidentCount}
+            description={canCompareIncidentPeriods ? compareCount(dashboardIncidentStats.incidentCount, previousIncidentCount, 'ca') : 'Tổng hợp theo các kỳ có dữ liệu'}
+            icon={<AlertTriangle className="h-4 w-4" />} onClick={() => openDashboardDetail('fixed_incident_trend')} />
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* HEADER BANNER & THANH 3 TABS CHÍNH */}
@@ -880,7 +888,7 @@ export const Module8_Reports: React.FC = () => {
         </div>
 
         {/* Thanh 2 Tabs chính: Dashboard (đầu tiên theo yêu cầu) | Cố định */}
-        <div className="flex border-b border-slate-200 text-xs font-medium">
+        <div className="flex flex-wrap border-b border-slate-200 text-xs font-medium">
           <button
             onClick={() => setCurrentMainTab('dashboard')}
             className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
@@ -908,12 +916,21 @@ export const Module8_Reports: React.FC = () => {
               <div className="font-semibold text-xs">Báo cáo chi tiết</div>
             </div>
           </button>
+          <button type="button" onClick={() => setCurrentMainTab('custom')}
+            className={`px-4 py-2 border-b-2 flex items-center gap-2 text-xs transition-colors ${currentMainTab === 'custom' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+            <SlidersHorizontal className="h-4 w-4" />
+            Báo cáo tùy chỉnh
+          </button>
         </div>
       </div>
 
       {/* ========================================================================= */}
       {/* TAB 1: DASHBOARD TỶ LỆ & XU HƯỚNG TỔNG QUAN (CÓ BỘ LỌC THỜI GIAN TRÊN NÓC SỔ NGANG) */}
       {/* ========================================================================= */}
+      <div hidden={currentMainTab !== 'custom'}>
+        <CustomReportBuilder datasets={customDatasets} />
+      </div>
+
       {currentMainTab === 'dashboard' && (
         <div className="space-y-4 animate-in fade-in duration-200">
           {/* Thanh trên nóc của Dashboard: Nút mở Bộ lọc cột bên phải + Chuyển đổi Biểu đồ / Bảng */}
@@ -969,15 +986,19 @@ export const Module8_Reports: React.FC = () => {
                 className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Xuất Excel</span>
+                <span>Xuất CSV</span>
               </button>
             </div>
           </div>
 
+          <p className="px-1 text-[11px] text-slate-500">
+            Sự cố được cộng theo toàn bộ kỳ báo cáo có giao với khoảng ngày đã chọn; chưa có dữ liệu để tách theo từng ngày.
+          </p>
+
           {/* Biểu đồ đường cong tăng trưởng (khi ở chế độ visual hoặc both) */}
           {dashViewMode === 'visual' && (
             <>
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
                 <div>
                   <h4 className="font-bold text-slate-800 text-xs">
@@ -1007,7 +1028,7 @@ export const Module8_Reports: React.FC = () => {
                   <div className="text-indigo-700">Lớp học mới: {dashboardTrendPoints[hoveredTrendPoint].classes}</div>
                 </div>
               )}
-              <svg className="h-48 w-full overflow-visible" viewBox="0 0 500 180" role="img" aria-label="Xu hướng học sinh mới và lớp học mới theo tuần">
+              <svg className="h-36 sm:h-40 w-full overflow-visible" viewBox="0 0 500 180" role="img" aria-label="Xu hướng học sinh mới và lớp học mới theo tuần">
                 {[30, 80, 130].map(y => <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="#F1F5F9" strokeWidth="1" />)}
                 {dashboardTrendPoints.length > 1 && (
                   <>
@@ -1036,9 +1057,9 @@ export const Module8_Reports: React.FC = () => {
             </div>
 
             {/* HỆ THỐNG BIỂU ĐỒ BỔ SUNG TRỰC QUAN DASHBOARD */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Phân bố lớp mới theo môn trong khoảng đang xem */}
-              <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div>
                     <h5 className="font-bold text-slate-800 text-xs">Lớp mới theo môn</h5>
@@ -1074,7 +1095,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               {/* 2. Biểu đồ Donut Tỷ lệ Lỗi theo Chu kỳ và Mục tiêu SLA */}
-              <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div>
                     <h5 className="font-bold text-slate-800 text-xs">Kiểm Soát Tỷ Lệ Lỗi Vận Hành</h5>
@@ -1087,8 +1108,8 @@ export const Module8_Reports: React.FC = () => {
 
                 <div className="flex items-center justify-around py-1">
                   {/* SVG Donut */}
-                  <div className="relative w-24 h-24 flex items-center justify-center">
-                    <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                  <div className="relative w-20 h-20 flex items-center justify-center">
+                    <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
                       <path
                         className="text-slate-100"
                         strokeWidth="3.5"
@@ -1117,8 +1138,8 @@ export const Module8_Reports: React.FC = () => {
                       />
                     </svg>
                     <div className="absolute text-center">
-                      <span className="text-xs font-black text-slate-800 block">{dashboardIncidentStats.safeRate}%</span>
-                      <span className="text-[9px] text-emerald-600 font-bold uppercase">Chuẩn</span>
+                      <span className="text-xs font-black text-slate-800 block">{dashboardIncidentStats.totalSessions ? `${dashboardIncidentStats.safeRate}%` : '—'}</span>
+                      <span className="text-[9px] text-emerald-600 font-bold uppercase">{dashboardIncidentStats.totalSessions ? 'An toàn' : 'Chưa có ca'}</span>
                     </div>
                   </div>
 
@@ -1145,62 +1166,62 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               {/* 3. Biểu đồ Phân bổ Đánh giá Dự giờ & Chuẩn Sư phạm */}
-              <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div>
                     <h5 className="font-bold text-slate-800 text-xs">Phân Bổ Xếp Hạng Dự Giờ</h5>
                     <p className="text-[10px] text-slate-400">Đạt chuẩn sư phạm A & B</p>
                   </div>
                   <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-bold text-[10px]">
-                    Đạt: {inspStats.qualifiedRate}%
+                    Đạt: {dashboardInspectionStats.qualifiedRate}%
                   </span>
                 </div>
 
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="w-16 font-bold text-emerald-700">Hạng A ({inspStats.rankA})</span>
+                    <span className="w-16 font-bold text-emerald-700">Hạng A ({dashboardInspectionStats.rankA})</span>
                     <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(inspStats.rankA / (inspStats.total || 1)) * 100}%` }} />
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(dashboardInspectionStats.rankA / (dashboardInspectionStats.total || 1)) * 100}%` }} />
                     </div>
                     <span className="text-[11px] font-bold text-slate-700 w-8 text-right">
-                      {Math.round((inspStats.rankA / (inspStats.total || 1)) * 100)}%
+                      {Math.round((dashboardInspectionStats.rankA / (dashboardInspectionStats.total || 1)) * 100)}%
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="w-16 font-bold text-indigo-700">Hạng B ({inspStats.rankB})</span>
+                    <span className="w-16 font-bold text-indigo-700">Hạng B ({dashboardInspectionStats.rankB})</span>
                     <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(inspStats.rankB / (inspStats.total || 1)) * 100}%` }} />
+                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(dashboardInspectionStats.rankB / (dashboardInspectionStats.total || 1)) * 100}%` }} />
                     </div>
                     <span className="text-[11px] font-bold text-slate-700 w-8 text-right">
-                      {Math.round((inspStats.rankB / (inspStats.total || 1)) * 100)}%
+                      {Math.round((dashboardInspectionStats.rankB / (dashboardInspectionStats.total || 1)) * 100)}%
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="w-16 font-bold text-amber-700">Hạng C ({inspStats.rankC})</span>
+                    <span className="w-16 font-bold text-amber-700">Hạng C ({dashboardInspectionStats.rankC})</span>
                     <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(inspStats.rankC / (inspStats.total || 1)) * 100}%` }} />
+                      <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(dashboardInspectionStats.rankC / (dashboardInspectionStats.total || 1)) * 100}%` }} />
                     </div>
                     <span className="text-[11px] font-bold text-slate-700 w-8 text-right">
-                      {Math.round((inspStats.rankC / (inspStats.total || 1)) * 100)}%
+                      {Math.round((dashboardInspectionStats.rankC / (dashboardInspectionStats.total || 1)) * 100)}%
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="w-16 font-bold text-rose-700">Hạng D ({inspStats.rankD})</span>
+                    <span className="w-16 font-bold text-rose-700">Hạng D ({dashboardInspectionStats.rankD})</span>
                     <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-rose-500 rounded-full" style={{ width: `${(inspStats.rankD / (inspStats.total || 1)) * 100}%` }} />
+                      <div className="h-full bg-rose-500 rounded-full" style={{ width: `${(dashboardInspectionStats.rankD / (dashboardInspectionStats.total || 1)) * 100}%` }} />
                     </div>
                     <span className="text-[11px] font-bold text-slate-700 w-8 text-right">
-                      {Math.round((inspStats.rankD / (inspStats.total || 1)) * 100)}%
+                      {Math.round((dashboardInspectionStats.rankD / (dashboardInspectionStats.total || 1)) * 100)}%
                     </span>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Điểm TB toàn viện:</span>
-                  <span className="font-bold text-indigo-700 text-xs">{inspStats.avgScore} / 10.0</span>
+                  <span className="font-bold text-indigo-700 text-xs">{dashboardInspectionStats.avgScore} / 10.0</span>
                 </div>
               </div>
             </div>
@@ -1226,7 +1247,7 @@ export const Module8_Reports: React.FC = () => {
                       <th className="py-2.5 px-3 min-w-[170px]">CHU KỲ THỜI GIAN</th>
                       <th className="py-2.5 px-3 text-center min-w-[120px]">LỚP MỚI MỞ</th>
                       <th className="py-2.5 px-3 text-center min-w-[120px]">HỌC SINH MỚI</th>
-                      <th className="py-2.5 px-3 text-center min-w-[130px]">LẤP ĐẦY TRẦN (%)</th>
+                      <th className="py-2.5 px-3 text-center min-w-[130px]">LỚP ĐỦ SĨ SỐ (%)</th>
                       <th className="py-2.5 px-3 text-center min-w-[130px]">TỶ LỆ LỖI (%)</th>
                       <th className="py-2.5 px-3 text-center min-w-[130px]">ĐIỂM DỰ GIỜ (SNAPSHOT)</th>
                     </tr>
@@ -1294,7 +1315,7 @@ export const Module8_Reports: React.FC = () => {
               <>
                 <div>
                   <div className="text-xs font-bold text-slate-800">Khoảng thời gian báo cáo</div>
-                  <div className="text-[10px] text-slate-500">Dùng chung cho các báo cáo có ngày phát sinh</div>
+                  <div className="text-[10px] text-slate-500">Áp dụng cho báo cáo đang chọn</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -1356,6 +1377,15 @@ export const Module8_Reports: React.FC = () => {
                 <span>Đây là snapshot tổng hợp, chưa có ngày phát sinh để lọc chính xác theo khoảng thời gian.</span>
               </div>
             )}
+            <button type="button" onClick={openDetailFilters}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 sm:self-center"
+              title="Lọc môn, khối, trạng thái và các tiêu chí của báo cáo đang chọn">
+              <Filter className="h-3.5 w-3.5" />
+              Lọc chi tiết
+              {detailFilterCounts[selectedFixedReport] > 0 && (
+                <span className="rounded bg-white px-1.5 text-[10px]">{detailFilterCounts[selectedFixedReport]}</span>
+              )}
+            </button>
           </div>
 
           {/* Chọn báo cáo và chế độ hiển thị */}
@@ -1559,18 +1589,8 @@ export const Module8_Reports: React.FC = () => {
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsClsFilterOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
-                  >
-                    <Filter className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
-                    <span className="px-1.5 py-0.2 rounded-md bg-white text-indigo-700 text-[10px] font-bold border border-indigo-200">
-                      {filteredClasses.length} lớp
-                    </span>
-                  </button>
+                  <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredClasses.length} lớp</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1585,7 +1605,7 @@ export const Module8_Reports: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ml-auto"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Xuất Excel</span>
+                    <span>Xuất CSV</span>
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -1802,18 +1822,8 @@ export const Module8_Reports: React.FC = () => {
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsStuFilterOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
-                  >
-                    <Filter className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
-                    <span className="px-1.5 py-0.2 rounded-md bg-white text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                      {filteredStudents.length} HS
-                    </span>
-                  </button>
+                  <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredStudents.length} học sinh</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1828,7 +1838,7 @@ export const Module8_Reports: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ml-auto"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Xuất Excel</span>
+                    <span>Xuất CSV</span>
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -2031,18 +2041,8 @@ export const Module8_Reports: React.FC = () => {
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsTutFilterOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
-                  >
-                    <Filter className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
-                    <span className="px-1.5 py-0.2 rounded-md bg-white text-purple-700 text-[10px] font-bold border border-purple-200">
-                      {filteredTutors.length} gia sư
-                    </span>
-                  </button>
+                  <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredTutors.length} giáo viên</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2057,7 +2057,7 @@ export const Module8_Reports: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ml-auto"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Xuất Excel</span>
+                    <span>Xuất CSV</span>
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -2243,18 +2243,8 @@ export const Module8_Reports: React.FC = () => {
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsIncFilterOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
-                  >
-                    <Filter className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Khoảng ngày: <strong>{formatDateRangeLabel(detailDateFrom, detailDateTo)}</strong></span>
-                    <span className="px-1.5 py-0.2 rounded-md bg-white text-rose-700 text-[10px] font-bold border border-rose-200">
-                      {filteredIncidents.length} kỳ
-                    </span>
-                  </button>
+                  <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredIncidents.length} kỳ</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2269,7 +2259,7 @@ export const Module8_Reports: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ml-auto"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Xuất Excel</span>
+                    <span>Xuất CSV</span>
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -2440,18 +2430,8 @@ export const Module8_Reports: React.FC = () => {
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsMatFilterOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
-                  >
-                    <Filter className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Dữ liệu: <strong>Snapshot tổng hợp</strong></span>
-                    <span className="px-1.5 py-0.2 rounded-md bg-white text-indigo-700 text-[10px] font-bold border border-indigo-200">
-                      {filteredMatrix.length} môn
-                    </span>
-                  </button>
+                  <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredMatrix.length} môn</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2466,7 +2446,7 @@ export const Module8_Reports: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ml-auto"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Xuất Excel</span>
+                    <span>Xuất CSV</span>
                   </button>
                   <button
                     onClick={() => window.print()}
@@ -2606,18 +2586,8 @@ export const Module8_Reports: React.FC = () => {
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsInspFilterOpen(true)}
-                    className="px-3.5 py-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    title="Mở bộ lọc nhiều tiêu chí từ cột bên phải"
-                  >
-                    <Filter className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Dữ liệu: <strong>Snapshot tổng hợp</strong></span>
-                    <span className="px-1.5 py-0.2 rounded-md bg-white text-purple-700 text-[10px] font-bold border border-purple-200">
-                      {filteredInspection.length} GV
-                    </span>
-                  </button>
+                  <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredInspection.length} giáo viên</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2632,7 +2602,7 @@ export const Module8_Reports: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer ml-auto"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Xuất Excel</span>
+                    <span>Xuất CSV</span>
                   </button>
                   <button
                     onClick={() => window.print()}
