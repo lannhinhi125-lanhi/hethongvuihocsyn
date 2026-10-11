@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
@@ -622,6 +623,7 @@ const initialSessionsList: MonitoringSession[] = [
 ];
 
 export const Module5_OperationsMonitoring: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const { showToast, currentUser, classes, setClasses, teachers, timeSlots, students, levels, subjects, teachingCategories } = useApp();
 
   const currentOps = { id: currentUser.id, name: currentUser.name };
@@ -1068,6 +1070,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Mở Modal Sự cố
   const openIncidentModal = (session: MonitoringSession) => {
+    if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     setSelectedIncidentSession(session);
     const parent = session.incidentParent || 'GRP-TCH';
     setIncParent(parent);
@@ -1100,7 +1103,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Lưu biên bản sự cố và điều phối cover
   const handleSaveIncidentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
+    e.preventDefault();
     if (!selectedIncidentSession) return;
+    if (incHasCover && !requirePermission('Quét giáo viên rảnh cùng môn để dạy thay (Cover)')) return;
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });
@@ -1228,6 +1234,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Xác nhận nhanh giáo viên vào lớp cho 1 ca học cụ thể (Gỡ bỏ màu đỏ)
   const handleQuickCheckin = (sessionCode: string) => {
+    if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     const curTime = getCurrentEffectiveTime();
     setSessions(prev =>
       prev.map(s =>
@@ -1246,6 +1253,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Đặt lại trạng thái chưa vào lớp để kiểm thử lại
   const handleResetCheckin = (sessionCode: string) => {
+    if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     setSessions(prev =>
       prev.map(s =>
         s.sessionCode === sessionCode
@@ -1263,6 +1271,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Kích hoạt mô phỏng Check-in
   const triggerSimulateCheckin = (type: 'ON_TIME' | 'LATE') => {
+    if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     const targetSession = sessions.find(s => s.sessionCode === simSessionCode);
     if (!targetSession) return;
 

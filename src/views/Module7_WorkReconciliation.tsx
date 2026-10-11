@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import {
@@ -51,6 +52,7 @@ const getSessionStudentNames = (session: SessionPayrollRecord) =>
   session.studentNames?.length ? session.studentNames.join(', ') : session.studentName;
 
 export const Module7_WorkReconciliation: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const {
     payrollStore,
     updateSessionCredit,
@@ -388,6 +390,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   // Hàm xuất CSV / Excel UTF-8 kèm BOM
   const handleDownloadCsv = () => {
+    if (!requirePermission("Khóa sổ Chốt công & Xuất file Excel bàn giao")) return;
     const headers = [
       'STT',
       'Mã nhân sự',
@@ -454,6 +457,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   // Lưu điều chỉnh hệ số công
   const handleSaveCoeff = () => {
+    if (!requirePermission("Điều chỉnh hệ số công từng buổi kèm lý do")) return;
     if (!editingSession) return;
     updateSessionCredit(selectedMonth, editingSession.teacherId, editingSession.session.id, newCoeff, editNote);
     highlightSessionRow(editingSession.session.id);
@@ -472,6 +476,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   // Xử lý duyệt giải trình
   const handleApproveDispute = (status: 'DA_DUYET' | 'TU_CHOI') => {
+    if (!requirePermission("Xử lý & phê duyệt đơn giải trình công dạy")) return;
     if (!reviewingDispute) return;
     reviewDispute(selectedMonth, reviewingDispute.id, status, disputeAdminNote, disputeCreditCoeff);
     setReviewingDispute(null);
@@ -480,6 +485,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   };
 
   const sendSelectedPayrolls = () => {
+    if (!requirePermission("Gửi bảng công cho giáo viên đối soát")) return;
     sendPayrollToTeachers(selectedMonth, selectedTeacherIds);
     setSelectedTeacherIds([]);
   };
@@ -510,6 +516,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   };
 
   const openDisputeReview = (dispute: DisputeItem) => {
+    if (!requirePermission("Xử lý & phê duyệt đơn giải trình công dạy")) return;
     if (monthData.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'warning'); return; }
     setReviewingDispute(dispute);
     setDisputeAdminNote(dispute.adminNote || '');
@@ -1517,6 +1524,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
               </button>
               <button
                 onClick={() => {
+                  if (!requirePermission("Khóa sổ Chốt công & Xuất file Excel bàn giao")) return;
                   window.print();
                   setShowPrintModal(false);
                 }}
@@ -1624,7 +1632,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 Hủy
               </button>
               <button
-                onClick={handleSaveCoeff}
+                disabled={!can("Điều chỉnh hệ số công từng buổi kèm lý do")} onClick={handleSaveCoeff}
                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer"
               >
                 Cập nhật công

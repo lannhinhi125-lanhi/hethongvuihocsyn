@@ -3,6 +3,7 @@
 export type UserRole = 'Quản trị Toàn quyền' | 'Quản lý Chuyên môn' | 'Nhân viên Vận hành Lớp' | 'Giáo viên Giảng dạy';
 
 export interface UserAccount {
+  roleGroupId?: string;
   id: string;
   name: string;
   username: string;
@@ -16,6 +17,7 @@ export interface UserAccount {
 }
 
 export interface SystemRoleGroup {
+  portal?: 'ADMIN' | 'TEACHER';
   id: string;
   name: string;
   category: 'HỆ THỐNG' | 'CHUYÊN MÔN' | 'VẬN HÀNH' | 'GIẢNG DẠY';

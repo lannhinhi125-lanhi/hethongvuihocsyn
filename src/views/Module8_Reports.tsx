@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CustomReportBuilder } from '../components/CustomReportBuilder';
@@ -189,6 +190,7 @@ const dateRangesOverlap = (
 ) => (!range.start || to >= range.start) && (!range.end || from <= range.end);
 
 export const Module8_Reports: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const { showToast } = useApp();
 
   // 2 Tab chính của hệ thống Báo cáo - Dashboard là mặc định khi vào báo cáo theo yêu cầu
@@ -225,6 +227,17 @@ export const Module8_Reports: React.FC = () => {
   // TAB 2 (BÁO CÁO CỐ ĐỊNH): NÚT CHỌN LOẠI BÁO CÁO & CHẾ ĐỘ XEM
   // =========================================================================
   const [selectedFixedReport, setSelectedFixedReport] = useState<FixedReportId>('fixed_new_classes');
+  const reportPermission = (report: FixedReportId) => ['fixed_incident_trend', 'fixed_inspection'].includes(report) ? 'Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn' : 'Xem Báo cáo giáo viên, lớp học & hạn lớp theo gói';
+  const canDashboard = can('Xem Dashboard chỉ số KPI & Biểu đồ tổng quan');
+  const canFixed = can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Xem Báo cáo giáo viên, lớp học & hạn lớp theo gói');
+  const canCustom = can('Công cụ tạo báo cáo tùy biến (Dynamic Report)');
+  useEffect(() => {
+    if (currentMainTab === 'dashboard' && !canDashboard || currentMainTab === 'fixed' && !canFixed || currentMainTab === 'custom' && !canCustom) {
+      if (canDashboard) setCurrentMainTab('dashboard'); else if (canFixed) setCurrentMainTab('fixed'); else if (canCustom) setCurrentMainTab('custom');
+    }
+    if (!can(reportPermission(selectedFixedReport))) setSelectedFixedReport(can('Xem Báo cáo giáo viên, lớp học & hạn lớp theo gói') ? 'fixed_new_classes' : 'fixed_incident_trend');
+  }, [canDashboard, canFixed, canCustom, selectedFixedReport, currentMainTab]);
+
   const [detailPage, setDetailPage] = useState(0);
 
   // Chế độ xem báo cáo: biểu đồ hoặc bảng
@@ -538,6 +551,7 @@ export const Module8_Reports: React.FC = () => {
   }, [detailPage, currentReportPage]);
 
   const openDashboardDetail = (report: FixedReportId, status?: 'AVAILABLE') => {
+    if (!requirePermission(reportPermission(report))) return;
     const eventDates = [
       ...rawClasses.map(item => item.date),
       ...rawStudents.map(item => item.date),
@@ -568,6 +582,7 @@ export const Module8_Reports: React.FC = () => {
   };
 
   const selectFixedReport = (report: FixedReportId) => {
+    if (!requirePermission(reportPermission(report))) return;
     setSelectedFixedReport(report);
     setDetailPage(0);
   };
@@ -828,6 +843,7 @@ export const Module8_Reports: React.FC = () => {
 
   // Export CSV
   const downloadCsv = (csvContent: string, filename: string) => {
+    if (!requirePermission("Xuất kết quả báo cáo CSV")) return;
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -845,7 +861,7 @@ export const Module8_Reports: React.FC = () => {
       {/* ========================================================================= */}
       {/* 4 THẺ METRICS TỔNG QUAN HỆ THỐNG */}
       {/* ========================================================================= */}
-      {currentMainTab === 'dashboard' && (
+      {currentMainTab === 'dashboard' && canDashboard && (
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <DashboardMetric label="Lớp còn chỗ" value={`${dashboardAvailableClasses.length} lớp`}
             description={showPeriodComparison ? compareCount(dashboardAvailableClasses.length, previousAvailableClassCount, 'lớp') : 'Trong khoảng thời gian đã chọn'}
@@ -878,7 +894,7 @@ export const Module8_Reports: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.print()}
+              disabled={!can('Xuất kết quả báo cáo CSV')} onClick={() => { if (requirePermission('Xuất kết quả báo cáo CSV')) window.print(); }}
               className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
             >
               <Printer className="w-3.5 h-3.5 text-slate-600" />
@@ -890,7 +906,7 @@ export const Module8_Reports: React.FC = () => {
         {/* Thanh 2 Tabs chính: Dashboard (đầu tiên theo yêu cầu) | Cố định */}
         <div className="flex flex-wrap border-b border-slate-200 text-xs font-medium">
           <button
-            onClick={() => setCurrentMainTab('dashboard')}
+            disabled={!canDashboard} onClick={() => setCurrentMainTab('dashboard')}
             className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
               currentMainTab === 'dashboard'
                 ? 'border-indigo-600 text-indigo-600 font-bold'
@@ -904,7 +920,7 @@ export const Module8_Reports: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setCurrentMainTab('fixed')}
+            disabled={!canFixed} onClick={() => setCurrentMainTab('fixed')}
             className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
               currentMainTab === 'fixed'
                 ? 'border-indigo-600 text-indigo-600 font-bold'
@@ -916,7 +932,7 @@ export const Module8_Reports: React.FC = () => {
               <div className="font-semibold text-xs">Báo cáo chi tiết</div>
             </div>
           </button>
-          <button type="button" onClick={() => setCurrentMainTab('custom')}
+          <button type="button" disabled={!canCustom} onClick={() => setCurrentMainTab('custom')}
             className={`px-4 py-2 border-b-2 flex items-center gap-2 text-xs transition-colors ${currentMainTab === 'custom' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             <SlidersHorizontal className="h-4 w-4" />
             Báo cáo tùy chỉnh
@@ -927,9 +943,9 @@ export const Module8_Reports: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 1: DASHBOARD TỶ LỆ & XU HƯỚNG TỔNG QUAN (CÓ BỘ LỌC THỜI GIAN TRÊN NÓC SỔ NGANG) */}
       {/* ========================================================================= */}
-      <div hidden={currentMainTab !== 'custom'}>
+      {canCustom && <div hidden={currentMainTab !== 'custom'}>
         <CustomReportBuilder datasets={customDatasets} />
-      </div>
+      </div>}
 
       {currentMainTab === 'dashboard' && (
         <div className="space-y-4 animate-in fade-in duration-200">
@@ -1308,7 +1324,7 @@ export const Module8_Reports: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 2: BÁO CÁO CHI TIẾT */}
       {/* ========================================================================= */}
-      {currentMainTab === 'fixed' && (
+      {currentMainTab === 'fixed' && canFixed && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
             {detailUsesDateRange ? (
@@ -1584,7 +1600,7 @@ export const Module8_Reports: React.FC = () => {
           </div>
 
           {/* ================= BÁO CÁO 1: LỚP HỌC MỚI TẠO ================= */}
-          {selectedFixedReport === 'fixed_new_classes' && (
+          {selectedFixedReport === 'fixed_new_classes' && can(reportPermission('fixed_new_classes')) && (
             <div className="space-y-4 animate-in fade-in duration-150">
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -1608,7 +1624,7 @@ export const Module8_Reports: React.FC = () => {
                     <span>Xuất CSV</span>
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    disabled={!can('Xuất kết quả báo cáo CSV')} onClick={() => { if (requirePermission('Xuất kết quả báo cáo CSV')) window.print(); }}
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-600" />
@@ -1817,7 +1833,7 @@ export const Module8_Reports: React.FC = () => {
           )}
 
           {/* ================= BÁO CÁO 2: HỌC SINH MỚI TIẾP NHẬN ================= */}
-          {selectedFixedReport === 'fixed_new_students' && (
+          {selectedFixedReport === 'fixed_new_students' && can(reportPermission('fixed_new_students')) && (
             <div className="space-y-4 animate-in fade-in duration-150">
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -1841,7 +1857,7 @@ export const Module8_Reports: React.FC = () => {
                     <span>Xuất CSV</span>
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    disabled={!can('Xuất kết quả báo cáo CSV')} onClick={() => { if (requirePermission('Xuất kết quả báo cáo CSV')) window.print(); }}
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-600" />
@@ -2036,7 +2052,7 @@ export const Module8_Reports: React.FC = () => {
           )}
 
           {/* ================= BÁO CÁO 3: GIA SƯ MỚI GIA NHẬP ================= */}
-          {selectedFixedReport === 'fixed_new_tutors' && (
+          {selectedFixedReport === 'fixed_new_tutors' && can(reportPermission('fixed_new_tutors')) && (
             <div className="space-y-4 animate-in fade-in duration-150">
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -2060,7 +2076,7 @@ export const Module8_Reports: React.FC = () => {
                     <span>Xuất CSV</span>
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    disabled={!can('Xuất kết quả báo cáo CSV')} onClick={() => { if (requirePermission('Xuất kết quả báo cáo CSV')) window.print(); }}
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-600" />
@@ -2238,7 +2254,7 @@ export const Module8_Reports: React.FC = () => {
           )}
 
           {/* ================= BÁO CÁO 4: SỰ CỐ & TỶ LỆ LỖI ================= */}
-          {selectedFixedReport === 'fixed_incident_trend' && (
+          {selectedFixedReport === 'fixed_incident_trend' && can(reportPermission('fixed_incident_trend')) && (
             <div className="space-y-4 animate-in fade-in duration-150">
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -2262,7 +2278,7 @@ export const Module8_Reports: React.FC = () => {
                     <span>Xuất CSV</span>
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    disabled={!can('Xuất kết quả báo cáo CSV')} onClick={() => { if (requirePermission('Xuất kết quả báo cáo CSV')) window.print(); }}
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-600" />
@@ -2425,7 +2441,7 @@ export const Module8_Reports: React.FC = () => {
           )}
 
           {/* ================= BÁO CÁO 5: MA TRẬN CA DẠY (MÔN × KHỐI) ================= */}
-          {selectedFixedReport === 'fixed_matrix' && (
+          {selectedFixedReport === 'fixed_matrix' && can(reportPermission('fixed_matrix')) && (
             <div className="space-y-4 animate-in fade-in duration-150">
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -2449,7 +2465,7 @@ export const Module8_Reports: React.FC = () => {
                     <span>Xuất CSV</span>
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    disabled={!can('Xuất kết quả báo cáo CSV')} onClick={() => { if (requirePermission('Xuất kết quả báo cáo CSV')) window.print(); }}
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-600" />
@@ -2581,7 +2597,7 @@ export const Module8_Reports: React.FC = () => {
           )}
 
           {/* ================= BÁO CÁO 6: ĐÁNH GIÁ DỰ GIỜ & XẾP HẠNG GIÁO VIÊN ================= */}
-          {selectedFixedReport === 'fixed_inspection' && (
+          {selectedFixedReport === 'fixed_inspection' && can(reportPermission('fixed_inspection')) && (
             <div className="space-y-4 animate-in fade-in duration-150">
               {/* Thanh điều hành trên nóc (Nút mở Bộ lọc từ cột bên phải) */}
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -2605,7 +2621,7 @@ export const Module8_Reports: React.FC = () => {
                     <span>Xuất CSV</span>
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    disabled={!can('Xuất kết quả báo cáo CSV')} onClick={() => { if (requirePermission('Xuất kết quả báo cáo CSV')) window.print(); }}
                     className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs border border-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5 text-slate-600" />

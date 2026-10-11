@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Table, Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -26,6 +27,7 @@ function readTemplates(userId: string, datasets: ReportDataset[]): SavedReportTe
 }
 const displayDate = (value: string) => value ? value.slice(8, 10) + '/' + value.slice(5, 7) + '/' + value.slice(0, 4) : '';
 export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ datasets }) => {
+  const { can, requirePermission } = usePermissions();
   const { currentUser, showToast } = useApp();
   const [config, setConfig] = useState<CustomReportConfig>(() => defaultReportConfig(datasets[0]));
   const [templates, setTemplates] = useState(() => readTemplates(currentUser.id, datasets));
@@ -87,6 +89,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     setTemplateId(''); setSearch('');
   };
   const persistTemplates = (next: SavedReportTemplate[]) => {
+    if (!requirePermission('Lưu và quản lý mẫu báo cáo tùy chỉnh')) return false;
     try {
       localStorage.setItem(templateKey(currentUser.id), JSON.stringify(next));
       setTemplates(next); return true;
@@ -107,6 +110,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     }
   };
   const exportCsv = () => {
+    if (!requirePermission('Xuất kết quả báo cáo CSV')) return;
     if (!visibleRows.length || result.invalidRange) return;
     const blob = new Blob([customReportCsv(visibleRows, result.metrics, groupName)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob), link = document.createElement('a');
@@ -135,7 +139,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
             {templates.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
           {selectedTemplate && <button type="button" className={button} title="Xóa mẫu đang chọn" aria-label="Xóa mẫu đang chọn" onClick={() => setDeleteOpen(true)}><Trash2 className="h-3.5 w-3.5" /></button>}
-          <button type="button" disabled={result.invalidRange} className={button + ' border-indigo-200 text-indigo-700 hover:bg-indigo-50'} onClick={() => {
+          <button type="button" disabled={result.invalidRange || !can('Lưu và quản lý mẫu báo cáo tùy chỉnh')} className={button + ' border-indigo-200 text-indigo-700 hover:bg-indigo-50'} onClick={() => {
             setTemplateName(selectedTemplate?.name || dataset.label + ' theo ' + groupName.toLocaleLowerCase('vi')); setSaveOpen(true);
           }}><Save className="h-3.5 w-3.5" />Lưu mẫu{hasChanges ? ' •' : ''}</button>
         </div>
@@ -244,7 +248,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
                       {mode === 'table' ? <Table className="h-3.5 w-3.5" /> : <BarChart3 className="h-3.5 w-3.5" />}{mode === 'table' ? 'Bảng' : 'Biểu đồ'}
                     </button>)}
                   </div>
-                  <button type="button" className={button} disabled={!visibleRows.length} onClick={exportCsv}><Download className="h-3.5 w-3.5" />CSV</button>
+                  <button type="button" className={button} disabled={!visibleRows.length || !can('Xuất kết quả báo cáo CSV')} onClick={exportCsv}><Download className="h-3.5 w-3.5" />CSV</button>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">

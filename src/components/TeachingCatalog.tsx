@@ -1,9 +1,11 @@
+import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from './CatalogTreeBranch';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 export const TeachingCatalog: React.FC = () => {
   const { teachingCategories, setTeachingCategories, currentUser, roleGroups, showToast } = useApp();
-  const canEdit = currentUser.status === 'active' && (currentUser.role === 'Quản trị Toàn quyền' || Boolean(roleGroups.find(role => role.name === currentUser.role)?.permissions.some(p => ['ALL', 'PH2_ALL'].includes(p))));
+  const { can } = usePermissions();
+  const canEdit = can("Cấu hình Cấp học & Lớp dạy");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [code, setCode] = useState(''); const [name, setName] = useState(''); const [options, setOptions] = useState(''); const [opened, setOpened] = useState(false);
   return <div className="space-y-3">

@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 
 export const Module4_TeacherSchedule: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const {
     classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
     subjects, criteriaCategories, activeToneKey, toneDirectives, sopDocuments, ragBotConfig, users
@@ -66,6 +68,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const quickQuestions = ragBotConfig.quickPrompts.filter(prompt => prompt.trim());
 
   const handleSendQuestion = (questionText?: string) => {
+    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     const q = (questionText || chatInput).trim();
     if (!q) return;
 
@@ -101,6 +104,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleOpenClassModal = (cls: ClassItem, sessionNum: number = 1, sessionDate = fromDate) => {
+    if (!requirePermission('Vào phòng học và xem học liệu lớp được giao')) return;
     setSelectedClass(cls);
     setSelectedSessionNum(sessionNum);
     setSelectedSessionDate(sessionDate);
@@ -120,6 +124,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleEnterClassroom = () => {
+    if (!requirePermission('Vào phòng học và xem học liệu lớp được giao')) return;
+    if (!requirePermission("Giáo viên Check-in / Check-out vào ca dạy")) return;
     if (selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id) {
       showToast(`Ca này đang được dạy thay bởi ${selectedClassCoverAssignment.teacherName}.`, 'warning');
       return;
@@ -169,6 +175,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleConfirmCompleteSession = () => {
+    if (!requirePermission("Giáo viên Check-in / Check-out vào ca dạy")) return;
     if (!selectedClass) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Lớp học chưa diễn ra! Chỉ khi ca học ở trạng thái "Đang học" mới có thể xác nhận hoàn tất.', 'warning');
@@ -194,6 +201,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleOpenAiReview = (studentId: string, studentName: string) => {
+    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Chưa thể tạo nhận xét khi ca học chưa bắt đầu. Vui lòng vào lớp trước.', 'warning');
       return;
@@ -215,6 +223,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleSaveReviewCriteria = () => {
+    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Chỉ có thể lưu tiêu chí khi ca học đang diễn ra.', 'warning');
       return;
@@ -257,6 +266,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleRegenerateAi = () => {
+    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Chỉ có thể tạo nhận xét khi ca học đang diễn ra.', 'warning');
       return;
@@ -308,6 +318,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleSaveAiReview = () => {
+    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Chỉ có thể lưu nhận xét khi ca học đang diễn ra.', 'warning');
       return;
@@ -892,7 +903,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                       ) : classLiveStatus === 'DANG_HOC' ? (
                         <button
                           type="button"
-                          onClick={handleConfirmCompleteSession}
+                          disabled={!can("Giáo viên Check-in / Check-out vào ca dạy")} onClick={handleConfirmCompleteSession}
                           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                         >
                           <CheckCircle className="w-4 h-4" />

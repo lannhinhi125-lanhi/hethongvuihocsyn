@@ -1,3 +1,4 @@
+import { canAccessModule, teacherModuleIds, accountPortal } from './lib/accessControl';
 import { PORTAL_PREVIEW_MODE } from './lib/previewMode';
 import { resolveActiveAccount } from './lib/workflow';
 import { LoginView } from './views/LoginView';
@@ -19,7 +20,7 @@ import { TeacherAvailabilityView } from './views/TeacherAvailabilityView';
 import { TeacherWorkReconciliationView } from './views/TeacherWorkReconciliationView';
 
 const MainLayout: React.FC = () => {
-  const { activeModule, workspaceMode, teacherPortalTab, currentUser, users, setCurrentUser, setActiveModule } = useApp();
+  const { activeModule, workspaceMode, teacherPortalTab, currentUser, users, roleGroups, setCurrentUser, setActiveModule } = useApp();
   const [authenticatedUserId, setAuthenticatedUserId] = useState(() => sessionStorage.getItem('vuihoc_authenticated_user_id'));
   const activeAccount = PORTAL_PREVIEW_MODE
     ? resolveActiveAccount(users, currentUser.id) || users.find(user => user.status === 'active' && user.role === 'Quản trị Toàn quyền')
@@ -27,15 +28,18 @@ const MainLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!PORTAL_PREVIEW_MODE) return;
+    if (!PORTAL_PREVIEW_MODE || users.some(user => user.id === currentUser.id)) return;
     const admin = users.find(user => user.role === 'Quản trị Toàn quyền' && user.status === 'active');
     if (admin) setCurrentUser(admin);
   }, []);
 
   useEffect(() => {
     if (activeAccount && activeAccount !== currentUser) setCurrentUser(activeAccount);
-    if (activeAccount && activeAccount.role !== 'Quản trị Toàn quyền' && activeModule === 1) setActiveModule(3);
-  }, [activeAccount, currentUser, activeModule, setCurrentUser, setActiveModule]);
+    if (activeAccount && workspaceMode === 'ADMIN' && !canAccessModule(activeAccount, roleGroups, 'PH' + activeModule)) {
+      const first = [1,2,3,4,5,6,7,8].find(id => canAccessModule(activeAccount, roleGroups, 'PH' + id));
+      if (first) setActiveModule(first);
+    }
+  }, [activeAccount, currentUser, activeModule, workspaceMode, roleGroups, setCurrentUser, setActiveModule]);
 
   useEffect(() => {
     if (!PORTAL_PREVIEW_MODE && authenticatedUserId && !activeAccount) {
@@ -65,25 +69,27 @@ const MainLayout: React.FC = () => {
         {/* Scrollable Main Content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
           <div className="max-w-7xl mx-auto w-full">
-            {workspaceMode === 'ADMIN' && currentUser.role !== 'Giáo viên Giảng dạy' ? (
+            {workspaceMode === 'ADMIN' && accountPortal(currentUser, roleGroups) === 'ADMIN' ? (
               // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================
               <>
-                {activeModule === 1 && (currentUser.role === 'Quản trị Toàn quyền' ? <Module1_UsersRoles /> : <p className="p-6 text-slate-500">Chỉ quản trị viên được quản lý tài khoản và phân quyền.</p>)}
-                {activeModule === 2 && <Module2_MasterData />}
-                {activeModule === 3 && <Module3_Teachers />}
-                {activeModule === 4 && <Module4_StudentsClasses />}
-                {activeModule === 5 && <Module5_OperationsMonitoring />}
-                {activeModule === 6 && <Module6_AIStudio />}
-                {activeModule === 7 && <Module7_WorkReconciliation />}
-                {activeModule === 8 && <Module8_Reports />}
+                {!canAccessModule(currentUser, roleGroups, 'PH' + activeModule) && <p role="alert" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Nhóm quyền chưa được cấp quyền truy cập phân hệ này.</p>}
+                {activeModule === 1 && canAccessModule(currentUser, roleGroups, 'PH1') && <Module1_UsersRoles />}
+                {activeModule === 2 && canAccessModule(currentUser, roleGroups, 'PH2') && <Module2_MasterData />}
+                {activeModule === 3 && canAccessModule(currentUser, roleGroups, 'PH3') && <Module3_Teachers />}
+                {activeModule === 4 && canAccessModule(currentUser, roleGroups, 'PH4') && <Module4_StudentsClasses />}
+                {activeModule === 5 && canAccessModule(currentUser, roleGroups, 'PH5') && <Module5_OperationsMonitoring />}
+                {activeModule === 6 && canAccessModule(currentUser, roleGroups, 'PH6') && <Module6_AIStudio />}
+                {activeModule === 7 && canAccessModule(currentUser, roleGroups, 'PH7') && <Module7_WorkReconciliation />}
+                {activeModule === 8 && canAccessModule(currentUser, roleGroups, 'PH8') && <Module8_Reports />}
               </>
             ) : (
               // ================= GIAO DIỆN CỔNG GIÁO VIÊN & GIA SƯ =================
               <>
-                {teacherPortalTab === 'availability' && <TeacherAvailabilityView />}
-                {teacherPortalTab === 'schedule' && <Module4_TeacherSchedule />}
-                {teacherPortalTab === 'evaluation' && <TeacherEvaluationView />}
-                {(teacherPortalTab === 'reconcile' || teacherPortalTab === 'payroll') && <TeacherWorkReconciliationView />}
+                {!canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <p role="alert" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Nhóm quyền chưa được cấp quyền truy cập phân hệ giảng dạy này.</p>}
+                {teacherPortalTab === 'availability' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <TeacherAvailabilityView />}
+                {teacherPortalTab === 'schedule' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <Module4_TeacherSchedule />}
+                {teacherPortalTab === 'evaluation' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <TeacherEvaluationView />}
+                {(teacherPortalTab === 'reconcile' || teacherPortalTab === 'payroll') && canAccessModule(currentUser, roleGroups, 'T_RECONCILE') && <TeacherWorkReconciliationView />}
               </>
             )}
           </div>

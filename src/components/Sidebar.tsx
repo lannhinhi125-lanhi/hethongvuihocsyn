@@ -1,3 +1,5 @@
+import { usePermissions } from '../hooks/usePermissions';
+import { teacherModuleIds } from '../lib/accessControl';
 import { PORTAL_PREVIEW_MODE } from '../lib/previewMode';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useEffect, useState } from 'react';
@@ -23,6 +25,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
+  const { canModule } = usePermissions();
   const [currentTime, setCurrentTime] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 30_000);
@@ -132,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
             {workspaceMode === 'ADMIN' ? (
               // QUẢN TRỊ VIÊN
-              adminNavItems.filter(item => item.id !== 1 || currentUser.role === 'Quản trị Toàn quyền').map(item => {
+              adminNavItems.filter(item => canModule('PH' + item.id)).map(item => {
                 const isActive = activeModule === item.id;
                 const Icon = item.icon;
 
@@ -155,7 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
               })
             ) : (
               // CỔNG GIÁO VIÊN & GIA SƯ
-              teacherNavItems.map(item => {
+              teacherNavItems.filter(item => canModule(teacherModuleIds[item.id])).map(item => {
                 const isActive = teacherPortalTab === item.id;
                 const Icon = item.icon;
 

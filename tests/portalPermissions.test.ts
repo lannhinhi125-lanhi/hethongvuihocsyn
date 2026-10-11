@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { expandPermissions, serializePermissions, permissionModules, rolePortal } from '../src/lib/portalPermissions';
+const role = { id: 'r', name: 'Giáo viên Giảng dạy', category: 'GIẢNG DẠY' as const, desc: '', userCount: 0, permissions: ['TEACHER_PORTAL'] };
+assert.equal(rolePortal(role), 'TEACHER');
+assert.equal(rolePortal({ ...role, category: 'HỆ THỐNG', portal: 'ADMIN' }), 'ADMIN');
+const teachers = expandPermissions(['TEACHER_PORTAL'], 'TEACHER');
+assert.equal(teachers.length, permissionModules.TEACHER.flatMap(module => module.features).length);
+assert.equal(expandPermissions(['TEACHER_PORTAL'], 'ADMIN').length, 0);
+const admin = expandPermissions(['ALL'], 'ADMIN');
+assert.equal(admin.length, permissionModules.ADMIN.flatMap(module => module.features).length);
+const catalog = permissionModules.ADMIN.find(module => module.id === 'PH2')!;
+assert.deepEqual(expandPermissions(['PH2_READ'], 'ADMIN'), ['Xem danh mục dùng chung']);
+assert.equal(expandPermissions(['PH2_ALL'], 'ADMIN').length, catalog.features.length);
+assert.ok(serializePermissions(catalog.features, 'ADMIN').includes('PH2_ALL'));
+assert.ok(!serializePermissions(catalog.features.slice(1), 'ADMIN').includes('PH2_ALL'));
+assert.deepEqual(new Set(expandPermissions(serializePermissions(admin, 'ADMIN'), 'ADMIN')), new Set(admin));
+assert.equal(expandPermissions(['ALL'], 'TEACHER').some(feature => admin.includes(feature)), false);
+console.log('Passed: portal grouping, legacy permission expansion, read-only scope and module serialization.');

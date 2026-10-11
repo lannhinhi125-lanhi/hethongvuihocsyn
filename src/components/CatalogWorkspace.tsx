@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from './CatalogTreeBranch';
 import React, { useEffect, useState } from 'react';
 import { FolderPlus, PlusCircle, Search, X, Pencil, ChevronRight } from 'lucide-react';
@@ -23,7 +24,8 @@ function readCatalogs(): Catalog[] {
 }
 export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; onSelect: (id: string) => void; children: React.ReactNode }> = ({ items, active, onSelect, children }) => {
   const { currentUser, roleGroups, showToast } = useApp();
-  const canEdit = currentUser.status === 'active' && (currentUser.role === 'Quản trị Toàn quyền' || Boolean(roleGroups.find(role => role.name === currentUser.role)?.permissions.some(permission => ['ALL', 'PH2_ALL'].includes(permission))));
+  const { can } = usePermissions();
+  const canEdit = can("Tạo danh mục bổ sung và danh mục con");
   const [catalogs, setCatalogs] = useState<Catalog[]>(readCatalogs);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const toggleBranch = (id: string) => setExpandedIds(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id]);

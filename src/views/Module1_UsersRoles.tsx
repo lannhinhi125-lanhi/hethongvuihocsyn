@@ -1,3 +1,6 @@
+import { usePermissions } from '../hooks/usePermissions';
+import { assignedRole, accountPortal } from '../lib/accessControl';
+import { permissionModules, portalLabels, rolePortal, expandPermissions, serializePermissions, type AccountPortal } from '../lib/portalPermissions';
 import { TEACHER_PROFILE_PERMISSION } from '../lib/teacherAccounts';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -19,8 +22,13 @@ import {
 } from 'lucide-react';
 
 export const Module1_UsersRoles: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const { users, roleGroups, setRoleGroups, addUser, updateUser, toggleLockUser, showToast } = useApp();
 
+  const [portal, setPortal] = useState<AccountPortal>('ADMIN');
+  const [roleFormPortal, setRoleFormPortal] = useState<AccountPortal>('ADMIN');
+  const portalUsers = users.filter(user => accountPortal(user, roleGroups) === portal);
+  const portalRoles = roleGroups.filter(role => rolePortal(role) === portal);
   const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterRole, setFilterRole] = useState('');
@@ -60,12 +68,14 @@ export const Module1_UsersRoles: React.FC = () => {
   const [editUserSubject, setEditUserSubject] = useState<string>('SUB-MATH');
 
   const copyToClipboard = (text: string, label: string) => {
+    if (label.toLocaleLowerCase('vi').includes('mật khẩu') && !requirePermission('Chỉnh sửa thông tin tài khoản & Mật khẩu')) return;
     navigator.clipboard.writeText(text).then(() => {
       showToast(`Đã sao chép ${label}: "${text}"`, 'success');
     });
   };
 
   const togglePasswordVisibility = (id: string) => {
+    if (!requirePermission("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return;
     setRevealedPasswords(prev => ({
       ...prev,
       [id]: !prev[id]
@@ -73,18 +83,19 @@ export const Module1_UsersRoles: React.FC = () => {
   };
 
   // Filter users
-  const filteredUsers = users.filter(u => {
+  const filteredUsers = portalUsers.filter(u => {
     const matchSearch =
       u.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
       u.username.toLowerCase().includes(searchKeyword.toLowerCase()) ||
       u.email.toLowerCase().includes(searchKeyword.toLowerCase()) ||
       u.phone.includes(searchKeyword);
-    const matchRole = !filterRole || u.role === filterRole;
+    const matchRole = !filterRole || assignedRole(u, roleGroups)?.name === filterRole;
     const matchStatus = !filterStatus || u.status === filterStatus;
     return matchSearch && matchRole && matchStatus;
   });
 
   const handleCreateUserSubmit = (e: React.FormEvent) => {
+    if (!requirePermission("Cấp tài khoản & Mật khẩu người dùng")) return;
     e.preventDefault();
     if (!newUserName.trim() || !newUserUsername.trim()) {
       showToast('Vui lòng điền họ tên và tên đăng nhập!', 'error');
@@ -104,8 +115,9 @@ export const Module1_UsersRoles: React.FC = () => {
       passwordRaw: newUserPass,
       email: newUserEmail.trim(),
       phone: newUserPhone.trim(),
-      role: newUserRole,
-      subject: newUserRole === 'Giáo viên Giảng dạy' ? newUserSubject : undefined,
+      role: (['Quản trị Toàn quyền', 'Quản lý Chuyên môn', 'Nhân viên Vận hành Lớp', 'Giáo viên Giảng dạy'].includes(newUserRole) ? newUserRole : portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'),
+      roleGroupId: roleGroups.find(group => group.name === newUserRole)?.id,
+      subject: portal === 'TEACHER' ? newUserSubject : undefined,
       status: 'active',
       avatarInitials: avatarInitials || 'VH'
     });
@@ -120,10 +132,7 @@ export const Module1_UsersRoles: React.FC = () => {
   };
 
   const openEditUser = (user: UserAccount) => {
-    if (user.role === 'Giáo viên Giảng dạy') {
-      showToast('Tài khoản giáo viên được hệ thống phân quyền sẵn, không cho phép chỉnh sửa trực tiếp!', 'error');
-      return;
-    }
+    if (!requirePermission('Chỉnh sửa thông tin tài khoản & Mật khẩu')) return;
     setEditingUser(user);
     setEditUserName(user.name);
     setEditUserUsername(user.username);
@@ -131,41 +140,40 @@ export const Module1_UsersRoles: React.FC = () => {
     setEditUserPassVisible(false);
     setEditUserEmail(user.email);
     setEditUserPhone(user.phone);
-    setEditUserRole(user.role);
+    setEditUserRole((assignedRole(user, roleGroups)?.name || user.role) as UserAccount['role']);
     setEditUserSubject(user.subject || 'SUB-MATH');
   };
 
   const handleEditUserSubmit = (e: React.FormEvent) => {
+    if (!requirePermission("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return;
     e.preventDefault();
     if (!editingUser) return;
 
+    const roleChanged = assignedRole(editingUser, roleGroups)?.name !== editUserRole;
+    if (roleChanged && !requirePermission('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
     updateUser(editingUser.id, {
       name: editUserName.trim(),
       username: editUserUsername.trim(),
       passwordRaw: editUserPass,
       email: editUserEmail.trim(),
       phone: editUserPhone.trim(),
-      role: editUserRole,
-      subject: editUserRole === 'Giáo viên Giảng dạy' ? editUserSubject : undefined
+      ...(roleChanged ? {
+        role: (['Quản trị Toàn quyền', 'Quản lý Chuyên môn', 'Nhân viên Vận hành Lớp', 'Giáo viên Giảng dạy'].includes(editUserRole) ? editUserRole : portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'),
+      roleGroupId: roleGroups.find(group => group.name === editUserRole)?.id,
+      } : {}),
+      subject: portal === 'TEACHER' ? editUserSubject : undefined
     });
 
     setEditingUser(null);
   };
 
   // Role group actions
-  const systemFeaturesList = [
-    { mod: 'Quản trị Hệ thống & Phân quyền', feats: ['Cấp tài khoản & Mật khẩu người dùng', 'Khóa / Mở khóa tài khoản nhân sự', 'Chỉnh sửa thông tin tài khoản & Mật khẩu', 'Tạo, sửa, xóa & Gán Nhóm quyền'] },
-    { mod: 'Danh mục dùng chung', feats: ['Cấu hình Môn học (Toán, Tiếng Anh) & Khối lớp', 'Cấu hình Gói thời hạn (3, 6, 9, 12 tháng) tính ngày', 'Cấu hình Mô hình lớp & Sĩ số trần (1-1, 1-3, 1-5)', 'Cấu hình Khung giờ ca dạy chuẩn (Time Slot)', 'Cấu hình Danh mục Sự cố & Vi phạm ca học'] },
-    { mod: 'Quản lý Giáo viên & Đánh giá Dự giờ', feats: [TEACHER_PROFILE_PERMISSION, 'Tạo hồ sơ giáo viên (Gán 1 môn Toán/Anh)', 'Giáo viên đăng ký lịch rảnh theo tuần', 'Xem tổng hợp lịch rảnh & Khóa sổ đăng ký tuần', 'Thực hiện chấm điểm dự giờ sư phạm (3 tiêu chí)', 'Xuất danh sách hồ sơ giáo viên ra file Excel'] },
-    { mod: 'Học sinh & Điều phối Lớp học', feats: ['Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy', 'Khởi tạo lớp, gán gói thời hạn tự tính ngày kết thúc', 'Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)', 'Phân công giáo viên (Khớp nối môn và lịch rảnh)', 'Nạp học liệu: Thêm theo tuần & Excel mẫu'] },
-    { mod: 'Giám sát Ca dạy & Dạy thay (Cover)', feats: ['Theo dõi thời khóa biểu toàn hệ thống (Calendar)', 'Giáo viên Check-in / Check-out vào ca dạy', 'Báo cáo sự cố ca dạy (đi muộn, lỗi mạng, nghỉ)', 'Quét giáo viên rảnh cùng môn để dạy thay (Cover)'] },
-    { mod: 'Trợ lý Trí tuệ nhân tạo (AI Studio)', feats: ['Cấu hình Prompt văn phong & Tiêu chí nhận xét môn', 'Quản lý kho tài liệu tri thức SOP', 'Sử dụng AI sinh & tinh chỉnh nhận xét học sinh', 'Chatbot AI 24/7 tra cứu quy chế & nghiệp vụ'] },
-    { mod: 'Quản lý Chốt công & Đối soát', feats: ['Xem bảng kê công dạy cá nhân theo kỳ', 'Gửi giải trình / khiếu nại sai lệch ca dạy', 'Tổng hợp công dạy toàn bộ giáo viên theo kỳ', 'Xử lý & phê duyệt đơn giải trình công dạy', 'Khóa sổ Chốt công & Xuất file Excel bàn giao'] },
-    { mod: 'Trung tâm Báo cáo & Thống kê', feats: ['Xem Dashboard chỉ số KPI & Biểu đồ tổng quan', 'Xem Báo cáo giáo viên, lớp học & hạn lớp theo gói', 'Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn', 'Công cụ tạo báo cáo tùy biến (Dynamic Report)', 'Xuất báo cáo tổng hợp ra tệp Excel và PDF'] }
-  ];
+  const systemFeaturesList = permissionModules[roleFormPortal].map(module => ({ mod: module.name, feats: module.features }));
 
   const openCreateRole = () => {
+    if (!requirePermission("Tạo, sửa, xóa & Gán Nhóm quyền")) return;
     setEditingRole(null);
+    setRoleFormPortal(portal);
     setRoleFormName('');
     setRoleFormDesc('');
     setSelectedPermissions([]);
@@ -174,9 +182,10 @@ export const Module1_UsersRoles: React.FC = () => {
 
   const openEditRole = (role: SystemRoleGroup) => {
     setEditingRole(role);
+    setRoleFormPortal(rolePortal(role));
     setRoleFormName(role.name);
     setRoleFormDesc(role.desc);
-    setSelectedPermissions(role.permissions || []);
+    setSelectedPermissions(expandPermissions(role.permissions || [], rolePortal(role)));
     setIsRoleModalOpen(true);
   };
 
@@ -197,28 +206,39 @@ export const Module1_UsersRoles: React.FC = () => {
   };
 
   const handleSaveRole = () => {
+    if (!requirePermission("Tạo, sửa, xóa & Gán Nhóm quyền")) return;
+    if (editingRole?.isDefault) return;
     if (!roleFormName.trim()) {
       showToast('Vui lòng nhập tên Nhóm quyền!', 'error');
       return;
     }
 
+    if (roleGroups.some(role => role.id !== editingRole?.id && role.name.toLocaleLowerCase('vi') === roleFormName.trim().toLocaleLowerCase('vi'))) {
+      showToast('Tên nhóm quyền đã tồn tại.', 'error'); return;
+    }
+    if (editingRole && users.some(user => assignedRole(user, roleGroups)?.id === editingRole.id) && editingRole.name !== roleFormName.trim()) {
+      showToast('Nhóm đang được gán tài khoản. Giữ nguyên tên để bảo toàn liên kết.', 'warning'); return;
+    }
+    const unchanged = editingRole && JSON.stringify([...expandPermissions(editingRole.permissions, roleFormPortal)].sort()) === JSON.stringify([...selectedPermissions].sort());
+    const permissions = unchanged ? editingRole.permissions : serializePermissions(selectedPermissions, roleFormPortal);
     if (editingRole) {
       setRoleGroups(prev =>
         prev.map(r =>
           r.id === editingRole.id
-            ? { ...r, name: roleFormName.trim(), desc: roleFormDesc.trim(), permissions: selectedPermissions }
+            ? { ...r, name: roleFormName.trim(), desc: roleFormDesc.trim(), portal: roleFormPortal, permissions }
             : r
         )
       );
       showToast(`Đã lưu cấu hình Nhóm quyền "${roleFormName}"!`, 'success');
     } else {
       const newRole: SystemRoleGroup = {
-        id: `ROLE-${String(roleGroups.length + 1).padStart(2, '0')}`,
+        id: 'ROLE-' + crypto.randomUUID(),
         name: roleFormName.trim(),
-        category: 'HỆ THỐNG',
+        category: roleFormPortal === 'TEACHER' ? 'GIẢNG DẠY' : 'HỆ THỐNG',
+        portal: roleFormPortal,
         desc: roleFormDesc.trim() || 'Nhóm quyền mới tạo',
         userCount: 0,
-        permissions: selectedPermissions
+        permissions
       };
       setRoleGroups(prev => [...prev, newRole]);
       showToast(`Đã thêm Nhóm quyền mới "${roleFormName}"!`, 'success');
@@ -227,6 +247,8 @@ export const Module1_UsersRoles: React.FC = () => {
   };
 
   const handleDeleteRole = (id: string, name: string) => {
+    if (!requirePermission("Tạo, sửa, xóa & Gán Nhóm quyền")) return;
+    if (users.some(user => assignedRole(user, roleGroups)?.id === id)) { showToast('Nhóm quyền đang có tài khoản sử dụng, không thể xóa.', 'warning'); return; }
     if (window.confirm(`Bạn có chắc chắn muốn XÓA nhóm quyền "${name}" khỏi hệ thống?`)) {
       setRoleGroups(prev => prev.filter(r => r.id !== id));
       showToast(`Đã xóa nhóm quyền "${name}"!`, 'info');
@@ -234,13 +256,21 @@ export const Module1_UsersRoles: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {(['ADMIN', 'TEACHER'] as const).map(value => <button type="button" key={value} aria-pressed={portal === value} onClick={() => {
+          setPortal(value); setFilterRole(''); setFilterStatus(''); setSearchKeyword(''); setRevealedPasswords({});
+        }} className={'rounded-xl border p-3 text-left transition-colors ' + (portal === value ? 'border-orange-300 bg-orange-50' : 'border-slate-200 bg-white hover:bg-slate-50')}>
+          <span className={'block text-sm font-bold ' + (portal === value ? 'text-orange-700' : 'text-slate-700')}>{portalLabels[value]}</span>
+          <span className="mt-1 block text-[11px] text-slate-500">{users.filter(user => (user.role === 'Giáo viên Giảng dạy' ? 'TEACHER' : 'ADMIN') === value).length} tài khoản · {roleGroups.filter(role => rolePortal(role) === value).length} nhóm quyền · {permissionModules[value].length} phân hệ</span>
+        </button>)}
+      </div>
       {/* Header thanh chuyển đổi Tab */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div>
-          <h1 className="text-lg font-bold text-slate-800">Quản lý Tài khoản &amp; Nhóm quyền Hệ thống</h1>
+          <h1 className="text-lg font-bold text-slate-800">Tài khoản &amp; Nhóm quyền — {portalLabels[portal]}</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Tạo nhóm quyền, chỉnh sửa/xóa quyền và quản lý tài khoản, thông tin đăng nhập tập trung
+            {portal === 'ADMIN' ? 'Quản lý tài khoản nhân sự và tiêu chí quyền trong các phân hệ quản trị.' : 'Quản lý tài khoản giảng dạy và quyền thao tác trên dữ liệu cá nhân, lớp được phân công.'}
           </p>
         </div>
 
@@ -293,10 +323,7 @@ export const Module1_UsersRoles: React.FC = () => {
                 className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white text-slate-600 focus:outline-none focus:border-[#FF5C00]"
               >
                 <option value="">Tất cả Nhóm quyền</option>
-                <option value="Quản trị Toàn quyền">Quản trị Toàn quyền</option>
-                <option value="Quản lý Chuyên môn">Quản lý Chuyên môn</option>
-                <option value="Nhân viên Vận hành Lớp">Nhân viên Vận hành Lớp</option>
-                <option value="Giáo viên Giảng dạy">Giáo viên Giảng dạy</option>
+                {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
               </select>
 
               <select
@@ -311,7 +338,8 @@ export const Module1_UsersRoles: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setIsCreateUserModalOpen(true)}
+              disabled={!can('Cấp tài khoản & Mật khẩu người dùng') || !can('Tạo, sửa, xóa & Gán Nhóm quyền')}
+              onClick={() => { setNewUserRole(portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'); setIsCreateUserModalOpen(true); }}
               className="w-full sm:w-auto px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
@@ -401,7 +429,7 @@ export const Module1_UsersRoles: React.FC = () => {
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-2.5 py-0.5 rounded border font-medium text-[11px] ${roleBadgeColor}`}>
-                              {u.role}
+                              {assignedRole(u, roleGroups)?.name || u.role}
                             </span>
                           </td>
                           <td className="py-3 px-4">
@@ -421,6 +449,7 @@ export const Module1_UsersRoles: React.FC = () => {
                             ) : (
                               <div className="flex items-center justify-center gap-2">
                                 <button
+                                  disabled={!can('Chỉnh sửa thông tin tài khoản & Mật khẩu')}
                                   onClick={() => openEditUser(u)}
                                   className="text-slate-600 hover:text-[#FF5C00] p-1 rounded hover:bg-slate-100"
                                   title="Chỉnh sửa tài khoản"
@@ -428,6 +457,7 @@ export const Module1_UsersRoles: React.FC = () => {
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <button
+                                  disabled={!can('Khóa / Mở khóa tài khoản nhân sự')}
                                   onClick={() => toggleLockUser(u.id)}
                                   className={`p-1 rounded hover:bg-slate-100 ${
                                     u.status === 'active' ? 'text-slate-400 hover:text-rose-600' : 'text-rose-500 hover:text-emerald-600'
@@ -455,10 +485,11 @@ export const Module1_UsersRoles: React.FC = () => {
         <div className="space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-800">Danh sách các Nhóm quyền</h2>
-              <p className="text-xs text-slate-500">Bấm chỉnh sửa để tick chọn lại chức năng hoặc bấm xóa nhóm quyền</p>
+              <h2 className="text-sm font-bold text-slate-800">Nhóm quyền — {portalLabels[portal]}</h2>
+              <p className="text-xs text-slate-500">Chọn nhóm quyền để cấu hình tiêu chí theo từng phân hệ của cổng này.</p>
             </div>
             <button
+              disabled={!can('Tạo, sửa, xóa & Gán Nhóm quyền')}
               onClick={openCreateRole}
               className="px-3.5 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-semibold rounded-lg shadow-xs flex items-center gap-1.5 self-start sm:self-auto transition-all cursor-pointer"
             >
@@ -468,8 +499,8 @@ export const Module1_UsersRoles: React.FC = () => {
           </div>
 
           {/* Role Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {roleGroups.map(role => {
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {portalRoles.map(role => {
               let tagColor = 'bg-slate-100 text-slate-700';
               if (role.category === 'HỆ THỐNG') tagColor = 'bg-purple-100 text-purple-700';
               if (role.category === 'CHUYÊN MÔN') tagColor = 'bg-amber-100 text-amber-700';
@@ -486,7 +517,7 @@ export const Module1_UsersRoles: React.FC = () => {
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${tagColor}`}>
                         {role.category}
                       </span>
-                      <span className="text-xs font-bold text-slate-400">{role.userCount} nhân sự</span>
+                      <span className="text-xs font-bold text-slate-400">{users.filter(user => assignedRole(user, roleGroups)?.id === role.id).length} tài khoản</span>
                     </div>
                     <h3 className="font-bold text-sm text-slate-800 mt-2">{role.name}</h3>
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{role.desc}</p>
@@ -494,14 +525,14 @@ export const Module1_UsersRoles: React.FC = () => {
                     <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600 space-y-1.5">
                       <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>{role.permissions?.length ? `${role.permissions.length} chức năng phân quyền` : 'Toàn quyền chức năng'}</span>
+                        <span>{role.permissions?.includes('ALL') ? 'Toàn quyền quản trị' : `${expandPermissions(role.permissions || [], rolePortal(role)).length} tiêu chí được chọn`}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                     {role.isDefault ? (
-                      <span className="text-slate-400 italic text-[11px] ml-auto">Nhóm quyền mặc định</span>
+                      <><button type="button" onClick={() => openEditRole(role)} className="font-semibold text-orange-700 hover:underline">Xem quyền</button><span className="text-slate-400 italic text-[11px]">Nhóm mặc định</span></>
                     ) : (
                       <>
                         <button
@@ -644,14 +675,11 @@ export const Module1_UsersRoles: React.FC = () => {
                   onChange={e => setNewUserRole(e.target.value as UserAccount['role'])}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                 >
-                  <option value="Quản trị Toàn quyền">Quản trị Toàn quyền</option>
-                  <option value="Quản lý Chuyên môn">Quản lý Chuyên môn</option>
-                  <option value="Nhân viên Vận hành Lớp">Nhân viên Vận hành Lớp</option>
-                  <option value="Giáo viên Giảng dạy">Giáo viên Giảng dạy</option>
+                  {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
                 </select>
               </div>
 
-              {newUserRole === 'Giáo viên Giảng dạy' && (
+              {portal === 'TEACHER' && (
                 <div className="p-3 bg-orange-50/60 rounded-xl border border-orange-100">
                   <label className="block font-semibold text-[#FF5C00] mb-1">
                     Môn chuyên trách cố định (Dành cho Giáo viên) <span className="text-rose-500">*</span>
@@ -823,18 +851,16 @@ export const Module1_UsersRoles: React.FC = () => {
                   Gán Nhóm quyền áp dụng <span className="text-rose-500">*</span>
                 </label>
                 <select
+                  disabled={!can('Tạo, sửa, xóa & Gán Nhóm quyền')}
                   value={editUserRole}
                   onChange={e => setEditUserRole(e.target.value as UserAccount['role'])}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                 >
-                  <option value="Quản trị Toàn quyền">Quản trị Toàn quyền</option>
-                  <option value="Quản lý Chuyên môn">Quản lý Chuyên môn</option>
-                  <option value="Nhân viên Vận hành Lớp">Nhân viên Vận hành Lớp</option>
-                  <option value="Giáo viên Giảng dạy">Giáo viên Giảng dạy</option>
+                  {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
                 </select>
               </div>
 
-              {editUserRole === 'Giáo viên Giảng dạy' && (
+              {portal === 'TEACHER' && (
                 <div className="p-3 bg-orange-50/60 rounded-xl border border-orange-100">
                   <label className="block font-semibold text-[#FF5C00] mb-1">
                     Môn chuyên trách cố định (Dành cho Giáo viên) <span className="text-rose-500">*</span>
@@ -889,13 +915,13 @@ export const Module1_UsersRoles: React.FC = () => {
       {/* ================= MODAL CẤU HÌNH NHÓM QUYỀN 8 PHÂN HỆ ================= */}
       {isRoleModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 h-[min(92dvh,860px)] min-h-0 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-shrink-0">
               <div>
                 <h3 className="font-bold text-base text-slate-800">
                   {editingRole ? `Chỉnh sửa Nhóm quyền: ${editingRole.name}` : 'Tạo Nhóm quyền Mới & Chọn Tính năng'}
                 </h3>
-                <p className="text-xs text-slate-400">Tick chọn trực tiếp các tính năng được phép truy cập trên các nhóm chức năng hệ thống</p>
+                <p className="text-xs text-slate-400">{portalLabels[roleFormPortal]} · Chọn tiêu chí riêng cho từng phân hệ.</p>
               </div>
               <button
                 onClick={() => setIsRoleModalOpen(false)}
@@ -905,7 +931,7 @@ export const Module1_UsersRoles: React.FC = () => {
               </button>
             </div>
 
-            <div className="overflow-y-auto py-4 space-y-4 text-xs pr-1 flex-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4 pr-2 [scrollbar-gutter:stable]"><fieldset disabled={Boolean(editingRole?.isDefault) || !can('Tạo, sửa, xóa & Gán Nhóm quyền')} className="min-w-0 space-y-4 text-xs disabled:opacity-70">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
@@ -913,6 +939,7 @@ export const Module1_UsersRoles: React.FC = () => {
                   </label>
                   <input
                     type="text"
+                    readOnly={Boolean(editingRole && users.some(user => user.role === editingRole.name))}
                     value={roleFormName}
                     onChange={e => setRoleFormName(e.target.value)}
                     placeholder="Ví dụ: Giám sát Trực ca Lớp học"
@@ -933,7 +960,7 @@ export const Module1_UsersRoles: React.FC = () => {
 
               <div className="pt-2">
                 <div className="flex items-center justify-between font-bold text-slate-800 mb-2">
-                  <span>Danh mục Tính năng Toàn hệ thống:</span>
+                  <span>Phân hệ trong {portalLabels[roleFormPortal]} · {selectedPermissions.length} tiêu chí đã chọn</span>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -955,12 +982,15 @@ export const Module1_UsersRoles: React.FC = () => {
 
                 <div className="space-y-3">
                   {systemFeaturesList.map((modGroup, gIdx) => (
-                    <div key={gIdx} className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                      <div className="font-semibold text-slate-800 mb-1.5 flex items-center gap-2">
-                        <Sliders className="w-4 h-4 text-[#FF5C00]" />
-                        <span>{modGroup.mod}</span>
+                    <details key={gIdx} className="border border-slate-200 rounded-xl bg-white">
+                      <summary className="cursor-pointer rounded-xl bg-slate-50 px-3 py-2.5 font-semibold text-slate-800">
+                        {modGroup.mod}<span className="ml-2 text-[10px] font-normal text-slate-400">{modGroup.feats.filter(feat => selectedPermissions.includes(feat)).length}/{modGroup.feats.length} tiêu chí</span>
+                      </summary>
+                      <div className="flex items-center gap-3 border-t border-slate-100 px-3 pt-3 text-[11px]">
+                        <button type="button" className="font-semibold text-orange-700" onClick={() => setSelectedPermissions(previous => [...new Set([...previous, ...modGroup.feats])])}>Chọn cả phân hệ</button>
+                        <button type="button" className="text-slate-500" onClick={() => setSelectedPermissions(previous => previous.filter(feat => !modGroup.feats.includes(feat)))}>Bỏ chọn phân hệ</button>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-600 pl-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600 p-3">
                         {modGroup.feats.map((feat, fIdx) => (
                           <label key={fIdx} className="flex items-center gap-2 cursor-pointer">
                             <input
@@ -973,11 +1003,11 @@ export const Module1_UsersRoles: React.FC = () => {
                           </label>
                         ))}
                       </div>
-                    </div>
+                    </details>
                   ))}
                 </div>
               </div>
-            </div>
+            </fieldset></div>
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2 text-xs flex-shrink-0">
               <button
@@ -989,6 +1019,7 @@ export const Module1_UsersRoles: React.FC = () => {
               </button>
               <button
                 type="button"
+                disabled={Boolean(editingRole?.isDefault) || !can('Tạo, sửa, xóa & Gán Nhóm quyền')}
                 onClick={handleSaveRole}
                 className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
               >

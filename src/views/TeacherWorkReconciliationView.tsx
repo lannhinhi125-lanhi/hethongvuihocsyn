@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
@@ -21,6 +22,7 @@ import { SessionPayrollRecord, DisputeItem } from '../types';
 import { getCurrentPayrollMonth, getPayrollMonthOptions } from '../lib/payrollPeriods';
 
 export const TeacherWorkReconciliationView: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const { currentUser, payrollStore, submitDispute, showToast, teachers, users } = useApp();
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
@@ -69,6 +71,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
 
   // Xuất file CSV / Excel cá nhân gửi bộ phận tính công
   const handleExportPersonalCsv = () => {
+    if (!requirePermission("Xuất bảng công cá nhân")) return;
     if (!myRecord) return;
     const headers = [
       'STT',
@@ -130,6 +133,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
 
   // Gửi giải trình
   const handleSubmitDispute = () => {
+    if (!requirePermission("Gửi giải trình / khiếu nại sai lệch ca dạy")) return;
     if (!myRecord || !selectedSessionForDispute) {
       showToast('Vui lòng chọn ca dạy cần giải trình!', 'error');
       return;
@@ -275,7 +279,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
 
           {/* Nút xuất file đối soát công cá nhân */}
           <button
-            onClick={handleExportPersonalCsv}
+            disabled={!can("Xuất bảng công cá nhân")} onClick={handleExportPersonalCsv}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -602,7 +606,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                 Hủy
               </button>
               <button
-                onClick={handleSubmitDispute}
+                disabled={!can("Gửi giải trình / khiếu nại sai lệch ca dạy")} onClick={handleSubmitDispute}
                 className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer"
               >
                 Gửi đơn giải trình
@@ -697,6 +701,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               </button>
               <button
                 onClick={() => {
+                  if (!requirePermission("Xuất bảng công cá nhân")) return;
                   window.print();
                   setShowPrintModal(false);
                 }}

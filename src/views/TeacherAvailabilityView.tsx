@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import type { ClassItem } from '../types';
@@ -14,11 +15,12 @@ const RegisteredClassSummary: React.FC<{ item: Pick<ClassItem, 'code' | 'name' |
 );
 
 export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; readOnly?: boolean }> = ({ initialTeacherId, readOnly = false }) => {
+  const { can, requirePermission } = usePermissions();
   const { currentUser, teachers, classes, timeSlots, updateTeacher, showToast } = useApp();
 
   const ownTeacher = teachers.find(t => canEditTeacherAvailability(currentUser, t));
   const activeTeacher = initialTeacherId ? teachers.find(t => t.id === initialTeacherId) : ownTeacher;
-  const canEdit = !readOnly && canEditTeacherAvailability(currentUser, activeTeacher);
+  const canEdit = !readOnly && can('Giáo viên đăng ký lịch rảnh theo tuần') && canEditTeacherAvailability(currentUser, activeTeacher);
 
   // BỘ LỌC THỜI GIAN THEO YÊU CẦU: Năm học hiện tại, Tháng, Tuần, Từ ngày - Đến ngày
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
@@ -175,6 +177,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
   };
 
   const handleSaveAvailability = () => {
+    if (!requirePermission("Giáo viên đăng ký lịch rảnh theo tuần")) return;
     if (!canEdit || !activeTeacher) return;
     let freeCount = 0;
     Object.values(scheduleState).forEach(arr => {
@@ -263,7 +266,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
 
           {/* Nút lưu */}
           {canEdit && <button
-            onClick={handleSaveAvailability}
+            disabled={!can("Giáo viên đăng ký lịch rảnh theo tuần")} onClick={handleSaveAvailability}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
           >
             Lưu Lịch Rảnh ({totalFreeSlots} ca)

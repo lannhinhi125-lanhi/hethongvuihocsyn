@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from '../components/CatalogTreeBranch';
 import { IncidentCatalog } from '../components/IncidentCatalog';
 import { CatalogWorkspace } from '../components/CatalogWorkspace';
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 
 export const Module2_MasterData: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const {
     teachingCategories,
     subjects,
@@ -81,6 +83,7 @@ export const Module2_MasterData: React.FC = () => {
 
   // 1. Subject Handlers
   const openSubjectModal = (item?: (typeof subjects)[0]) => {
+    if (!requirePermission("Cấu hình Môn học (Toán, Tiếng Anh) & Khối lớp")) return;
     if (item) {
       setEditingSubjectId(item.id);
       setSubCode(item.code);
@@ -98,6 +101,8 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Cấu hình Môn học (Toán, Tiếng Anh) & Khối lớp")) return;
     e.preventDefault();
     if (!subName.trim()) return;
 
@@ -129,6 +134,7 @@ export const Module2_MasterData: React.FC = () => {
 
   // 2. Level Handlers
   const openLevelModal = (item?: (typeof levels)[0]) => {
+    if (!requirePermission("Cấu hình Khung chương trình / Trình độ")) return;
     if (item) {
       setEditingLevelId(item.id);
       setLvlCode(item.code);
@@ -148,6 +154,8 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveLevel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Cấu hình Khung chương trình / Trình độ")) return;
     e.preventDefault();
     if (!lvlName.trim()) return;
 
@@ -180,6 +188,7 @@ export const Module2_MasterData: React.FC = () => {
 
   // 3. Time Slot Handlers
   const openSlotModal = (item?: (typeof timeSlots)[0]) => {
+    if (!requirePermission("Cấu hình Khung giờ ca dạy chuẩn (Time Slot)")) return;
     if (item) {
       setEditingSlotId(item.id);
       setSlotCode(item.code);
@@ -219,6 +228,8 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveSlot = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Cấu hình Khung giờ ca dạy chuẩn (Time Slot)")) return;
     e.preventDefault();
     if (!slotName.trim()) return;
 
@@ -298,6 +309,7 @@ export const Module2_MasterData: React.FC = () => {
 
   // 5. Model Handlers
   const openModelModal = (item?: (typeof models)[0]) => {
+    if (!requirePermission("Cấu hình Mô hình lớp & Sĩ số trần (1-1, 1-3, 1-5)")) return;
     if (item) {
       setEditingModelId(item.id);
       setModCode(item.code);
@@ -313,6 +325,8 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveModel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Cấu hình Mô hình lớp & Sĩ số trần (1-1, 1-3, 1-5)")) return;
     e.preventDefault();
     if (!modName.trim()) return;
 

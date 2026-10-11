@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { CriteriaCategory, SOPDocument, RAGBotConfig } from '../types';
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 
 export const Module6_AIStudio: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const {
     criteriaCategories,
     setCriteriaCategories,
@@ -103,18 +105,22 @@ export const Module6_AIStudio: React.FC = () => {
 
   // Handlers for Category
   const openAddCategory = () => {
+    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
     setEditingCatId(null);
     setCatNameInput('');
     setIsCatModalOpen(true);
   };
 
   const openEditCategory = (cat: CriteriaCategory) => {
+    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
     setEditingCatId(cat.id);
     setCatNameInput(cat.name);
     setIsCatModalOpen(true);
   };
 
   const handleSaveCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
     e.preventDefault();
     if (!catNameInput.trim()) return;
 
@@ -137,6 +143,7 @@ export const Module6_AIStudio: React.FC = () => {
   };
 
   const handleDeleteCategory = (catId: string, name: string) => {
+    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
     if (window.confirm(`Xóa danh mục "${name}"?`)) {
       setCriteriaCategories(prev => prev.filter(c => c.id !== catId));
       showToast(`Đã xóa danh mục "${name}"!`, 'info');
@@ -145,6 +152,7 @@ export const Module6_AIStudio: React.FC = () => {
 
   // Handlers for Criterion
   const openAddCriterion = (preCatId?: string) => {
+    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
     setEditingCriId(null);
     const targetCategory = filteredCategories.find(category => category.id === preCatId) || filteredCategories[0];
     setSelectedParentCatId(targetCategory?.id || '');
@@ -158,6 +166,7 @@ export const Module6_AIStudio: React.FC = () => {
   };
 
   const openEditCriterion = (catId: string, criId: string) => {
+    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
     const cat = criteriaCategories.find(c => c.id === catId);
     const cri = cat?.criteria.find(cr => cr.id === criId);
     if (!cat || !cri) return;
@@ -171,6 +180,8 @@ export const Module6_AIStudio: React.FC = () => {
   };
 
   const handleSaveCriterion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
     e.preventDefault();
     if (!criNameInput.trim()) return;
 
@@ -238,6 +249,7 @@ export const Module6_AIStudio: React.FC = () => {
 
   // Simulator generate
   const handleSimulateAiGeneration = () => {
+    if (!requirePermission("Sử dụng AI sinh & tinh chỉnh nhận xét học sinh")) return;
     if (simUsageCount >= 2) {
       showToast('Bạn đã sử dụng hết hạn mức tạo nhận xét AI (2 lần/buổi). Vui lòng tự tinh chỉnh câu chữ!', 'warning');
       return;
@@ -268,6 +280,7 @@ export const Module6_AIStudio: React.FC = () => {
 
   // SOP Document CRUD
   const openEditDocument = (doc: SOPDocument) => {
+    if (!requirePermission("Quản lý kho tài liệu tri thức SOP")) return;
     setEditingDocId(doc.id);
     setDocTitle(doc.title);
     setDocCategory(doc.category);
@@ -280,6 +293,7 @@ export const Module6_AIStudio: React.FC = () => {
   };
 
   const handleDocumentFileSelect = async (file?: File) => {
+    if (!requirePermission("Quản lý kho tài liệu tri thức SOP")) return;
     if (!file) return;
     const extension = file.name.split('.').pop()?.toLowerCase();
     if (extension !== 'pdf' && extension !== 'docx') {
@@ -308,6 +322,8 @@ export const Module6_AIStudio: React.FC = () => {
   };
 
   const handleSaveDocument = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Quản lý kho tài liệu tri thức SOP")) return;
     e.preventDefault();
     if (isExtractingDocument) {
       showToast('Vui lòng đợi đọc xong tệp trước khi lưu.', 'warning');
@@ -352,6 +368,7 @@ export const Module6_AIStudio: React.FC = () => {
   };
 
   const toggleDocumentScope = (document: SOPDocument) => {
+    if (!requirePermission("Quản lý kho tài liệu tri thức SOP")) return;
     const isEnabled = document.isEnabled !== false;
     setSopDocuments(previous => previous.map(item =>
       item.id === document.id ? { ...item, isEnabled: !isEnabled } : item
@@ -364,6 +381,8 @@ export const Module6_AIStudio: React.FC = () => {
 
   // Sandbox chat
   const handleSandboxSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Chatbot AI 24/7 tra cứu quy chế & nghiệp vụ")) return;
     e.preventDefault();
     const query = sandboxInput.trim();
     if (!query) return;
@@ -437,7 +456,7 @@ export const Module6_AIStudio: React.FC = () => {
 
             <div className="flex items-center gap-2 w-full md:w-auto justify-end">
               <button
-                onClick={openAddCategory}
+                disabled={!can("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")} onClick={openAddCategory}
                 className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1.5 border border-slate-300 transition-all cursor-pointer"
               >
                 <FolderPlus className="w-4 h-4 text-[#FF5C00]" />
@@ -631,7 +650,7 @@ export const Module6_AIStudio: React.FC = () => {
                     Hạn mức AI: <span className="font-bold text-emerald-600">Đã dùng {simUsageCount}/2 lần</span>
                   </span>
                   <button
-                    onClick={handleSimulateAiGeneration}
+                    disabled={!can("Sử dụng AI sinh & tinh chỉnh nhận xét học sinh")} onClick={handleSimulateAiGeneration}
                     className="px-3.5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Sparkles className="w-3.5 h-3.5" />

@@ -1,3 +1,4 @@
+import { usePermissions } from '../hooks/usePermissions';
 import { ColumnFilter } from '../components/ColumnFilter';
 import { canManageTeacherProfiles } from '../lib/teacherAccounts';
 import React, { useState } from 'react';
@@ -43,12 +44,14 @@ import {
 } from 'lucide-react';
 
 export const Module3_Teachers: React.FC = () => {
+  const { can, requirePermission } = usePermissions();
   const { teachers, setTeachers, timeSlots, createTeacherWithAccount, updateTeacher, showToast, users, currentUser, roleGroups, subjects, teachingCategories } = useApp();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
   const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>(['1-1', '1-n']);
+  const canCreateProfiles = can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') || can('Tạo hồ sơ giáo viên (Gán 1 môn Toán/Anh)');
   const canManageProfiles = canManageTeacherProfiles(currentUser, roleGroups);
   const activeSubjects = subjects.filter(subject => subject.status);
   const activeCategories = teachingCategories.filter(category => category.status !== false);
@@ -284,7 +287,7 @@ export const Module3_Teachers: React.FC = () => {
       return;
     }
 
-    if (!canManageProfiles) return;
+    if (!canCreateProfiles) return;
     const category = activeCategories.find(c => c.id === newTeacherLevel);
     const subject = activeSubjects.find(s => s.code === newTeacherSubject);
     if (!category || !subject) { showToast('Vui lòng chọn môn và cấp học từ danh mục đang hoạt động.', 'error'); return; }
@@ -328,6 +331,8 @@ export const Module3_Teachers: React.FC = () => {
   };
 
   const handleSubmitGrading = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requirePermission("Thực hiện chấm điểm dự giờ sư phạm (3 tiêu chí)")) return;
     e.preventDefault();
     if (!gradingTeacher || !selectedSessionForGrading) return;
     const recipient = resolveTeacherAccount(gradingTeacher, users);
@@ -487,7 +492,7 @@ export const Module3_Teachers: React.FC = () => {
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                 <button
-                  disabled={!canManageProfiles} onClick={() => { if (canManageProfiles) { setNewTeacherSubject(activeSubjects[0]?.code || ''); setNewTeacherLevel(activeCategories[0]?.id || ''); setIsCreateModalOpen(true); } }}
+                  disabled={!canCreateProfiles} onClick={() => { if (canCreateProfiles) { setNewTeacherSubject(activeSubjects[0]?.code || ''); setNewTeacherLevel(activeCategories[0]?.id || ''); setIsCreateModalOpen(true); } }}
                   className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <UserPlus className="w-4 h-4 font-bold" />
@@ -896,7 +901,7 @@ export const Module3_Teachers: React.FC = () => {
       )}
 
       {/* ================= MODAL: THÊM HỒ SƠ GIÁO VIÊN ================= */}
-      {isCreateModalOpen && canManageProfiles && (
+      {isCreateModalOpen && canCreateProfiles && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
