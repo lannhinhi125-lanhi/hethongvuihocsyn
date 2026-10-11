@@ -58,6 +58,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     { id: 8, label: 'Báo cáo & Thống kê', icon: PieChart }
   ];
 
+  const adminNavGroups = [
+    { title: 'Hệ thống & Cấu hình', ids: [1, 2] },
+    { title: 'Vận hành đào tạo', ids: [3, 4, 5] },
+    { title: 'Đối soát & Quản trị', ids: [6, 7, 8] }
+  ];
+
   // Menu Cổng Giáo viên & Gia sư theo đúng luồng:
   // 1. Đăng ký lịch rảnh (lên đầu) -> 2. Lịch dạy & Phòng học -> 3. Hồ sơ & Chuyên môn -> 4. Đối soát công ca dạy
   const teacherNavItems = [
@@ -109,83 +115,69 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       )}
 
       <aside
-        className={`fixed lg:static inset-y-0 left-0 w-60 bg-[#0B0F19] text-slate-300 flex-shrink-0 flex flex-col justify-between border-r border-slate-800/80 z-30 transition-transform duration-300 ${
+        className={`fixed lg:static inset-y-0 left-0 w-64 bg-[#131329] text-slate-300 flex-shrink-0 flex flex-col justify-between border-r border-white/5 z-50 transition-transform duration-300 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex flex-col h-full overflow-y-auto">
+        <div className="flex min-h-0 h-full flex-col">
           {/* Brand Logo VUIHOC TUTOR - Figma style clean mark */}
-          <div className="p-4 pb-3 border-b border-slate-800/80 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm tracking-tight shadow-xs">
+          <div className="px-5 py-4 border-b border-white/10 flex shrink-0 items-center gap-3 bg-gradient-to-b from-white/10 to-transparent">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-300 to-[#FF5C00] flex items-center justify-center text-white font-bold text-xl tracking-tight shadow-xs">
               V
             </div>
             <div>
               <h1 className="font-semibold text-sm tracking-tight text-white leading-tight">
-                VUIHOC <span className="text-indigo-400 font-medium">TUTOR</span>
+                VUIHOC <span className="text-orange-400 font-semibold">TUTOR</span>
               </h1>
-              <p className="text-[10px] uppercase tracking-wider font-medium text-slate-400">Operations Platform</p>
+              <p className="text-[11px] font-normal text-[#9BAED4]">Vận hành Trực tuyến</p>
             </div>
           </div>
 
           {/* Navigation Menu */}
-          <nav className="p-3 space-y-1 text-xs flex-1">
-            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2 pt-1">
-              {workspaceMode === 'ADMIN' ? 'HỆ THỐNG & VẬN HÀNH' : 'CỔNG GIẢNG DẠY'}
-            </div>
-
+          <nav aria-label={workspaceMode === 'ADMIN' ? 'Điều hướng cổng quản trị' : 'Điều hướng cổng giảng dạy'} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-5 text-xs [scrollbar-width:thin]">
             {workspaceMode === 'ADMIN' ? (
-              // QUẢN TRỊ VIÊN
-              adminNavItems.filter(item => canModule('PH' + item.id)).map(item => {
-                const isActive = activeModule === item.id;
-                const Icon = item.icon;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleAdminNavClick(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors text-left cursor-pointer text-xs ${
-                      isActive
-                        ? 'bg-indigo-600 text-white font-medium shadow-xs'
-                        : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                      <span className="truncate tracking-tight">{item.label}</span>
-                    </div>
-                  </button>
-                );
+              adminNavGroups.map(group => {
+                const items = adminNavItems.filter(item => group.ids.includes(item.id) && canModule('PH' + item.id));
+                if (!items.length) return null;
+                return <section key={group.title} aria-label={group.title} className="mb-6 last:mb-0">
+                  <h2 className="mb-3 px-3 text-[10px] font-bold uppercase tracking-wider text-[#687FA9]">{group.title}</h2>
+                  <div className="space-y-1">
+                    {items.map(item => {
+                      const isActive = activeModule === item.id;
+                      const Icon = item.icon;
+                      return <button type="button" key={item.id} aria-current={isActive ? 'page' : undefined} title={item.label}
+                        onClick={() => handleAdminNavClick(item.id)}
+                        className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${isActive ? 'bg-[#FF5C00] text-white font-semibold shadow-sm' : 'text-[#A9BDE2] hover:bg-white/5 hover:text-white'}`}>
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="leading-5">{item.label}</span>
+                      </button>;
+                    })}
+                  </div>
+                </section>;
               })
             ) : (
-              // CỔNG GIÁO VIÊN & GIA SƯ
-              teacherNavItems.filter(item => canModule(teacherModuleIds[item.id])).map(item => {
-                const isActive = teacherPortalTab === item.id;
-                const Icon = item.icon;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleTeacherNavClick(item.id as any)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors text-left cursor-pointer text-xs ${
-                      isActive
-                        ? 'bg-indigo-600 text-white font-medium shadow-xs'
-                        : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                      <span className="truncate tracking-tight">{item.label}</span>
-                    </div>
-                  </button>
-                );
-              })
+              <section aria-label="Cổng giảng dạy">
+                <h2 className="mb-3 px-3 text-[10px] font-bold uppercase tracking-wider text-[#687FA9]">Cổng giảng dạy</h2>
+                <div className="space-y-1">
+                  {teacherNavItems.filter(item => canModule(teacherModuleIds[item.id])).map(item => {
+                    const isActive = teacherPortalTab === item.id;
+                    const Icon = item.icon;
+                    return <button type="button" key={item.id} aria-current={isActive ? 'page' : undefined} title={item.label}
+                      onClick={() => handleTeacherNavClick(item.id)}
+                      className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${isActive ? 'bg-[#FF5C00] text-white font-semibold shadow-sm' : 'text-[#A9BDE2] hover:bg-white/5 hover:text-white'}`}>
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="leading-5">{item.label}</span>
+                    </button>;
+                  })}
+                </div>
+              </section>
             )}
           </nav>
 
           {/* User Profile Footer */}
-          <div className="p-3 border-t border-slate-800/80 bg-slate-900/50 text-xs text-slate-400 space-y-2">
+          <div className="p-3 shrink-0 border-t border-white/10 bg-black/10 text-xs text-slate-400 space-y-2">
             <div className="flex items-center gap-2 px-1 text-[10px] leading-none" aria-label="Thời gian hiện tại">
-              <Clock className="w-3.5 h-3.5 text-indigo-300" />
+              <Clock className="w-3.5 h-3.5 text-orange-300" />
               <time dateTime={currentTime.toISOString()} className="font-semibold tracking-wide text-slate-300">
                 {currentTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
               </time>
