@@ -1,4 +1,4 @@
-import { runtimeStorage } from '../lib/localData';
+import { useBusinessValue } from '../lib/businessPersistence';
 import { PaginatedTableBody } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from './CatalogTreeBranch';
@@ -9,26 +9,13 @@ import { useApp } from '../context/AppContext';
 type Entry = { id: string; code: string; name: string; desc: string; status: boolean };
 type Catalog = { id: string; code: string; name: string; desc: string; parentId?: string; entries: Entry[] };
 type Navigation = { id: string; name: string; group: string; count: number };
-const storageKey = 'vuihoc_shared_custom_catalogs_v1';
 const input = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500';
 const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40';
-function readCatalogs(): Catalog[] {
-  try {
-    const stored: unknown = JSON.parse(runtimeStorage.getItem(storageKey) || '[]');
-    if (!Array.isArray(stored)) return [];
-    const ids = new Set<string>();
-    return stored.filter((item): item is Catalog => {
-      if (!item || typeof item.id !== 'string' || ids.has(item.id) || typeof item.code !== 'string' || typeof item.name !== 'string' || (item.parentId !== undefined && typeof item.parentId !== 'string') || typeof item.desc !== 'string' || !Array.isArray(item.entries)) return false;
-      if (!item.entries.every((entry: Entry) => entry && typeof entry.id === 'string' && typeof entry.code === 'string' && typeof entry.name === 'string' && typeof entry.desc === 'string' && typeof entry.status === 'boolean')) return false;
-      ids.add(item.id); return true;
-    });
-  } catch { return []; }
-}
 export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; onSelect: (id: string) => void; children: React.ReactNode }> = ({ items, active, onSelect, children }) => {
   const { currentUser, roleGroups, showToast } = useApp();
   const { can } = usePermissions();
   const canEdit = can("Tạo danh mục bổ sung và danh mục con");
-  const [catalogs, setCatalogs] = useState<Catalog[]>(readCatalogs);
+  const [catalogs, setCatalogs] = useBusinessValue<Catalog[]>('custom_catalogs');
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const toggleBranch = (id: string) => setExpandedIds(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id]);
   const [selectedId, setSelectedId] = useState('');
@@ -51,7 +38,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   }, [selectedId, catalogs]);
   const persist = (next: Catalog[]) => {
     if (!canEdit) return false;
-    try { runtimeStorage.setItem(storageKey, JSON.stringify(next)); setCatalogs(next); return true; }
+    try { setCatalogs(next); return true; }
     catch { showToast('Không thể lưu danh mục trong phiên làm việc.', 'error'); return false; }
   };
   useEffect(() => {

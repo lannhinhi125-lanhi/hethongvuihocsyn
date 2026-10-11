@@ -33,20 +33,9 @@ Không cần chạy migration riêng sau khi đã chạy schema.sql mới. Migra
 
 ## Trạng thái tích hợp
 
-Đã nối đăng nhập riêng và đọc/lưu tài khoản, nhóm quyền bằng SQL RPC; **không dùng Supabase Auth**. Chạy migration theo SIMPLE_ACCOUNTS.md và ENCRYPTED_PASSWORDS.md; database cũ đã có quản trị không cần đặt lại mật khẩu. Ngoài tạo/đọc hồ sơ giáo viên, các màn nghiệp vụ khác chưa nối CRUD và chưa chuyển sang bảng nghiệp vụ mới. Chỉ nhập URL/key chưa đủ để mọi màn lưu được. RLS tiếp tục chặn truy cập bảng trực tiếp từ anon.
+Đã nối đọc/lưu các dữ liệu nghiệp vụ UI hiện có bằng RPC qua phiên đăng nhập. Database đang có cần chạy [migrations/20261011_business_persistence.sql](migrations/20261011_business_persistence.sql). Xem [BUSINESS_PERSISTENCE.md](BUSINESS_PERSISTENCE.md) để biết phạm vi đã nối, bước triển khai và những nguồn JSONB còn cần chuyển đổi để hoàn tất chuẩn hóa. Tệp schema.sql mới đã chứa migration này.
 
-Dữ liệu cũ trong JSONB không tự chuyển sang các bảng mới. Những phần còn cần xử lý khi nối giao diện:
-
-- Lịch rảnh phải ghi vào LICH_RANH_TUAN/CHI_TIET_LICH_RANH theo đúng tuần.
-- Ca dùng BUOI_HOC.madinhdanh; các màn dùng cùng mã ca thay vì map buổi 1/2.
-- Sự cố/cover/công chuyển sang nguồn mới; bỏ tháng cố định trong hai hàm AppContext cũ.
-- Biên bản dự giờ dùng BIEN_BAN_DU_GIO làm nguồn chính thay vì mảng baocaodanhgia.
-- API cũ còn dùng tên bảng tiếng Anh cần thay bằng tên/mapper hiện tại.
-- Danh mục bổ sung, mẫu báo cáo, lượt AI hiện còn trong bộ nhớ.
-- Chatbot và tệp minh chứng/tệp SOP cần lưu trữ riêng; metadata tệp không phải nội dung tệp.
-- Kiểm tra quyền, học sinh thuộc lớp, xếp lịch trùng và lưu đồng thời ở backend.
-
-Sau khi tích hợp, nghiệm thu bằng thao tác UI → database xác nhận → tải lại trang → tài khoản khác xem đúng quyền. Các bài kiểm tra hiện tại không thay thế nghiệm thu trên Supabase thật.
+Chưa chạy migration lên Supabase thật trong phiên này. Chưa upload tệp nhị phân lên Storage; chatbot/AI còn mô phỏng. Không dùng Supabase Auth, RLS vẫn chặn truy cập bảng trực tiếp từ anon.
 
 ## Kiểm tra cục bộ
 

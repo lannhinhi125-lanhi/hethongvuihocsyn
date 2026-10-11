@@ -1,3 +1,5 @@
+import { useBusinessValue } from '../lib/businessPersistence';
+import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -75,6 +77,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Danh sách ca dạy toàn hệ thống
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
+  const [persistedLessons] = useBusinessValue<Record<string,any>[]>('dated_lessons');
+  const [persistedIncidents] = useBusinessValue<Record<string,any>[]>('lesson_incidents');
+  const saveSessions = (action: React.SetStateAction<MonitoringSession[]>) => {
+    const next=typeof action==='function'?action(sessions):action;
+    try {persistMonitoringChanges(sessions,next,persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents,currentUser.id);return true;}
+    catch(error){showToast((error as Error).message,'error');return false;}
+  };
 
   useEffect(() => {
     const classCheckins = new Map<string, { checkinTime: string; attendance: 'ATTENDED' | 'LATE'; teacherName: string }>();
@@ -131,11 +140,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           const coverAssignment = cls.coverAssignments?.find(assignment =>
             assignment.sessionNum === sessionNum && assignment.dateStr === sessionDate
           );
-          const existing = sessions.find(session => session.classCode === cls.code && session.sessionDate === sessionDate && session.timeSlot === entry.timeSlot);
+          const local = sessions.find(session => session.classCode === cls.code && session.sessionDate === sessionDate && session.timeSlot === entry.timeSlot);
+          const stored = persistedLessons.find(l=>l.classId===cls.id&&l.date===sessionDate&&timeSlots.find(t=>t.id===l.timeSlotId)?.timeRange===entry.timeSlot);
+          const existing = local && stored ? storedMonitoringSession(local,persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents) : undefined;
           const assignedStudents = cls.studentIds.map(studentId => students.find(student => student.id === studentId)).filter((student): student is NonNullable<typeof student> => Boolean(student));
           const sessionCode = existing?.sessionCode || `${cls.code}-${sessionDate}-${sessionNum}`;
           const teacherAttendance = activeSession?.teacherAttendance || (activeSession?.checkinTime ? 'ATTENDED' : undefined);
-          generated.push({
+          generated.push(storedMonitoringSession({
             ...(existing || {
               sessionCode,
               sessionDate,
@@ -197,7 +208,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               aiComment: '',
               criteria: []
             }))
-          });
+          },persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents));
         });
       }
     });
@@ -208,33 +219,12 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         const index = merged.findIndex(existing => existing.sessionCode === session.sessionCode);
         if (index < 0) merged.push(session);
         else {
-          const existing = merged[index];
-          merged[index] = {
-            ...existing,
-            className: session.className,
-            primaryTeacher: session.primaryTeacher,
-            levelText: session.levelText,
-            subject: session.subject,
-            grade: session.grade,
-            room: session.room,
-            roomUrl: session.roomUrl,
-            coverTeacher: session.coverTeacher,
-            attendance: session.checkinTime ? session.attendance : existing.attendance,
-            checkinTime: session.checkinTime || existing.checkinTime,
-            status: existing.status === 'DA_HOC'
-              ? existing.status
-              : session.coverTeacher
-                ? 'DAY_THAY'
-                : existing.hasIncident && existing.status !== 'DAY_THAY'
-                  ? existing.status
-                  : session.status,
-            students: session.students
-          };
+          merged[index] = session;
         }
       });
       return merged;
     });
-  }, [classes, students, levels, dateFrom, dateTo, selectedMonth]);
+  }, [classes, students, levels, dateFrom, dateTo, selectedMonth, persistedLessons, persistedIncidents]);
 
   // Bộ lọc cột cho Tab 1 (Nhật ký & Giám sát buổi học)
   const [colFilterCode, setColFilterCode] = useState('');
@@ -564,25 +554,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       return;
     }
 
-    if (targetClass && sessionNum > 0 && selectedIncidentSession.status !== 'DA_HOC') {
-      setClasses(previous => previous.map(cls => {
-        if (cls.id !== targetClass.id) return cls;
-        const coverAssignments = (cls.coverAssignments || []).filter(assignment =>
-          assignment.sessionNum !== sessionNum || assignment.dateStr !== selectedIncidentSession.sessionDate
-        );
-        if (incParent === 'GRP-TCH' && incHasCover && coverTeacher) {
-          coverAssignments.push({
-            sessionNum,
-            dateStr: selectedIncidentSession.sessionDate,
-            teacherId: coverTeacher.id,
-            teacherName: coverTeacher.name
-          });
-        }
-        return { ...cls, coverAssignments };
-      }));
-    }
-
-    setSessions(prev => {
+    if (!saveSessions(prev => {
       const updated = prev.map(s => {
         if (s.sessionCode === selectedIncidentSession.sessionCode) {
           let nextCover = s.coverTeacher;
@@ -623,7 +595,25 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         return { ...s, isJustUpdated: false };
       });
       return updated;
-    });
+    })) return;
+
+    if (targetClass && sessionNum > 0 && selectedIncidentSession.status !== 'DA_HOC') {
+      setClasses(previous => previous.map(cls => {
+        if (cls.id !== targetClass.id) return cls;
+        const coverAssignments = (cls.coverAssignments || []).filter(assignment =>
+          assignment.sessionNum !== sessionNum || assignment.dateStr !== selectedIncidentSession.sessionDate
+        );
+        if (incParent === 'GRP-TCH' && incHasCover && coverTeacher) {
+          coverAssignments.push({
+            sessionNum,
+            dateStr: selectedIncidentSession.sessionDate,
+            teacherId: coverTeacher.id,
+            teacherName: coverTeacher.name
+          });
+        }
+        return { ...cls, coverAssignments };
+      }));
+    }
 
     showToast(`Đã lưu biên bản ca ${selectedIncidentSession.sessionCode}! Vận hành phụ trách: ${currentOps.name}.`, 'success');
     setSelectedIncidentSession(null);
@@ -667,7 +657,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const handleQuickCheckin = (sessionCode: string) => {
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     const curTime = getCurrentEffectiveTime();
-    setSessions(prev =>
+    saveSessions(prev =>
       prev.map(s =>
         s.sessionCode === sessionCode
           ? {
@@ -685,7 +675,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Đặt lại trạng thái chưa vào lớp để kiểm thử lại
   const handleResetCheckin = (sessionCode: string) => {
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
-    setSessions(prev =>
+    saveSessions(prev =>
       prev.map(s =>
         s.sessionCode === sessionCode
           ? {
@@ -709,7 +699,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     const checkinTimeStr = type === 'ON_TIME' ? '17:55:00' : '18:08:30';
     const attendanceVal = type === 'ON_TIME' ? 'ATTENDED' : 'LATE';
 
-    setSessions(prev =>
+    saveSessions(prev =>
       prev.map(s =>
         s.sessionCode === simSessionCode
           ? {

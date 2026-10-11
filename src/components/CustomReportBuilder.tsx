@@ -1,4 +1,4 @@
-import { runtimeStorage } from '../lib/localData';
+import { useBusinessValue } from '../lib/businessPersistence';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Table, Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw, Plus } from 'lucide-react';
@@ -12,26 +12,12 @@ import {
 const control = 'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500';
 const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40';
 import { PAGE_SIZE, PaginatedList } from './Pagination';
-const templateKey = (userId: string) => 'vuihoc_custom_report_templates_v1_' + userId;
-function readTemplates(userId: string, datasets: ReportDataset[]): SavedReportTemplate[] {
-  try {
-    const stored: unknown = JSON.parse(runtimeStorage.getItem(templateKey(userId)) || '[]');
-    if (!Array.isArray(stored)) return [];
-    const ids = new Set<string>();
-    return stored.flatMap(item => {
-      if (!item || typeof item !== 'object' || typeof item.id !== 'string' || typeof item.name !== 'string' ||
-        !item.name.trim() || !datasets.some(dataset => dataset.id === item.config?.datasetId) || ids.has(item.id)) return [];
-      ids.add(item.id);
-      return [{ id: item.id, name: item.name.slice(0, 80), config: normalizeReportConfig(item.config, datasets) }];
-    }).slice(0, 20);
-  } catch { return []; }
-}
 const displayDate = (value: string) => value ? value.slice(8, 10) + '/' + value.slice(5, 7) + '/' + value.slice(0, 4) : '';
 export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ datasets }) => {
   const { can, requirePermission } = usePermissions();
   const { currentUser, showToast } = useApp();
   const [config, setConfig] = useState<CustomReportConfig>(() => defaultReportConfig(datasets[0]));
-  const [templates, setTemplates] = useState(() => readTemplates(currentUser.id, datasets));
+  const [templates, setTemplates] = useBusinessValue<SavedReportTemplate[]>('report_templates');
   const [templateId, setTemplateId] = useState('');
   const [view, setView] = useState<'table' | 'chart'>('table');
   const [search, setSearch] = useState('');
@@ -45,7 +31,6 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
   const [detailPage, setDetailPage] = useState(0);
   const [chartMetricId, setChartMetricId] = useState('');
   useEffect(() => {
-    setTemplates(readTemplates(currentUser.id, datasets));
     setTemplateId('');
     setConfig(defaultReportConfig(datasets[0]));
     setSaveOpen(false); setCreateOpen(false); setDeleteOpen(false); setFilterOpen(false); setDetailKey(null);
@@ -92,7 +77,6 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
   const persistTemplates = (next: SavedReportTemplate[]) => {
     if (!requirePermission('Lưu và quản lý mẫu báo cáo tùy chỉnh')) return false;
     try {
-      runtimeStorage.setItem(templateKey(currentUser.id), JSON.stringify(next));
       setTemplates(next); return true;
     } catch { showToast('Không thể lưu mẫu trong phiên làm việc. Cấu hình hiện tại vẫn được giữ.', 'error'); return false; }
   };
@@ -107,7 +91,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     const next = overwrite && selectedTemplate ? templates.map(item => item.id === templateId ? saved : item) : [saved, ...templates];
     if (persistTemplates(next)) {
       setTemplateId(saved.id); setSaveOpen(false);
-      showToast('Đã lưu cấu hình báo cáo. Mẫu được giữ trong phiên làm việc này.', 'success');
+      showToast('Đang lưu mẫu báo cáo lên Supabase…', 'success');
     }
   };
   const exportCsv = () => {

@@ -1,5 +1,6 @@
-import { loadTeacherData, persistTeacher } from '../lib/teacherPersistence';
-import { useAccountSession, setSessionUsers, setSessionGroups, logoutAccount } from '../lib/accountSession';
+import { useBusinessValue, useBusinessStatus, loadBusinessData, resetBusinessData, acceptBusinessTeacher, businessSaving, getBusinessSnapshot } from '../lib/businessPersistence';
+import { persistTeacher } from '../lib/teacherPersistence';
+import { teacherSessionRequest, useAccountSession, setSessionUsers, setSessionGroups, logoutAccount } from '../lib/accountSession';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, isPreviewAccount } from '../lib/previewMode';
 import { assignedRole, hasPermission, changedFields, accountPortal } from '../lib/accessControl';
 import { classChangeAllowed, teacherChangeAllowed, incidentChangeAllowed } from '../lib/mutationPermissions';
@@ -96,7 +97,7 @@ interface AppContextType {
   batchImportRoomLinks: (updates: { classCode: string; roomLink: string }[]) => { updated: number; skipped: number };
 
   // PH5: Operations & Monitoring (Giám sát ca & Cover)
-  reportIncidentToSession: (sessionId: string, incidentType: string, note: string) => void;
+  reportIncidentToSession: (classCode: string, incidentCode: string, note: string, date: string, timeRange: string) => Promise<boolean>;
   assignCoverTeacher: (sessionId: string, newTeacherName: string) => void;
 
   // PH6: AI Studio
@@ -141,33 +142,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const users = accountSession.users, roleGroups = accountSession.groups;
   const setUsers = setSessionUsers, setRoleGroups = setSessionGroups;
   useEffect(() => { setCurrentUser(accountSession.actor || EMPTY_USER); }, [accountSession.actor]);
-  const [teachingCategories, setTeachingCategories] = useState<CategoryGroup[]>([]);
-  const [subjects, setSubjects] = useState<SubjectItem[]>([]);
-  const [levels, setLevels] = useState<LevelItem[]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlotItem[]>([]);
-  const [models, setModels] = useState<ClassModelItem[]>([]);
-  const [incidents, setIncidents] = useState<IncidentCategory[]>([]);
-  const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
-  const [students, setStudents] = useState<StudentRecord[]>([]);
-  const [classes, setClasses] = useState<ClassItem[]>([]);
-  const [criteriaCategories, setCriteriaCategories] = useState<CriteriaCategory[]>([]);
-  const [sopDocuments, setSopDocuments] = useState<SOPDocument[]>([]);
-  const [ragBotConfig, setRagBotConfig] = useState<RAGBotConfig>(EMPTY_RAG_CONFIG);
-  const [activeToneKey, setActiveToneKey] = useState<string>('');
-  const [toneDirectives, setToneDirectives] = useState<Record<string, { name: string; directive: string }>>({});
-  const [payrollStore, setPayrollStore] = useState<Record<string, MonthPayrollData>>({});
+  const [teachingCategories, setTeachingCategories] = useBusinessValue<CategoryGroup[]>('teaching_categories');
+  const [subjects, setSubjects] = useBusinessValue<SubjectItem[]>('subjects');
+  const [levels, setLevels] = useBusinessValue<LevelItem[]>('levels');
+  const [timeSlots, setTimeSlots] = useBusinessValue<TimeSlotItem[]>('time_slots');
+  const [models, setModels] = useBusinessValue<ClassModelItem[]>('class_models');
+  const [incidents, setIncidents] = useBusinessValue<IncidentCategory[]>('incident_categories');
+  const [teachers, setTeachers] = useBusinessValue<TeacherProfile[]>('teachers');
+  const [students, setStudents] = useBusinessValue<StudentRecord[]>('students');
+  const [classes, setClasses] = useBusinessValue<ClassItem[]>('classes');
+  const [criteriaCategories, setCriteriaCategories] = useBusinessValue<CriteriaCategory[]>('criteria_categories');
+  const [sopDocuments, setSopDocuments] = useBusinessValue<SOPDocument[]>('sop_documents');
+  const [ragBotConfig, setRagBotConfig] = useBusinessValue<RAGBotConfig>('rag_bot_config');
+  const [activeToneKey, setActiveToneKey] = useBusinessValue<string>('active_tone_key');
+  const [toneDirectives, setToneDirectives] = useBusinessValue<Record<string, { name: string; directive: string }>>('tone_directives');
+  const [payrollStore, setPayrollStore] = useBusinessValue<Record<string, MonthPayrollData>>('monthly_payroll');
+  const businessStatus = useBusinessStatus();
   const teacherAccess = JSON.stringify(accountSession.groups.map(g=>[g.id,g.permissions,g.portal]));
   useEffect(() => {
-    let cancelled = false;
-    setTeachers([]); setSubjects([]); setTeachingCategories([]); setLevels([]); setTimeSlots([]); setModels([]);
-    if (!accountSession.actor || isPreviewAccount(accountSession.actor)) return;
-    void loadTeacherData().then(data => {
-      if (cancelled) return;
-      setTeachers(data.teachers); setSubjects(data.subjects); setTeachingCategories(data.teachingCategories);
-      setLevels(data.levels); setTimeSlots(data.timeSlots); setModels(data.models);
-    }).catch(error => { if (!cancelled) showToast((error as Error).message,'error'); });
-    return () => { cancelled = true; };
+    resetBusinessData();
+    if (accountSession.actor && !isPreviewAccount(accountSession.actor)) void loadBusinessData();
+    return resetBusinessData;
   }, [accountSession.actor?.id, accountSession.actor?.roleGroupId, teacherAccess]);
+  useEffect(() => { if (businessStatus.error) showToast(businessStatus.error,'error'); },[businessStatus.error]);
+  useEffect(() => { if (businessStatus.saved) showToast('Đã lưu dữ liệu lên Supabase.','success'); },[businessStatus.saved]);
   // Tự động chuyển workspace khi đổi user
   useEffect(() => {
     if (accountPortal(currentUser, roleGroups) === 'TEACHER') {
@@ -178,7 +176,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser, roleGroups]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-    const id = Date.now().toString();
+    if (type === 'success' && getBusinessSnapshot().error) return;
+    if (type === 'success' && businessSaving()) { message='Đang lưu dữ liệu lên Supabase…'; type='info'; }
+    const id = Date.now().toString() + Math.random().toString(36).slice(2);
     setToasts(prev => [...prev, { id, type, message }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
@@ -236,7 +236,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') && !can('Tạo hồ sơ và cấp tài khoản giáo viên')) { showToast('Bạn chưa được cấp quyền tạo hồ sơ giáo viên.', 'error'); return null; }
     try {
       const result = await persistTeacher(profile);
-      setTeachers(previous => [result.teacher,...previous.filter(t=>t.id!==result.id)]);
+      acceptBusinessTeacher(result.teacher);
       return {id:result.id,username:result.username,password:result.password};
     } catch (error) { showToast((error as Error).message,'error'); return null; }
   };
@@ -261,7 +261,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (editsProfile && teacher) {
       const linked = users.find(u => u.id === teacher.id || (teacher.username && u.username === teacher.username) || (teacher.email && u.email.toLowerCase() === teacher.email.toLowerCase()));
       if (updates.email && users.some(u => u.id !== linked?.id && u.email.toLowerCase() === updates.email!.trim().toLowerCase())) { showToast('Email đã được sử dụng.', 'error'); return false; }
-      if (linked) setUsers(prev => prev.map(u => u.id === linked.id ? { ...u, name: updates.name ?? u.name, email: updates.email ?? u.email, phone: updates.phone ?? u.phone, subject: updates.subject ?? u.subject } : u));
     }
     setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     showToast('Cập nhật hồ sơ Giáo viên thành công!', 'success');
@@ -381,57 +380,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // PH5: Operations & Monitoring (Điều phối Cover & Báo cáo Sự cố liên thông PH7)
-  const reportIncidentToSession = (sessionId: string, incidentType: string, note: string) => {
-    if (!can('Ghi nhận và xử lý sự cố ca dạy')) {
-      if (!permit('Báo cáo sự cố ca dạy (đi muộn, lỗi mạng, nghỉ)')) return;
-      const record = Object.values(payrollStore).flatMap(month => month.teachers).find(teacher => teacher.teacherId === ownTeacher?.id && teacher.sessions.some(session => session.id === sessionId));
-      if (!record) { showToast('Chỉ được báo sự cố ca dạy được phân công cho mình.', 'error'); return; }
-    }
-    setPayrollStore(prev => {
-      const monthKey = '2026-09';
-      const monthData = prev[monthKey];
-      if (!monthData) return prev;
-
-      const updatedTeachers = monthData.teachers.map(t => {
-        const hasSession = (t.sessions || []).some(s => s.id === sessionId);
-        if (hasSession) {
-          const updatedSessions = t.sessions.map(s => {
-            if (s.id === sessionId) {
-              return {
-                ...s,
-                type: 'EMERGENCY' as const,
-                statusText: incidentType,
-                creditCoeff: 0.0,
-                hrPayNote: `Sự cố: ${incidentType} (${note || 'Cần nộp giải trình đối soát'})`
-              };
-            }
-            return s;
-          });
-          return {
-            ...t,
-            emergencySessions: (t.emergencySessions || 0) + 1,
-            reconcileStatus: 'CO_GIAI_TRINH' as const,
-            sessions: updatedSessions
-          };
-        }
-        return t;
-      });
-
-      return {
-        ...prev,
-        [monthKey]: {
-          ...monthData,
-          teachers: updatedTeachers
-        }
-      };
-    });
-    showToast(`Đã ghi nhận sự cố [${incidentType}] cho ca ${sessionId}! Dữ liệu đã được lưu vào hệ thống giám sát.`, 'warning');
+  const reportIncidentToSession: AppContextType['reportIncidentToSession'] = async (classCode,incidentCode,note,date,timeRange) => {
+    if (!can('Ghi nhận và xử lý sự cố ca dạy') && !permit('Báo cáo sự cố ca dạy (đi muộn, lỗi mạng, nghỉ)')) return false;
+    try {
+      await teacherSessionRequest('vuihoc_report_lesson_incident',{p_class_code:classCode,p_date:date,p_time_range:timeRange,p_incident_code:incidentCode,p_note:note});
+      await loadBusinessData();showToast('Đã lưu báo cáo sự cố theo đúng buổi học lên Supabase.','success');return true;
+    } catch(error){showToast((error as Error).message,'error');return false;}
   };
 
   const assignCoverTeacher = (sessionId: string, newTeacherName: string) => {
     if (!permit("Tìm và phân công giáo viên dạy thay")) return;
     setPayrollStore(prev => {
-      const monthKey = '2026-09';
+      const monthKey = Object.keys(prev).find(key => prev[key].teachers.some(t => t.sessions.some(s => s.id === sessionId)));
+      if (!monthKey) return prev;
       const monthData = prev[monthKey];
       if (!monthData) return prev;
 
@@ -703,6 +664,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         [month]: {
           ...currentMonthData,
           isLocked: true,
+          locked_at: new Date().toISOString(),
           teachers: currentMonthData.teachers.map(t => ({
             ...t,
             reconcileStatus: 'DA_CHOT' as const,
@@ -724,6 +686,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         [month]: {
           ...currentMonthData,
           isLocked: false,
+          unlock_reason: reason.trim() || 'Hiệu chỉnh dữ liệu',
           teachers: currentMonthData.teachers.map(t => ({
             ...t,
             reconcileStatus: t.reconcileStatus === 'DA_CHOT' ? 'DA_GUI' as const : t.reconcileStatus
@@ -739,20 +702,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clearLegacyBrowserData();
     runtimeStorage.clear();
     void logoutAccount();
-    setTeachingCategories([]);
-    setSubjects([]);
-    setLevels([]);
-    setTimeSlots([]);
-    setModels([]);
-    setIncidents([]);
-    setTeachers([]);
-    setStudents([]);
-    setClasses([]);
-    setCriteriaCategories([]);
-    setSopDocuments([]);
-    setPayrollStore({});
-    setRagBotConfig(EMPTY_RAG_CONFIG);
-    setToneDirectives({}); setActiveToneKey('');
+    resetBusinessData();
     setCurrentUser(EMPTY_USER); setActiveModule(1); setWorkspaceMode('ADMIN');
     showToast('Đã xóa dữ liệu trong phiên làm việc.', 'info');
   };

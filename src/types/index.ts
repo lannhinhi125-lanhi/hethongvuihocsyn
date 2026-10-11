@@ -314,6 +314,8 @@ export interface TeacherPayrollSummary {
 }
 
 export interface MonthPayrollData {
+  locked_at?: string | null;
+  unlock_reason?: string | null;
   isLocked: boolean;
   adminSentNotice: boolean;
   teachers: TeacherPayrollSummary[];

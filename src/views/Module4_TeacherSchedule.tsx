@@ -1,4 +1,4 @@
-import { runtimeStorage } from '../lib/localData';
+import { teacherSessionRequest } from '../lib/accountSession';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
@@ -24,10 +24,12 @@ import {
 export const Module4_TeacherSchedule: React.FC = () => {
   const { can, requirePermission } = usePermissions();
   const {
-    classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
+    incidents, classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
     subjects, criteriaCategories, activeToneKey, toneDirectives, sopDocuments, ragBotConfig, users
   } = useApp();
 
+  const [reportedIncidentCode,setReportedIncidentCode]=useState('');
+  const reportableIncidents=incidents.flatMap(group=>group.subIncidents.filter(item=>item.status));
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
   const [fromDate, setFromDate] = useState('2026-10-05');
   const [toDate, setToDate] = useState('2026-10-11');
@@ -206,7 +208,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     showToast('Xác nhận hoàn tất ca dạy thành công! Nhật ký ca học đã được lưu vào hệ thống.', 'success');
   };
 
-  const handleOpenAiReview = (studentId: string, studentName: string) => {
+  const handleOpenAiReview = async (studentId: string, studentName: string) => {
     if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Chưa thể tạo nhận xét khi ca học chưa bắt đầu. Vui lòng vào lớp trước.', 'warning');
@@ -219,8 +221,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
     setAiGeneratedText('');
     setIsCriteriaSaved(Boolean(savedCriteria));
     try {
-      const storedCount = Number(runtimeStorage.getItem(`vuihoc_ai_review_count_${selectedTeacherId}_${studentId}`) || 0);
-      setAiGenerationCount(Number.isFinite(storedCount) ? storedCount : 0);
+      const result=await teacherSessionRequest('vuihoc_ai_usage',{p_teacher_id:selectedTeacherId,p_student_id:studentId,p_increment:false});
+      setAiGenerationCount(result.count);
     } catch {
       showToast('Không thể đọc số lượt tạo nhận xét AI đã sử dụng.', 'error');
       setAiGenerationCount(2);
@@ -271,7 +273,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     showToast('Đã lưu các tiêu chí nhận xét cho học sinh.', 'success');
   };
 
-  const handleRegenerateAi = () => {
+  const handleRegenerateAi = async () => {
     if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Chỉ có thể tạo nhận xét khi ca học đang diễn ra.', 'warning');
@@ -305,15 +307,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
         ? `${aiReviewStudentName} (${subjectName}): ${detail}.`
         : `Hôm nay ${aiReviewStudentName} học môn ${subjectName}: ${detail}. Thầy/Cô ghi nhận nỗ lực của con và sẽ tiếp tục đồng hành ở buổi học sau.`;
     try {
-      const usageKey = `vuihoc_ai_review_count_${selectedTeacherId}_${aiReviewStudentId}`;
-      const storedCount = Number(runtimeStorage.getItem(usageKey) || 0);
-      const nextCount = Math.max(aiGenerationCount, storedCount) + 1;
-      if (nextCount > 2) {
-        setAiGenerationCount(2);
-        showToast('Bạn đã sử dụng hết 2 lượt tạo nhận xét AI cho học sinh này.', 'warning');
-        return;
-      }
-      runtimeStorage.setItem(usageKey, String(nextCount));
+      const result=await teacherSessionRequest('vuihoc_ai_usage',{p_teacher_id:selectedTeacherId,p_student_id:aiReviewStudentId,p_increment:true});
+      const nextCount=result.count;
       setAiGenerationCount(nextCount);
     } catch {
       showToast('Không thể lưu số lượt sử dụng AI. Nhận xét chưa được tạo.', 'error');
@@ -883,12 +878,17 @@ export const Module4_TeacherSchedule: React.FC = () => {
                       * Điểm danh và xác nhận hoàn tất để lưu kết quả giảng dạy và sĩ số ca học.
                     </div>
                     <div className="flex items-center gap-2">
+                      <select aria-label="Loại sự cố ca học" className="rounded-lg border border-amber-200 p-2 text-xs" value={reportedIncidentCode||reportableIncidents[0]?.code||''} onChange={event=>setReportedIncidentCode(event.target.value)}>
+                        {reportableIncidents.map(item=><option key={item.id} value={item.code}>{item.name}</option>)}
+                      </select>
                       <button
                         type="button"
                         onClick={() => {
                           const reason = window.prompt('Nhập lý do sự cố (mất điện, hỏng mạng, vắng đột xuất):', 'Mất kết nối Internet đột xuất');
                           if (reason) {
-                            reportIncidentToSession(selectedClass.code, 'Sự cố do Giáo viên báo', reason);
+                            const schedule=selectedClassSchedule.find(entry=>entry.session===selectedSessionNum);
+                            if(!schedule){showToast('Chưa xác định được ngày/khung giờ ca học.','error');return;}
+                            void reportIncidentToSession(selectedClass.code,reportedIncidentCode||reportableIncidents[0]?.code||'',reason,dateStringForWeekDay(schedule.dayIndex),schedule.time);
                           }
                         }}
                         className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"

@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { supabase } from '../src/config/supabase';
+import { loginAccount,logoutAccount } from '../src/lib/accountSession';
+import { loadBusinessData,setBusinessValue,getBusinessSnapshot,resetBusinessData } from '../src/lib/businessPersistence';
+const actor={madinhdanh:'ADMIN',hoten:'Admin',tendangnhap:'admin',thudientu:'a@example.com',sodienthoai:'',vaitro:'Quản trị Toàn quyền',trangthai:'active',chucaiavatar:'A',manhomquyen:'ROLE'};
+const session={actor,users:[actor],role_groups:[{madinhdanh:'ROLE',tennhomquyen:'Admin',phanloai:'HỆ THỐNG',mota:'',soluongnguoidung:1,danhsachquyen:['ALL'],congtruycap:'ADMIN'}]};
+let data:any={subjects:[{madinhdanh:'S1',mamonhoc:'M1',tenviettat:'M',tenmonhoc:'Original',mota:'',danghoatdong:true}]};
+const calls:any[]=[];let release:(()=>void)|undefined;let fail=false;
+(supabase as any).schema=()=>({rpc:async(name:string,args:any)=>{
+ if(name==='vuihoc_login')return {data:{...session,token:'token'}};
+ if(name==='vuihoc_session')return {data:session};
+ if(name==='vuihoc_business_data')return {data:structuredClone(data)};
+ if(name==='vuihoc_save_business'){
+  calls.push(structuredClone(args.p_changes));await new Promise<void>(resolve=>{release=resolve;});
+  if(fail)return {error:{message:'forced save error'}};
+  for(const c of args.p_changes){const id=(c.after||c.before).madinhdanh;const rows=data[c.dataset]||[];const old=rows.find((r:any)=>r.madinhdanh===id);
+   if(c.before)for(const key of Object.keys(c.before))assert.deepEqual(old?.[key],c.before[key]);
+   data[c.dataset]=rows.filter((r:any)=>r.madinhdanh!==id);if(c.after)data[c.dataset].push(c.after);
+  }return {data:{saved:true}};
+ }return {data:{}};
+}});
+const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+await loginAccount('admin','test');await loadBusinessData();
+const edit=(name:string)=>setBusinessValue('subjects',(rows:any[])=>rows.map(r=>({...r,name})));
+edit('First');setBusinessValue('custom_catalogs',[{id:'CAT',code:'CAT',name:'Catalog',desc:'',entries:[]}]);await tick();
+assert.equal(calls.length,1);assert.equal(calls[0].length,2);assert.equal(getBusinessSnapshot().saved,0);assert.equal(getBusinessSnapshot().saving,true);
+edit('Second');release!();await tick();assert.equal(calls.length,2);assert.equal(calls[1][0].before.tenmonhoc,'First');release!();await tick();
+assert.equal(getBusinessSnapshot().saving,false);assert.equal(getBusinessSnapshot().saved,2);
+await loadBusinessData();assert.equal(getBusinessSnapshot().data.subjects[0].name,'Second');
+fail=true;edit('Rejected');await tick();release!();await tick();assert.equal(getBusinessSnapshot().data.subjects[0].name,'Second');assert.match(getBusinessSnapshot().error,/forced/);
+fail=false;edit('Old session');await tick();resetBusinessData();await logoutAccount();release!();await tick();assert.deepEqual(getBusinessSnapshot().data,{});
+console.log('Business queue: atomic batching, sequential CAS, confirmed success, rollback, reload and session isolation passed.');
