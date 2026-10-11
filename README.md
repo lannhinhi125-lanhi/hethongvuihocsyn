@@ -57,7 +57,7 @@ Hệ thống được phát triển bằng **React 19**, **Vite**, **TypeScript*
 
 [supabase/schema.sql](supabase/schema.sql) tạo 32 bảng trong schema vuihoc và dữ liệu mẫu. Chạy toàn bộ file trong Supabase SQL Editor.
 
-Xem [bảng đối chiếu UI → database](supabase/DATA_DICTIONARY.md) và [SQL kiểm tra](supabase/verify_schema.sql).
+Xem [hướng dẫn chọn file SQL](supabase/README.md), [bảng đối chiếu UI → database](supabase/DATA_DICTIONARY.md) và [SQL kiểm tra](supabase/verify_schema.sql).
 
 Giao diện hiện giữ dữ liệu trong bộ nhớ, chưa tự lưu vào Supabase. Cần tích hợp CRUD, Supabase Auth và quyền truy cập. RLS hiện chưa cấp quyền client. Helper API cũ cần chuyển sang tên bảng/cột trong databaseNames.ts thông qua supabaseMapper.ts.
 

@@ -37,7 +37,6 @@ try {
  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $uid$
  SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $uid$;`);
  const sql=readFileSync('supabase/schema.sql','utf8');
- assert.equal(readFileSync('supabase/vuihoc_full_schema.sql','utf8'),sql,'SQL entry points must match');
  await db.exec(sql); await db.exec(sql);
  const tables=await db.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'");
  assert.equal(tables.rows[0].n,32);

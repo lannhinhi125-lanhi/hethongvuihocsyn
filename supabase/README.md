@@ -1,0 +1,44 @@
+# Bộ SQL Supabase Vuihoc
+
+**File chính: [schema.sql](schema.sql)** — tạo đầy đủ 32 bảng, dữ liệu mẫu, khóa ngoại, trigger và view. Đây là file dùng khi tạo database mới.
+
+## Chọn file để chạy
+
+| Database hiện tại | File cần chạy |
+| --- | --- |
+| Chưa có schema vuihoc | Chạy toàn bộ schema.sql trong Supabase SQL Editor |
+| Đã có bản 23 bảng | Chạy migrations/20261011_timed_workflow.sql, sau đó migrations/20261011_teacher_evaluations.sql |
+| Đã có bản 31 bảng | Chỉ chạy migrations/20261011_teacher_evaluations.sql |
+| Đã có đủ 32 bảng | Không cần chạy migration cũ; dùng verify_schema.sql để kiểm tra |
+
+Không cần chạy migration riêng sau khi đã chạy schema.sql mới. Migration được giữ để nâng cấp database hiện có mà không xóa dữ liệu.
+
+## Các file còn dùng
+
+- [schema.sql](schema.sql): cấu trúc đầy đủ và dữ liệu mẫu.
+- [verify_schema.sql](verify_schema.sql): truy vấn kiểm tra bảng, khóa ngoại, RLS và dữ liệu.
+- [DATA_DICTIONARY.md](DATA_DICTIONARY.md): đối chiếu trường UI với cột SQL của các bảng nền.
+- [TIMED_WORKFLOW.md](TIMED_WORKFLOW.md): 8 bảng theo tuần/ngày, liên kết ca học–điểm danh–nhận xét–sự cố–công–giải trình.
+- [TEACHER_EVALUATIONS.md](TEACHER_EVALUATIONS.md): biên bản dự giờ, khóa ngoại giáo viên và ca.
+- migrations/: hai bản nâng cấp từ cấu trúc cũ.
+
+## Trạng thái tích hợp
+
+Đã có cấu trúc database, mapper và các bài kiểm tra PostgreSQL cục bộ. **Các màn React chưa nối CRUD/Auth Supabase và chưa chuyển sang bảng nghiệp vụ mới. Chỉ nhập URL/key chưa đủ để hoạt động.** RLS hiện chỉ cấp quyền backend service_role; cần Auth, policy/API và cấu hình Exposed schemas khi tích hợp.
+
+Dữ liệu cũ trong JSONB không tự chuyển sang các bảng mới. Những phần còn cần xử lý khi nối giao diện:
+
+- Lịch rảnh phải ghi vào LICH_RANH_TUAN/CHI_TIET_LICH_RANH theo đúng tuần.
+- Ca dùng BUOI_HOC.madinhdanh; các màn dùng cùng mã ca thay vì map buổi 1/2.
+- Sự cố/cover/công chuyển sang nguồn mới; bỏ tháng cố định trong hai hàm AppContext cũ.
+- Biên bản dự giờ dùng BIEN_BAN_DU_GIO làm nguồn chính thay vì mảng baocaodanhgia.
+- API cũ còn dùng tên bảng tiếng Anh cần thay bằng tên/mapper hiện tại.
+- Danh mục bổ sung, mẫu báo cáo, lượt AI hiện còn trong bộ nhớ.
+- Chatbot và tệp minh chứng/tệp SOP cần lưu trữ riêng; metadata tệp không phải nội dung tệp.
+- Kiểm tra quyền, học sinh thuộc lớp, xếp lịch trùng và lưu đồng thời ở backend.
+
+Sau khi tích hợp, nghiệm thu bằng thao tác UI → database xác nhận → tải lại trang → tài khoản khác xem đúng quyền. Các bài kiểm tra hiện tại không thay thế nghiệm thu trên Supabase thật.
+
+## Kiểm tra cục bộ
+
+Các bài tests/databaseContract.test.ts, tests/timedWorkflow.test.ts và tests/teacherEvaluationSchema.test.ts dùng PGLITE_MODULE_PATH trỏ tới thư mục cài @electric-sql/pglite. Đã kiểm tra tạo mới/chạy lại, migration nâng cấp, khóa ngoại, tuần riêng biệt, sinh công đúng tháng, dạy thay, khóa kỳ và liên kết biên bản với đúng giáo viên.
