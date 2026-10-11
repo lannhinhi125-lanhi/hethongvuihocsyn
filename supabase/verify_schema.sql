@@ -1,5 +1,5 @@
 -- Chạy sau schema.sql; chỉ đọc.
--- Kỳ vọng: 32 bảng và 32 bảng bật RLS.
+-- Kỳ vọng: 31 bảng và 31 bảng bật RLS.
 SELECT count(*) AS so_bang, count(*) FILTER (WHERE c.relrowsecurity) AS so_bang_bat_rls
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname='vuihoc' AND c.relkind='r';

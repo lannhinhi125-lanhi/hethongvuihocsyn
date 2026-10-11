@@ -11,6 +11,8 @@ const db=new PGlite({extensions:{pgcrypto}});
 try {
  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT null::uuid $$;`);
  await db.exec(readFileSync('supabase/schema.sql','utf8'));
+ // Remove seeded canonical sessions so this scenario controls its own timeline.
+ await db.exec('DELETE FROM vuihoc."SU_CO_BUOI_HOC"; DELETE FROM vuihoc."NHAN_XET_BUOI_HOC"; DELETE FROM vuihoc."DIEM_DANH_BUOI_HOC"; DELETE FROM vuihoc."BUOI_HOC";');
  await db.exec(readFileSync('supabase/migrations/20261011_teacher_evaluations.sql','utf8'));
  const cls=(await db.query('SELECT malophoc FROM vuihoc."LOP_HOC" WHERE madinhdanh=\'CLS-001\'')).rows[0].malophoc;
  await db.exec(`INSERT INTO vuihoc."BUOI_HOC"(madinhdanh,malop,ngayhoc,makhunggio,batdau,ketthuc,magiaovienchinh)
@@ -43,7 +45,7 @@ try {
   await upgraded.exec(old);
   await upgraded.exec(readFileSync('supabase/migrations/20261011_teacher_evaluations.sql','utf8'));
   await upgraded.exec(readFileSync('supabase/migrations/20261011_teacher_evaluations.sql','utf8'));
-  assert.equal((await upgraded.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'")).rows[0].n,32);
+  assert.equal((await upgraded.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'")).rows[0].n,31);
  }finally {await upgraded.close();}
  console.log('PASS: required teacher FK, lesson/teacher/class/date match, recipient ownership, date normalization, score bounds and upgrade/re-run.');
 }finally {await db.close();}

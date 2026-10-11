@@ -11,6 +11,8 @@ try {
  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY);
  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;`);
  await db.exec(readFileSync('supabase/schema.sql','utf8'));
+ // Remove seeded canonical sessions so this scenario controls its own timeline.
+ await db.exec('DELETE FROM vuihoc."SU_CO_BUOI_HOC"; DELETE FROM vuihoc."NHAN_XET_BUOI_HOC"; DELETE FROM vuihoc."DIEM_DANH_BUOI_HOC"; DELETE FROM vuihoc."BUOI_HOC";');
  // Also verify migration-only upgrade using the previous schema portion.
  const upgraded=new PGlite({extensions:{pgcrypto}});
  try {
@@ -19,7 +21,7 @@ try {
   await upgraded.exec(base);
   await upgraded.exec(readFileSync('supabase/migrations/20261011_timed_workflow.sql','utf8'));
   await upgraded.exec(readFileSync('supabase/migrations/20261011_timed_workflow.sql','utf8'));
-  assert.equal((await upgraded.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'")).rows[0].n,31);
+  assert.equal((await upgraded.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'")).rows[0].n,30);
  } finally {await upgraded.close();}
  const reject=async(sql:string)=>{
   await db.exec('BEGIN');

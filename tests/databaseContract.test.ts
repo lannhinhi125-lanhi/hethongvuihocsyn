@@ -3,14 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { APP_DATABASE_FIELDS, DATABASE_NAMES } from '../src/lib/databaseNames';
-import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset } from '../src/lib/supabaseMapper';
+import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset, DERIVED_DATABASE_FIELDS } from '../src/lib/supabaseMapper';
 
 // TypeScript 7 in this project does not expose the old compiler AST API.
 // Read only top-level properties in these exported interface declarations.
 const groups: [string, Record<string, SupabaseDataset>][] = [
  ['src/types/index.ts', { UserAccount:'users',SystemRoleGroup:'role_groups',SubjectItem:'subjects',LevelItem:'levels',TimeSlotItem:'time_slots',ClassModelItem:'class_models',IncidentCategory:'incident_categories',TeacherProfile:'teachers',StudentRecord:'students',ClassItem:'classes',CriteriaCategory:'criteria_categories',SOPDocument:'sop_documents',RAGBotConfig:'rag_bot_config',MonthPayrollData:'monthly_payroll',EvaluationRecord:'teacher_evaluations' }],
  ['src/components/CategoryMultiFilter.tsx', {CategoryGroup:'teaching_categories'}],
- ['src/views/Module5_OperationsMonitoring.tsx', {MonitoringSession:'teaching_sessions'}],
  ['src/lib/customReports.ts', {SavedReportTemplate:'report_templates'}]
 ];
 let fieldCount=0;
@@ -24,7 +23,7 @@ for (const [file, interfaces] of groups) {
   const body=source.slice(open+1,end-1);
   const fields=body.includes('\n')?[...body.matchAll(/^  (\w+)\??:/gm)].map(m=>m[1]):[...body.matchAll(/(?:^|;)\s*(\w+)\??:/g)].map(m=>m[1]);
   assert.ok(fields.length>0,name);
-  for(const field of fields){fieldCount++;assert.ok(field==='passwordRaw'||field in APP_DATABASE_FIELDS[dataset],name+'.'+field);}
+  for(const field of fields){fieldCount++;assert.ok(field==='passwordRaw'||DERIVED_DATABASE_FIELDS[dataset]?.includes(field)||field in APP_DATABASE_FIELDS[dataset],name+'.'+field);}
  }
 }
 const modulePath=process.env.PGLITE_MODULE_PATH;
@@ -40,9 +39,10 @@ try {
  const sql=readFileSync('supabase/schema.sql','utf8');
  await db.exec(sql); await db.exec(sql);
  const tables=await db.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'");
- assert.equal(tables.rows[0].n,32);
+ assert.equal(tables.rows[0].n,31);
  let rowCount=0,columnCount=0;
  for(const dataset of Object.keys(APP_DATABASE_FIELDS) as SupabaseDataset[]){
+  if(dataset==='teaching_sessions')continue;
   const table=DATABASE_NAMES[dataset].table;
   const columns=await db.query('SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name=$2',['vuihoc',table]);
   const actual=new Set(columns.rows.map((r: {column_name:string})=>r.column_name));
@@ -72,6 +72,6 @@ try {
  await assert.rejects(db.exec('UPDATE vuihoc."HOC_SINH" SET mamonhoc=\'MISSING\' WHERE madinhdanh=\'HS-2026-001\'; SET CONSTRAINTS ALL IMMEDIATE;'));
  await db.exec('ROLLBACK');
  await db.exec(readFileSync('supabase/verify_schema.sql','utf8'));
- console.log(JSON.stringify({tables:32,interfaceFields:fieldCount,mappedFields:columnCount,seedRowsRoundTripped:rowCount,audit:'passed',foreignKeyRejection:'passed'}));
+ console.log(JSON.stringify({tables:31,interfaceFields:fieldCount,mappedFields:columnCount,seedRowsRoundTripped:rowCount,audit:'passed',foreignKeyRejection:'passed'}));
  console.log('This verifies the database contract, not live UI persistence or Supabase Auth/RLS integration.');
 } finally { await db.close(); }

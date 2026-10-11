@@ -116,20 +116,24 @@ export async function upsertClassToSupabase(classData: any) {
 
 // 4. Ca học & Giám sát ca dạy
 export async function fetchSessionsFromSupabase(filterMonth?: string) {
-  let query = supabase.from('teaching_sessions').select('*');
+  let query = supabase.schema('vuihoc').from('BUOI_HOC').select('*');
   if (filterMonth) {
-    query = query.gte('date', `${filterMonth}-01`).lte('date', `${filterMonth}-31`);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(filterMonth)) throw new Error('Tháng không hợp lệ');
+    const [year,month] = filterMonth.split('-').map(Number);
+    const nextMonth = new Date(Date.UTC(year,month,1)).toISOString().slice(0,10);
+    query = query.gte('ngayhoc', filterMonth + '-01').lt('ngayhoc', nextMonth);
   }
-  const { data, error } = await query.order('date', { ascending: true });
+  const { data, error } = await query.order('ngayhoc', { ascending: true });
   if (error) throw error;
   return data;
 }
 
 export async function updateSessionStatusOnSupabase(sessionId: string, status: string, incidentNote?: string) {
-  const { data, error } = await supabase
-    .from('teaching_sessions')
-    .update({ status, incident_note: incidentNote, updated_at: new Date().toISOString() })
-    .eq('id', sessionId)
+  if (incidentNote !== undefined) throw new Error('Ghi sự cố vào SU_CO_BUOI_HOC bằng mã buổi.');
+  const { data, error } = await supabase.schema('vuihoc')
+    .from('BUOI_HOC')
+    .update({ trangthai: status })
+    .eq('madinhdanh', sessionId)
     .select();
   if (error) throw error;
   return data;

@@ -1,6 +1,10 @@
+# Cập nhật tinh gọn
+
+Xem [NORMALIZATION.md](NORMALIZATION.md) để nâng cấp. Tên hiển thị lấy qua khóa ngoại; trạng thái học sinh/lớp lưu code không dấu. Các ví dụ JSONB dưới đây mô tả luồng cũ chưa nối CRUD, không phải nguồn ca học chuẩn.
+
 # Bảng đối chiếu giao diện và Supabase
 
-Bộ [schema.sql](schema.sql) tạo 32 bảng trong schema vuihoc và dữ liệu mẫu. Mở SQL Editor, chạy toàn bộ file; sau đó chọn schema vuihoc trong Table Editor. Chạy [verify_schema.sql](verify_schema.sql) để kiểm tra cấu trúc.
+Bộ [schema.sql](schema.sql) tạo 31 bảng trong schema vuihoc và dữ liệu mẫu. Mở SQL Editor, chạy toàn bộ file; sau đó chọn schema vuihoc trong Table Editor. Chạy [verify_schema.sql](verify_schema.sql) để kiểm tra cấu trúc.
 
 ## Trạng thái tích hợp
 
@@ -15,7 +19,7 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 | Hồ sơ, lịch rảnh, đánh giá giáo viên | GIAO_VIEN; lichranh, baocaodanhgia, diemtieuchi |
 | Học sinh, phụ huynh | HOC_SINH |
 | Lớp, học liệu, điểm danh, nhận xét | LOP_HOC; hoclieu, chitietcahoc, phancongdaythay |
-| Giám sát ca, check-in, sự cố | CA_HOC |
+| Giám sát ca, check-in, sự cố | BUOI_HOC và các bảng con |
 | Bảng công, hệ số công, giải trình | BANG_CONG_THANG; danhsachgiaovien, danhsachgiaitrinh |
 | AI, SOP | NHOM_TIEU_CHI, TAI_LIEU_QUY_TRINH, CAU_HINH_TRO_LY, VAN_PHONG_NHAN_XET, LUOT_NHAN_XET_AI |
 | Báo cáo | MAU_BAO_CAO; số liệu tính từ bảng nghiệp vụ |
@@ -151,9 +155,7 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 | name | hoten | text NOT NULL |
 | username | tendangnhap | text |
 | subject | mamonhoc | text NOT NULL |
-| subjectName | tenmonhoc | text NOT NULL |
 | levelId | macaphoc | text NOT NULL |
-| levelName | tencaphoc | text NOT NULL |
 | grades | danhsachkhoi | text[] NOT NULL DEFAULT ARRAY[]::text[] |
 | models | danhsachmohinh | text[] |
 | phone | sodienthoai | text NOT NULL |
@@ -162,7 +164,6 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 | startDate | ngaybatdau | text |
 | endDate | ngayketthuc | text |
 | status | trangthai | text NOT NULL CHECK ("trangthai" IN ('DANG_DAY', 'CHO_LOP', 'TAM_NGUNG')) |
-| statusLabel | tentrangthai | text NOT NULL |
 | evalStatus | trangthaidanhgia | text NOT NULL CHECK ("trangthaidanhgia" IN ('SCORED', 'UNSCORED')) |
 | evalScore | diemdanhgia | text |
 | evalComment | nhanxetdanhgia | text NOT NULL |
@@ -214,7 +215,6 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 | studentIds | danhsachmahocsinh | text[] NOT NULL DEFAULT ARRAY[]::text[] |
 | schedule | lichhoc | text NOT NULL |
 | roomLink | lienketphonghoc | text NOT NULL |
-| teacherName | hotengiaovien | text NOT NULL |
 | teacherId | magiaovien | text |
 | materials | hoclieu | jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof("hoclieu") = 'array') |
 | activeSessions | chitietcahoc | jsonb CHECK (jsonb_typeof("chitietcahoc") = 'object') |
@@ -277,42 +277,9 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 | created_at | ngaytao | timestamptz NOT NULL DEFAULT now() |
 | updated_at | ngaycapnhat | timestamptz NOT NULL DEFAULT now() |
 
-### CA_HOC (teaching_sessions)
+### Ca học chuẩn hóa
 
-| Trường UI | Cột SQL | Kiểu và ràng buộc |
-| --- | --- | --- |
-| sessionCode | macahoc | text NOT NULL |
-| sessionDate | ngayhoc | text NOT NULL |
-| classCode | malophoc | text NOT NULL |
-| className | tenlophoc | text NOT NULL |
-| levelText | tentrinhdo | text NOT NULL |
-| modelText | tenmohinh | text NOT NULL |
-| subject | mamonhoc | text NOT NULL CHECK ("mamonhoc" IN ('SUB-MATH', 'SUB-ENG')) |
-| grade | khoi | numeric NOT NULL |
-| timeSlot | cahoc | text NOT NULL |
-| room | phonghoc | text NOT NULL |
-| roomUrl | lienketphonghoc | text NOT NULL |
-| recordingUrl | lienketbanghi | text |
-| primaryTeacher | giaovienchinh | text NOT NULL |
-| coverTeacher | giaoviendaythay | text |
-| attendance | diemdanh | text NOT NULL CHECK ("diemdanh" IN ('ATTENDED', 'LATE', 'ABSENT')) |
-| checkinTime | giovaolop | text |
-| status | trangthai | text NOT NULL CHECK ("trangthai" IN ('DA_HOC', 'CHUA_HOC', 'NGHI_HOC', 'KHAI_GIANG', 'DAY_THAY', 'CO_SU_CO')) |
-| hasIncident | cosuco | boolean NOT NULL |
-| incidentParent | manhomsuco | text CHECK ("manhomsuco" IN ('GRP-TCH', 'GRP-STU', 'GRP-SYS')) |
-| incidentChild | masuco | text |
-| incidentUrgency | muckhancap | text CHECK ("muckhancap" IN ('EMERGENCY', 'ADVANCED')) |
-| incidentStatus | trangthaisuco | text CHECK ("trangthaisuco" IN ('DA_GIAI_QUYET', 'DANG_XU_LY', 'HUY_CA')) |
-| incidentNote | ghichusuco | text NOT NULL |
-| handledByOpsId | manguoixuly | text |
-| handledByName | hotenguoixuly | text |
-| handledAt | thoigianxuly | text |
-| lessonDiary | nhatkybuoihoc | text NOT NULL |
-| students | danhsachhocsinh | jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof("danhsachhocsinh") = 'array') |
-| isJustUpdated | vuacapnhat | boolean |
-| id | madinhdanh | text PRIMARY KEY DEFAULT gen_random_uuid()::text |
-| created_at | ngaytao | timestamptz NOT NULL DEFAULT now() |
-| updated_at | ngaycapnhat | timestamptz NOT NULL DEFAULT now() |
+CA_HOC đã bỏ. Dùng BUOI_HOC; điểm danh, nhận xét và sự cố lưu tại các bảng con theo mabuoi. Xem [NORMALIZATION.md](NORMALIZATION.md).
 
 ### MAU_BAO_CAO (report_templates)
 
@@ -405,7 +372,7 @@ Bổ sung bảng thứ 32: BIEN_BAN_DU_GIO có FK bắt buộc tới mã giáo v
 
 ## Bổ sung tài khoản nội bộ (2026-10-11)
 
-NGUOI_DUNG thêm matkhau_bam text, maphien_bam text, phienhethan timestamptz, solansai integer và tamkhoaden timestamptz. NHAT_KY_NGHIEP_VU thêm manguoithuchien text FK NGUOI_DUNG. Cấu trúc vẫn 32 bảng. Thông tin đăng nhập không có trong mapper UI và không trả về client.
+NGUOI_DUNG thêm matkhau_bam text, maphien_bam text, phienhethan timestamptz, solansai integer và tamkhoaden timestamptz. NHAT_KY_NGHIEP_VU thêm manguoithuchien text FK NGUOI_DUNG. Sau tinh gọn còn 31 bảng. Thông tin đăng nhập không có trong mapper UI và không trả về client.
 
 ## Mật khẩu có giải mã
 

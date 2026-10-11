@@ -58,7 +58,7 @@ try {
  for(const secret of ['TestAdmin@890','Teacher@890','NewTeacher@890',rows.cipher,rows.maphien_bam])assert.ok(!audit.includes(secret));
  assert.ok(!audit.includes('khoamatkhau'));assert.ok(!audit.includes('matkhau_mahoa'));
  assert.ok(audit.includes('USR-01'));assert.ok(audit.includes('matkhau'));
- assert.equal((await db.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'")).rows[0].n,32);
+ assert.equal((await db.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'")).rows[0].n,31);
  await db.exec(readFileSync('supabase/migrations/20261011_simple_accounts.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011_encrypted_passwords.sql','utf8'));
  assert.ok((await call('vuihoc_login',['admin.tong','TestAdmin@890'])).token,'migration rerun preserves password');

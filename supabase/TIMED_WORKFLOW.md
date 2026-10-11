@@ -122,7 +122,7 @@ const row = toSupabaseRow('dated_lessons', {
 
 Đã hoàn thành cấu trúc bảng, liên kết FK, trigger kiểm tra tuần/kỳ khóa, tự sinh công, nhật ký, view và mapper. Đã kiểm thử schema mới và migration nâng cấp, hai tuần độc lập, công tháng 10/tháng 11, dạy thay, chống trùng, khóa kỳ, lỗi FK và lý do điều chỉnh.
 
-**Chưa đổi các màn React sang đọc/ghi bảng mới.** Các màn cũ vẫn dùng schedule/activeSessions/CA_HOC và payrollStore trong bộ nhớ; hai hàm cũ còn tháng cố định. Khi tích hợp phải chuyển chúng sang nguồn mới, không đồng thời coi JSONB cũ và bảng mới là hai nguồn chính. Dữ liệu cũ chỉ được di chuyển khi có ngày/ID đầy đủ; không tự suy đoán lịch sử đã bị ghi đè.
+**Chưa đổi các màn React sang đọc/ghi bảng mới.** CA_HOC đã bỏ khỏi CSDL; các màn cũ vẫn dùng schedule/activeSessions và payrollStore trong bộ nhớ; hai hàm cũ còn tháng cố định. Khi tích hợp phải chuyển chúng sang nguồn mới, không đồng thời coi JSONB cũ và bảng mới là hai nguồn chính. Dữ liệu cũ chỉ được di chuyển khi có ngày/ID đầy đủ; không tự suy đoán lịch sử đã bị ghi đè.
 
 RLS của bảng mới bật; chỉ service_role có quyền phía server. Cần Auth/policy/API kiểm tra chủ sở hữu, danh sách học sinh thuộc lớp, quyền người thao tác và tránh xếp lịch trùng giáo viên. Trigger FK không thay thế kiểm tra quyền. Minh chứng hiện có nơi lưu metadata JSONB; nội dung tệp vẫn cần Supabase Storage. Chưa tích hợp luồng duyệt giải trình tự cập nhật hệ số hay gửi bảng công hàng loạt.
 

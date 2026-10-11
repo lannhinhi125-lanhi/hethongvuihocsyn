@@ -1,6 +1,8 @@
 # Bộ SQL Supabase Vuihoc
 
-**File chính: [schema.sql](schema.sql)** — tạo đầy đủ 32 bảng, dữ liệu mẫu, khóa ngoại, trigger và view. Đây là file dùng khi tạo database mới.
+**Bản tinh gọn:** xem [NORMALIZATION.md](NORMALIZATION.md). Database hiện có 32 bảng cần chạy migration normalize_database sau các migration cũ.
+
+**File chính: [schema.sql](schema.sql)** — tạo đầy đủ 31 bảng, dữ liệu mẫu, khóa ngoại, trigger và view. Đây là file dùng khi tạo database mới.
 
 ## Chọn file để chạy
 

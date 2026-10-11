@@ -20,8 +20,8 @@ const nested={'1':{sessionNum:1,status:'Đang học',attendance:{'HS-1':'present
 const encoded=toSupabaseRow('classes',{id:'CLS-1',code:'LOP-1',activeSessions:nested,teacherId:undefined});
 assert.deepEqual(encoded,{madinhdanh:'CLS-1',malophoc:'LOP-1',chitietcahoc:nested,magiaovien:null});
 assert.deepEqual(fromSupabaseRow('classes',encoded).activeSessions,nested);
-assert.equal(toSupabaseRow('teaching_sessions',{subject:'TOAN'}).mamonhoc,'SUB-MATH');
-assert.equal(fromSupabaseRow('teaching_sessions',{mamonhoc:'SUB-ENG'}).subject,'ANH');
+assert.throws(()=>toSupabaseRow('teaching_sessions',{subject:'TOAN'}),/dated_lessons/);
+assert.throws(()=>fromSupabaseRow('teaching_sessions',{mamonhoc:'SUB-ENG'}),/dated_lessons/);
 assert.throws(()=>toSupabaseRow('students',{id:'HS-1',unknownField:1}),/ánh xạ/);
 assert.throws(()=>toSupabaseRow('users',PREVIEW_ACCOUNT),/mẫu/);
 assert.deepEqual(toSupabaseRow('users',{id:'USR-1',passwordRaw:'secret'}),{madinhdanh:'USR-1'});
