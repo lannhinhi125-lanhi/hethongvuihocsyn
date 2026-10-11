@@ -1194,7 +1194,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Chế độ mô phỏng thời gian phục vụ kiểm thử theo yêu cầu:
   // "ở trong danh mục tạo 1 cca cchotoi từ 12:50 - 13:50 đi, rồi cho 1 giáo viên đđăngkis lịch rảnh đó, rồi tý đến 12:50 giáo viên chưa vào thì màn hình vận hành hiện màu đỏ ô đó đố. để thử nghiệm áy"
-  const [testTimeMode, setTestTimeMode] = useState<'12:50' | '12:45' | '13:05' | 'REALTIME'>('12:50');
+  const [testTimeMode, setTestTimeMode] = useState<'12:50' | '12:45' | '13:05' | 'REALTIME'>('REALTIME');
 
   // Lấy mốc thời gian hiện thời để đối chiếu
   const getCurrentEffectiveTime = () => {

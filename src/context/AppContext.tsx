@@ -1,3 +1,5 @@
+import { payrollLockIssue } from '../lib/workflow';
+import { resolveAccountTeacher } from '../lib/evaluation';
 import { canManageTeacherProfiles, generateTeacherCredentials } from '../lib/teacherAccounts';
 import { DEFAULT_TEACHER_CATEGORIES, type CategoryGroup } from '../components/CategoryMultiFilter';
 import { canEditTeacherAvailability } from '../lib/teacherAvailability';
@@ -111,7 +113,7 @@ interface AppContextType {
   setPayrollStore: React.Dispatch<React.SetStateAction<Record<string, MonthPayrollData>>>;
   updateSessionCredit: (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => void;
   sendPayrollToTeachers: (month: string, teacherIds: string[]) => void;
-  submitDispute: (month: string, dispute: DisputeItem) => void;
+  submitDispute: (month: string, dispute: DisputeItem) => boolean;
   reviewDispute: (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => void;
   lockPayrollMonth: (month: string) => void;
   unlockPayrollMonth: (month: string, reason: string) => void;
@@ -1724,6 +1726,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // PH7 Actions
   const updateSessionCredit = (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => {
+    if (!Number.isFinite(newCoeff) || newCoeff < 0) { showToast('Hệ số công phải là số không âm.', 'error'); return; }
     if (payrollStore[month]?.isLocked) {
       showToast('Không thể sửa công khi kỳ đã khóa. Hãy mở khóa kỳ trước khi điều chỉnh.', 'error');
       return;
@@ -1802,6 +1805,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const submitDispute = (month: string, dispute: DisputeItem) => {
+    const period = payrollStore[month];
+    const ownTeacher = resolveAccountTeacher(currentUser, teachers, users);
+    const record = period?.teachers.find(teacher => teacher.teacherId === dispute.teacherId);
+    if (!period || period.isLocked) { showToast('Không thể gửi giải trình khi kỳ chưa có dữ liệu hoặc đã khóa.', 'error'); return false; }
+    if (!ownTeacher || ownTeacher.id !== dispute.teacherId || !record?.payrollSent || !record.sessions.some(session => session.id === dispute.sessionId)) { showToast('Chỉ được giải trình ca dạy trong bảng công đã gửi của chính mình.', 'error'); return false; }
+    if (!dispute.content.trim()) { showToast('Vui lòng nhập nội dung giải trình.', 'error'); return false; }
+    if (period.disputes.some(item => item.teacherId === dispute.teacherId && item.sessionId === dispute.sessionId && item.status === 'CHO_DUYET')) { showToast('Ca này đã có giải trình đang chờ duyệt.', 'warning'); return false; }
     setPayrollStore(prev => {
       const currentMonthData = prev[month] || { isLocked: false, adminSentNotice: true, teachers: [], disputes: [] };
       const newDispute: DisputeItem = {
@@ -1836,11 +1846,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
     });
-    showToast(`Đã gửi đơn giải trình thành công! Đang chờ Quản trị viên duyệt.`, 'success');
+    showToast('Đã gửi đơn giải trình thành công! Đang chờ Quản trị viên duyệt.', 'success');
+    return true;
   };
 
   const reviewDispute = (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => {
-    const monthIsLocked = payrollStore[month]?.isLocked ?? false;
+    if (payrollStore[month]?.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'error'); return; }
+    if (!Number.isFinite(creditCoeff) || creditCoeff < 0) { showToast('Hệ số công phải là số không âm.', 'error'); return; }
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -1919,15 +1931,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    showToast(
-      monthIsLocked
-        ? `Đã xử lý giải trình. Hãy mở khóa kỳ ${month}, sau đó gửi lại bảng công đã cập nhật cho giáo viên.`
-        : 'Đã xử lý giải trình. Bảng công chuyển sang Chưa gửi; hãy gửi lại để giáo viên xem kết quả.',
-      'success'
-    );
+    showToast('Đã xử lý giải trình. Bảng công chuyển sang Chưa gửi; hãy gửi lại để giáo viên xem kết quả.', 'success');
   };
 
   const lockPayrollMonth = (month: string) => {
+    const issue = payrollLockIssue(payrollStore[month]);
+    if (issue) { showToast(issue, 'warning'); return; }
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;

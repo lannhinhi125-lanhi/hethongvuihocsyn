@@ -18,6 +18,12 @@ export function sessionsInRange(teacher: TeacherProfile, from: string, to: strin
   }).sort((a, b) => sessionDateISO(b).localeCompare(sessionDateISO(a)));
 }
 
+export function resolveAccountTeacher(user: UserAccount, teachers: TeacherProfile[], users: UserAccount[]): TeacherProfile | undefined {
+  if (user.role !== 'Giáo viên Giảng dạy' || user.status !== 'active') return undefined;
+  const matches = teachers.filter(teacher => resolveTeacherAccount(teacher, users)?.id === user.id);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 export function resolveTeacherAccount(teacher: TeacherProfile, users: UserAccount[]): UserAccount | undefined {
   const matches = users.filter(user => user.role === 'Giáo viên Giảng dạy' && (
     user.id === teacher.id ||

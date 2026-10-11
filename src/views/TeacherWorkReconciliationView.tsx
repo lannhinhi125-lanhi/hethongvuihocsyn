@@ -1,3 +1,4 @@
+import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import {
@@ -20,7 +21,7 @@ import { SessionPayrollRecord, DisputeItem } from '../types';
 import { getCurrentPayrollMonth, getPayrollMonthOptions } from '../lib/payrollPeriods';
 
 export const TeacherWorkReconciliationView: React.FC = () => {
-  const { currentUser, payrollStore, submitDispute, showToast } = useApp();
+  const { currentUser, payrollStore, submitDispute, showToast, teachers, users } = useApp();
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
@@ -40,21 +41,10 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     disputes: []
   };
 
-  // Xác định mã giáo viên / gia sư từ currentUser
-  const myRecord = useMemo(() => {
-    // Thầy Tuấn -> GV-001, Cô Hoa -> GV-002, Gia sư Nam -> GV-003
-    if (currentUser.id === 'USR-04' || currentUser.name.includes('Tuấn')) {
-      return monthData.teachers.find(t => t.teacherId === 'GV-001') || monthData.teachers[0];
-    }
-    if (currentUser.id === 'USR-05' || currentUser.name.includes('Hoa')) {
-      return monthData.teachers.find(t => t.teacherId === 'GV-002') || monthData.teachers[0];
-    }
-    if (currentUser.id === 'USR-06' || currentUser.name.includes('Nam')) {
-      return monthData.teachers.find(t => t.teacherId === 'GV-003') || monthData.teachers[0];
-    }
-    // Mặc định lấy theo name hoặc record đầu tiên
-    return monthData.teachers.find(t => t.teacherName.includes(currentUser.name.replace('Thầy ', '').replace('Cô ', ''))) || monthData.teachers[0];
-  }, [currentUser, monthData]);
+  const ownTeacher = resolveAccountTeacher(currentUser, teachers, users);
+  const myRecord = ownTeacher
+    ? monthData.teachers.find(record => record.teacherId === ownTeacher.id)
+    : undefined;
 
   // Các đơn giải trình của bản thân
   const myDisputes = useMemo(() => {
@@ -144,6 +134,8 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       showToast('Vui lòng chọn ca dạy cần giải trình!', 'error');
       return;
     }
+    if (monthData.isLocked) { showToast('Kỳ công đã khóa. Vui lòng liên hệ vận hành để mở lại kỳ.', 'warning'); return; }
+    if (myDisputes.some(dispute => dispute.sessionId === selectedSessionForDispute.id && dispute.status === 'CHO_DUYET')) { showToast('Ca này đã có giải trình đang chờ duyệt.', 'warning'); return; }
     if (!disputeContent.trim()) {
       showToast('Vui lòng nhập nội dung giải trình chi tiết!', 'error');
       return;
@@ -165,7 +157,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       adminNote: ''
     };
 
-    submitDispute(selectedMonth, disputeItem);
+    if (!submitDispute(selectedMonth, disputeItem)) return;
     setShowDisputeModal(false);
     setSelectedSessionForDispute(null);
     setDisputeContent('');
@@ -454,11 +446,13 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                   <td className="py-3 px-4 text-[11px] text-slate-500 max-w-xs">{session.hrPayNote}</td>
                   <td className="py-3 px-4 text-center">
                     <button
+                      disabled={monthData.isLocked || myDisputes.some(dispute => dispute.sessionId === session.id && dispute.status === 'CHO_DUYET')}
+                      title={monthData.isLocked ? 'Kỳ công đã khóa' : 'Gửi giải trình ca dạy'}
                       onClick={() => {
                         setSelectedSessionForDispute(session);
                         setShowDisputeModal(true);
                       }}
-                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold underline p-1 cursor-pointer"
+                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold underline p-1 cursor-pointer disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline"
                     >
                       Giải trình
                     </button>

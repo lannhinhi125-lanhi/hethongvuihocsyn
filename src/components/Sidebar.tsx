@@ -1,3 +1,5 @@
+import { PORTAL_PREVIEW_MODE } from '../lib/previewMode';
+import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
@@ -31,6 +33,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     activeModule,
     setActiveModule,
     currentUser,
+    users,
+    teachers,
+    setCurrentUser,
     workspaceMode,
     setWorkspaceMode,
     teacherPortalTab,
@@ -70,6 +75,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   };
 
   const handleToggleWorkspace = () => {
+    if (PORTAL_PREVIEW_MODE) {
+      const target = workspaceMode === 'ADMIN'
+        ? users.find(user => resolveAccountTeacher(user, teachers, users)) || users.find(user => user.status === 'active' && user.role === 'Giáo viên Giảng dạy')
+        : users.find(user => user.status === 'active' && user.role === 'Quản trị Toàn quyền');
+      if (!target) { showToast('Chưa có tài khoản phù hợp để kiểm tra cổng này.', 'warning'); return; }
+      setCurrentUser(target);
+      setTeacherPortalTab('availability');
+      if (onCloseMobile) onCloseMobile();
+      return;
+    }
+    if (currentUser.role === 'Giáo viên Giảng dạy') return;
     if (workspaceMode === 'ADMIN') {
       setWorkspaceMode('TEACHER');
       showToast('Đã chuyển sang Cổng Giảng dạy (Giáo viên & Gia sư)', 'info');
@@ -116,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
             {workspaceMode === 'ADMIN' ? (
               // QUẢN TRỊ VIÊN
-              adminNavItems.map(item => {
+              adminNavItems.filter(item => item.id !== 1 || currentUser.role === 'Quản trị Toàn quyền').map(item => {
                 const isActive = activeModule === item.id;
                 const Icon = item.icon;
 
@@ -173,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
               <span className="text-slate-600">·</span>
               <span>{currentTime.toLocaleDateString('vi-VN')}</span>
             </div>
-            <button
+            {(PORTAL_PREVIEW_MODE || currentUser.role !== 'Giáo viên Giảng dạy') && <button
               onClick={handleToggleWorkspace}
               className="w-full py-1.5 px-2.5 rounded-md text-xs font-medium flex items-center justify-between transition-colors cursor-pointer bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700/60"
             >
@@ -182,7 +198,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                 <span>{workspaceMode === 'ADMIN' ? 'Cổng Giảng dạy' : 'Cổng Quản trị'}</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
+            </button>}
 
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-2 truncate">

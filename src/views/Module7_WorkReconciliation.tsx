@@ -510,6 +510,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   };
 
   const openDisputeReview = (dispute: DisputeItem) => {
+    if (monthData.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'warning'); return; }
     setReviewingDispute(dispute);
     setDisputeAdminNote(dispute.adminNote || '');
     setDisputeDecision(dispute.status === 'TU_CHOI' ? 'TU_CHOI' : 'DA_DUYET');

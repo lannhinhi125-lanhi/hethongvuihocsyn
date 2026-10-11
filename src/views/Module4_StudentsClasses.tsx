@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { StudentSchedulePicker } from '../components/StudentSchedulePicker';
 import { ClassSuggestions } from '../components/ClassSuggestions';
 import { ColumnFilter } from '../components/ColumnFilter';
+import { schedulesOverlap } from '../lib/workflow';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
@@ -267,16 +268,14 @@ export const Module4_StudentsClasses: React.FC = () => {
 
       // 4. Kiểm tra xung đột lịch với các lớp khác mà giáo viên này đang dạy
       if (clsSchedule) {
-        const classSlots = clsSchedule.split(',').map(s => s.trim().toLowerCase());
         const otherClasses = classes.filter(
-          c => c.id !== editingClassId &&
+          c => c.id !== editingClassId && c.status !== 'Đã kết thúc' && c.status !== 'Tạm dừng' &&
                (c.teacherId === t.id || c.teacherName === t.name || c.teacherName.includes(t.name.replace('Thầy ', '').replace('Cô ', '')))
         );
 
         const hasScheduleConflict = otherClasses.some(oc => {
           if (!oc.schedule) return false;
-          const ocSlots = oc.schedule.split(',').map(s => s.trim().toLowerCase());
-          return classSlots.some(cs => ocSlots.includes(cs));
+          return schedulesOverlap(clsSchedule, oc.schedule);
         });
 
         if (hasScheduleConflict) return false;

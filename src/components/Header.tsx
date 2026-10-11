@@ -1,4 +1,5 @@
 import React from 'react';
+import { PORTAL_PREVIEW_MODE } from '../lib/previewMode';
 import { useApp } from '../context/AppContext';
 import {
   Menu,
@@ -121,7 +122,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
 
           <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
-          <button type="button" onClick={onLogout} className="px-3 py-2 text-xs border border-slate-200 rounded-lg">Đăng xuất</button>
+          {PORTAL_PREVIEW_MODE ? (
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <span className="hidden sm:inline">Kiểm tra cổng:</span>
+              <select
+                aria-label="Chọn tài khoản kiểm tra cổng"
+                value={currentUser.id}
+                onChange={event => {
+                  const account = users.find(user => user.id === event.target.value && user.status === 'active');
+                  if (account) setCurrentUser(account);
+                }}
+                className="max-w-[210px] rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"
+              >
+                {users.filter(user => user.status === 'active').map(user => (
+                  <option key={user.id} value={user.id}>{user.name} · {user.role}</option>
+                ))}
+              </select>
+            </label>
+          ) : <button type="button" onClick={onLogout} className="px-3 py-2 text-xs border border-slate-200 rounded-lg">Đăng xuất</button>}
           {/* Avatar người dùng hiện tại */}
           <div className="flex items-center gap-2 pl-1">
             <div className="w-8 h-8 rounded-md bg-slate-900 text-white flex items-center justify-center font-semibold text-xs border border-slate-700">

@@ -1,3 +1,4 @@
+import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ClassItem } from '../types';
@@ -20,12 +21,10 @@ import {
 export const Module4_TeacherSchedule: React.FC = () => {
   const {
     classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
-    subjects, criteriaCategories, activeToneKey, toneDirectives, sopDocuments, ragBotConfig
+    subjects, criteriaCategories, activeToneKey, toneDirectives, sopDocuments, ragBotConfig, users
   } = useApp();
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
-  const [selectedMonth, setSelectedMonth] = useState('10/2026');
-  const [selectedWeek, setSelectedWeek] = useState('W1');
   const [fromDate, setFromDate] = useState('2026-10-05');
   const [toDate, setToDate] = useState('2026-10-11');
   const [currentWeekLabel, setCurrentWeekLabel] = useState('Tuần: 05/10 - 11/10/2026');
@@ -82,23 +81,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
     setChatInput('');
   };
 
-  const weekOptions = [
-    { id: 'W1', label: 'Tuần 1 (05/10/2026 - 11/10/2026)', from: '2026-10-05', to: '2026-10-11' },
-    { id: 'W2', label: 'Tuần 2 (12/10/2026 - 18/10/2026)', from: '2026-10-12', to: '2026-10-18' },
-    { id: 'W3', label: 'Tuần 3 (19/10/2026 - 25/10/2026)', from: '2026-10-19', to: '2026-10-25' },
-    { id: 'W4', label: 'Tuần 4 (26/10/2026 - 01/11/2026)', from: '2026-10-26', to: '2026-11-01' }
-  ];
-
-  const handleWeekSelect = (wId: string) => {
-    setSelectedWeek(wId);
-    const found = weekOptions.find(w => w.id === wId);
-    if (found) {
-      setFromDate(found.from);
-      setToDate(found.to);
-      setSelectedMonth(`${found.from.slice(5, 7)}/${found.from.slice(0, 4)}`);
-      setCurrentWeekLabel(`Tuần: ${new Date(`${found.from}T00:00:00`).toLocaleDateString('vi-VN')} - ${new Date(`${found.to}T00:00:00`).toLocaleDateString('vi-VN')}`);
-    }
-  };
   const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
   const [selectedSessionNum, setSelectedSessionNum] = useState<number>(1);
   const [selectedSessionDate, setSelectedSessionDate] = useState('');
@@ -373,17 +355,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
     showToast(`Đã lưu tiêu chí và nhận xét cho học sinh [${aiReviewStudentName}]!`, 'success');
   };
 
-  const defaultTeacher = teachers.find(
-    t => t.id === currentUser.id || t.email === currentUser.email || t.name.includes(currentUser.name.replace('Thầy ', '').replace('Cô ', ''))
-  ) || teachers[0];
-
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(defaultTeacher?.id || 'GV-001');
-
-  const currentTeacher = teachers.find(t => t.id === selectedTeacherId) || defaultTeacher;
+  const isTeacherAccount = currentUser.role === 'Giáo viên Giảng dạy';
+  const ownTeacher = resolveAccountTeacher(currentUser, teachers, users);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(ownTeacher?.id || teachers[0]?.id || '');
+  const currentTeacher = isTeacherAccount ? ownTeacher : teachers.find(t => t.id === selectedTeacherId);
 
   const isPrimaryTeacherForClass = (cls: ClassItem) => Boolean(currentTeacher && (
-    cls.teacherId === currentTeacher.id ||
-    cls.teacherName.includes(currentTeacher.name.replace('Thầy ', '').replace('Cô ', ''))
+    cls.teacherId ? cls.teacherId === currentTeacher.id : cls.teacherName === currentTeacher.name
   ));
   const teacherClasses = classes.filter(cls =>
     isPrimaryTeacherForClass(cls) ||
@@ -460,10 +438,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
     const nextTo = toInputDate(end);
     setFromDate(nextFrom);
     setToDate(nextTo);
-    setSelectedMonth(`${nextFrom.slice(5, 7)}/${nextFrom.slice(0, 4)}`);
-    setSelectedWeek(weekOptions.find(week => week.from === nextFrom)?.id || '');
     setCurrentWeekLabel(`Tuần: ${start.toLocaleDateString('vi-VN')} - ${end.toLocaleDateString('vi-VN')}`);
   };
+
+  if (isTeacherAccount && !ownTeacher) {
+    return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+      Chưa có hồ sơ giáo viên liên kết với tài khoản này. Vui lòng liên hệ quản trị viên.
+    </div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -475,9 +457,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
             <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-xs font-mono">
               Giáo viên: {currentUser.name} ({currentUser.id})
             </span>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-              Năm học {selectedSchoolYear}
-            </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
           Chọn ca dạy để xem thông tin lớp và học liệu; nhấn “Vào lớp” để mở phòng học.
@@ -485,19 +464,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Nút mở Bot Chat Tri Thức Vận Hành (Chuẩn thiết kế màu cam) */}
-          <button
-            onClick={() => setIsKnowledgeBotOpen(!isKnowledgeBotOpen)}
-            className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
-              isKnowledgeBotOpen
-                ? 'bg-[#FF5C00] text-white border-[#FF5C00] shadow-xs'
-                : 'bg-white hover:bg-orange-50 text-[#FF5C00] border-orange-200 shadow-2xs'
-            }`}
-          >
-            <span>Bot chat AI</span>
-            <span className="px-1.5 py-0.2 rounded text-[10px] bg-orange-100 text-[#FF5C00] font-bold">24/7</span>
-          </button>
-
           <button
             onClick={() => showToast('Đã gửi yêu cầu hỗ trợ ca dạy đến bộ phận Vận hành!', 'info')}
             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl border border-slate-200 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
@@ -507,111 +473,60 @@ export const Module4_TeacherSchedule: React.FC = () => {
         </div>
       </div>
 
-      {/* THANH LỌC THỜI GIAN THEO YÊU CẦU: Năm học, Tháng, Tuần, Khoảng ngày áp dụng */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Năm học */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600">Năm học:</span>
-              <select
-                value={selectedSchoolYear}
-                onChange={e => setSelectedSchoolYear(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-              >
-                <option value="2026 - 2027">2026 - 2027 (Hiện tại)</option>
-                <option value="2025 - 2026">2025 - 2026</option>
-                <option value="2027 - 2028">2027 - 2028</option>
-              </select>
-            </div>
-
-            {/* Tháng */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600">Tháng:</span>
-              <select
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-              >
-                <option value="09/2026">Tháng 09/2026</option>
-                <option value="10/2026">Tháng 10/2026</option>
-                <option value="11/2026">Tháng 11/2026</option>
-                <option value="12/2026">Tháng 12/2026</option>
-              </select>
-            </div>
-
-            {/* Tuần học */}
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600">Tuần học:</span>
-              <select
-                value={selectedWeek}
-                onChange={e => handleWeekSelect(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-              >
-                {weekOptions.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Khoảng ngày hiệu lực Từ ngày - Đến ngày */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            <span className="font-semibold text-slate-600">Khoảng thời gian:</span>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={e => {
-                  setFromDate(e.target.value);
-                  setCurrentWeekLabel(`Từ: ${e.target.value} đến: ${toDate}`);
-                }}
-                className="px-2 py-1 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:ring-1 focus:ring-indigo-500"
-              />
-              <span className="text-slate-400">&rarr;</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={e => {
-                  setToDate(e.target.value);
-                  setCurrentWeekLabel(`Từ: ${fromDate} đến: ${e.target.value}`);
-                }}
-                className="px-2 py-1 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
+      {/* Bộ lọc thời gian gọn: năm học và khoảng ngày */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-2xs">
+        <label className="flex items-center gap-2">
+          <span className="font-semibold text-slate-600">Năm học</span>
+          <select
+            value={selectedSchoolYear}
+            onChange={event => setSelectedSchoolYear(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-medium text-slate-800"
+          >
+            <option value="2026 - 2027">2026 - 2027</option>
+            <option value="2025 - 2026">2025 - 2026</option>
+            <option value="2027 - 2028">2027 - 2028</option>
+          </select>
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold text-slate-600">Khoảng thời gian</span>
+          <input
+            aria-label="Từ ngày"
+            type="date"
+            value={fromDate}
+            max={toDate || undefined}
+            onChange={event => {
+              if (!event.target.value) return;
+              setFromDate(event.target.value);
+              setCurrentWeekLabel(`Từ: ${event.target.value} đến: ${toDate}`);
+            }}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
+          />
+          <span className="text-slate-400">–</span>
+          <input
+            aria-label="Đến ngày"
+            type="date"
+            value={toDate}
+            min={fromDate || undefined}
+            onChange={event => {
+              if (!event.target.value) return;
+              setToDate(event.target.value);
+              setCurrentWeekLabel(`Từ: ${fromDate} đến: ${event.target.value}`);
+            }}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
+          />
         </div>
-
-        {/* Switcher chọn Giáo viên / Gia sư */}
-        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-700">Lịch dạy của:</span>
-            <span className="font-bold text-indigo-700">{currentTeacher?.name}</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-              {currentTeacher?.id}
-            </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {currentTeacher?.name.includes('Gia sư') ? 'Gia sư 1-1 / Nhóm nhỏ' : 'Giáo viên Giảng dạy'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-[11px]">Đổi tài khoản:</span>
+        {!isTeacherAccount && (
+          <label className="flex items-center gap-2">
+            <span className="font-semibold text-slate-600">Giáo viên</span>
             <select
               value={selectedTeacherId}
-              onChange={e => setSelectedTeacherId(e.target.value)}
-              className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              onChange={event => setSelectedTeacherId(event.target.value)}
+              className="max-w-56 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
             >
-              {teachers.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.subjectName || t.subject}) - {t.id}
-                </option>
-              ))}
+              {teachers.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
             </select>
-          </div>
-        </div>
+          </label>
+        )}
       </div>
 
       {/* Thanh Chú Thích Màu Sắc & Bộ Chuyển Tuần */}
