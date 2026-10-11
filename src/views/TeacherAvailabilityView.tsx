@@ -57,14 +57,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
   ];
 
   // Danh mục ca học
-  const activeSlots = (timeSlots && timeSlots.length > 0)
-    ? timeSlots.filter(s => s.status !== false)
-    : [
-        { id: 'SLOT-1250', code: 'SLOT-1250', name: 'Ca Trưa Thử Nghiệm (12:50 - 13:50)', timeRange: '12:50 - 13:50', durationMinutes: 60, status: true },
-        { id: 'SLOT-1', code: 'SLOT-E1', name: 'Ca Tối 1 (Giờ vàng)', timeRange: '18:00 - 19:30', durationMinutes: 90, status: true },
-        { id: 'SLOT-2', code: 'SLOT-E2', name: 'Ca Tối 2', timeRange: '19:45 - 21:15', durationMinutes: 90, status: true },
-        { id: 'SLOT-3', code: 'SLOT-A1', name: 'Ca Chiều', timeRange: '16:15 - 17:45', durationMinutes: 90, status: true }
-      ];
+  const activeSlots = timeSlots.filter(slot => slot.status !== false);
 
   // Bước 1: Thứ được chọn để cấu hình (0 = Thứ Hai, ..., 6 = Chủ Nhật)
   const [selectedDayKey, setSelectedDayKey] = useState<number>(0);

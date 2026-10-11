@@ -11,6 +11,7 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
     setCurrentUser(user); setWorkspaceMode(user.role === 'Giáo viên Giảng dạy' ? 'TEACHER' : 'ADMIN'); setTeacherPortalTab('availability'); onLogin(user.id);
   }}>
     <h1 className="text-xl font-bold text-slate-800">Đăng nhập Vuihoc</h1>
+    {!users.length && <p role="status" className="text-sm text-slate-600">Chưa có dữ liệu tài khoản. Vui lòng hoàn tất kết nối nguồn dữ liệu trước khi đăng nhập.</p>}
     <label className="block text-sm font-medium">Tên đăng nhập / Mã giáo viên<input autoComplete="username" required value={username} onChange={e => setUsername(e.target.value)} className="block w-full mt-2 p-3 rounded-xl border border-slate-200" /></label>
     <label className="block text-sm font-medium">Mật khẩu<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} className="block w-full mt-2 p-3 rounded-xl border border-slate-200" /></label>
     {error && <p role="alert" className="text-xs text-red-600">{error}</p>}

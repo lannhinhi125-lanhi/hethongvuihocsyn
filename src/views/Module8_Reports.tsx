@@ -192,7 +192,7 @@ const dateRangesOverlap = (
 
 export const Module8_Reports: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { showToast } = useApp();
+  const { showToast, classes: sourceClasses, students: sourceStudents, teachers: sourceTeachers, subjects: sourceSubjects, models: sourceModels, payrollStore } = useApp();
 
   // 2 Tab chính của hệ thống Báo cáo - Dashboard là mặc định khi vào báo cáo theo yêu cầu
   const [currentMainTab, setCurrentMainTab] = useState<'dashboard' | 'fixed' | 'custom'>('dashboard');
@@ -291,64 +291,53 @@ export const Module8_Reports: React.FC = () => {
   // =========================================================================
   // DỮ LIỆU CỐ ĐỊNH CHUẨN ĐỒNG BỘ
   // =========================================================================
-  const rawClasses = useMemo(() => [
-    { code: 'TOAN_K03_NT2_13_01', name: 'Toán Nền Tảng K3 - Lớp A', date: '2026-09-02', grade: 'Khối 3', gradeNum: 3, subject: 'Toán', subjectCode: 'TOAN', model: 'Nhóm 1-3', modelCode: '1-3', students: '3 / 3 HS', capacityPct: 100, status: 'Đã đủ trần' },
-    { code: 'ENG_K04_TC_11_01', name: 'Tiếng Anh Tiêu Chuẩn K4', date: '2026-09-05', grade: 'Khối 4', gradeNum: 4, subject: 'Tiếng Anh', subjectCode: 'ENG', model: '1 Kèm 1', modelCode: '1-1', students: '1 / 1 HS', capacityPct: 100, status: 'Đã đủ trần' },
-    { code: 'TOAN_K01_TC_11_01', name: 'Toán Tiêu Chuẩn K1', date: '2026-09-09', grade: 'Khối 1', gradeNum: 1, subject: 'Toán', subjectCode: 'TOAN', model: '1 Kèm 1', modelCode: '1-1', students: '1 / 1 HS', capacityPct: 100, status: 'Đã đủ trần' },
-    { code: 'ENG_IELTS_FND_13_01', name: 'IELTS Foundation Junior', date: '2026-09-12', grade: 'IELTS / Nâng cao', gradeNum: 10, subject: 'Tiếng Anh', subjectCode: 'ENG', model: 'Nhóm 1-3', modelCode: '1-3', students: '3 / 3 HS', capacityPct: 100, status: 'Đã đủ trần' },
-    { code: 'TOAN_K05_NT2_15_01', name: 'Toán Nâng Cao K5', date: '2026-09-16', grade: 'Khối 5', gradeNum: 5, subject: 'Toán', subjectCode: 'TOAN', model: 'Nhóm 1-5', modelCode: '1-5', students: '4 / 5 HS', capacityPct: 80, status: 'Còn trống 1 chỗ' },
-    { code: 'ENG_IELTS_JNR_15_01', name: 'IELTS Junior Speaking', date: '2026-09-19', grade: 'IELTS / Nâng cao', gradeNum: 11, subject: 'Tiếng Anh', subjectCode: 'ENG', model: 'Nhóm 1-5', modelCode: '1-5', students: '5 / 5 HS', capacityPct: 100, status: 'Đã đủ trần' },
-    { code: 'TOAN_K02_TC_11_02', name: 'Toán Tiêu Chuẩn K2 - Nhóm 2', date: '2026-09-23', grade: 'Khối 2', gradeNum: 2, subject: 'Toán', subjectCode: 'TOAN', model: '1 Kèm 1', modelCode: '1-1', students: '1 / 1 HS', capacityPct: 100, status: 'Đã đủ trần' },
-    { code: 'TOAN_K07_NC_13_01', name: 'Toán Hình Học THCS K7', date: '2026-10-02', grade: 'Khối 7', gradeNum: 7, subject: 'Toán', subjectCode: 'TOAN', model: 'Nhóm 1-3', modelCode: '1-3', students: '2 / 3 HS', capacityPct: 67, status: 'Còn trống 1 chỗ' },
-    { code: 'ENG_K08_FND_11_01', name: 'Tiếng Anh Nền Tảng K8', date: '2026-10-04', grade: 'Khối 8', gradeNum: 8, subject: 'Tiếng Anh', subjectCode: 'ENG', model: '1 Kèm 1', modelCode: '1-1', students: '1 / 1 HS', capacityPct: 100, status: 'Đã đủ trần' },
-    { code: 'TOAN_K09_VIP_11_01', name: 'Toán Ôn Thi Vào 10 - VIP', date: '2026-10-06', grade: 'Khối 9', gradeNum: 9, subject: 'Toán', subjectCode: 'TOAN', model: '1 Kèm 1', modelCode: '1-1', students: '1 / 1 HS', capacityPct: 100, status: 'Đã đủ trần' }
-  ], []);
-
-  const rawStudents = useMemo(() => [
-    { id: 'HS-2026-001', name: 'Nguyễn Minh Quân', date: '2026-09-01', grade: 'Khối 3', gradeNum: 3, subject: 'Toán', subjectCode: 'TOAN', model: 'Nhóm 1-3', modelCode: '1-3', status: 'Đã vào lớp' },
-    { id: 'HS-2026-004', name: 'Trần Gia Bảo', date: '2026-09-03', grade: 'Khối 1', gradeNum: 1, subject: 'Toán', subjectCode: 'TOAN', model: '1 Kèm 1', modelCode: '1-1', status: 'Đã vào lớp' },
-    { id: 'HS-2026-009', name: 'Lê Bảo Anh', date: '2026-09-08', grade: 'Khối 4', gradeNum: 4, subject: 'Tiếng Anh', subjectCode: 'ENG', model: '1 Kèm 1', modelCode: '1-1', status: 'Đã vào lớp' },
-    { id: 'HS-2026-015', name: 'Phạm Quỳnh Chi', date: '2026-09-11', grade: 'IELTS / Nâng cao', gradeNum: 10, subject: 'Tiếng Anh', subjectCode: 'ENG', model: 'Nhóm 1-3', modelCode: '1-3', status: 'Đã vào lớp' },
-    { id: 'HS-2026-022', name: 'Vũ Tuấn Kiệt', date: '2026-09-15', grade: 'Khối 5', gradeNum: 5, subject: 'Toán', subjectCode: 'TOAN', model: 'Nhóm 1-5', modelCode: '1-5', status: 'Đã vào lớp' },
-    { id: 'HS-2026-031', name: 'Đỗ Thảo Vy', date: '2026-09-18', grade: 'IELTS / Nâng cao', gradeNum: 11, subject: 'Tiếng Anh', subjectCode: 'ENG', model: 'Nhóm 1-5', modelCode: '1-5', status: 'Đã vào lớp' },
-    { id: 'HS-2026-038', name: 'Hoàng Minh Khang', date: '2026-09-22', grade: 'Khối 2', gradeNum: 2, subject: 'Toán', subjectCode: 'TOAN', model: '1 Kèm 1', modelCode: '1-1', status: 'Chờ ghép lớp' },
-    { id: 'HS-2026-045', name: 'Đặng Tuệ Lâm', date: '2026-10-02', grade: 'Khối 6', gradeNum: 6, subject: 'Toán', subjectCode: 'TOAN', model: 'Nhóm 1-3', modelCode: '1-3', status: 'Đã vào lớp' },
-    { id: 'HS-2026-052', name: 'Phạm Mai Khanh', date: '2026-10-05', grade: 'Khối 8', gradeNum: 8, subject: 'Tiếng Anh', subjectCode: 'ENG', model: '1 Kèm 1', modelCode: '1-1', status: 'Đã vào lớp' }
-  ], []);
-
-  const rawTutors = useMemo(() => [
-    { id: 'GV-2026-031', name: 'Nguyễn Thị Bích Ngọc', date: '2026-09-01', subject: 'Toán', subjectCode: 'TOAN', grades: 'Khối 1 - 5', gradeGroup: 'PRIMARY', status: 'Sẵn sàng nhận lớp', assigned: 16 },
-    { id: 'GV-2026-032', name: 'Đỗ Quang Huy', date: '2026-09-05', subject: 'Tiếng Anh', subjectCode: 'ENG', grades: 'IELTS & THCS', gradeGroup: 'IELTS', status: 'Sẵn sàng nhận lớp', assigned: 18 },
-    { id: 'GV-2026-033', name: 'Phan Mai Lan', date: '2026-09-10', subject: 'Toán', subjectCode: 'TOAN', grades: 'Khối 3 - 5', gradeGroup: 'PRIMARY', status: 'Đang đứng lớp', assigned: 24 },
-    { id: 'GV-2026-034', name: 'Vũ Thanh Tùng', date: '2026-09-14', subject: 'Tiếng Anh', subjectCode: 'ENG', grades: 'Khối 1 - 5', gradeGroup: 'PRIMARY', status: 'Đang đứng lớp', assigned: 20 },
-    { id: 'GV-2026-035', name: 'Hoàng Anh Tuấn', date: '2026-09-20', subject: 'Toán', subjectCode: 'TOAN', grades: 'Khối 6 - 9', gradeGroup: 'THCS', status: 'Sẵn sàng nhận lớp', assigned: 14 },
-    { id: 'GV-2026-036', name: 'Lê Thùy Dương', date: '2026-10-01', subject: 'Tiếng Anh', subjectCode: 'ENG', grades: 'Khối 10 - 12', gradeGroup: 'THPT', status: 'Đang đứng lớp', assigned: 12 },
-    { id: 'GV-2026-037', name: 'Trần Đăng Khoa', date: '2026-10-04', subject: 'Toán', subjectCode: 'TOAN', grades: 'Khối 6 - 9', gradeGroup: 'THCS', status: 'Sẵn sàng nhận lớp', assigned: 8 }
-  ], []);
-
-  const rawIncidents = useMemo(() => [
-    { period: 'Tuần 1 (01-07/09)', periodCode: 'W1', dateFrom: '2026-09-01', dateTo: '2026-09-07', total: 680, incidents: 14, urgent: 8, notice: 6, rate: 2.06, rateStr: '2.06%', main: 'Kỹ thuật / Mạng gián đoạn' },
-    { period: 'Tuần 2 (08-14/09)', periodCode: 'W2', dateFrom: '2026-09-08', dateTo: '2026-09-14', total: 720, incidents: 22, urgent: 15, notice: 7, rate: 3.05, rateStr: '3.05%', main: 'Giáo viên vào muộn' },
-    { period: 'Tuần 3 (15-21/09)', periodCode: 'W3', dateFrom: '2026-09-15', dateTo: '2026-09-21', total: 710, incidents: 20, urgent: 13, notice: 7, rate: 2.81, rateStr: '2.81%', main: 'Học sinh xin nghỉ gấp' },
-    { period: 'Tuần 4 (22-28/09)', periodCode: 'W4', dateFrom: '2026-09-22', dateTo: '2026-09-28', total: 730, incidents: 18, urgent: 12, notice: 6, rate: 2.46, rateStr: '2.46%', main: 'Giáo viên nghỉ đột xuất' },
-    { period: 'Tuần 1 T10 (29/09-05/10)', periodCode: 'W5', dateFrom: '2026-09-29', dateTo: '2026-10-05', total: 750, incidents: 16, urgent: 10, notice: 6, rate: 2.13, rateStr: '2.13%', main: 'Thiết bị mic / webcam' }
-  ], []);
-
-  const rawMatrix = useMemo(() => [
-    { subject: 'Toán', code: 'TOAN', primary12: 525, primary35: 600, thcs: 280, thpt: 150, ielts: 65, total: 1620, pct: 57, color: '#FF5C00' },
-    { subject: 'Tiếng Anh (IELTS)', code: 'ENG', primary12: 390, primary35: 490, thcs: 180, thpt: 90, ielts: 70, total: 1220, pct: 43, color: '#4F46E5' }
-  ], []);
-
-  const rawTeachersInspection = useMemo(() => [
-    { id: 'GV-001', name: 'ThS. Nguyễn Văn Anh', subject: 'Toán', subjectCode: 'TOAN', avg: 9.25, rank: 'Hạng A (Xuất sắc)', rankCode: 'A', total: 64, punctualityPct: 100, punctuality: '100%', plan: 'Khen thưởng • GV Nòng cốt' },
-    { id: 'GV-002', name: 'ThS. Hoàng Thị Lan', subject: 'Toán', subjectCode: 'TOAN', avg: 9.25, rank: 'Hạng A (Xuất sắc)', rankCode: 'A', total: 58, punctualityPct: 98.3, punctuality: '98.3%', plan: 'Phụ trách chuyên môn K1-2' },
-    { id: 'GV-003', name: 'Trần Minh Thư, B.A', subject: 'Tiếng Anh', subjectCode: 'ENG', avg: 8.63, rank: 'Hạng B (Tốt)', rankCode: 'B', total: 52, punctualityPct: 96.2, punctuality: '96.2%', plan: 'Đạt chuẩn sư phạm' },
-    { id: 'GV-004', name: 'Vũ Thanh Hằng, M.Ed', subject: 'Tiếng Anh', subjectCode: 'ENG', avg: 8.80, rank: 'Hạng B (Tốt)', rankCode: 'B', total: 48, punctualityPct: 100, punctuality: '100%', plan: 'Chuyên trách IELTS' },
-    { id: 'GV-005', name: 'Đặng Tuấn Kiệt', subject: 'Toán', subjectCode: 'TOAN', avg: 7.38, rank: 'Hạng C (Khá)', rankCode: 'C', total: 42, punctualityPct: 92.8, punctuality: '92.8%', plan: 'Bồi dưỡng phương pháp' },
-    { id: 'GV-006', name: 'Lê Thu Hà', subject: 'Tiếng Anh', subjectCode: 'ENG', avg: 7.13, rank: 'Hạng C (Khá)', rankCode: 'C', total: 40, punctualityPct: 95.0, punctuality: '95.0%', plan: 'Tập huấn nâng cao chuẩn đề' },
-    { id: 'GV-007', name: 'Phạm Hải Nam', subject: 'Toán', subjectCode: 'TOAN', avg: 6.38, rank: 'Hạng D (Chưa đạt)', rankCode: 'D', total: 24, punctualityPct: 83.3, punctuality: '83.3%', plan: 'Tạm dừng nhận lớp • Đào tạo lại' }
-  ], []);
-
+  // Báo cáo lấy từ dữ liệu nghiệp vụ; không có bộ bản ghi mẫu riêng.
+  const creationDate = (record: object): string => {
+    const value = record as { createdAt?: string; created_at?: string; startDate?: string };
+    return (value.createdAt || value.created_at || value.startDate || '').slice(0, 10);
+  };
+  const subjectLabel = (code: string) => sourceSubjects.find(item => item.code === code)?.name || code;
+  const subjectCode = (code: string) => code === 'SUB-MATH' ? 'TOAN' : code === 'SUB-ENG' ? 'ENG' : code;
+  const rawClasses = useMemo(() => sourceClasses.map(c => ({
+    code: c.code, name: c.name, date: creationDate(c), grade: c.grade, gradeNum: Number(c.grade.match(/\d+/)?.[0] || 0),
+    subject: subjectLabel(c.subject), subjectCode: subjectCode(c.subject),
+    model: sourceModels.find(item => item.code === c.model)?.name || c.model, modelCode: c.model,
+    students: c.studentIds.length + ' / ' + c.maxStudents + ' HS',
+    capacityPct: c.maxStudents ? Math.round(c.studentIds.length / c.maxStudents * 100) : 0,
+    status: c.studentIds.length >= c.maxStudents ? 'Đã đủ trần' : 'Còn trống ' + (c.maxStudents - c.studentIds.length) + ' chỗ'
+  })), [sourceClasses, sourceSubjects, sourceModels]);
+  const rawStudents = useMemo(() => sourceStudents.map(s => ({
+    id: s.id, name: s.name, date: creationDate(s), grade: s.grade, gradeNum: Number(s.grade.match(/\d+/)?.[0] || 0),
+    subject: subjectLabel(s.subject), subjectCode: subjectCode(s.subject),
+    model: sourceModels.find(item => item.code === s.model)?.name || s.model, modelCode: s.model,
+    status: s.status === 'Chờ xếp lớp' ? 'Chờ ghép lớp' : s.status === 'Đang học' ? 'Đã vào lớp' : s.status
+  })), [sourceStudents, sourceSubjects, sourceModels]);
+  const rawTutors = useMemo(() => sourceTeachers.map(t => ({
+    id: t.id, name: t.name, date: creationDate(t), subject: subjectLabel(t.subject), subjectCode: subjectCode(t.subject),
+    grades: t.grades.join(', '), gradeGroup: t.levelId === 'CAP-TH' ? 'PRIMARY' : t.levelId === 'CAP-THCS' ? 'THCS' : t.levelId === 'CAP-THPT' ? 'THPT' : 'IELTS',
+    status: t.status === 'DANG_DAY' ? 'Đang đứng lớp' : t.status === 'CHO_LOP' ? 'Sẵn sàng nhận lớp' : t.statusLabel, assigned: t.busySlots
+  })), [sourceTeachers, sourceSubjects]);
+  const rawIncidents = useMemo(() => Object.entries(payrollStore).map(([month, data]) => {
+    const sessions = data.teachers.flatMap(t => t.sessions);
+    const affected = sessions.filter(s => ['COVER', 'STUDENT_CANCELED', 'LATE', 'EMERGENCY'].includes(s.type));
+    const urgent = affected.filter(s => s.type === "LATE" || s.type === "EMERGENCY").length;
+    const rate = sessions.length ? Number((affected.length / sessions.length * 100).toFixed(2)) : 0;
+    return { period: month, periodCode: month, dateFrom: month + '-01', dateTo: month + '-' + new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate(), total: sessions.length, incidents: affected.length, urgent, notice: affected.length - urgent, rate, rateStr: rate + '%', main: affected[0]?.statusText || 'Chưa ghi nhận sự cố' };
+  }), [payrollStore]);
+  const rawMatrix = useMemo(() => sourceSubjects.map(subject => {
+    const assigned = sourceClasses.filter(c => c.subject === subject.code).flatMap(c => c.studentIds.map(id => sourceStudents.find(s => s.id === id))).filter((s): s is NonNullable<typeof s> => Boolean(s));
+    const countGrade = (from: number, to: number) => assigned.filter(s => { const grade = Number(s.grade.match(/\d+/)?.[0] || 0); return grade >= from && grade <= to; }).length;
+    const all = sourceClasses.reduce((sum, c) => sum + c.studentIds.length, 0);
+    return { subject: subject.name, code: subjectCode(subject.code), primary12: countGrade(1, 2), primary35: countGrade(3, 5), thcs: countGrade(6, 9), thpt: countGrade(10, 12), ielts: assigned.filter(s => !/\d+/.test(s.grade)).length, total: assigned.length, pct: all ? Math.round(assigned.length / all * 100) : 0, color: subject.code === 'SUB-MATH' ? '#FF5C00' : '#4F46E5' };
+  }), [sourceSubjects, sourceClasses, sourceStudents]);
+  const rawTeachersInspection = useMemo(() => sourceTeachers.filter(t => t.evaluationReports?.length).map(t => {
+    const records = t.evaluationReports || [];
+    const avg = Number((records.reduce((sum, r) => sum + r.overallScore, 0) / records.length).toFixed(2));
+    const rankCode = avg >= 9 ? 'A' : avg >= 8 ? 'B' : avg >= 7 ? 'C' : 'D';
+    const sessions = Object.values(payrollStore).flatMap(p => p.teachers.filter(item => item.teacherId === t.id).flatMap(item => item.sessions));
+    const punctualityPct = sessions.length ? Number((sessions.filter(s => s.type !== "LATE").length / sessions.length * 100).toFixed(1)) : 0;
+    return { id: t.id, name: t.name, subject: subjectLabel(t.subject), subjectCode: subjectCode(t.subject), avg, rank: 'Hạng ' + rankCode, rankCode, total: records.length, punctualityPct, punctuality: sessions.length ? punctualityPct + '%' : 'Chưa có dữ liệu', plan: records.at(-1)?.recommendations || '' };
+  }), [sourceTeachers, sourceSubjects, payrollStore]);
   const customDatasets = useMemo(() => makeReportDatasets({
     classes: rawClasses, students: rawStudents, teachers: rawTutors,
     incidents: rawIncidents, inspections: rawTeachersInspection

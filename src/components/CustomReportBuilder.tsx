@@ -1,3 +1,4 @@
+import { runtimeStorage } from '../lib/localData';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Table, Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw, Plus } from 'lucide-react';
@@ -14,7 +15,7 @@ import { PAGE_SIZE, PaginatedList } from './Pagination';
 const templateKey = (userId: string) => 'vuihoc_custom_report_templates_v1_' + userId;
 function readTemplates(userId: string, datasets: ReportDataset[]): SavedReportTemplate[] {
   try {
-    const stored: unknown = JSON.parse(localStorage.getItem(templateKey(userId)) || '[]');
+    const stored: unknown = JSON.parse(runtimeStorage.getItem(templateKey(userId)) || '[]');
     if (!Array.isArray(stored)) return [];
     const ids = new Set<string>();
     return stored.flatMap(item => {
@@ -91,9 +92,9 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
   const persistTemplates = (next: SavedReportTemplate[]) => {
     if (!requirePermission('Lưu và quản lý mẫu báo cáo tùy chỉnh')) return false;
     try {
-      localStorage.setItem(templateKey(currentUser.id), JSON.stringify(next));
+      runtimeStorage.setItem(templateKey(currentUser.id), JSON.stringify(next));
       setTemplates(next); return true;
-    } catch { showToast('Không thể lưu mẫu trên trình duyệt này. Cấu hình hiện tại vẫn được giữ.', 'error'); return false; }
+    } catch { showToast('Không thể lưu mẫu trong phiên làm việc. Cấu hình hiện tại vẫn được giữ.', 'error'); return false; }
   };
   const saveTemplate = (overwrite: boolean) => {
     const name = templateName.trim();
@@ -106,7 +107,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     const next = overwrite && selectedTemplate ? templates.map(item => item.id === templateId ? saved : item) : [saved, ...templates];
     if (persistTemplates(next)) {
       setTemplateId(saved.id); setSaveOpen(false);
-      showToast('Đã lưu cấu hình báo cáo. Mẫu được giữ trên trình duyệt này.', 'success');
+      showToast('Đã lưu cấu hình báo cáo. Mẫu được giữ trong phiên làm việc này.', 'success');
     }
   };
   const exportCsv = () => {

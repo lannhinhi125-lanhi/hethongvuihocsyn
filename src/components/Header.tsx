@@ -1,9 +1,8 @@
 import React from 'react';
-import { PORTAL_PREVIEW_MODE } from '../lib/previewMode';
+import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
 import { useApp } from '../context/AppContext';
 import {
   Menu,
-  RotateCcw,
   ChevronRight,
   UserCheck,
   Trash2
@@ -23,7 +22,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
     workspaceMode,
     setWorkspaceMode,
     teacherPortalTab,
-    resetAllDataToDefaults,
     clearAllData,
     showToast
   } = useApp();
@@ -54,14 +52,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
       : teacherTabTitles[teacherPortalTab] || { cat: 'Cổng Giáo viên', title: 'Bảng Giảng Dạy' };
 
 
-  const handleConfirmReset = () => {
-    if (window.confirm('Khôi phục toàn bộ hệ thống về 1 bộ dữ liệu liên thông chuẩn xuyên suốt?')) {
-      resetAllDataToDefaults();
-    }
-  };
-
   const handleConfirmClear = () => {
-    if (window.confirm('XÓA SẠCH DỮ LIỆU: Thao tác này sẽ xóa toàn bộ học sinh, lớp học và khiếu nại về trạng thái trống (0 bản ghi) để bạn nhập từ đầu. Bạn có chắc chắn không?')) {
+    if (window.confirm('XÓA SẠCH DỮ LIỆU: Thao tác này xóa toàn bộ dữ liệu trong phiên và đăng xuất. Dữ liệu trên Supabase không bị xóa. Bạn có chắc chắn không?')) {
       clearAllData();
     }
   };
@@ -104,20 +96,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
           <button
             disabled={currentUser.role !== 'Quản trị Toàn quyền'} onClick={handleConfirmClear}
             className="p-1.5 sm:px-2.5 sm:py-1.5 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-md border border-slate-200 hover:border-rose-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-            title="Xóa trống toàn bộ dữ liệu (0 học sinh, 0 lớp học, 0 khiếu nại)"
+            title="Xóa toàn bộ dữ liệu trong phiên và đăng xuất"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-500" />
             <span className="hidden xl:inline">Xóa dữ liệu</span>
-          </button>
-
-          {/* Nút Khôi phục dữ liệu chuẩn */}
-          <button
-            disabled={currentUser.role !== 'Quản trị Toàn quyền'} onClick={handleConfirmReset}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-md border border-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-            title="Khôi phục 1 bộ dữ liệu liên thông chuẩn xuyên suốt"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden md:inline">Dữ liệu chuẩn</span>
           </button>
 
           <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
@@ -129,11 +111,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
                 aria-label="Chọn tài khoản kiểm tra cổng"
                 value={currentUser.id}
                 onChange={event => {
-                  const account = users.find(user => user.id === event.target.value && user.status === 'active');
+                  const account = event.target.value === PREVIEW_ACCOUNT.id ? PREVIEW_ACCOUNT : users.find(user => user.id === event.target.value && user.status === 'active');
                   if (account) setCurrentUser(account);
                 }}
                 className="max-w-[210px] rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"
               >
+                <option value={PREVIEW_ACCOUNT.id}>Quản trị xem trước</option>
                 {users.filter(user => user.status === 'active').map(user => (
                   <option key={user.id} value={user.id}>{user.name} · {user.role}</option>
                 ))}

@@ -1,3 +1,4 @@
+import { runtimeStorage } from '../lib/localData';
 import { PaginatedTableBody } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from './CatalogTreeBranch';
@@ -13,7 +14,7 @@ const input = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus
 const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40';
 function readCatalogs(): Catalog[] {
   try {
-    const stored: unknown = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    const stored: unknown = JSON.parse(runtimeStorage.getItem(storageKey) || '[]');
     if (!Array.isArray(stored)) return [];
     const ids = new Set<string>();
     return stored.filter((item): item is Catalog => {
@@ -50,8 +51,8 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   }, [selectedId, catalogs]);
   const persist = (next: Catalog[]) => {
     if (!canEdit) return false;
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); setCatalogs(next); return true; }
-    catch { showToast('Không thể lưu danh mục trên trình duyệt này.', 'error'); return false; }
+    try { runtimeStorage.setItem(storageKey, JSON.stringify(next)); setCatalogs(next); return true; }
+    catch { showToast('Không thể lưu danh mục trong phiên làm việc.', 'error'); return false; }
   };
   useEffect(() => {
     if (!dialog) return;

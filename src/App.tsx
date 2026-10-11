@@ -1,5 +1,6 @@
+import { runtimeStorage } from './lib/localData';
 import { canAccessModule, teacherModuleIds, accountPortal } from './lib/accessControl';
-import { PORTAL_PREVIEW_MODE } from './lib/previewMode';
+import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from './lib/previewMode';
 import { resolveActiveAccount } from './lib/workflow';
 import { LoginView } from './views/LoginView';
 import React, { useEffect, useState } from 'react';
@@ -21,16 +22,16 @@ import { TeacherWorkReconciliationView } from './views/TeacherWorkReconciliation
 
 const MainLayout: React.FC = () => {
   const { activeModule, workspaceMode, teacherPortalTab, currentUser, users, roleGroups, setCurrentUser, setActiveModule } = useApp();
-  const [authenticatedUserId, setAuthenticatedUserId] = useState(() => sessionStorage.getItem('vuihoc_authenticated_user_id'));
+  const [authenticatedUserId, setAuthenticatedUserId] = useState(() => runtimeStorage.getItem('vuihoc_authenticated_user_id'));
   const activeAccount = PORTAL_PREVIEW_MODE
-    ? resolveActiveAccount(users, currentUser.id) || users.find(user => user.status === 'active' && user.role === 'Quản trị Toàn quyền')
+    ? resolveActiveAccount(users, currentUser.id) || (currentUser.id === PREVIEW_ACCOUNT.id ? PREVIEW_ACCOUNT : users.find(user => user.status === 'active' && user.role === 'Quản trị Toàn quyền')) || PREVIEW_ACCOUNT
     : resolveActiveAccount(users, authenticatedUserId);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!PORTAL_PREVIEW_MODE || users.some(user => user.id === currentUser.id)) return;
+    if (!PORTAL_PREVIEW_MODE || currentUser.id === PREVIEW_ACCOUNT.id || users.some(user => user.id === currentUser.id)) return;
     const admin = users.find(user => user.role === 'Quản trị Toàn quyền' && user.status === 'active');
-    if (admin) setCurrentUser(admin);
+    setCurrentUser(admin || PREVIEW_ACCOUNT);
   }, []);
 
   useEffect(() => {
@@ -43,14 +44,14 @@ const MainLayout: React.FC = () => {
 
   useEffect(() => {
     if (!PORTAL_PREVIEW_MODE && authenticatedUserId && !activeAccount) {
-      sessionStorage.removeItem('vuihoc_authenticated_user_id');
-      sessionStorage.removeItem('vuihoc_authenticated');
+      runtimeStorage.removeItem('vuihoc_authenticated_user_id');
+      runtimeStorage.removeItem('vuihoc_authenticated');
       setAuthenticatedUserId(null);
     }
   }, [authenticatedUserId, activeAccount]);
 
   if (!activeAccount) return <LoginView onLogin={userId => {
-    sessionStorage.setItem('vuihoc_authenticated_user_id', userId);
+    runtimeStorage.setItem('vuihoc_authenticated_user_id', userId);
     setAuthenticatedUserId(userId);
     setMobileMenuOpen(false);
   }} />;
@@ -64,7 +65,7 @@ const MainLayout: React.FC = () => {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Header với Breadcrumb, Switcher vai trò, Xóa & Reset dữ liệu */}
-        <Header onLogout={() => { sessionStorage.removeItem('vuihoc_authenticated'); sessionStorage.removeItem('vuihoc_authenticated_user_id'); setAuthenticatedUserId(null); setMobileMenuOpen(false); }} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
+        <Header onLogout={() => { runtimeStorage.removeItem('vuihoc_authenticated'); runtimeStorage.removeItem('vuihoc_authenticated_user_id'); setAuthenticatedUserId(null); setMobileMenuOpen(false); }} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         {/* Scrollable Main Content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">

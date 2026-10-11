@@ -6,10 +6,6 @@ import {
   Video,
   ExternalLink,
   PlayCircle,
-  Play,
-  Pause,
-  Volume2,
-  Maximize2,
   BookOpen,
   Users,
   FileText,
@@ -29,7 +25,7 @@ import { resolveTeacherAccount, sessionDateISO } from '../lib/evaluation';
 
 export const TeacherEvaluationView: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { currentUser, teachers, classes, showToast, users, setTeachers } = useApp();
+  const { currentUser, teachers, classes, showToast, users, setTeachers, students } = useApp();
 
   // Tìm hồ sơ giáo viên đang đăng nhập hoặc mặc định
   const isTeacherAccount = currentUser.role === 'Giáo viên Giảng dạy';
@@ -43,23 +39,25 @@ export const TeacherEvaluationView: React.FC = () => {
 
   // Modal xem toàn văn biên bản
   const [viewingRecord, setViewingRecord] = useState<EvaluationRecord | null>(null);
-  const [isPlayingRecording, setIsPlayingRecording] = useState(false);
-  const [videoSpeed, setVideoSpeed] = useState<number>(1);
+
+  const viewingClass = classes.find(c => c.code === viewingRecord?.classCode);
+  const viewingSession = Object.values(viewingClass?.activeSessions || {}).find(s => s.sessionNum === viewingRecord?.sessionNum);
+  const viewingStudents = students.filter(s => viewingClass?.studentIds.includes(s.id));
 
   // Modal lập biên bản đánh giá buổi học mới
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newClassCode, setNewClassCode] = useState('TOAN_K03_NT2_13_01');
-  const [newSessionName, setNewSessionName] = useState('Tiết 3: Luyện tập phép tính chia và giải toán có lời văn');
-  const [newSessionNum, setNewSessionNum] = useState(3);
-  const [newEvalDate, setNewEvalDate] = useState('2026-10-10');
-  const [newEvaluatorName, setNewEvaluatorName] = useState('ThS. Hoàng Ngọc Mai');
-  const [newEvaluatorRole, setNewEvaluatorRole] = useState('Trưởng ban Chuyên môn');
-  const [newTc1, setNewTc1] = useState(9.0);
-  const [newTc2, setNewTc2] = useState(8.5);
-  const [newTc3, setNewTc3] = useState(9.0);
-  const [newComment, setNewComment] = useState('Giáo viên giảng bài nhiệt tình, nắm vững mục tiêu bài học.');
-  const [newStrengths, setNewStrengths] = useState('Kiểm soát tốt lớp học, giải thích mạch lạc.');
-  const [newImprovements, setNewImprovements] = useState('Tăng cường thời lượng làm bài độc lập của học sinh.');
+  const [newClassCode, setNewClassCode] = useState('');
+  const [newSessionName, setNewSessionName] = useState('');
+  const [newSessionNum, setNewSessionNum] = useState(1);
+  const [newEvalDate, setNewEvalDate] = useState(() => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));
+  const [newEvaluatorName, setNewEvaluatorName] = useState(currentUser.name);
+  const [newEvaluatorRole, setNewEvaluatorRole] = useState<string>(currentUser.role);
+  const [newTc1, setNewTc1] = useState(0);
+  const [newTc2, setNewTc2] = useState(0);
+  const [newTc3, setNewTc3] = useState(0);
+  const [newComment, setNewComment] = useState('');
+  const [newStrengths, setNewStrengths] = useState('');
+  const [newImprovements, setNewImprovements] = useState('');
 
   const currentRecords = [...(currentTeacher?.evaluationReports || []).filter(r => !isTeacherAccount || r.recipientUserId === currentUser.id)];
 
@@ -389,99 +387,9 @@ export const TeacherEvaluationView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Khung Video Bản ghi bài giảng (Recording Player) */}
-                <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-md">
-                  <div className="relative aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col justify-between p-3 select-none">
-                    <div className="flex items-center justify-between text-xs text-white/90 z-10">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-                        <span className="font-semibold text-[11px] tracking-wide">RECORDER BÀI GIẢNG FULL HD 1080P</span>
-                        <span className="px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono">01:28:45</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[11px] bg-black/40 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/10">
-                        <span>Phòng: Vuihoc Tutor Room 01</span>
-                      </div>
-                    </div>
-
-                    <div className="relative flex-1 flex items-center justify-center my-2">
-                      <div className="w-full h-full bg-emerald-950/40 rounded-xl border border-emerald-500/20 p-3 flex flex-col justify-between text-white/80">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="text-[10px] text-emerald-400 font-mono uppercase tracking-wider">
-                              Bảng tương tác bài giảng
-                            </div>
-                            <h4 className="text-sm font-bold text-white mt-0.5">
-                              {viewingRecord.sessionName}
-                            </h4>
-                            <p className="text-[11px] text-slate-300 mt-1">
-                              Lớp: {viewingRecord.className} &bull; Khung giờ: {viewingRecord.timeSlot}
-                            </p>
-                          </div>
-
-                          <div className="w-28 h-20 bg-slate-800 rounded-lg border border-white/20 overflow-hidden relative shadow-lg flex flex-col justify-between p-1">
-                            <div className="text-[9px] font-bold text-white/90 bg-black/50 px-1 rounded self-start truncate max-w-[90px]">
-                              {currentTeacher.name.split(' ').slice(-1)[0]} (GV)
-                            </div>
-                            <div className="flex items-center justify-center text-orange-300 text-xs font-bold">
-                              🎥 Mic On
-                            </div>
-                            <div className="text-[9px] text-emerald-400 font-mono text-right">● HD 30fps</div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setIsPlayingRecording(!isPlayingRecording)}
-                            className="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer"
-                          >
-                            {isPlayingRecording ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
-                          </button>
-                        </div>
-
-                        <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                          <span>Mô hình lớp: {viewingRecord.model}</span>
-                          <span className="text-emerald-400 font-mono">Đường truyền ổn định (Ping: 18ms)</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 z-10">
-                      <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden cursor-pointer">
-                        <div className="bg-indigo-500 h-full rounded-full w-3/5" />
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-white/80 pt-0.5">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsPlayingRecording(!isPlayingRecording)}
-                            className="hover:text-white cursor-pointer"
-                          >
-                            {isPlayingRecording ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </button>
-                          <Volume2 className="w-4 h-4 text-white/70" />
-                          <span className="text-[11px] font-mono text-white/70">52:10 / 90:00</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px]">
-                          <span className="text-white/60">Tốc độ tua:</span>
-                          {[1, 1.25, 1.5].map(speed => (
-                            <button
-                              key={speed}
-                              type="button"
-                              onClick={() => setVideoSpeed(speed)}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono transition-colors cursor-pointer ${
-                                videoSpeed === speed ? 'bg-indigo-600 text-white' : 'bg-white/10 text-white/80 hover:bg-white/20'
-                              }`}
-                            >
-                              {speed}x
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                  {viewingRecord.recordLink ? <a href={viewingRecord.recordLink} target="_blank" rel="noreferrer" className="text-indigo-600 underline">Mở bản ghi buổi học</a> : "Chưa có bản ghi buổi học."}
                 </div>
-
                 {/* 3 Thẻ Thông tin Ca học chuẩn Tutor Screen */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1 text-xs">
@@ -520,84 +428,21 @@ export const TeacherEvaluationView: React.FC = () => {
                     </div>
                     <div className="text-[11px] flex items-center justify-between">
                       <span className="text-slate-500">LMS:</span>
-                      <span className="text-emerald-600 font-medium">Hoàn thành 100%</span>
+                      <span className="text-emerald-600 font-medium">Chưa có dữ liệu tiến độ</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Danh sách học sinh tham gia ca dạy & Điểm danh */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <h5 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-indigo-600" />
-                      <span>Danh sách Học sinh &amp; Điểm danh ca dạy</span>
-                    </h5>
-                    <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      100% Chuyên cần
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs">
-                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px] flex items-center justify-center">
-                          GB
-                        </div>
-                        <div>
-                          <span className="font-bold text-slate-800">Trần Gia Bảo</span>
-                          <span className="text-[10px] text-slate-400 ml-1.5 font-mono">HS-2026-089</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold text-[10px]">
-                          Có mặt (Check-in 17:58)
-                        </span>
-                        <span className="text-slate-500">Phát biểu 5 lần</span>
-                        <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold border border-indigo-200">
-                          AI: Tiếp thu xuất sắc
-                        </span>
-                      </div>
-                    </div>
-                    {viewingRecord.model !== '1-1' && (
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] flex items-center justify-center">
-                            ĐA
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-800">Bùi Đức Anh</span>
-                            <span className="text-[10px] text-slate-400 ml-1.5 font-mono">HS-2026-033</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px]">
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold text-[10px]">
-                            Có mặt (Check-in 17:55)
-                          </span>
-                          <span className="text-slate-500">Hoàn thành 100% BT</span>
-                          <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold border border-indigo-200">
-                            AI: Tương tác tốt
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Nhật ký buổi học của Gia sư (Lesson Diary) */}
-                  <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-amber-900 flex items-center gap-1">
-                        <FileText className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Nhật ký buổi học của Gia sư (Lesson Diary)</span>
-                      </span>
-                      <span className="text-[10px] font-semibold text-amber-700">Ghi nhận sau buổi học</span>
-                    </div>
-                    <p className="text-[11px] text-slate-700 leading-relaxed italic bg-white/80 p-2 rounded-lg border border-amber-100">
-                      &ldquo;Buổi học diễn ra đúng giáo trình tiết học. Học sinh nắm bài tốt, hoàn thành các bài tập ví dụ trên lớp và tham gia mini game tính nhẩm hào hứng. Đã giao bài tập về nhà và hướng dẫn phương pháp tự giải.&rdquo;
-                    </p>
-                  </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                  <h5 className="font-bold text-sm">Học sinh và điểm danh</h5>
+                  {!viewingStudents.length && <p className="text-xs text-slate-500">Chưa có dữ liệu học sinh cho ca dạy.</p>}
+                  {viewingStudents.map(student => <div key={student.id} className="rounded-lg border border-slate-100 p-3 text-xs">
+                    <p className="font-semibold">{student.name} <span className="font-normal text-slate-400">{student.id}</span></p>
+                    <p className="mt-1 text-slate-600">{({ present: "Có mặt", late: "Đi muộn", absent: "Vắng mặt" } as Record<string, string>)[viewingSession?.attendance?.[student.id] || ""] || "Chưa điểm danh"}</p>
+                    <p className="mt-1 text-slate-500">{viewingSession?.feedback?.[student.id] || "Chưa có nhận xét."}</p>
+                  </div>)}
                 </div>
               </div>
-
               {/* ================= CỘT PHẢI (5/12 CỘT): BIÊN BẢN & PHIẾU CHẤM DỰ GIỜ ================= */}
               <div className="lg:col-span-5 p-5 bg-white overflow-y-auto space-y-4 flex flex-col justify-between">
                 <div className="space-y-4">

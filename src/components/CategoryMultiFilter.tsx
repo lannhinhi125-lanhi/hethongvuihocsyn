@@ -15,72 +15,8 @@ export interface CategoryGroup {
   options: CategoryOption[];
 }
 
-export const DEFAULT_TEACHER_CATEGORIES: CategoryGroup[] = [
-  {
-    id: 'CAP-TH',
-    name: 'Tiểu học',
-    badge: 'Khối 1 - 5',
-    options: [
-      { id: 'Lớp 1', label: 'Lớp 1' },
-      { id: 'Lớp 2', label: 'Lớp 2' },
-      { id: 'Lớp 3', label: 'Lớp 3' },
-      { id: 'Lớp 4', label: 'Lớp 4' },
-      { id: 'Lớp 5', label: 'Lớp 5' },
-      { id: 'Toán Tiểu học', label: 'Toán Tiểu học' },
-      { id: 'Tiếng Anh Tiểu học', label: 'Tiếng Anh Tiểu học' }
-    ]
-  },
-  {
-    id: 'CAP-THCS',
-    name: 'THCS',
-    badge: 'Khối 6 - 9',
-    options: [
-      { id: 'Lớp 6', label: 'Lớp 6' },
-      { id: 'Lớp 7', label: 'Lớp 7' },
-      { id: 'Lớp 8', label: 'Lớp 8' },
-      { id: 'Lớp 9', label: 'Lớp 9' },
-      { id: 'Toán Chuyên THCS', label: 'Toán Chuyên THCS' },
-      { id: 'Tiếng Anh THCS', label: 'Tiếng Anh THCS' }
-    ]
-  },
-  {
-    id: 'CAP-THPT',
-    name: 'THPT',
-    badge: 'Khối 10 - 12',
-    options: [
-      { id: 'Lớp 10', label: 'Lớp 10' },
-      { id: 'Lớp 11', label: 'Lớp 11' },
-      { id: 'Lớp 12', label: 'Lớp 12' },
-      { id: 'Luyện thi ĐH (Toán)', label: 'Luyện thi ĐH (Toán)' },
-      { id: 'Luyện thi ĐH (Tiếng Anh)', label: 'Luyện thi ĐH (Tiếng Anh)' }
-    ]
-  },
-  {
-    id: 'CAT-IELTS',
-    name: 'IELTS & Quốc tế',
-    badge: 'Band 5.0 - 8.5',
-    options: [
-      { id: 'IELTS 5.0 - 5.5', label: 'IELTS Pre-Inter (5.0 - 5.5)' },
-      { id: 'IELTS 6.0 - 6.5', label: 'IELTS Inter (6.0 - 6.5)' },
-      { id: 'IELTS 6.5 - 7.5', label: 'IELTS Upper (6.5 - 7.5)' },
-      { id: 'IELTS 8.0+', label: 'IELTS Master (8.0+)' },
-      { id: 'Cambridge KET/PET', label: 'Cambridge KET / PET' },
-      { id: 'Cambridge Flyers', label: 'Cambridge Flyers' }
-    ]
-  },
-  {
-    id: 'CAT-MATH-SPEC',
-    name: 'Toán Tư Duy & Nâng Cao',
-    badge: 'Olympic & 1-1',
-    options: [
-      { id: 'Toán Tư duy Singapore', label: 'Toán Tư duy Singapore' },
-      { id: 'Toán Soroban', label: 'Toán Soroban & Tính nhanh' },
-      { id: 'Luyện thi Violympic', label: 'Luyện thi Violympic / Kangaroo' },
-      { id: 'Toán Nâng cao 1-3', label: 'Toán Nâng cao Nhóm nhỏ (1-3)' },
-      { id: 'Toán 1 kèm 1', label: 'Toán Ôn tập Nền tảng 1 kèm 1' }
-    ]
-  }
-];
+// Danh mục được nạp từ nguồn dữ liệu; không có bộ mẫu cục bộ.
+export const DEFAULT_TEACHER_CATEGORIES: CategoryGroup[] = [];
 
 interface CategoryMultiFilterProps {
   categories?: CategoryGroup[];

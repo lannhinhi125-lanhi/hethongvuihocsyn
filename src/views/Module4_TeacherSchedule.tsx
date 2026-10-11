@@ -1,3 +1,4 @@
+import { runtimeStorage } from '../lib/localData';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
@@ -91,7 +92,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   // AI Review modal state
   const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
-  const [aiReviewStudentName, setAiReviewStudentName] = useState('Trần Gia Bảo');
+  const [aiReviewStudentName, setAiReviewStudentName] = useState('');
   const [aiReviewStudentId, setAiReviewStudentId] = useState('');
   const [aiGeneratedText, setAiGeneratedText] = useState('');
   const [selectedCriterionOptions, setSelectedCriterionOptions] = useState<Record<string, string>>({});
@@ -214,7 +215,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     setAiGeneratedText('');
     setIsCriteriaSaved(Boolean(savedCriteria));
     try {
-      const storedCount = Number(localStorage.getItem(`vuihoc_ai_review_count_${selectedTeacherId}_${studentId}`) || 0);
+      const storedCount = Number(runtimeStorage.getItem(`vuihoc_ai_review_count_${selectedTeacherId}_${studentId}`) || 0);
       setAiGenerationCount(Number.isFinite(storedCount) ? storedCount : 0);
     } catch {
       showToast('Không thể đọc số lượt tạo nhận xét AI đã sử dụng.', 'error');
@@ -301,14 +302,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
         : `Hôm nay ${aiReviewStudentName} học môn ${subjectName}: ${detail}. Thầy/Cô ghi nhận nỗ lực của con và sẽ tiếp tục đồng hành ở buổi học sau.`;
     try {
       const usageKey = `vuihoc_ai_review_count_${selectedTeacherId}_${aiReviewStudentId}`;
-      const storedCount = Number(localStorage.getItem(usageKey) || 0);
+      const storedCount = Number(runtimeStorage.getItem(usageKey) || 0);
       const nextCount = Math.max(aiGenerationCount, storedCount) + 1;
       if (nextCount > 2) {
         setAiGenerationCount(2);
         showToast('Bạn đã sử dụng hết 2 lượt tạo nhận xét AI cho học sinh này.', 'warning');
         return;
       }
-      localStorage.setItem(usageKey, String(nextCount));
+      runtimeStorage.setItem(usageKey, String(nextCount));
       setAiGenerationCount(nextCount);
     } catch {
       showToast('Không thể lưu số lượt sử dụng AI. Nhận xét chưa được tạo.', 'error');
@@ -834,7 +835,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         ) : (
                           selectedClass.studentIds.map(sid => {
                             const studentItem = students.find(s => s.id === sid);
-                            const studentDisplayName = studentItem ? studentItem.name : (sid === 'HS-2026-001' ? 'Trần Gia Bảo' : sid);
+                            const studentDisplayName = studentItem ? studentItem.name : sid;
                             const studentGradeLevel = studentItem ? `${studentItem.grade} - Trình độ ${studentItem.level}` : 'Khối Tiểu học';
 
                             return (

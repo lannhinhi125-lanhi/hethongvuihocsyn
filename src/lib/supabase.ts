@@ -6,21 +6,8 @@
  * - VITE_SUPABASE_ANON_KEY
  */
 
-import { createClient } from '@supabase/supabase-js';
-
-// Cấu hình kết nối từ biến môi trường Vite hoặc fallback
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key-here';
-
-/**
- * Khởi tạo Supabase Client duy nhất cho toàn hệ thống
- */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+import { supabase, isSupabaseConfigured } from '../config/supabase';
+export { supabase } from '../config/supabase';
 
 /**
  * Kiểm tra trạng thái kết nối tới Supabase
@@ -29,14 +16,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export async function checkSupabaseConnection(): Promise<{ success: boolean; message: string; latencyMs?: number }> {
   const start = performance.now();
   try {
-    if (!supabaseUrl || supabaseUrl.includes('your-project-id')) {
+    if (!isSupabaseConfigured()) {
       return {
         success: false,
-        message: 'Chưa cấu hình VITE_SUPABASE_URL trong tệp môi trường (.env)',
+        message: 'Chưa cấu hình URL/key trong src/config/supabase.ts',
       };
     }
 
-    const { error } = await supabase.from('users').select('id').limit(1);
+    const { error } = await supabase.from('NGUOI_DUNG').select('madinhdanh').limit(1);
     const latency = Math.round(performance.now() - start);
 
     if (error) {

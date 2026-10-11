@@ -1,33 +1,5 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-/**
- * CỔNG KẾT NỐI SUPABASE CHUẨN (SUPABASE CLIENT CONNECTOR)
- * File cấu hình kết nối duy nhất của toàn bộ hệ thống VUIHOC TUTOR.
- * Đọc trực tiếp từ biến môi trường Vite (.env hoặc môi trường deploy Vercel).
- */
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://demo-placeholder.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'demo-anon-key-placeholder';
-
-// Khởi tạo Supabase client chính thức
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true
-  }
-});
-
-/**
- * Kiểm tra xem ứng dụng đã được cấu hình Supabase hợp lệ hay chưa
- */
-export const isSupabaseConfigured = (): boolean => {
-  return Boolean(
-    import.meta.env.VITE_SUPABASE_URL &&
-    import.meta.env.VITE_SUPABASE_ANON_KEY &&
-    !import.meta.env.VITE_SUPABASE_URL.includes('your-project-id') &&
-    !import.meta.env.VITE_SUPABASE_URL.includes('demo-placeholder')
-  );
-};
+import { supabase, isSupabaseConfigured } from '../config/supabase';
+export { supabase, isSupabaseConfigured } from '../config/supabase';
 
 /**
  * Các hàm API liên thông dữ liệu chuẩn giữa các phân hệ:

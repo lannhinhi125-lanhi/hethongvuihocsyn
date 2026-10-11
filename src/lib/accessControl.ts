@@ -1,6 +1,8 @@
+import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, PREVIEW_ROLE } from './previewMode';
 import type { UserAccount, SystemRoleGroup } from '../types';
 import { expandPermissions, permissionModules, rolePortal, type AccountPortal } from './portalPermissions';
 export function assignedRole(user: UserAccount, groups: SystemRoleGroup[]): SystemRoleGroup | undefined {
+  if (PORTAL_PREVIEW_MODE && user.id === PREVIEW_ACCOUNT.id) return PREVIEW_ROLE;
   const matches = groups.filter(group => user.roleGroupId ? group.id === user.roleGroupId : group.name === user.role);
   return matches.length === 1 ? matches[0] : undefined;
 }
