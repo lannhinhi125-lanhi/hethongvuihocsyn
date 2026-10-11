@@ -1,3 +1,4 @@
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
@@ -42,7 +43,7 @@ type ReportPeriod = 'ALL' | 'TODAY' | 'WEEK' | 'MONTH' | 'Q3';
 type DashboardRangePreset = 'CURRENT_MONTH' | 'PREVIOUS_MONTH' | 'LAST_3_MONTHS' | 'ALL' | 'CUSTOM';
 type FixedReportId = 'fixed_new_classes' | 'fixed_new_students' | 'fixed_new_tutors' | 'fixed_incident_trend' | 'fixed_matrix' | 'fixed_inspection';
 
-const REPORT_PAGE_SIZE = 25;
+import { PAGE_SIZE as REPORT_PAGE_SIZE } from '../components/Pagination';
 
 const DashboardMetric: React.FC<{
   label: string;
@@ -1285,7 +1286,7 @@ export const Module8_Reports: React.FC = () => {
                       <th className="py-1.5 px-3 text-center text-slate-400 font-normal">--</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
+                  <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                     {dashboardRows.map(({ incident, classCount, studentCount, occupancyRate, avgInspectionScore }) => (
                         <tr key={incident.period} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3 px-3 font-semibold text-slate-800">{incident.period}</td>
@@ -1313,7 +1314,7 @@ export const Module8_Reports: React.FC = () => {
                         </td>
                       </tr>
                     )}
-                  </tbody>
+                  </PaginatedTableBody>
                 </table>
               </div>
             </div>

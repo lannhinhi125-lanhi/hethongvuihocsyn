@@ -1,3 +1,5 @@
+import { PaginatedList } from '../components/Pagination';
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
@@ -1498,7 +1500,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {diaryFilteredSessions.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-12 text-center text-slate-400">
@@ -1694,7 +1696,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       );
                     })
                   )}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
 
@@ -1858,7 +1860,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {incidentFilteredSessions.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-12 text-center text-slate-400">
@@ -2016,7 +2018,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       );
                     })
                   )}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
 
@@ -2210,7 +2212,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="p-4 space-y-3">
+                  <PaginatedList className="p-4 space-y-3">
                     {selectedClassViewSession.students.length === 0 ? (
                       <div className="text-center py-4 text-slate-400">Không có dữ liệu học sinh trong ca.</div>
                     ) : (
@@ -2253,7 +2255,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                         </div>
                       ))
                     )}
-                  </div>
+                  </PaginatedList>
                 </div>
               </div>
             </div>
@@ -2512,7 +2514,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-3.5 space-y-2.5 max-h-72 overflow-y-auto">
+            <PaginatedList className="mt-3.5 space-y-2.5 max-h-72 overflow-y-auto">
               {sessions.filter(s => s.coverTeacher === coverScheduleTeacherName || s.primaryTeacher === coverScheduleTeacherName).length === 0 ? (
                 <div className="p-3 bg-slate-50 text-slate-400 text-center rounded-xl">Chưa có ca học nào trong ngày.</div>
               ) : (
@@ -2545,7 +2547,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     );
                   })
               )}
-            </div>
+            </PaginatedList>
 
             <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
               <button

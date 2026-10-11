@@ -1,3 +1,5 @@
+import { PaginatedList } from '../components/Pagination';
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -484,7 +486,7 @@ export const Module6_AIStudio: React.FC = () => {
                   <span className="text-[11px] text-slate-400">Gia sư tick chọn sau ca học</span>
                 </div>
 
-                <div className="space-y-4">
+                <PaginatedList className="space-y-4">
                   {!filteredCategories.length && (
                     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
                       <div className="font-semibold text-slate-700">Môn học này chưa có bộ tiêu chí</div>
@@ -561,7 +563,7 @@ export const Module6_AIStudio: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                </div>
+                </PaginatedList>
               </div>
             </div>
 
@@ -742,7 +744,7 @@ export const Module6_AIStudio: React.FC = () => {
                     <th className="py-3 px-4 text-center">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {filteredDocuments.map(doc => (
                     <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-4">
@@ -808,7 +810,7 @@ export const Module6_AIStudio: React.FC = () => {
                       </td>
                     </tr>
                   )}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
             <div className="border-t border-slate-100 px-4 py-2 text-[10px] text-slate-400">

@@ -1,3 +1,4 @@
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState } from 'react';
@@ -823,7 +824,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                           <th className="pb-2 text-right">Nhận xét buổi học</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <PaginatedTableBody className="divide-y divide-slate-100">
                         {selectedClass.studentIds.length === 0 ? (
                           <tr>
                             <td colSpan={4} className="py-4 text-center text-slate-400">
@@ -868,7 +869,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                             );
                           })
                         )}
-                      </tbody>
+                      </PaginatedTableBody>
                     </table>
                   </div>
 

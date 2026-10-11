@@ -1,3 +1,4 @@
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState, useMemo } from 'react';
@@ -407,7 +408,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                 <th className="py-3 px-4 text-center">Khiếu nại</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <PaginatedTableBody className="divide-y divide-slate-100">
               {(myRecord.sessions || []).map(session => (
                 <tr key={session.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3 px-4 font-mono font-bold text-slate-700">{session.id}</td>
@@ -463,7 +464,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                   </td>
                 </tr>
               ))}
-            </tbody>
+            </PaginatedTableBody>
           </table>
         </div>
       </div>

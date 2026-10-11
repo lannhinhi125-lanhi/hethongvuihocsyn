@@ -1,3 +1,4 @@
+import { PaginatedTableBody } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from './CatalogTreeBranch';
 import React, { useEffect, useState } from 'react';
@@ -127,10 +128,10 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
             <p className="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500">Chưa liên kết phân hệ · Danh mục này hiện lưu trên trình duyệt. Tạo danh mục con chỉ phân loại dữ liệu, chưa thêm trường vào biểu mẫu nghiệp vụ.</p>
             <div className="flex flex-wrap gap-2"><input aria-label="Tìm giá trị danh mục" placeholder="Tìm theo mã hoặc tên..." value={entryQuery} onChange={event => setEntryQuery(event.target.value)} className={input + ' max-w-sm'} /><select aria-label="Lọc trạng thái giá trị" value={status} onChange={event => setStatus(event.target.value)} className={input + ' max-w-44'}><option value="all">Tất cả trạng thái</option><option value="active">Đang áp dụng</option><option value="inactive">Tạm dừng</option></select></div>
           </div>
-          <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-600"><tr>{['Mã', 'Tên giá trị', 'Mô tả', 'Trạng thái', 'Thao tác'].map(label => <th key={label} scope="col" className="px-4 py-3">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">
+          <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-600"><tr>{['Mã', 'Tên giá trị', 'Mô tả', 'Trạng thái', 'Thao tác'].map(label => <th key={label} scope="col" className="px-4 py-3">{label}</th>)}</tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
             {rows.map(entry => <tr key={entry.id}><td className="px-4 py-3 font-mono text-orange-700">{entry.code}</td><td className="px-4 py-3 font-semibold text-slate-800">{entry.name}</td><td className="px-4 py-3 text-slate-500">{entry.desc || '—'}</td><td className="px-4 py-3"><label className="inline-flex items-center gap-2 whitespace-nowrap"><input type="checkbox" disabled={!canEdit} checked={entry.status} onChange={event => persist(catalogs.map(item => item.id === selected.id ? { ...item, entries: item.entries.map(row => row.id === entry.id ? { ...row, status: event.target.checked } : row) } : item))} className="accent-orange-600" />{entry.status ? 'Đang áp dụng' : 'Tạm dừng'}</label></td><td className="px-4 py-3"><button type="button" disabled={!canEdit} aria-label={'Sửa ' + entry.name} className={button} onClick={() => open('entry', entry)}><Pencil className="h-3.5 w-3.5" />Sửa</button></td></tr>)}
             {!rows.length && <tr><td colSpan={5} className="p-8 text-center text-slate-500">{selected.entries.length ? 'Không có giá trị phù hợp bộ lọc.' : 'Chưa có giá trị. Chọn “Thêm giá trị” để bắt đầu.'}</td></tr>}
-          </tbody></table></div>
+          </PaginatedTableBody></table></div>
           <p className="border-t border-slate-100 px-4 py-3 text-[11px] text-slate-500">{rows.length}/{selected.entries.length} giá trị</p>
         </CatalogTreeBranch>}
       </main>

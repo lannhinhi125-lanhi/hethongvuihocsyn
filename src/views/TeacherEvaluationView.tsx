@@ -1,3 +1,4 @@
+import { PaginatedList } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -122,7 +123,7 @@ export const TeacherEvaluationView: React.FC = () => {
   return (
     <div className="space-y-6 font-infer">
       {/* Header Banner phong cách Figma */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-3 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[11px] uppercase tracking-wider border border-slate-200">
@@ -234,11 +235,11 @@ export const TeacherEvaluationView: React.FC = () => {
             Chưa có biên bản đánh giá dự giờ nào trong khoảng thời gian đã chọn.
           </div>
         ) : (
-          <div className="space-y-3">
+          <PaginatedList className="space-y-3">
             {filteredRecords.map(record => (
               <div
                 key={record.id}
-                className="p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                className="p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-slate-50/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
               >
                 {/* Thông tin biên bản & Buổi học */}
                 <div className="space-y-1.5 flex-1 min-w-0">
@@ -310,7 +311,7 @@ export const TeacherEvaluationView: React.FC = () => {
                 </div>
               </div>
             ))}
-          </div>
+          </PaginatedList>
         )}
       </div>
 

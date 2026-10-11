@@ -1,3 +1,5 @@
+import { PaginatedList } from '../components/Pagination';
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { ColumnFilter } from '../components/ColumnFilter';
 import { canManageTeacherProfiles } from '../lib/teacherAccounts';
@@ -428,34 +430,34 @@ export const Module3_Teachers: React.FC = () => {
       {activeTab === 'profile' && (
         <div className="space-y-5">
           {/* 4 Thống kê nhanh đội ngũ giáo viên */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
+            <div className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs">
               <span className="text-xs text-slate-500 font-medium">Tổng giáo viên</span>
-              <div className="text-2xl font-black text-slate-800 mt-1">{teachers.length}</div>
+              <div className="text-lg font-bold text-slate-800 mt-1">{teachers.length}</div>
               <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
                 <CheckCircle className="w-3.5 h-3.5" /> Đang hoạt động: {teachers.filter(t => t.status === 'DANG_DAY').length}
               </span>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
+            <div className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs">
               <span className="text-xs text-slate-500 font-medium">Giáo viên Toán</span>
-              <div className="text-2xl font-black text-[#FF5C00] mt-1">
+              <div className="text-lg font-bold text-[#FF5C00] mt-1">
                 {teachers.filter(t => t.subject === 'SUB-MATH').length}
               </div>
               <span className="text-[11px] text-slate-500 font-medium mt-0.5">Mã môn: SUB-MATH</span>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
+            <div className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs">
               <span className="text-xs text-slate-500 font-medium">Giáo viên Tiếng Anh</span>
-              <div className="text-2xl font-black text-blue-600 mt-1">
+              <div className="text-lg font-bold text-blue-600 mt-1">
                 {teachers.filter(t => t.subject === 'SUB-ENG').length}
               </div>
               <span className="text-[11px] text-slate-500 font-medium mt-0.5">Mã môn: SUB-ENG</span>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
+            <div className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs">
               <span className="text-xs text-slate-500 font-medium">Tạm ngưng nhận lớp</span>
-              <div className="text-2xl font-black text-amber-500 mt-1">
+              <div className="text-lg font-bold text-amber-500 mt-1">
                 {teachers.filter(t => t.status === 'TAM_NGUNG').length}
               </div>
               <span className="text-[11px] text-slate-400 font-medium mt-0.5">Khóa ghép lớp mới</span>
@@ -518,7 +520,7 @@ export const Module3_Teachers: React.FC = () => {
                     <th className="py-3 px-4 text-center">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {filteredTeachers.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-500">Không có giáo viên phù hợp với bộ lọc.</td></tr>}
                   {filteredTeachers.map(t => {
                     const isMath = t.subject === 'SUB-MATH';
@@ -619,7 +621,7 @@ export const Module3_Teachers: React.FC = () => {
                       </tr>
                     );
                   })}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
           </div>
@@ -666,7 +668,7 @@ export const Module3_Teachers: React.FC = () => {
                     <th className="py-3 px-4 text-center">Thời khóa biểu</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {filteredAvailability.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">Không có giáo viên phù hợp với bộ lọc.</td></tr>}
                   {filteredAvailability
                     .map(t => (
@@ -706,7 +708,7 @@ export const Module3_Teachers: React.FC = () => {
                         </td>
                       </tr>
                     ))}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
           </div>
@@ -832,7 +834,7 @@ export const Module3_Teachers: React.FC = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {teachers
                     .filter(t => {
                       const matchBaseFilter = (evalSubject === 'ALL' || t.subject === evalSubject);
@@ -893,7 +895,7 @@ export const Module3_Teachers: React.FC = () => {
                         </tr>
                       );
                     })}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
           </div>
@@ -1186,7 +1188,7 @@ export const Module3_Teachers: React.FC = () => {
                 <label>Đến ngày <input type="date" value={evalDateTo} min={evalDateFrom || undefined} onChange={e => setEvalDateTo(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
                 <span>{sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).length} ca thành công</span>
               </div>
-              <div className="space-y-2.5">
+              <PaginatedList className="space-y-2.5">
                 {sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).length === 0 ? (
                   <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-xl">
                     Chưa có ca dạy thành công nào của giáo viên trong kỳ này.
@@ -1235,7 +1237,7 @@ export const Module3_Teachers: React.FC = () => {
                     </div>
                   ))
                 )}
-              </div>
+              </PaginatedList>
             </div>
 
             <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end">

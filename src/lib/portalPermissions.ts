@@ -7,7 +7,7 @@ export const permissionModules: Record<AccountPortal, PermissionModule[]> = {
   ADMIN: [
     { id: 'PH1', name: 'Tài khoản & Phân quyền', features: ['Xem danh sách tài khoản và nhóm quyền', 'Cấp tài khoản & Mật khẩu người dùng', 'Khóa / Mở khóa tài khoản nhân sự', 'Chỉnh sửa thông tin tài khoản & Mật khẩu', 'Tạo, sửa, xóa & Gán Nhóm quyền'] },
     { id: 'PH2', name: 'Danh mục dùng chung', readFeatures: ['Xem danh mục dùng chung'], features: ['Xem danh mục dùng chung', 'Quản lý danh mục môn học', 'Cấu hình Cấp học & Lớp dạy', 'Quản lý danh mục trình độ', 'Quản lý mô hình lớp và sĩ số tối đa', 'Cấu hình Khung giờ ca dạy chuẩn (Time Slot)', 'Cấu hình Danh mục Sự cố & Vi phạm ca học', 'Cấu hình hệ số công theo sự cố', 'Tạo danh mục bổ sung và danh mục con'] },
-    { id: 'PH3', name: 'Hồ sơ giáo viên & Dự giờ', readFeatures: ['Xem hồ sơ, lịch rảnh, thời khóa biểu và kết quả dự giờ giáo viên'], features: ['Xem hồ sơ, lịch rảnh, thời khóa biểu và kết quả dự giờ giáo viên', TEACHER_PROFILE_PERMISSION, 'Tạo hồ sơ và cấp tài khoản giáo viên', 'Chấm điểm và cập nhật báo cáo dự giờ'] },
+    { id: 'PH3', name: 'Hồ sơ & Chuyên môn', readFeatures: ['Xem hồ sơ, lịch rảnh, thời khóa biểu và kết quả dự giờ giáo viên'], features: ['Xem hồ sơ, lịch rảnh, thời khóa biểu và kết quả dự giờ giáo viên', TEACHER_PROFILE_PERMISSION, 'Tạo hồ sơ và cấp tài khoản giáo viên', 'Chấm điểm và cập nhật báo cáo dự giờ'] },
     { id: 'PH4', name: 'Học sinh & Ghép lớp', readFeatures: ['Xem hồ sơ học sinh và danh sách lớp'], features: ['Xem hồ sơ học sinh và danh sách lớp', 'Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy', 'Tạo, sửa, xóa lớp và cập nhật link phòng học', 'Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)', 'Phân công giáo viên (Khớp nối môn và lịch rảnh)', 'Thêm, sửa, xóa và nạp học liệu theo tuần'] },
     { id: 'PH5', name: 'Giám sát ca & Sự cố', readFeatures: ['Theo dõi thời khóa biểu toàn hệ thống (Calendar)'], features: ['Theo dõi thời khóa biểu toàn hệ thống (Calendar)', 'Ghi nhận và xử lý sự cố ca dạy', 'Tìm và phân công giáo viên dạy thay'] },
     { id: 'PH6', name: 'Trợ lý AI Giảng dạy', readFeatures: ['Xem cấu hình và tài liệu AI'], features: ['Xem cấu hình và tài liệu AI', 'Cấu hình Prompt văn phong & Tiêu chí nhận xét môn', 'Quản lý kho tài liệu tri thức SOP', 'Sử dụng AI sinh & tinh chỉnh nhận xét học sinh', 'Sử dụng chatbot tra cứu quy chế và nghiệp vụ'] },
@@ -17,7 +17,7 @@ export const permissionModules: Record<AccountPortal, PermissionModule[]> = {
   TEACHER: [
     { id: 'T_AVAILABILITY', name: 'Đăng ký lịch rảnh', features: ['Giáo viên đăng ký lịch rảnh theo tuần', 'Xem lịch rảnh cá nhân'] },
     { id: 'T_SCHEDULE', name: 'Lịch dạy & Phòng học', features: ['Xem lịch dạy và lớp được phân công', 'Giáo viên Check-in / Check-out vào ca dạy', 'Vào phòng học và xem học liệu lớp được giao', 'Báo cáo sự cố ca dạy (đi muộn, lỗi mạng, nghỉ)', 'Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy'] },
-    { id: 'T_EVALUATION', name: 'Hồ sơ & Đánh giá dự giờ', features: ['Xem hồ sơ cá nhân', 'Xem kết quả và nhận xét dự giờ của bản thân'] },
+    { id: 'T_EVALUATION', name: 'Hồ sơ & Chuyên môn', features: ['Xem hồ sơ cá nhân', 'Xem kết quả và nhận xét dự giờ của bản thân'] },
     { id: 'T_RECONCILE', name: 'Đối soát công ca dạy', features: ['Xem bảng kê công dạy cá nhân theo kỳ', 'Gửi giải trình / khiếu nại sai lệch ca dạy', 'Theo dõi kết quả xử lý giải trình cá nhân', 'Xuất bảng công cá nhân'] }
   ]
 };

@@ -1,3 +1,5 @@
+import { PaginatedList } from './Pagination';
+import { PaginatedTableBody } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from './CatalogTreeBranch';
 import React, { useState } from 'react';
@@ -11,14 +13,14 @@ export const TeachingCatalog: React.FC = () => {
   return <div className="space-y-3">
     <div className="flex justify-between items-center"><h3 className="font-bold">Cấp học & Lớp dạy</h3><button disabled={!canEdit} onClick={() => { setEditingId(null); setCode(''); setName(''); setOptions(''); setOpened(true); }} className="px-3 py-2 rounded-lg border border-orange-200 bg-orange-50 text-xs font-semibold text-orange-700 disabled:opacity-40">Thêm cấp học</button></div>
     <p className="text-xs text-slate-500">Dùng chung khi thêm, sửa và lọc hồ sơ giáo viên, học sinh và lớp học.</p>
-    {teachingCategories.map(category => <CatalogTreeBranch key={category.id} title={category.name} code={category.id} count={category.options.length}
+    <PaginatedList className="space-y-3">{teachingCategories.map(category => <CatalogTreeBranch key={category.id} title={category.name} code={category.id} count={category.options.length}
       actions={<label className="inline-flex items-center gap-1.5 text-[11px] text-slate-500"><input type="checkbox" disabled={!canEdit} checked={category.status !== false} className="accent-orange-600" onChange={event => { if (canEdit) setTeachingCategories(previous => previous.map(item => item.id === category.id ? { ...item, status: event.target.checked } : item)); }} />Đang dùng</label>}
       disabled={!canEdit} addLabel="Sửa / Thêm lớp" onAdd={() => { setEditingId(category.id); setCode(category.id); setName(category.name); setOptions(category.options.map(item => item.label).join('\n')); setOpened(true); }}>
       <table className="w-full text-left text-xs"><thead className="bg-slate-50 text-[11px] text-slate-600"><tr><th scope="col" className="px-3 py-2.5">Mã lớp dạy</th><th scope="col" className="px-3 py-2.5">Tên lớp dạy</th></tr></thead>
-        <tbody className="divide-y divide-slate-100">{category.options.map(option => <tr key={option.id} className="hover:bg-slate-50"><td className="px-3 py-2.5 text-slate-400">{option.id}</td><td className="px-3 py-2.5 font-medium text-slate-800">{option.label}</td></tr>)}
-        {!category.options.length && <tr><td colSpan={2} className="p-5 text-center text-slate-400">Chưa có lớp dạy. Chọn “Sửa / Thêm lớp” để bổ sung.</td></tr>}</tbody>
+        <PaginatedTableBody className="divide-y divide-slate-100">{category.options.map(option => <tr key={option.id} className="hover:bg-slate-50"><td className="px-3 py-2.5 text-slate-400">{option.id}</td><td className="px-3 py-2.5 font-medium text-slate-800">{option.label}</td></tr>)}
+        {!category.options.length && <tr><td colSpan={2} className="p-5 text-center text-slate-400">Chưa có lớp dạy. Chọn “Sửa / Thêm lớp” để bổ sung.</td></tr>}</PaginatedTableBody>
       </table>
-    </CatalogTreeBranch>)}
+    </CatalogTreeBranch>)}</PaginatedList>
     {opened && canEdit && <div className="fixed inset-0 z-[110] bg-slate-900/50 flex items-center justify-center p-4"><form className="bg-white p-6 rounded-2xl w-full max-w-lg space-y-3" onSubmit={e => {
       e.preventDefault(); if (!canEdit) return;
       const names = Array.from(new Set(options.split(/\r?\n/).map(value => value.trim()).filter(Boolean))); const id = code.trim().toUpperCase();

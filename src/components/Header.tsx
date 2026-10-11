@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
   const adminModuleTitles: Record<number, { cat: string; title: string }> = {
     1: { cat: 'Hệ thống', title: 'Tài khoản & Phân quyền' },
     2: { cat: 'Hệ thống', title: 'Danh mục Dùng chung' },
-    3: { cat: 'Chuyên môn', title: 'Hồ sơ GV & Dự giờ' },
+    3: { cat: 'Chuyên môn', title: 'Hồ sơ & Chuyên môn' },
     4: { cat: 'Vận hành', title: 'Học sinh & Ghép lớp' },
     5: { cat: 'Vận hành', title: 'Giám sát Ca & Sự cố' },
     6: { cat: 'Vận hành', title: 'Trợ lý AI Giảng dạy' },
@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
   const teacherTabTitles: Record<string, { cat: string; title: string }> = {
     schedule: { cat: 'Giảng dạy', title: 'Lịch dạy & Phòng học' },
     reconcile: { cat: 'Nghiệp vụ ca dạy', title: 'Đối soát công ca dạy & Gia sư' },
-    evaluation: { cat: 'Chuyên môn', title: 'Hồ sơ & Đánh giá dự giờ' },
+    evaluation: { cat: 'Chuyên môn', title: 'Hồ sơ & Chuyên môn' },
     availability: { cat: 'Thời khóa biểu', title: 'Đăng ký lịch rảnh' }
   };
 

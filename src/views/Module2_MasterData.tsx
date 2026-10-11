@@ -1,3 +1,4 @@
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from '../components/CatalogTreeBranch';
 import { IncidentCatalog } from '../components/IncidentCatalog';
@@ -389,7 +390,7 @@ export const Module2_MasterData: React.FC = () => {
                   <th className="py-3 px-4 text-center">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                 {subjects
                   .filter(s => s.name.toLowerCase().includes(searchKeyword.toLowerCase()) || s.code.toLowerCase().includes(searchKeyword.toLowerCase()))
                   .map(s => (
@@ -445,7 +446,7 @@ export const Module2_MasterData: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-              </tbody>
+              </PaginatedTableBody>
             </table>
           </div>
 </CatalogTreeBranch>
@@ -466,7 +467,7 @@ export const Module2_MasterData: React.FC = () => {
                   <th className="py-3 px-4 text-center">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                 {levels
                   .filter(l => l.name.toLowerCase().includes(searchKeyword.toLowerCase()) || l.code.toLowerCase().includes(searchKeyword.toLowerCase()))
                   .map(l => (
@@ -514,7 +515,7 @@ export const Module2_MasterData: React.FC = () => {
                     </tr>
                   ))}
                 {!levels.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={6} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
-              </tbody>
+              </PaginatedTableBody>
             </table>
           </div>
 </CatalogTreeBranch>
@@ -535,7 +536,7 @@ export const Module2_MasterData: React.FC = () => {
                   <th className="py-3 px-4 text-center">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                 {timeSlots.map(s => (
                   <tr key={s.id} className="hover:bg-slate-50/80">
                     <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{s.code}</td>
@@ -576,7 +577,7 @@ export const Module2_MasterData: React.FC = () => {
                   </tr>
                 ))}
                 {!timeSlots.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={6} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
-              </tbody>
+              </PaginatedTableBody>
             </table>
           </div>
 </CatalogTreeBranch>
@@ -596,7 +597,7 @@ export const Module2_MasterData: React.FC = () => {
                   <th className="py-3 px-4 text-center">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                 {models.filter(m => (m.name + ' ' + m.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))).map(m => (
                   <tr key={m.id} className="hover:bg-slate-50/80">
                     <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{m.code}</td>
@@ -638,7 +639,7 @@ export const Module2_MasterData: React.FC = () => {
                   </tr>
                 ))}
                 {!models.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={5} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
-              </tbody>
+              </PaginatedTableBody>
             </table>
           </div>
 </CatalogTreeBranch>

@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   const adminNavItems = [
     { id: 1, label: 'Tài khoản & Phân quyền', icon: ShieldCheck },
     { id: 2, label: 'Danh mục Dùng chung', icon: SlidersHorizontal },
-    { id: 3, label: 'Hồ sơ GV & Dự giờ', icon: UserCheck },
+    { id: 3, label: 'Hồ sơ & Chuyên môn', icon: UserCheck },
     { id: 4, label: 'Học sinh & Ghép lớp', icon: Users },
     { id: 5, label: 'Giám sát Ca & Sự cố', icon: CalendarCheck },
     { id: 6, label: 'Trợ lý AI Giảng dạy', icon: Sparkles },
@@ -59,11 +59,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   ];
 
   // Menu Cổng Giáo viên & Gia sư theo đúng luồng:
-  // 1. Đăng ký lịch rảnh (lên đầu) -> 2. Lịch dạy & Phòng học -> 3. Hồ sơ & Đánh giá dự giờ -> 4. Đối soát công ca dạy
+  // 1. Đăng ký lịch rảnh (lên đầu) -> 2. Lịch dạy & Phòng học -> 3. Hồ sơ & Chuyên môn -> 4. Đối soát công ca dạy
   const teacherNavItems = [
     { id: 'availability', label: 'Đăng ký lịch rảnh', icon: Clock },
     { id: 'schedule', label: 'Lịch dạy & Phòng học', icon: CalendarCheck },
-    { id: 'evaluation', label: 'Hồ sơ & Đánh giá dự giờ', icon: FileCheck },
+    { id: 'evaluation', label: 'Hồ sơ & Chuyên môn', icon: FileCheck },
     { id: 'reconcile', label: 'Đối soát công ca dạy', icon: ClipboardCheck }
   ];
 

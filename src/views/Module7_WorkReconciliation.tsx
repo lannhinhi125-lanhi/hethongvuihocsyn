@@ -1,3 +1,5 @@
+import { PaginatedList } from '../components/Pagination';
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
@@ -798,7 +800,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   <th className="py-3 px-3 text-center">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <PaginatedTableBody className="divide-y divide-slate-100">
                 {filteredStaff.map(t => {
                   const standardSessionCount = (t.sessions || []).filter(session => !isIncidentSession(session)).length;
                   const incidentSessionCount = (t.sessions || []).filter(isIncidentSession).length;
@@ -897,7 +899,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                     </tr>
                   );
                 })}
-              </tbody>
+              </PaginatedTableBody>
             </table>
           </div>
         )}
@@ -928,7 +930,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   <th className="py-3 px-3 text-center">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <PaginatedTableBody className="divide-y divide-slate-100">
                 {filteredSessions.map(({ teacherId, teacherName, staffRole, subject, session }) => {
                   const isTutor = staffRole === 'GIA_SU';
 
@@ -1001,7 +1003,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                     </tr>
                   );
                 })}
-              </tbody>
+              </PaginatedTableBody>
             </table>
           </div>
         )}
@@ -1042,7 +1044,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 )}
               </div>
             ) : (
-              filteredDisputes.map(dispute => (
+              <PaginatedList className="space-y-3">{filteredDisputes.map(dispute => (
                 <div
                   key={dispute.id}
                   className="p-5 rounded-xl border border-slate-200 bg-white shadow-2xs flex flex-col md:flex-row md:items-start justify-between gap-4"
@@ -1115,7 +1117,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                     )}
                   </div>
                 </div>
-              ))
+              ))}</PaginatedList>
             )}
           </div>
         )}

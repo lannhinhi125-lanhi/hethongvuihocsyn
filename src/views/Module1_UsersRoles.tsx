@@ -1,3 +1,5 @@
+import { PaginatedList } from '../components/Pagination';
+import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { assignedRole, accountPortal } from '../lib/accessControl';
 import { permissionModules, portalLabels, rolePortal, expandPermissions, serializePermissions, type AccountPortal } from '../lib/portalPermissions';
@@ -362,7 +364,7 @@ export const Module1_UsersRoles: React.FC = () => {
                     <th className="py-3.5 px-4 text-center">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-normal">
+                <PaginatedTableBody className="divide-y divide-slate-100 font-normal">
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-400">
@@ -473,7 +475,7 @@ export const Module1_UsersRoles: React.FC = () => {
                       );
                     })
                   )}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
           </div>
@@ -499,7 +501,7 @@ export const Module1_UsersRoles: React.FC = () => {
           </div>
 
           {/* Role Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <PaginatedList className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {portalRoles.map(role => {
               let tagColor = 'bg-slate-100 text-slate-700';
               if (role.category === 'HỆ THỐNG') tagColor = 'bg-purple-100 text-purple-700';
@@ -553,7 +555,7 @@ export const Module1_UsersRoles: React.FC = () => {
                 </div>
               );
             })}
-          </div>
+          </PaginatedList>
         </div>
       )}
 

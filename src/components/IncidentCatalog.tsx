@@ -1,3 +1,4 @@
+import { PaginatedTableBody, PaginatedTableGroups } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useState } from 'react';
 import { FolderPlus, PlusCircle, Pencil, X, ChevronRight } from 'lucide-react';
@@ -73,7 +74,7 @@ export const IncidentCatalog: React.FC = () => {
     </div>
     <div className="overflow-x-auto"><table className="w-full text-left text-xs">
       <thead className="bg-slate-50 text-[11px] text-slate-600"><tr>{['Nhóm / Loại sự cố', 'Bên phát sinh', 'Báo trước', 'Hệ số công', 'Áp dụng', ''].map((label, index) => <th scope="col" key={index} className="whitespace-nowrap px-3 py-2.5">{label}</th>)}</tr></thead>
-      {visibleGroups.map(parent => {
+      <PaginatedTableGroups>{visibleGroups.map(parent => {
           const children = rows.filter(row => row.parent.id === parent.id);
           const isOpen = expanded.includes(parent.id);
           return <React.Fragment key={parent.id}><tbody>
@@ -91,7 +92,7 @@ export const IncidentCatalog: React.FC = () => {
                 <button type="button" disabled={!canConfigure} title="Sửa nhóm" aria-label={'Sửa nhóm ' + parent.name} className="rounded p-1.5 text-slate-500 hover:bg-white disabled:opacity-40" onClick={() => editGroup(parent.id)}><Pencil className="h-3.5 w-3.5" /></button>
               </div></td>
             </tr>
-            </tbody><tbody id={'incident-group-' + parent.id} hidden={!isOpen} className="divide-y divide-slate-100">
+            </tbody><PaginatedTableBody id={'incident-group-' + parent.id} hidden={!isOpen} className="divide-y divide-slate-100">
                 {children.map(({ item }) => <tr key={item.id} className="hover:bg-slate-50">
         <td className="border-l-2 border-orange-100 py-2.5 pl-8 pr-3"><button type="button" disabled={!canEdit} onClick={() => open('incident', item, parent.id)} className="text-left font-semibold text-slate-800 hover:text-orange-700">{item.name}</button><p className="mt-1 text-[10px] text-slate-400">{item.code}</p></td>
         <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{item.targetParty}</td>
@@ -101,9 +102,9 @@ export const IncidentCatalog: React.FC = () => {
         <td className="px-3 py-2.5"><button type="button" className={button} disabled={!canEdit} onClick={() => open('incident', item, parent.id)} aria-label={'Sửa sự cố và hệ số: ' + item.name}><Pencil className="h-3 w-3" />Sửa</button></td>
       </tr>)}
                 {!children.length && <tr><td colSpan={6} className="py-5 pl-9 pr-3 text-xs text-slate-400">{parent.subIncidents.length ? 'Không có sự cố phù hợp bộ lọc trong nhóm này.' : 'Chưa có sự cố con. Chọn “Thêm con” để thiết lập sự cố và hệ số.'}</td></tr>}
-            </tbody>
+            </PaginatedTableBody>
           </React.Fragment>;
-        })}
+        })}</PaginatedTableGroups>
         {!visibleGroups.length && <tbody><tr><td colSpan={6} className="p-8 text-center text-slate-500">{incidents.length ? 'Không có nhóm phù hợp. Thử đổi từ khóa hoặc bộ lọc.' : 'Chưa có nhóm sự cố. Chọn “Thêm nhóm” để bắt đầu.'}</td></tr></tbody>}
       </table></div>
     <div className="flex items-center gap-3 border-t border-slate-100 px-3 py-2">
