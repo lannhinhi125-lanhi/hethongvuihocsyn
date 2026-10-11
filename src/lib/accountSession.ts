@@ -21,7 +21,7 @@ async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSig
   const request = supabase.schema('public').rpc(name,args);
   const { data, error } = await (signal ? request.abortSignal(signal) : request);
   if (error) throw new Error(error.code === 'PGRST202'
-    ? (name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261011_encrypted_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
+    ? (name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261011_encrypted_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
     : error.message);
   if (data?.error) throw new Error(data.error);
   return data;
@@ -112,4 +112,21 @@ export async function revealAccountPassword(userId: string, signal: AbortSignal)
   if (version !== generation || signal.aborted) throw new Error('Yêu cầu xem mật khẩu đã kết thúc.');
   if (typeof data?.password !== 'string') throw new Error('Không lấy được mật khẩu.');
   return data.password;
+}
+
+/** Teacher RPCs share the existing internal login token; no direct table access. */
+export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher', args: Record<string,unknown> = {}) {
+  if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
+  const version = generation, writing = name === 'vuihoc_create_teacher';
+  if (writing && (state.saving || flushing || pending.length)) throw new Error('Đang lưu thay đổi khác. Vui lòng thử lại sau.');
+  if (writing) { revision++; publish({...state,saving:true,error:'',saved:false}); }
+  try {
+    const data = await rpc(name,{...args,p_token:token});
+    if (version !== generation) throw new Error('Phiên đăng nhập đã thay đổi.');
+    if (writing) { publish({...state,saving:false,saved:true}); void refreshAccountSession(); }
+    return data;
+  } catch (error) {
+    if (writing && version === generation) publish({...state,saving:false,saved:false,error:(error as Error).message});
+    throw error;
+  }
 }

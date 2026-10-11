@@ -27,9 +27,13 @@ Không cần chạy migration riêng sau khi đã chạy schema.sql mới. Migra
 - [ENCRYPTED_PASSWORDS.md](ENCRYPTED_PASSWORDS.md): nâng cấp để quản trị giữ nút mắt xem lại mật khẩu.
 - migrations/: các bản nâng cấp từ cấu trúc cũ.
 
+## Lưu hồ sơ giáo viên
+
+Đã nối tạo hồ sơ và tài khoản giáo viên trong cùng giao dịch, đọc lại hồ sơ/danh mục và đăng nhập giáo viên. Database hiện có cần chạy [migrations/20261011_teacher_persistence.sql](migrations/20261011_teacher_persistence.sql) sau bản tinh gọn. Xem [TEACHER_PERSISTENCE.md](TEACHER_PERSISTENCE.md).
+
 ## Trạng thái tích hợp
 
-Đã nối đăng nhập riêng và đọc/lưu tài khoản, nhóm quyền bằng SQL RPC; **không dùng Supabase Auth**. Chạy migration theo SIMPLE_ACCOUNTS.md và ENCRYPTED_PASSWORDS.md; database cũ đã có quản trị không cần đặt lại mật khẩu. Các màn nghiệp vụ khác chưa nối CRUD và chưa chuyển sang bảng nghiệp vụ mới. Chỉ nhập URL/key chưa đủ để mọi màn lưu được. RLS tiếp tục chặn truy cập bảng trực tiếp từ anon.
+Đã nối đăng nhập riêng và đọc/lưu tài khoản, nhóm quyền bằng SQL RPC; **không dùng Supabase Auth**. Chạy migration theo SIMPLE_ACCOUNTS.md và ENCRYPTED_PASSWORDS.md; database cũ đã có quản trị không cần đặt lại mật khẩu. Ngoài tạo/đọc hồ sơ giáo viên, các màn nghiệp vụ khác chưa nối CRUD và chưa chuyển sang bảng nghiệp vụ mới. Chỉ nhập URL/key chưa đủ để mọi màn lưu được. RLS tiếp tục chặn truy cập bảng trực tiếp từ anon.
 
 Dữ liệu cũ trong JSONB không tự chuyển sang các bảng mới. Những phần còn cần xử lý khi nối giao diện:
 

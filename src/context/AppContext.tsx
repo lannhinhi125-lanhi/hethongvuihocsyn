@@ -1,10 +1,11 @@
+import { loadTeacherData, persistTeacher } from '../lib/teacherPersistence';
 import { useAccountSession, setSessionUsers, setSessionGroups, logoutAccount } from '../lib/accountSession';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, isPreviewAccount } from '../lib/previewMode';
 import { assignedRole, hasPermission, changedFields, accountPortal } from '../lib/accessControl';
 import { classChangeAllowed, teacherChangeAllowed, incidentChangeAllowed } from '../lib/mutationPermissions';
 import { payrollLockIssue } from '../lib/workflow';
 import { resolveAccountTeacher } from '../lib/evaluation';
-import { canManageTeacherProfiles, generateTeacherCredentials } from '../lib/teacherAccounts';
+import { canManageTeacherProfiles } from '../lib/teacherAccounts';
 import type { CategoryGroup } from '../components/CategoryMultiFilter';
 import { clearLegacyBrowserData, runtimeStorage } from '../lib/localData';
 import { canEditTeacherAvailability } from '../lib/teacherAvailability';
@@ -39,7 +40,7 @@ export type WorkspaceMode = 'ADMIN' | 'TEACHER';
 interface AppContextType {
   teachingCategories: CategoryGroup[];
   setTeachingCategories: React.Dispatch<React.SetStateAction<CategoryGroup[]>>;
-  createTeacherWithAccount: (teacher: Omit<TeacherProfile, 'id' | 'username' | 'passwordRaw'>) => { id: string; username: string; password: string } | null;
+  createTeacherWithAccount: (teacher: Omit<TeacherProfile, 'id' | 'username' | 'passwordRaw'>) => Promise<{ id: string; username: string; password: string } | null>;
   // Navigation & Role
   currentUser: UserAccount;
   setCurrentUser: (user: UserAccount) => void;
@@ -155,6 +156,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeToneKey, setActiveToneKey] = useState<string>('');
   const [toneDirectives, setToneDirectives] = useState<Record<string, { name: string; directive: string }>>({});
   const [payrollStore, setPayrollStore] = useState<Record<string, MonthPayrollData>>({});
+  const teacherAccess = JSON.stringify(accountSession.groups.map(g=>[g.id,g.permissions,g.portal]));
+  useEffect(() => {
+    let cancelled = false;
+    setTeachers([]); setSubjects([]); setTeachingCategories([]); setLevels([]); setTimeSlots([]); setModels([]);
+    if (!accountSession.actor || isPreviewAccount(accountSession.actor)) return;
+    void loadTeacherData().then(data => {
+      if (cancelled) return;
+      setTeachers(data.teachers); setSubjects(data.subjects); setTeachingCategories(data.teachingCategories);
+      setLevels(data.levels); setTimeSlots(data.timeSlots); setModels(data.models);
+    }).catch(error => { if (!cancelled) showToast((error as Error).message,'error'); });
+    return () => { cancelled = true; };
+  }, [accountSession.actor?.id, accountSession.actor?.roleGroupId, teacherAccess]);
   // Tự động chuyển workspace khi đổi user
   useEffect(() => {
     if (accountPortal(currentUser, roleGroups) === 'TEACHER') {
@@ -219,18 +232,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const createTeacherWithAccount: AppContextType['createTeacherWithAccount'] = (profile) => {
+  const createTeacherWithAccount: AppContextType['createTeacherWithAccount'] = async (profile) => {
     if (!can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') && !can('Tạo hồ sơ và cấp tài khoản giáo viên')) { showToast('Bạn chưa được cấp quyền tạo hồ sơ giáo viên.', 'error'); return null; }
-    const email = profile.email.trim().toLowerCase();
-    if (!profile.name.trim() || !email || users.some(u => u.email.trim().toLowerCase() === email) || teachers.some(t => t.email.trim().toLowerCase() === email)) { showToast('Tên/email không hợp lệ hoặc email đã được sử dụng.', 'error'); return null; }
-    const category = teachingCategories.find(c => c.id === profile.levelId && c.status !== false);
-    if (!subjects.some(subject => subject.code === profile.subject && subject.status) || !category || !profile.grades.length || !profile.grades.every(grade => category.options.some(option => option.id === grade)) || !profile.models?.length) { showToast('Vui lòng chọn môn, lớp dạy và mô hình hợp lệ từ danh mục.', 'error'); return null; }
-    const credentials = generateTeacherCredentials(teachers, users);
-    const teacher = { ...profile, id: credentials.id, username: credentials.username, email, schedule: {}, freeSlots: 0, busySlots: 0, isFull: false, successfulSessions: [] };
-    const account: UserAccount = { id: credentials.id, username: credentials.username, passwordRaw: credentials.password, name: profile.name.trim(), email, phone: profile.phone, role: 'Giáo viên Giảng dạy', subject: profile.subject, status: 'active', avatarInitials: profile.name.trim().split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase() };
-    setTeachers(prev => [teacher, ...prev]);
-    setUsers(prev => [account, ...prev]);
-    return credentials;
+    try {
+      const result = await persistTeacher(profile);
+      setTeachers(previous => [result.teacher,...previous.filter(t=>t.id!==result.id)]);
+      return {id:result.id,username:result.username,password:result.password};
+    } catch (error) { showToast((error as Error).message,'error'); return null; }
   };
 
   // PH3 Actions

@@ -3,7 +3,7 @@ import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { ColumnFilter } from '../components/ColumnFilter';
 import { canManageTeacherProfiles } from '../lib/teacherAccounts';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { TeacherFieldInputs, TeacherCategoryFields, emptyTeacherFields, matchesTeacherFields } from '../components/TeacherFieldFilters';
@@ -58,6 +58,8 @@ export const Module3_Teachers: React.FC = () => {
   const activeSubjects = subjects.filter(subject => subject.status);
   const activeCategories = teachingCategories.filter(category => category.status !== false);
   const [isDetailPasswordVisible, setIsDetailPasswordVisible] = useState(false);
+  const [isCreatingTeacher, setIsCreatingTeacher] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{id:string;username:string;password:string} | null>(null);
   const [scheduleModalTeacher, setScheduleModalTeacher] = useState<TeacherProfile | null>(null);
 
   // Hình thức nhận lớp
@@ -149,7 +151,11 @@ export const Module3_Teachers: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTeacherForDetail, setSelectedTeacherForDetail] = useState<TeacherProfile | null>(null);
 
-  const detailAccount = selectedTeacherForDetail ? resolveTeacherAccount(selectedTeacherForDetail, users) : undefined;
+  useEffect(() => { setCreatedCredentials(null); setSelectedTeacherForDetail(null); }, [currentUser.id]);
+  useEffect(() => { if (!selectedTeacherForDetail) setCreatedCredentials(null); }, [selectedTeacherForDetail?.id]);
+  const detailAccount = selectedTeacherForDetail && createdCredentials?.id === selectedTeacherForDetail.id
+    ? {username:createdCredentials.username,passwordRaw:createdCredentials.password,status:'active'}
+    : selectedTeacherForDetail ? resolveTeacherAccount(selectedTeacherForDetail, users) : undefined;
 
   // Evaluation flow state
   const [gradingTeacher, setGradingTeacher] = useState<TeacherProfile | null>(null);
@@ -280,7 +286,7 @@ export const Module3_Teachers: React.FC = () => {
   // Calculate weighted score
   const finalWeightedScore = ((tc1Score * 1 + tc2Score * 2 + tc3Score * 1) / 4).toFixed(2);
 
-  const handleCreateTeacherSubmit = (e: React.FormEvent) => {
+  const handleCreateTeacherSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeacherName.trim()) return;
 
@@ -298,8 +304,11 @@ export const Module3_Teachers: React.FC = () => {
       grades: newTeacherGrades, models: newTeacherModels, phone: newTeacherPhone.trim(), email: newTeacherEmail.trim(), degree: newTeacherDegree.trim(),
       status: 'CHO_LOP', statusLabel: 'Chờ lớp', evalStatus: 'UNSCORED', evalScore: null, evalComment: '', freeSlots: 0, busySlots: 0, isFull: false, successfulSessions: [], schedule: {}
     };
-    const credentials = createTeacherWithAccount(profile);
+    if (isCreatingTeacher) return;
+    setIsCreatingTeacher(true);
+    const credentials = await createTeacherWithAccount(profile).finally(()=>setIsCreatingTeacher(false));
     if (!credentials) return;
+    setCreatedCredentials(credentials);
     setIsDetailPasswordVisible(false);
     setSelectedTeacherForDetail({ ...profile, id: credentials.id, username: credentials.username });
     setIsCreateModalOpen(false);
@@ -589,7 +598,7 @@ export const Module3_Teachers: React.FC = () => {
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
-                              onClick={() => { setIsDetailPasswordVisible(false); setSelectedTeacherForDetail(t); }}
+                              onClick={() => { setCreatedCredentials(null); setIsDetailPasswordVisible(false); setSelectedTeacherForDetail(t); }}
                               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                               title="Xem lý lịch chi tiết"
                             >
@@ -911,7 +920,7 @@ export const Module3_Teachers: React.FC = () => {
                 <h3 className="font-bold text-base text-slate-800">Thêm mới Hồ sơ Giáo viên</h3>
                 <p className="text-xs text-slate-400">Thông tin liên kết trực tiếp với bảng tài khoản NGUOI_DUNG và danh mục MON_HOC</p>
               </div>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => { if (!isCreatingTeacher) setIsCreateModalOpen(false); }} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1065,16 +1074,17 @@ export const Module3_Teachers: React.FC = () => {
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={() => { if (!isCreatingTeacher) setIsCreateModalOpen(false); }}
                   className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
+                  disabled={isCreatingTeacher}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
                 >
-                  Lưu hồ sơ Giáo viên
+                  {isCreatingTeacher ? 'Đang lưu…' : 'Lưu hồ sơ Giáo viên'}
                 </button>
               </div>
             </form>
