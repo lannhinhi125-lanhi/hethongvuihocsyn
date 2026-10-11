@@ -80,6 +80,9 @@ export interface IncidentCategory {
 }
 
 export interface SubIncidentItem {
+  /** Hệ số công theo loại sự cố; undefined nghĩa là chưa cấu hình. */
+  creditCoeff?: number;
+  noticeType?: 'advance' | 'unannounced' | 'unspecified';
   id: string;
   code: string;
   name: string;

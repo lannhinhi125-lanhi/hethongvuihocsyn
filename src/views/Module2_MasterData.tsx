@@ -1,3 +1,6 @@
+import { CatalogTreeBranch } from '../components/CatalogTreeBranch';
+import { IncidentCatalog } from '../components/IncidentCatalog';
+import { CatalogWorkspace } from '../components/CatalogWorkspace';
 import { TeachingCatalog } from '../components/TeachingCatalog';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -19,6 +22,7 @@ import {
 
 export const Module2_MasterData: React.FC = () => {
   const {
+    teachingCategories,
     subjects,
     setSubjects,
     levels,
@@ -74,19 +78,6 @@ export const Module2_MasterData: React.FC = () => {
   const [modCode, setModCode] = useState('');
   const [modName, setModName] = useState('');
   const [modMax, setModMax] = useState(3);
-
-  const [isParentIncidentModalOpen, setIsParentIncidentModalOpen] = useState(false);
-  const [parentIncCode, setParentIncCode] = useState('');
-  const [parentIncName, setParentIncName] = useState('');
-  const [parentIncDesc, setParentIncDesc] = useState('');
-
-  const [isSubIncidentModalOpen, setIsSubIncidentModalOpen] = useState(false);
-  const [selectedParentIncId, setSelectedParentIncId] = useState('');
-  const [editingSubIncId, setEditingSubIncId] = useState<string | null>(null);
-  const [subIncCode, setSubIncCode] = useState('');
-  const [subIncName, setSubIncName] = useState('');
-  const [subIncTarget, setSubIncTarget] = useState<'Giáo viên' | 'Học sinh' | 'Khách quan'>('Giáo viên');
-  const [subIncDesc, setSubIncDesc] = useState('');
 
   // 1. Subject Handlers
   const openSubjectModal = (item?: (typeof subjects)[0]) => {
@@ -350,190 +341,30 @@ export const Module2_MasterData: React.FC = () => {
     setIsModelModalOpen(false);
   };
 
-  // 6. Incident Tree Handlers
-  const handleSaveParentIncident = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!parentIncName.trim()) return;
-
-    const newCategory: IncidentCategory = {
-      id: `GRP-${Date.now()}`,
-      code: parentIncCode || `GRP-${Date.now().toString().slice(-4)}`,
-      name: parentIncName.trim(),
-      desc: parentIncDesc.trim(),
-      subIncidents: []
-    };
-
-    setIncidents(prev => [...prev, newCategory]);
-    showToast(`Đã tạo Nhóm sự cố Cha [${parentIncName}]!`, 'success');
-    setIsParentIncidentModalOpen(false);
-  };
-
-  const openSubIncidentModal = (parentId: string, item?: (typeof incidents)[0]['subIncidents'][0]) => {
-    setSelectedParentIncId(parentId);
-    if (item) {
-      setEditingSubIncId(item.id);
-      setSubIncCode(item.code);
-      setSubIncName(item.name);
-      setSubIncTarget(item.targetParty);
-      setSubIncDesc(item.desc);
-    } else {
-      setEditingSubIncId(null);
-      setSubIncCode(`INC-${Date.now().toString().slice(-4)}`);
-      setSubIncName('');
-      setSubIncTarget('Giáo viên');
-      setSubIncDesc('');
-    }
-    setIsSubIncidentModalOpen(true);
-  };
-
-  const handleSaveSubIncident = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subIncName.trim()) return;
-
-    setIncidents(prev =>
-      prev.map(cat => {
-        if (cat.id === selectedParentIncId) {
-          if (editingSubIncId) {
-            return {
-              ...cat,
-              subIncidents: cat.subIncidents.map(sub =>
-                sub.id === editingSubIncId
-                  ? { ...sub, code: subIncCode, name: subIncName.trim(), targetParty: subIncTarget, desc: subIncDesc.trim() }
-                  : sub
-              )
-            };
-          } else {
-            return {
-              ...cat,
-              subIncidents: [
-                ...cat.subIncidents,
-                {
-                  id: `INC-${Date.now()}`,
-                  code: subIncCode,
-                  name: subIncName.trim(),
-                  targetParty: subIncTarget,
-                  desc: subIncDesc.trim(),
-                  status: true
-                }
-              ]
-            };
-          }
-        }
-        return cat;
-      })
-    );
-
-    showToast(`Đã lưu loại sự cố con [${subIncName}]!`, 'success');
-    setIsSubIncidentModalOpen(false);
-  };
-
   return (
     <div className="space-y-6">
-      {/* Banner Master Data */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-[#FF5C00] font-bold text-xs uppercase tracking-wide">
-              CẤU HÌNH DỮ LIỆU NỀN TẢNG
-            </span>
-            <h2 className="text-xl font-bold text-slate-900">Quản lý Danh mục Dùng chung (Master Data)</h2>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Định nghĩa các tập giá trị, trường thông tin và cây danh mục chuẩn để liên kết toàn diện với Giáo viên, Lớp học và Chốt công.
-          </p>
-        </div>
-
-        {/* Global Search */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
-            <input
-              type="text"
-              value={searchKeyword}
-              onChange={e => setSearchKeyword(e.target.value)}
-              placeholder="Tra cứu trong danh mục..."
-              className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
-          </div>
-        </div>
-      </div>
-
+      <CatalogWorkspace active={activeTab} onSelect={id => { setActiveTab(id as typeof activeTab); setSearchKeyword(''); }} items={[
+        { id: 'subjects', name: 'Môn học', group: 'Đào tạo', count: subjects.length },
+        { id: 'levels', name: 'Chương trình / Trình độ', group: 'Đào tạo', count: levels.length },
+        { id: 'teaching', name: 'Cấp học & Lớp dạy', group: 'Đào tạo', count: teachingCategories.length },
+        { id: 'models', name: 'Mô hình & Sĩ số', group: 'Tổ chức lớp học', count: models.length },
+        { id: 'times', name: 'Khung giờ học', group: 'Tổ chức lớp học', count: timeSlots.length },
+        { id: 'incidents', name: 'Sự cố & Hệ số công', group: 'Vận hành', count: incidents.length }
+      ]}>
+      <div className="space-y-3">
+      {activeTab !== 'teaching' && activeTab !== 'incidents' && <div className="relative max-w-sm">
+        <input type="search" aria-label="Tìm giá trị trong danh mục đang chọn" value={searchKeyword}
+          onChange={event => setSearchKeyword(event.target.value)} placeholder="Tìm theo mã hoặc tên trong danh mục..."
+          className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-xs focus:border-orange-500 focus:outline-none" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+      </div>}
       {activeTab === 'teaching' && <TeachingCatalog />}
-      {/* 6 Tabs Chuyển đổi danh mục */}
-      <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs overflow-x-auto flex items-center gap-1 text-xs">
-        <button
-          onClick={() => setActiveTab('subjects')}
-          className={`px-4 py-2.5 font-bold rounded-xl whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'subjects' ? 'bg-[#FF5C00] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>1. Môn học</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('levels')}
-          className={`px-4 py-2.5 font-bold rounded-xl whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'levels' ? 'bg-[#FF5C00] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          <span>2. Khung chương trình / Trình độ</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('times')}
-          className={`px-4 py-2.5 font-bold rounded-xl whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'times' ? 'bg-[#FF5C00] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>3. Khung giờ học (Time Slots)</span>
-        </button>
-
-
-
-        <button
-          onClick={() => setActiveTab('models')}
-          className={`px-4 py-2.5 font-bold rounded-xl whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'models' ? 'bg-[#FF5C00] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Users2 className="w-4 h-4" />
-          <span>4. Mô hình &amp; Sĩ số trần</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('incidents')}
-          className={`px-4 py-2.5 font-bold rounded-xl whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'incidents' ? 'bg-[#FF5C00] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <GitFork className="w-4 h-4" />
-          <span>5. Danh mục Sự cố (Cha - Con)</span>
-        </button>
-      </div>
-
       {/* ================= TAB 1: MÔN HỌC ================= */}
       {activeTab === 'subjects' && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-slate-800">Danh mục Môn học</h3>
-              <p className="text-xs text-slate-400">Trường thông tin Môn học gán cho Giáo viên và Khởi tạo lớp học</p>
-            </div>
-            <button
-              onClick={() => openSubjectModal()}
-              className="px-3.5 py-2 bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Thêm Môn học</span>
-            </button>
-          </div>
-
+        <CatalogTreeBranch title="Môn học" count={subjects.length} onAdd={() => openSubjectModal()} addLabel="Thêm môn học" revealKey={searchKeyword}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
                 <tr>
                   <th className="py-3 px-4">Mã Môn</th>
                   <th className="py-3 px-4">Viết tắt</th>
@@ -603,29 +434,15 @@ export const Module2_MasterData: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </div>
+</CatalogTreeBranch>
       )}
 
       {/* ================= TAB 2: KHUNG CHƯƠNG TRÌNH / TRÌNH ĐỘ ================= */}
       {activeTab === 'levels' && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-slate-800">Danh mục Khung chương trình học / Trình độ</h3>
-              <p className="text-xs text-slate-400">Các mức trình độ học tập dùng xếp lớp học sinh</p>
-            </div>
-            <button
-              onClick={() => openLevelModal()}
-              className="px-3.5 py-2 bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Thêm Trình độ</span>
-            </button>
-          </div>
-
+        <CatalogTreeBranch title="Chương trình / Trình độ" count={levels.length} onAdd={() => openLevelModal()} addLabel="Thêm trình độ" revealKey={searchKeyword}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
                 <tr>
                   <th className="py-3 px-4">Mã Trình độ</th>
                   <th className="py-3 px-4">Tên Khung trình độ</th>
@@ -682,32 +499,19 @@ export const Module2_MasterData: React.FC = () => {
                       </td>
                     </tr>
                   ))}
+                {!levels.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={6} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
               </tbody>
             </table>
           </div>
-        </div>
+</CatalogTreeBranch>
       )}
 
       {/* ================= TAB 3: KHUNG GIỜ HỌC ================= */}
       {activeTab === 'times' && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-slate-800">Danh mục Khung giờ học chuẩn (Time Slots)</h3>
-              <p className="text-xs text-slate-400">Trường thông tin xếp thời khóa biểu và lịch rảnh giáo viên</p>
-            </div>
-            <button
-              onClick={() => openSlotModal()}
-              className="px-3.5 py-2 bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Thêm Khung giờ</span>
-            </button>
-          </div>
-
+        <CatalogTreeBranch title="Khung giờ học" count={timeSlots.length} onAdd={() => openSlotModal()} addLabel="Thêm khung giờ" revealKey={searchKeyword}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
                 <tr>
                   <th className="py-3 px-4">Mã Khung giờ</th>
                   <th className="py-3 px-4">Tên hiển thị</th>
@@ -757,32 +561,19 @@ export const Module2_MasterData: React.FC = () => {
                     </td>
                   </tr>
                 ))}
+                {!timeSlots.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={6} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
               </tbody>
             </table>
           </div>
-        </div>
+</CatalogTreeBranch>
       )}
 
       {/* ================= TAB 5: MÔ HÌNH & SĨ SỐ TRẦN ================= */}
       {activeTab === 'models' && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-slate-800">Danh mục Mô hình lớp &amp; Sĩ số trần</h3>
-              <p className="text-xs text-slate-400">Tham số kiểm soát không cho ghép vượt sĩ số</p>
-            </div>
-            <button
-              onClick={() => openModelModal()}
-              className="px-3.5 py-2 bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Thêm Mô hình</span>
-            </button>
-          </div>
-
+        <CatalogTreeBranch title="Mô hình & Sĩ số" count={models.length} onAdd={() => openModelModal()} addLabel="Thêm mô hình" revealKey={searchKeyword}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+              <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
                 <tr>
                   <th className="py-3 px-4">Mã mô hình</th>
                   <th className="py-3 px-4">Tên hiển thị mô hình</th>
@@ -792,7 +583,7 @@ export const Module2_MasterData: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {models.map(m => (
+                {models.filter(m => (m.name + ' ' + m.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))).map(m => (
                   <tr key={m.id} className="hover:bg-slate-50/80">
                     <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{m.code}</td>
                     <td className="py-3 px-4 font-bold text-slate-800">{m.name}</td>
@@ -832,175 +623,17 @@ export const Module2_MasterData: React.FC = () => {
                     </td>
                   </tr>
                 ))}
+                {!models.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={5} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
               </tbody>
             </table>
           </div>
-        </div>
+</CatalogTreeBranch>
       )}
 
-      {/* ================= TAB 6: DANH MỤC SỰ CỐ ================= */}
-      {activeTab === 'incidents' && (
-        <div className="space-y-4">
-          <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
-              <GitFork className="w-4 h-4" />
-            </div>
-            <div className="text-xs text-slate-700 leading-relaxed">
-              <span className="font-bold text-slate-900">Quy tắc Cây Danh mục Sự cố (Master Data):</span> Định nghĩa trường thông tin theo 2 cấp:{' '}
-              <span className="font-bold text-blue-700">Nhóm Sự cố Cha</span> &rarr;{' '}
-              <span className="font-semibold text-slate-900">Loại Sự cố Con trực thuộc</span> để làm bộ dữ liệu cho chức năng Giám sát ca dạy &amp; Chốt công.
-            </div>
-          </div>
+      {activeTab === 'incidents' && <IncidentCatalog />}
 
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold text-sm text-slate-800">Cây Danh mục Phân loại Sự cố</h3>
-                <p className="text-xs text-slate-400">Tạo nhóm cha hoặc thêm loại sự cố con tương ứng</p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setParentIncCode(`GRP-${Date.now().toString().slice(-4)}`);
-                    setParentIncName('');
-                    setParentIncDesc('');
-                    setIsParentIncidentModalOpen(true);
-                  }}
-                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  <span>+ Tạo Nhóm Sự cố Cha</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4 w-1/4">Nhóm Sự cố Cha (Level 1)</th>
-                    <th className="py-3 px-4">Mã Cây Con</th>
-                    <th className="py-3 px-4">Tên Loại sự cố con (Level 2)</th>
-                    <th className="py-3 px-4">Đối tượng phát sinh</th>
-                    <th className="py-3 px-4">Mô tả trường</th>
-                    <th className="py-3 px-4 text-center">Bật / Tắt</th>
-                    <th className="py-3 px-4 text-center">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {incidents.map(cat => (
-                    <React.Fragment key={cat.id}>
-                      {cat.subIncidents.length === 0 ? (
-                        <tr className="bg-slate-50/30">
-                          <td className="py-3 px-4 font-bold text-blue-700">
-                            <div>{cat.name}</div>
-                            <span className="text-[11px] font-mono text-slate-400">Mã: {cat.code}</span>
-                            <button
-                              onClick={() => openSubIncidentModal(cat.id)}
-                              className="mt-2 block text-xs text-blue-600 hover:underline font-semibold"
-                            >
-                              + Thêm con vào nhóm này
-                            </button>
-                          </td>
-                          <td colSpan={6} className="py-3 px-4 text-slate-400 italic">
-                            Chưa có loại sự cố con nào.
-                          </td>
-                        </tr>
-                      ) : (
-                        cat.subIncidents.map((sub, sIdx) => (
-                          <tr key={sub.id} className="hover:bg-slate-50/80">
-                            {sIdx === 0 && (
-                              <td
-                                rowSpan={cat.subIncidents.length}
-                                className="py-3 px-4 font-bold text-blue-700 align-top border-r border-slate-100 bg-slate-50/40"
-                              >
-                                <div className="text-sm">{cat.name}</div>
-                                <span className="text-[11px] font-mono text-slate-400 block mt-0.5">Mã: {cat.code}</span>
-                                <button
-                                  onClick={() => openSubIncidentModal(cat.id)}
-                                  className="mt-3 inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline font-semibold"
-                                >
-                                  <PlusCircle className="w-3.5 h-3.5" /> Thêm con vào nhóm
-                                </button>
-                              </td>
-                            )}
-                            <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{sub.code}</td>
-                            <td className="py-3 px-4 font-bold text-slate-800">{sub.name}</td>
-                            <td className="py-3 px-4">
-                              <span
-                                className={`px-2 py-0.5 rounded font-bold border text-[11px] ${
-                                  sub.targetParty === 'Giáo viên'
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                    : sub.targetParty === 'Học sinh'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : 'bg-slate-100 text-slate-700 border-slate-200'
-                                }`}
-                              >
-                                {sub.targetParty}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-slate-600">{sub.desc}</td>
-                            <td className="py-3 px-4 text-center">
-                              <input
-                                type="checkbox"
-                                checked={sub.status}
-                                onChange={e => {
-                                  setIncidents(prev =>
-                                    prev.map(c =>
-                                      c.id === cat.id
-                                        ? {
-                                            ...c,
-                                            subIncidents: c.subIncidents.map(si =>
-                                              si.id === sub.id ? { ...si, status: e.target.checked } : si
-                                            )
-                                          }
-                                        : c
-                                    )
-                                  );
-                                  showToast(`Đã chuyển trạng thái sự cố [${sub.name}]`, 'info');
-                                }}
-                                className="accent-[#FF5C00] w-4 h-4 cursor-pointer"
-                              />
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={() => openSubIncidentModal(cat.id, sub)}
-                                  className="p-1 rounded text-slate-500 hover:text-[#FF5C00]"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (window.confirm(`Xóa loại sự cố con ${sub.name}?`)) {
-                                      setIncidents(prev =>
-                                        prev.map(c =>
-                                          c.id === cat.id
-                                            ? { ...c, subIncidents: c.subIncidents.filter(si => si.id !== sub.id) }
-                                            : c
-                                        )
-                                      );
-                                      showToast(`Đã xóa sự cố con [${sub.name}]`, 'info');
-                                    }
-                                  }}
-                                  className="p-1 rounded text-slate-500 hover:text-rose-500"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
+      </CatalogWorkspace>
 
       {/* ================= MODALS CHO MASTER DATA ================= */}
       {/* 1. Modal Môn học */}
@@ -1364,151 +997,7 @@ export const Module2_MasterData: React.FC = () => {
         </div>
       )}
 
-      {/* 6. Modal Tạo Nhóm Sự cố Cha */}
-      {isParentIncidentModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-base text-slate-800">Tạo Nhóm Sự cố Cha</h3>
-              <button onClick={() => setIsParentIncidentModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleSaveParentIncident} className="mt-4 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Mã Nhóm Cha</label>
-                <input
-                  type="text"
-                  required
-                  value={parentIncCode}
-                  onChange={e => setParentIncCode(e.target.value)}
-                  placeholder="GRP-TECH"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tên Nhóm Sự cố Cha</label>
-                <input
-                  type="text"
-                  required
-                  value={parentIncName}
-                  onChange={e => setParentIncName(e.target.value)}
-                  placeholder="Sự cố kỹ thuật & Thiết bị"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#FF5C00]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Mô tả mục đích phân loại</label>
-                <textarea
-                  rows={2}
-                  value={parentIncDesc}
-                  onChange={e => setParentIncDesc(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#FF5C00]"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsParentIncidentModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs cursor-pointer"
-                >
-                  Lưu Nhóm Cha
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 7. Modal Tạo Loại Sự cố Con */}
-      {isSubIncidentModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-base text-slate-800">
-                {editingSubIncId ? 'Hiệu chỉnh Loại sự cố con' : 'Thêm Loại sự cố con vào Cây'}
-              </h3>
-              <button onClick={() => setIsSubIncidentModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveSubIncident} className="mt-4 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Mã loại sự cố con</label>
-                <input
-                  type="text"
-                  required
-                  value={subIncCode}
-                  onChange={e => setSubIncCode(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tên loại sự cố con</label>
-                <input
-                  type="text"
-                  required
-                  value={subIncName}
-                  onChange={e => setSubIncName(e.target.value)}
-                  placeholder="Học sinh xin nghỉ đột xuất"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#FF5C00]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Đối tượng phát sinh lỗi</label>
-                <select
-                  value={subIncTarget}
-                  onChange={e => setSubIncTarget(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
-                >
-                  <option value="Giáo viên">Giáo viên</option>
-                  <option value="Học sinh">Học sinh</option>
-                  <option value="Khách quan">Khách quan (Mạng, Thiết bị)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Mô tả trường</label>
-                <textarea
-                  rows={2}
-                  value={subIncDesc}
-                  onChange={e => setSubIncDesc(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#FF5C00]"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSubIncidentModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
-                >
-                  Lưu Loại Con
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
