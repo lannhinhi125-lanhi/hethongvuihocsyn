@@ -74,19 +74,6 @@ export const DATABASE_NAMES = {
       "updated_at": "ngaycapnhat"
     }
   },
-  "course_packages": {
-    "table": "GOI_HOC",
-    "columns": {
-      "id": "madinhdanh",
-      "code": "magoihoc",
-      "name": "tengoihoc",
-      "months": "sothang",
-      "days_converted": "songayquydoi",
-      "is_active": "danghoatdong",
-      "created_at": "ngaytao",
-      "updated_at": "ngaycapnhat"
-    }
-  },
   "class_models": {
     "table": "MO_HINH_LOP",
     "columns": {
@@ -357,6 +344,171 @@ export const DATABASE_NAMES = {
       "created_at": "ngaytao",
       "updated_at": "ngaycapnhat"
     }
+  },
+  "weekly_availability": {
+    "table": "LICH_RANH_TUAN",
+    "columns": {
+      "id": "madinhdanh",
+      "teacherId": "magiaovien",
+      "weekStart": "ngaydautuan",
+      "weekEnd": "ngaycuoituan",
+      "schoolYear": "namhoc",
+      "updatedBy": "manguoicapnhat",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "availability_slots": {
+    "table": "CHI_TIET_LICH_RANH",
+    "columns": {
+      "weekId": "malichtuan",
+      "date": "ngay",
+      "timeSlotId": "makhunggio",
+      "status": "trangthai",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "dated_lessons": {
+    "table": "BUOI_HOC",
+    "columns": {
+      "id": "madinhdanh",
+      "classId": "malop",
+      "date": "ngayhoc",
+      "timeSlotId": "makhunggio",
+      "startsAt": "batdau",
+      "endsAt": "ketthuc",
+      "primaryTeacherId": "magiaovienchinh",
+      "coverTeacherId": "magiaoviendaythay",
+      "title": "tieude",
+      "roomUrl": "lienketphonghoc",
+      "materials": "hoclieu",
+      "status": "trangthai",
+      "checkinAt": "vaolopluc",
+      "checkoutAt": "ketthucluc",
+      "checkinUserId": "manguoivaolop",
+      "checkoutUserId": "manguoiketthuc",
+      "teacherAttendance": "chuyencan",
+      "diary": "nhatky",
+      "recordingUrl": "lienketbanghi",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "lesson_attendance": {
+    "table": "DIEM_DANH_BUOI_HOC",
+    "columns": {
+      "lessonId": "mabuoi",
+      "studentId": "mahocsinh",
+      "status": "trangthai",
+      "note": "ghichu",
+      "updatedBy": "manguoicapnhat",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "lesson_feedback": {
+    "table": "NHAN_XET_BUOI_HOC",
+    "columns": {
+      "lessonId": "mabuoi",
+      "studentId": "mahocsinh",
+      "content": "noidung",
+      "selectedCriteria": "tieuchidachon",
+      "toneId": "mavanphong",
+      "aiGenerationCount": "soluottaoai",
+      "updatedBy": "manguoicapnhat",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "lesson_incidents": {
+    "table": "SU_CO_BUOI_HOC",
+    "columns": {
+      "id": "madinhdanh",
+      "lessonId": "mabuoi",
+      "categoryId": "manhomsuco",
+      "incidentCode": "masuco",
+      "incidentName": "tensuco",
+      "urgency": "muckhancap",
+      "content": "noidung",
+      "status": "trangthai",
+      "reportedBy": "manguoibao",
+      "handledBy": "manguoixuly",
+      "reportedAt": "baoluc",
+      "handledAt": "xulyluc",
+      "resolutionNote": "ghichuxuly",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "lesson_credits": {
+    "table": "CONG_DAY_BUOI_HOC",
+    "columns": {
+      "id": "madinhdanh",
+      "lessonId": "mabuoi",
+      "teacherId": "magiaovien",
+      "monthPeriod": "kycong",
+      "role": "vaitro",
+      "coefficient": "hesocong",
+      "note": "ghichu",
+      "isSent": "dagui",
+      "sentAt": "guiluc",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "credit_disputes": {
+    "table": "GIAI_TRINH_CONG_DAY",
+    "columns": {
+      "id": "madinhdanh",
+      "creditId": "macong",
+      "content": "noidung",
+      "incidentType": "loaisuco",
+      "attachments": "minhchung",
+      "status": "trangthai",
+      "submittedAt": "guiluc",
+      "submittedBy": "manguoigui",
+      "reviewedBy": "manguoiduyet",
+      "reviewedAt": "duyetluc",
+      "reviewNote": "ghichuduyet",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
+  },
+  "teacher_evaluations": {
+    "table": "BIEN_BAN_DU_GIO",
+    "columns": {
+      "id": "madinhdanh",
+      "teacherId": "magiaovien",
+      "reportCode": "mabienban",
+      "lessonId": "mabuoi",
+      "classCode": "malophoc",
+      "recipientUserId": "manguoinhan",
+      "evaluatorUserId": "manguoidanhgia",
+      "evaluationDate": "ngaydanhgia",
+      "sessionDate": "ngaycahoc",
+      "sessionCode": "macahoc",
+      "sentAt": "guiluc",
+      "evaluatorName": "hotennguoidanhgia",
+      "evaluatorRole": "vaitronguoidanhgia",
+      "className": "tenlophoc",
+      "sessionNum": "sobuoi",
+      "sessionName": "tenbuoihoc",
+      "timeSlot": "khunggio",
+      "model": "mohinh",
+      "overallScore": "diemtong",
+      "rank": "xeploai",
+      "criteriaScores": "diemtieuchi",
+      "generalComment": "nhanxetchung",
+      "strengths": "uudiem",
+      "improvements": "cancaithien",
+      "recommendations": "khuyennghi",
+      "status": "trangthai",
+      "roomLink": "lienketphonghoc",
+      "recordLink": "lienketbanghi",
+      "created_at": "ngaytao",
+      "updated_at": "ngaycapnhat"
+    }
   }
 } as const;
 export const APP_DATABASE_FIELDS = {
@@ -414,16 +566,6 @@ export const APP_DATABASE_FIELDS = {
     "name": "tenkhunggio",
     "timeRange": "khoanggio",
     "durationMinutes": "sophut",
-    "status": "danghoatdong",
-    "created_at": "ngaytao",
-    "updated_at": "ngaycapnhat"
-  },
-  "course_packages": {
-    "id": "madinhdanh",
-    "code": "magoihoc",
-    "name": "tengoihoc",
-    "months": "sothang",
-    "daysConverted": "songayquydoi",
     "status": "danghoatdong",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
@@ -645,6 +787,144 @@ export const APP_DATABASE_FIELDS = {
     "active_module": "phanhedangchon",
     "workspace_mode": "chedogiaodien",
     "teacher_portal_tab": "tabgiaoviendangchon",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "weekly_availability": {
+    "id": "madinhdanh",
+    "teacherId": "magiaovien",
+    "weekStart": "ngaydautuan",
+    "weekEnd": "ngaycuoituan",
+    "schoolYear": "namhoc",
+    "updatedBy": "manguoicapnhat",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "availability_slots": {
+    "weekId": "malichtuan",
+    "date": "ngay",
+    "timeSlotId": "makhunggio",
+    "status": "trangthai",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "dated_lessons": {
+    "id": "madinhdanh",
+    "classId": "malop",
+    "date": "ngayhoc",
+    "timeSlotId": "makhunggio",
+    "startsAt": "batdau",
+    "endsAt": "ketthuc",
+    "primaryTeacherId": "magiaovienchinh",
+    "coverTeacherId": "magiaoviendaythay",
+    "title": "tieude",
+    "roomUrl": "lienketphonghoc",
+    "materials": "hoclieu",
+    "status": "trangthai",
+    "checkinAt": "vaolopluc",
+    "checkoutAt": "ketthucluc",
+    "checkinUserId": "manguoivaolop",
+    "checkoutUserId": "manguoiketthuc",
+    "teacherAttendance": "chuyencan",
+    "diary": "nhatky",
+    "recordingUrl": "lienketbanghi",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "lesson_attendance": {
+    "lessonId": "mabuoi",
+    "studentId": "mahocsinh",
+    "status": "trangthai",
+    "note": "ghichu",
+    "updatedBy": "manguoicapnhat",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "lesson_feedback": {
+    "lessonId": "mabuoi",
+    "studentId": "mahocsinh",
+    "content": "noidung",
+    "selectedCriteria": "tieuchidachon",
+    "toneId": "mavanphong",
+    "aiGenerationCount": "soluottaoai",
+    "updatedBy": "manguoicapnhat",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "lesson_incidents": {
+    "id": "madinhdanh",
+    "lessonId": "mabuoi",
+    "categoryId": "manhomsuco",
+    "incidentCode": "masuco",
+    "incidentName": "tensuco",
+    "urgency": "muckhancap",
+    "content": "noidung",
+    "status": "trangthai",
+    "reportedBy": "manguoibao",
+    "handledBy": "manguoixuly",
+    "reportedAt": "baoluc",
+    "handledAt": "xulyluc",
+    "resolutionNote": "ghichuxuly",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "lesson_credits": {
+    "id": "madinhdanh",
+    "lessonId": "mabuoi",
+    "teacherId": "magiaovien",
+    "monthPeriod": "kycong",
+    "role": "vaitro",
+    "coefficient": "hesocong",
+    "note": "ghichu",
+    "isSent": "dagui",
+    "sentAt": "guiluc",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "credit_disputes": {
+    "id": "madinhdanh",
+    "creditId": "macong",
+    "content": "noidung",
+    "incidentType": "loaisuco",
+    "attachments": "minhchung",
+    "status": "trangthai",
+    "submittedAt": "guiluc",
+    "submittedBy": "manguoigui",
+    "reviewedBy": "manguoiduyet",
+    "reviewedAt": "duyetluc",
+    "reviewNote": "ghichuduyet",
+    "created_at": "ngaytao",
+    "updated_at": "ngaycapnhat"
+  },
+  "teacher_evaluations": {
+    "id": "madinhdanh",
+    "teacherId": "magiaovien",
+    "reportCode": "mabienban",
+    "lessonId": "mabuoi",
+    "classCode": "malophoc",
+    "recipientUserId": "manguoinhan",
+    "evaluatorUserId": "manguoidanhgia",
+    "evaluationDate": "ngaydanhgia",
+    "sessionDate": "ngaycahoc",
+    "sessionCode": "macahoc",
+    "sentAt": "guiluc",
+    "evaluatorName": "hotennguoidanhgia",
+    "evaluatorRole": "vaitronguoidanhgia",
+    "className": "tenlophoc",
+    "sessionNum": "sobuoi",
+    "sessionName": "tenbuoihoc",
+    "timeSlot": "khunggio",
+    "model": "mohinh",
+    "overallScore": "diemtong",
+    "rank": "xeploai",
+    "criteriaScores": "diemtieuchi",
+    "generalComment": "nhanxetchung",
+    "strengths": "uudiem",
+    "improvements": "cancaithien",
+    "recommendations": "khuyennghi",
+    "status": "trangthai",
+    "roomLink": "lienketphonghoc",
+    "recordLink": "lienketbanghi",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
   }

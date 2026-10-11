@@ -32,8 +32,6 @@ export const Module2_MasterData: React.FC = () => {
     setLevels,
     timeSlots,
     setTimeSlots,
-    packages,
-    setPackages,
     models,
     setModels,
     incidents,
@@ -69,12 +67,6 @@ export const Module2_MasterData: React.FC = () => {
   const [slotStartTime, setSlotStartTime] = useState('18:00');
   const [slotEndTime, setSlotEndTime] = useState('19:30');
 
-  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
-  const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
-  const [pkgCode, setPkgCode] = useState('');
-  const [pkgName, setPkgName] = useState('');
-  const [pkgMonths, setPkgMonths] = useState(3);
-  const [pkgDays, setPkgDays] = useState(90);
 
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
@@ -258,54 +250,6 @@ export const Module2_MasterData: React.FC = () => {
       showToast(`Đã thêm khung giờ mới "${slotName}"!`, 'success');
     }
     setIsSlotModalOpen(false);
-  };
-
-  // 4. Package Handlers
-  const openPackageModal = (item?: (typeof packages)[0]) => {
-    if (item) {
-      setEditingPackageId(item.id);
-      setPkgCode(item.code);
-      setPkgName(item.name);
-      setPkgMonths(item.months);
-      setPkgDays(item.daysConverted);
-    } else {
-      setEditingPackageId(null);
-      setPkgCode(`PKG-${Date.now().toString().slice(-3)}M`);
-      setPkgName('');
-      setPkgMonths(3);
-      setPkgDays(90);
-    }
-    setIsPackageModalOpen(true);
-  };
-
-  const handleSavePackage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pkgName.trim()) return;
-
-    if (editingPackageId) {
-      setPackages(prev =>
-        prev.map(p =>
-          p.id === editingPackageId
-            ? { ...p, code: pkgCode, name: pkgName.trim(), months: pkgMonths, daysConverted: pkgDays }
-            : p
-        )
-      );
-      showToast(`Đã cập nhật gói thời hạn "${pkgName}"!`, 'success');
-    } else {
-      setPackages(prev => [
-        ...prev,
-        {
-          id: `PKG-${Date.now()}`,
-          code: pkgCode,
-          name: pkgName.trim(),
-          months: pkgMonths,
-          daysConverted: pkgDays,
-          status: true
-        }
-      ]);
-      showToast(`Đã thêm gói thời hạn "${pkgName}"!`, 'success');
-    }
-    setIsPackageModalOpen(false);
   };
 
   // 5. Model Handlers

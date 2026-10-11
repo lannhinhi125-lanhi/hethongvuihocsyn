@@ -351,7 +351,7 @@ export const Module3_Teachers: React.FC = () => {
     const score = Number(finalWeightedScore);
     const report: EvaluationRecord = {
       id: existing?.id || crypto.randomUUID(), reportCode: existing?.reportCode || `BBDG/${new Date().getFullYear()}/${Date.now()}`,
-      teacherId: gradingTeacher.id, recipientUserId: recipient.id, sessionCode: session.code,
+      teacherId: gradingTeacher.id, evaluatorUserId: currentUser.id, recipientUserId: recipient.id, sessionCode: session.code,
       sessionDate: sessionDateISO(session), sentAt: new Date().toISOString(),
       evaluationDate: new Date().toLocaleDateString('vi-VN'), evaluatorName: currentUser.name, evaluatorRole: currentUser.role,
       classCode: session.code, className: session.name, sessionName: session.name, sessionNum: 1,

@@ -53,18 +53,13 @@ Hệ thống được phát triển bằng **React 19**, **Vite**, **TypeScript*
 
 ---
 
-## 🔌 Cổng Kết Nối Dữ Liệu Supabase (Code File & SQL Schema)
+## 🔌 Cấu trúc Supabase
 
-Hệ thống kết nối trực tiếp với Supabase thông qua file cấu hình mã nguồn chuyên dụng:
+[supabase/schema.sql](supabase/schema.sql) tạo 32 bảng trong schema vuihoc và dữ liệu mẫu. Chạy toàn bộ file trong Supabase SQL Editor.
 
-* **File client Supabase:** `src/lib/supabaseClient.ts`
-  * Khởi tạo client chính thức từ `@supabase/supabase-js`.
-  * Đọc biến môi trường `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY`.
-  * Cung cấp các hàm API: `fetchStudentsFromSupabase`, `fetchClassesFromSupabase`, `fetchDisputesFromSupabase`, `submitDisputeToSupabase`, `reviewDisputeOnSupabase`.
-* **File DDL SQL tạo bảng Supabase:** `supabase/schema.sql`
-  * Tạo toàn bộ bảng PostgreSQL cho 8 phân hệ (`users`, `subjects`, `teachers`, `students`, `classes`, `teaching_sessions`, `dispute_requests`,...).
-  * Bao gồm sẵn toàn bộ dữ liệu mẫu khởi tạo (Seed Data) chuẩn xác, liên thông 100%.
-  * **Cách sử dụng:** Mở **Supabase Dashboard** ➔ vào tab **SQL Editor** ➔ dán toàn bộ nội dung file `supabase/schema.sql` ➔ bấm **RUN**.
+Xem [bảng đối chiếu UI → database](supabase/DATA_DICTIONARY.md) và [SQL kiểm tra](supabase/verify_schema.sql).
+
+Giao diện hiện giữ dữ liệu trong bộ nhớ, chưa tự lưu vào Supabase. Cần tích hợp CRUD, Supabase Auth và quyền truy cập. RLS hiện chưa cấp quyền client. Helper API cũ cần chuyển sang tên bảng/cột trong databaseNames.ts thông qua supabaseMapper.ts.
 
 ---
 
@@ -105,3 +100,9 @@ Dự án đã có sẵn cấu hình `vercel.json` tối ưu cho Vite Single Page
    * `VITE_SUPABASE_URL`
    * `VITE_SUPABASE_ANON_KEY`
 4. Bấm **Deploy**.
+
+
+Đã bổ sung 8 bảng nghiệp vụ theo tuần/ngày và luồng sinh công. Xem [thiết kế theo thời gian](supabase/TIMED_WORKFLOW.md) để chạy schema mới hoặc migration nâng cấp. Giao diện chưa chuyển sang bảng mới.
+
+
+Bổ sung bảng thứ 32: BIEN_BAN_DU_GIO có FK bắt buộc tới mã giáo viên. Xem [hướng dẫn](supabase/TEACHER_EVALUATIONS.md).

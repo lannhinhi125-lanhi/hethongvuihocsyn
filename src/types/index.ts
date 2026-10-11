@@ -56,14 +56,6 @@ export interface TimeSlotItem {
   status: boolean;
 }
 
-export interface PackageDurationItem {
-  id: string;
-  code: string;
-  name: string;
-  months: number;
-  daysConverted: number;
-  status: boolean;
-}
 
 export interface ClassModelItem {
   id: string;
@@ -172,6 +164,10 @@ export interface ClassRoomSession {
   title: string;
   status: 'Chưa diễn ra' | 'Đang học' | 'Đã hoàn thành' | 'Nghỉ có phép' | 'Dạy thay' | 'Khai giảng';
   checkinTime?: string;
+  checkinAt?: string;
+  checkinUserId?: string;
+  checkoutAt?: string;
+  checkoutUserId?: string;
   teacherAttendance?: 'ATTENDED' | 'LATE';
   checkinBy?: string;
   coverTeacherId?: string;
@@ -325,6 +321,8 @@ export interface MonthPayrollData {
 }
 
 export interface EvaluationRecord {
+  lessonId?: string;
+  evaluatorUserId?: string;
   teacherId?: string;
   recipientUserId?: string;
   sessionCode?: string;

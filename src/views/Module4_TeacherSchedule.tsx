@@ -164,6 +164,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
           materialHs: activeSession?.materialHs || '',
           exerciseLms: selectedClassMaterial?.lms || activeSession?.exerciseLms || '',
           checkinTime,
+          checkinAt: new Date().toISOString(),
+          checkinUserId: currentUser.id,
           teacherAttendance,
           checkinBy: currentUser.name
         }
@@ -190,7 +192,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
           if (sessions[selectedSessionNum]) {
             sessions[selectedSessionNum] = {
               ...sessions[selectedSessionNum],
-              status: 'Đã hoàn thành'
+              status: 'Đã hoàn thành',
+              checkoutAt: new Date().toISOString(),
+              checkoutUserId: currentUser.id
             };
           }
           return { ...c, activeSessions: sessions };

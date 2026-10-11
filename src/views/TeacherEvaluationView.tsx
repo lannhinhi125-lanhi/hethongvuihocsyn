@@ -83,8 +83,11 @@ export const TeacherEvaluationView: React.FC = () => {
     const targetClass = classes.find(c => c.code === newClassCode);
 
     const newRecord: EvaluationRecord = {
-      id: `BB-${Date.now()}`,
-      reportCode: `BBDG/2026/${Math.floor(100 + Math.random() * 900)}`,
+      id: crypto.randomUUID(),
+      teacherId: currentTeacher.id,
+      recipientUserId: resolveTeacherAccount(currentTeacher, users)?.id,
+      evaluatorUserId: currentUser.id,
+      reportCode: `BBDG/${new Date().getFullYear()}/${crypto.randomUUID()}`,
       evaluationDate: newEvalDate,
       evaluatorName: newEvaluatorName,
       evaluatorRole: newEvaluatorRole,

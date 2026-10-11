@@ -14,7 +14,6 @@ import {
   SubjectItem,
   LevelItem,
   TimeSlotItem,
-  PackageDurationItem,
   ClassModelItem,
   IncidentCategory,
   TeacherProfile,
@@ -69,8 +68,6 @@ interface AppContextType {
   setLevels: React.Dispatch<React.SetStateAction<LevelItem[]>>;
   timeSlots: TimeSlotItem[];
   setTimeSlots: React.Dispatch<React.SetStateAction<TimeSlotItem[]>>;
-  packages: PackageDurationItem[];
-  setPackages: React.Dispatch<React.SetStateAction<PackageDurationItem[]>>;
   models: ClassModelItem[];
   setModels: React.Dispatch<React.SetStateAction<ClassModelItem[]>>;
   incidents: IncidentCategory[];
@@ -144,7 +141,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [levels, setLevels] = useState<LevelItem[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlotItem[]>([]);
-  const [packages, setPackages] = useState<PackageDurationItem[]>([]);
   const [models, setModels] = useState<ClassModelItem[]>([]);
   const [incidents, setIncidents] = useState<IncidentCategory[]>([]);
   const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
@@ -737,7 +733,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSubjects([]);
     setLevels([]);
     setTimeSlots([]);
-    setPackages([]);
     setModels([]);
     setIncidents([]);
     setTeachers([]);
@@ -779,8 +774,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLevels: guardedSetter(setLevels, 'Quản lý danh mục trình độ'),
         timeSlots,
         setTimeSlots: guardedSetter(setTimeSlots, 'Cấu hình Khung giờ ca dạy chuẩn (Time Slot)'),
-        packages,
-        setPackages: guardedSetter(setPackages, 'Tạo, sửa, xóa lớp và cập nhật link phòng học'),
         models,
         setModels: guardedSetter(setModels, 'Quản lý mô hình lớp và sĩ số tối đa'),
         incidents,

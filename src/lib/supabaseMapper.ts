@@ -7,10 +7,20 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
   const fields = APP_DATABASE_FIELDS[dataset] as Record<string,string>;
   const result: DataRow = {};
   for (const [field,content] of Object.entries(value)) {
+    if (dataset === 'weekly_availability' && field === 'weekEnd') continue;
     if (field === 'passwordRaw' || field === 'created_at' || field === 'updated_at') continue;
     if (!Object.hasOwn(fields,field)) throw new Error('Chưa ánh xạ trường ' + dataset + '.' + field);
+    if (dataset === 'teacher_evaluations' && ['evaluationDate','sessionDate'].includes(field) && content != null && content !== '') {
+      const raw = String(content);
+      const dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      const iso = dmy ? dmy[3] + '-' + dmy[2].padStart(2,'0') + '-' + dmy[1].padStart(2,'0') : raw;
+      const parsed = new Date(iso + 'T00:00:00Z');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10) !== iso) throw new Error('Ngày dự giờ không hợp lệ: ' + raw);
+      result[fields[field]] = iso;
+      continue;
+    }
     // Undefined trong trường có mặt nghĩa là người dùng xóa giá trị tùy chọn.
-    const foreignKey = ['roleGroupId','teacherId','parentId','user_id','auth_user_id','active_tone_key','currentClassCode','categoryId'].includes(field);
+    const foreignKey = ['roleGroupId','teacherId','parentId','user_id','auth_user_id','active_tone_key','currentClassCode','categoryId','coverTeacherId','updatedBy','checkinUserId','checkoutUserId','reportedBy','handledBy','submittedBy','reviewedBy','toneId','recipientUserId','evaluatorUserId','lessonId'].includes(field);
     const normalized = dataset === 'teaching_sessions' && field === 'subject' ? ({ TOAN: 'SUB-MATH', ANH: 'SUB-ENG' } as Record<string,unknown>)[String(content)] || content : content;
     result[fields[field]] = normalized === undefined || (foreignKey && normalized === '') ? null : normalized;
   }

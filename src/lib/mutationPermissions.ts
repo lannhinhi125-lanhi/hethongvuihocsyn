@@ -24,7 +24,7 @@ export function classChangeAllowed(before: ClassItem[], after: ClassItem[], can:
         if (cover ? cover.teacherId !== ownTeacherId : (old.teacherId ? old.teacherId !== ownTeacherId : !ownTeacherName || old.teacherName !== ownTeacherName)) return false;
         return changedFields(previousSession || {}, session).every(sessionField => {
           if (['feedback', 'feedbackCriteria'].includes(sessionField)) return can('Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy');
-          return can('Giáo viên Check-in / Check-out vào ca dạy') && ['sessionNum', 'dateStr', 'title', 'status', 'materialGv', 'materialHs', 'exerciseLms', 'checkinTime', 'teacherAttendance', 'checkinBy', 'attendance'].includes(sessionField);
+          return can('Giáo viên Check-in / Check-out vào ca dạy') && ['sessionNum', 'dateStr', 'title', 'status', 'materialGv', 'materialHs', 'exerciseLms', 'checkinTime', 'checkinAt', 'checkinUserId', 'checkoutAt', 'checkoutUserId', 'teacherAttendance', 'checkinBy', 'attendance'].includes(sessionField);
         });
       });
     });

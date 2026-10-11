@@ -1,6 +1,6 @@
 # Supabase theo hệ thống hiện tại
 
-Chạy toàn bộ vuihoc_full_schema.sql trong Supabase → SQL Editor → New query → Run. File tạo 23 bảng trong schema vuihoc, không sửa/xóa public và schema.sql đã được cập nhật cùng nội dung. Chạy lại cùng phiên bản được; các thay đổi sau này cần migration riêng. File có cấu trúc bảng và dữ liệu mẫu, không phải bản xuất dữ liệu trình duyệt. Dùng supabase/schema.sql hoặc vuihoc_full_schema.sql: hai file có cùng nội dung. File tự đổi tên bảng/cột của bản tiếng Anh trước trong schema vuihoc và giữ dữ liệu. Nếu đồng thời tồn tại cả bảng cũ và bảng mới cùng loại, file dừng thay vì tự gộp.
+Chạy toàn bộ vuihoc_full_schema.sql trong Supabase → SQL Editor → New query → Run. File tạo 32 bảng trong schema vuihoc, không sửa/xóa public và schema.sql đã được cập nhật cùng nội dung. Chạy lại cùng phiên bản được; các thay đổi sau này cần migration riêng. File có cấu trúc bảng và dữ liệu mẫu, không phải bản xuất dữ liệu trình duyệt. Dùng supabase/schema.sql hoặc vuihoc_full_schema.sql: hai file có cùng nội dung. File tự đổi tên bảng/cột của bản tiếng Anh trước trong schema vuihoc và giữ dữ liệu. Nếu đồng thời tồn tại cả bảng cũ và bảng mới cùng loại, file dừng thay vì tự gộp.
 
 ## Cách lưu dữ liệu
 
@@ -81,17 +81,6 @@ Tài liệu RLS: https://supabase.com/docs/guides/database/postgres/row-level-se
 | name | tenkhunggio | text |
 | timeRange | khoanggio | text |
 | durationMinutes | sophut | numeric |
-| status | danghoatdong | boolean |
-
-### GOI_HOC ← PackageDurationItem
-
-| Trường ứng dụng | Cột SQL | Kiểu |
-|---|---|---|
-| id | madinhdanh | text |
-| code | magoihoc | text |
-| name | tengoihoc | text |
-| months | sothang | numeric |
-| daysConverted | songayquydoi | numeric |
 | status | danghoatdong | boolean |
 
 ### MO_HINH_LOP ← ClassModelItem
@@ -322,7 +311,7 @@ SQL có 9 hồ sơ người dùng, 6 giáo viên, 6 học sinh (1 chờ xếp l�
 
 Các hồ sơ mẫu dùng email demo.*@example.com. SQL không tạo tài khoản đăng nhập Auth và không lưu mật khẩu. Để thử đăng nhập sau khi nối Auth, tạo tài khoản trong Supabase Authentication và gán auth_user_id của hồ sơ tương ứng. Trước đó vẫn cần adapter CRUD, đăng nhập Auth và RLS theo vai trò; chỉ nhập URL/key chưa hoàn tất tích hợp.
 
-Bộ mẫu thống nhất mã lớp, môn, trình độ, mô hình, học sinh, giáo viên, ca dạy và bảng công. Tình huống: dạy chuẩn, đi muộn có giải trình, học sinh nghỉ phép, sự cố thiết bị, dạy thay và ca sắp diễn ra. Tiêu chí tiếng Anh và Toán được lưu riêng. SQL có dữ liệu cho cả 23 bảng.
+Bộ mẫu thống nhất mã lớp, môn, trình độ, mô hình, học sinh, giáo viên, ca dạy và bảng công. Tình huống: dạy chuẩn, đi muộn có giải trình, học sinh nghỉ phép, sự cố thiết bị, dạy thay và ca sắp diễn ra. Tiêu chí tiếng Anh và Toán được lưu riêng. SQL có dữ liệu cho cả 32 bảng.
 
 Báo cáo đã bỏ bộ số liệu viết cứng và tổng hợp từ dữ liệu nghiệp vụ. Adapter sau này cần giữ created_at dưới dạng createdAt hoặc created_at khi nạp lớp/học sinh/giáo viên để các bộ lọc ngày tạo có dữ liệu; không tự gán ngày giả cho bản ghi thiếu ngày.
 
@@ -340,10 +329,19 @@ Bỏ qua đăng nhập chỉ áp dụng giao diện xem trước; không thay đ
 
 Tài khoản mẫu demo (chế độ xem trước) mở đủ 8 phân hệ quản trị và 4 mục cổng giảng dạy. Dùng nút Cổng Giảng dạy/Cổng Quản trị ở cuối thanh bên để đổi cổng, giữ cùng tài khoản. Dữ liệu nghiệp vụ trên UI vẫn ở bộ nhớ; SQL chứa dữ liệu mẫu riêng. Không có máy chủ hay cơ chế tự lưu được thêm.
 
-Dùng src/lib/supabaseMapper.ts để chuyển object UI sang đúng tên cột và đọc ngược lại. File supabase/ui_database_mapping.json liệt kê đủ ánh xạ cho 23 bảng. Hàm ánh xạ báo lỗi nếu gặp trường chưa khai báo, bỏ passwordRaw và để database quản lý timestamp kỹ thuật. Mật khẩu thật thuộc Supabase Auth.
+Dùng src/lib/supabaseMapper.ts để chuyển object UI sang đúng tên cột và đọc ngược lại. File supabase/ui_database_mapping.json liệt kê đủ ánh xạ cho 32 bảng. Hàm ánh xạ báo lỗi nếu gặp trường chưa khai báo, bỏ passwordRaw và để database quản lý timestamp kỹ thuật. Mật khẩu thật thuộc Supabase Auth.
 
 Mã môn chuẩn trong database là SUB-MATH và SUB-ENG. Tiêu chí AI trên UI đã dùng subject.code. Giám sát ca học vẫn hiển thị TOAN/ANH; mapper chuyển hai chiều khi lưu/đọc CA_HOC. Các ID (madinhdanh) khác mã nghiệp vụ (mamonhoc, malophoc, matrinhdo...). JSONB giữ key TypeScript như id/name/options/status; không đổi thành tên cột SQL. Bản SQL này sửa các key JSONB bị đổi nhầm ở bản mẫu trước và dừng nếu trùng key, không tự bỏ dữ liệu.
 
 Khóa ngoại chặn mã tham chiếu không tồn tại. Thứ tự nạp: nhóm quyền/danh mục → người dùng → giáo viên → lớp/học sinh → ca học, mẫu báo cáo, bảng công. Khi lưu một nghiệp vụ sửa nhiều bảng, cần giao dịch. Mảng danhsachmahocsinh và mã bên trong JSONB vẫn cần kiểm tra ở lớp xử lý dữ liệu; schema không tự tạo khóa ngoại cho từng phần tử JSON.
 
 Chạy lại schema.sql để cập nhật bản mẫu. Nếu dữ liệu cũ chứa mã không còn trong danh mục, SQL sẽ dừng và chỉ ra khóa lỗi, không tự xóa dữ liệu. Bản mẫu chưa đồng nghĩa với việc thao tác UI được lưu thật lên Supabase.
+
+
+Xem INTEGRATION_AUDIT.md để biết các điểm chưa sẵn sàng: có bảng/cột không đồng nghĩa UI đã lưu và liên thông. Gói thời hạn đã bỏ; bảng thứ 23 hiện là NHAT_KY_NGHIEP_VU.
+
+
+Đã bổ sung 8 bảng nghiệp vụ theo tuần/ngày và luồng sinh công. Xem [thiết kế theo thời gian](TIMED_WORKFLOW.md) để chạy schema mới hoặc migration nâng cấp. Giao diện chưa chuyển sang bảng mới.
+
+
+Bổ sung bảng thứ 32: BIEN_BAN_DU_GIO có FK bắt buộc tới mã giáo viên. Xem [hướng dẫn](TEACHER_EVALUATIONS.md).

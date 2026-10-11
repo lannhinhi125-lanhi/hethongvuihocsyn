@@ -18,7 +18,7 @@ CREATE SCHEMA IF NOT EXISTS vuihoc;
 DO $doiten$
 DECLARE bang record; cot record;
 BEGIN
- FOR bang IN SELECT key AS tencu, value->>'tenbang' AS tenmoi, value->'cot' AS cots FROM jsonb_each('{"role_groups":{"tenbang":"NHOM_QUYEN","cot":{"portal":"congtruycap","id":"madinhdanh","name":"tennhomquyen","category":"phanloai","description":"mota","user_count":"soluongnguoidung","permissions":"danhsachquyen","is_default":"macdinh","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"users":{"tenbang":"NGUOI_DUNG","cot":{"role_group_id":"manhomquyen","id":"madinhdanh","name":"hoten","username":"tendangnhap","email":"thudientu","phone":"sodienthoai","role":"vaitro","subject_code":"mamonhoc","status":"trangthai","avatar_initials":"chucaiavatar","auth_user_id":"maxacthuc","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"subjects":{"tenbang":"MON_HOC","cot":{"id":"madinhdanh","code":"mamonhoc","abbr":"tenviettat","name":"tenmonhoc","description":"mota","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"levels":{"tenbang":"TRINH_DO","cot":{"id":"madinhdanh","code":"matrinhdo","abbr":"tenviettat","name":"tentrinhdo","target_student":"doituonghocsinh","objective":"muctieu","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"time_slots":{"tenbang":"KHUNG_GIO","cot":{"id":"madinhdanh","code":"makhunggio","name":"tenkhunggio","time_range":"khoanggio","duration_minutes":"sophut","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"course_packages":{"tenbang":"GOI_HOC","cot":{"id":"madinhdanh","code":"magoihoc","name":"tengoihoc","months":"sothang","days_converted":"songayquydoi","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"class_models":{"tenbang":"MO_HINH_LOP","cot":{"id":"madinhdanh","code":"mamohinh","name":"tenmohinh","max_students":"sisotoida","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"teaching_categories":{"tenbang":"CAP_HOC","cot":{"is_active":"danghoatdong","id":"madinhdanh","name":"tencaphoc","badge":"nhanhienthi","options":"danhsachluachon","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"incident_categories":{"tenbang":"DANH_MUC_SU_CO","cot":{"id":"madinhdanh","code":"manhomsuco","name":"tennhomsuco","description":"mota","sub_incidents":"danhsachsuco","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"teachers":{"tenbang":"GIAO_VIEN","cot":{"id":"madinhdanh","name":"hoten","username":"tendangnhap","subject_code":"mamonhoc","subject_name":"tenmonhoc","level_id":"macaphoc","level_name":"tencaphoc","grades":"danhsachkhoi","models":"danhsachmohinh","phone":"sodienthoai","email":"thudientu","degree":"bangcap","start_date":"ngaybatdau","end_date":"ngayketthuc","status":"trangthai","status_label":"tentrangthai","eval_status":"trangthaidanhgia","eval_score":"diemdanhgia","eval_comment":"nhanxetdanhgia","eval_criteria_scores":"diemtieuchi","free_slots":"socaranh","busy_slots":"socadaxep","is_full":"dakinlich","evaluation_reports":"baocaodanhgia","successful_sessions":"cahochoanthanh","schedule":"lichranh","user_id":"manguoidung","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"students":{"tenbang":"HOC_SINH","cot":{"id":"madinhdanh","name":"hoten","grade":"khoi","subject_code":"mamonhoc","model_code":"mamohinh","level_code":"matrinhdo","father_name":"hotencha","father_phone":"sodienthoaicha","mother_name":"hotenme","mother_phone":"sodienthoaime","schedule_slots":"lichdangky","status":"trangthai","current_class_code":"malophientai","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"classes":{"tenbang":"LOP_HOC","cot":{"category_id":"macaphoc","status":"trangthai","id":"madinhdanh","code":"malophoc","name":"tenlophoc","grade":"khoi","subject_code":"mamonhoc","level_code":"matrinhdo","model_code":"mamohinh","max_students":"sisotoida","student_ids":"danhsachmahocsinh","schedule":"lichhoc","room_link":"lienketphonghoc","teacher_name":"hotengiaovien","teacher_id":"magiaovien","materials":"hoclieu","active_sessions":"chitietcahoc","cover_assignments":"phancongdaythay","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"criteria_categories":{"tenbang":"NHOM_TIEU_CHI","cot":{"id":"madinhdanh","subject_code":"mamonhoc","name":"tennhomtieuchi","criteria":"danhsachtieuchi","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"sop_documents":{"tenbang":"TAI_LIEU_QUY_TRINH","cot":{"id":"madinhdanh","title":"tieude","category":"phanloai","summary":"tomtat","updated_at":"ngaycapnhat","content":"noidung","source_file_name":"tentepgoc","source_file_type":"loaitepgoc","is_enabled":"dangsudung","created_at":"ngaytao"}},"rag_bot_config":{"tenbang":"CAU_HINH_TRO_LY","cot":{"id":"madinhdanh","welcome_greeting":"loichaomung","quick_prompts":"cauhoinhanh","persona_tone":"vanphong","strict_grounding_only":"chiduatrentailieu","fallback_response":"cautraloiduphong","system_prompt":"chidanhethong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"monthly_payroll":{"tenbang":"BANG_CONG_THANG","cot":{"id":"madinhdanh","is_locked":"dakhoa","admin_sent_notice":"daguithongbao","teachers":"danhsachgiaovien","disputes":"danhsachgiaitrinh","month_period":"kycong","locked_at":"thoigiankhoa","unlock_reason":"lydomokhoa","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"teaching_sessions":{"tenbang":"CA_HOC","cot":{"id":"madinhdanh","session_code":"macahoc","session_date":"ngayhoc","class_code":"malophoc","class_name":"tenlophoc","level_text":"tentrinhdo","model_text":"tenmohinh","subject_code":"mamonhoc","grade":"khoi","time_slot":"cahoc","room":"phonghoc","room_url":"lienketphonghoc","recording_url":"lienketbanghi","primary_teacher":"giaovienchinh","cover_teacher":"giaoviendaythay","attendance":"diemdanh","checkin_time":"giovaolop","status":"trangthai","has_incident":"cosuco","incident_parent":"manhomsuco","incident_child":"masuco","incident_urgency":"muckhancap","incident_status":"trangthaisuco","incident_note":"ghichusuco","handled_by_ops_id":"manguoixuly","handled_by_name":"hotenguoixuly","handled_at":"thoigianxuly","lesson_diary":"nhatkybuoihoc","students":"danhsachhocsinh","is_just_updated":"vuacapnhat","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"report_templates":{"tenbang":"MAU_BAO_CAO","cot":{"config":"cauhinh","id":"madinhdanh","name":"tenmaubaocao","user_id":"manguoidung","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"custom_catalogs":{"tenbang":"DANH_MUC_BO_SUNG","cot":{"entries":"danhsachmuc","id":"madinhdanh","code":"madanhmuc","name":"tendanhmuc","description":"mota","parent_id":"madanhmuccha","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"tone_directives":{"tenbang":"VAN_PHONG_NHAN_XET","cot":{"id":"madinhdanh","name":"tenvanphong","directive":"chidan","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"app_settings":{"tenbang":"CAU_HINH_HE_THONG","cot":{"id":"madinhdanh","active_tone_key":"mavanphongdangchon","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"ai_review_usage":{"tenbang":"LUOT_NHAN_XET_AI","cot":{"teacher_id":"magiaovien","student_id":"mahocsinh","usage_count":"soluotsudung","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"user_preferences":{"tenbang":"TUY_CHON_NGUOI_DUNG","cot":{"user_id":"manguoidung","active_module":"phanhedangchon","workspace_mode":"chedogiaodien","teacher_portal_tab":"tabgiaoviendangchon","created_at":"ngaytao","updated_at":"ngaycapnhat"}}}'::jsonb)
+ FOR bang IN SELECT key AS tencu, value->>'tenbang' AS tenmoi, value->'cot' AS cots FROM jsonb_each('{"role_groups":{"tenbang":"NHOM_QUYEN","cot":{"portal":"congtruycap","id":"madinhdanh","name":"tennhomquyen","category":"phanloai","description":"mota","user_count":"soluongnguoidung","permissions":"danhsachquyen","is_default":"macdinh","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"users":{"tenbang":"NGUOI_DUNG","cot":{"role_group_id":"manhomquyen","id":"madinhdanh","name":"hoten","username":"tendangnhap","email":"thudientu","phone":"sodienthoai","role":"vaitro","subject_code":"mamonhoc","status":"trangthai","avatar_initials":"chucaiavatar","auth_user_id":"maxacthuc","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"subjects":{"tenbang":"MON_HOC","cot":{"id":"madinhdanh","code":"mamonhoc","abbr":"tenviettat","name":"tenmonhoc","description":"mota","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"levels":{"tenbang":"TRINH_DO","cot":{"id":"madinhdanh","code":"matrinhdo","abbr":"tenviettat","name":"tentrinhdo","target_student":"doituonghocsinh","objective":"muctieu","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"time_slots":{"tenbang":"KHUNG_GIO","cot":{"id":"madinhdanh","code":"makhunggio","name":"tenkhunggio","time_range":"khoanggio","duration_minutes":"sophut","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"class_models":{"tenbang":"MO_HINH_LOP","cot":{"id":"madinhdanh","code":"mamohinh","name":"tenmohinh","max_students":"sisotoida","is_active":"danghoatdong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"teaching_categories":{"tenbang":"CAP_HOC","cot":{"is_active":"danghoatdong","id":"madinhdanh","name":"tencaphoc","badge":"nhanhienthi","options":"danhsachluachon","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"incident_categories":{"tenbang":"DANH_MUC_SU_CO","cot":{"id":"madinhdanh","code":"manhomsuco","name":"tennhomsuco","description":"mota","sub_incidents":"danhsachsuco","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"teachers":{"tenbang":"GIAO_VIEN","cot":{"id":"madinhdanh","name":"hoten","username":"tendangnhap","subject_code":"mamonhoc","subject_name":"tenmonhoc","level_id":"macaphoc","level_name":"tencaphoc","grades":"danhsachkhoi","models":"danhsachmohinh","phone":"sodienthoai","email":"thudientu","degree":"bangcap","start_date":"ngaybatdau","end_date":"ngayketthuc","status":"trangthai","status_label":"tentrangthai","eval_status":"trangthaidanhgia","eval_score":"diemdanhgia","eval_comment":"nhanxetdanhgia","eval_criteria_scores":"diemtieuchi","free_slots":"socaranh","busy_slots":"socadaxep","is_full":"dakinlich","evaluation_reports":"baocaodanhgia","successful_sessions":"cahochoanthanh","schedule":"lichranh","user_id":"manguoidung","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"students":{"tenbang":"HOC_SINH","cot":{"id":"madinhdanh","name":"hoten","grade":"khoi","subject_code":"mamonhoc","model_code":"mamohinh","level_code":"matrinhdo","father_name":"hotencha","father_phone":"sodienthoaicha","mother_name":"hotenme","mother_phone":"sodienthoaime","schedule_slots":"lichdangky","status":"trangthai","current_class_code":"malophientai","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"classes":{"tenbang":"LOP_HOC","cot":{"category_id":"macaphoc","status":"trangthai","id":"madinhdanh","code":"malophoc","name":"tenlophoc","grade":"khoi","subject_code":"mamonhoc","level_code":"matrinhdo","model_code":"mamohinh","max_students":"sisotoida","student_ids":"danhsachmahocsinh","schedule":"lichhoc","room_link":"lienketphonghoc","teacher_name":"hotengiaovien","teacher_id":"magiaovien","materials":"hoclieu","active_sessions":"chitietcahoc","cover_assignments":"phancongdaythay","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"criteria_categories":{"tenbang":"NHOM_TIEU_CHI","cot":{"id":"madinhdanh","subject_code":"mamonhoc","name":"tennhomtieuchi","criteria":"danhsachtieuchi","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"sop_documents":{"tenbang":"TAI_LIEU_QUY_TRINH","cot":{"id":"madinhdanh","title":"tieude","category":"phanloai","summary":"tomtat","updated_at":"ngaycapnhat","content":"noidung","source_file_name":"tentepgoc","source_file_type":"loaitepgoc","is_enabled":"dangsudung","created_at":"ngaytao"}},"rag_bot_config":{"tenbang":"CAU_HINH_TRO_LY","cot":{"id":"madinhdanh","welcome_greeting":"loichaomung","quick_prompts":"cauhoinhanh","persona_tone":"vanphong","strict_grounding_only":"chiduatrentailieu","fallback_response":"cautraloiduphong","system_prompt":"chidanhethong","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"monthly_payroll":{"tenbang":"BANG_CONG_THANG","cot":{"id":"madinhdanh","is_locked":"dakhoa","admin_sent_notice":"daguithongbao","teachers":"danhsachgiaovien","disputes":"danhsachgiaitrinh","month_period":"kycong","locked_at":"thoigiankhoa","unlock_reason":"lydomokhoa","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"teaching_sessions":{"tenbang":"CA_HOC","cot":{"id":"madinhdanh","session_code":"macahoc","session_date":"ngayhoc","class_code":"malophoc","class_name":"tenlophoc","level_text":"tentrinhdo","model_text":"tenmohinh","subject_code":"mamonhoc","grade":"khoi","time_slot":"cahoc","room":"phonghoc","room_url":"lienketphonghoc","recording_url":"lienketbanghi","primary_teacher":"giaovienchinh","cover_teacher":"giaoviendaythay","attendance":"diemdanh","checkin_time":"giovaolop","status":"trangthai","has_incident":"cosuco","incident_parent":"manhomsuco","incident_child":"masuco","incident_urgency":"muckhancap","incident_status":"trangthaisuco","incident_note":"ghichusuco","handled_by_ops_id":"manguoixuly","handled_by_name":"hotenguoixuly","handled_at":"thoigianxuly","lesson_diary":"nhatkybuoihoc","students":"danhsachhocsinh","is_just_updated":"vuacapnhat","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"report_templates":{"tenbang":"MAU_BAO_CAO","cot":{"config":"cauhinh","id":"madinhdanh","name":"tenmaubaocao","user_id":"manguoidung","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"custom_catalogs":{"tenbang":"DANH_MUC_BO_SUNG","cot":{"entries":"danhsachmuc","id":"madinhdanh","code":"madanhmuc","name":"tendanhmuc","description":"mota","parent_id":"madanhmuccha","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"tone_directives":{"tenbang":"VAN_PHONG_NHAN_XET","cot":{"id":"madinhdanh","name":"tenvanphong","directive":"chidan","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"app_settings":{"tenbang":"CAU_HINH_HE_THONG","cot":{"id":"madinhdanh","active_tone_key":"mavanphongdangchon","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"ai_review_usage":{"tenbang":"LUOT_NHAN_XET_AI","cot":{"teacher_id":"magiaovien","student_id":"mahocsinh","usage_count":"soluotsudung","created_at":"ngaytao","updated_at":"ngaycapnhat"}},"user_preferences":{"tenbang":"TUY_CHON_NGUOI_DUNG","cot":{"user_id":"manguoidung","active_module":"phanhedangchon","workspace_mode":"chedogiaodien","teacher_portal_tab":"tabgiaoviendangchon","created_at":"ngaytao","updated_at":"ngaycapnhat"}}}'::jsonb)
  LOOP
   IF to_regclass(format('vuihoc.%I', bang.tencu)) IS NOT NULL THEN
    IF to_regclass(format('vuihoc.%I', bang.tenmoi)) IS NOT NULL THEN
@@ -111,18 +111,6 @@ CREATE TABLE IF NOT EXISTS vuihoc."KHUNG_GIO" (
   ngaycapnhat timestamptz NOT NULL DEFAULT now()
 );
 
--- PackageDurationItem (src/types/index.ts)
-CREATE TABLE IF NOT EXISTS vuihoc."GOI_HOC" (
-  "madinhdanh" text PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  "magoihoc" text NOT NULL,
-  "tengoihoc" text NOT NULL,
-  "sothang" numeric NOT NULL,
-  "songayquydoi" numeric NOT NULL,
-  "danghoatdong" boolean NOT NULL,
-  UNIQUE (magoihoc),
-  ngaytao timestamptz NOT NULL DEFAULT now(),
-  ngaycapnhat timestamptz NOT NULL DEFAULT now()
-);
 
 -- ClassModelItem (src/types/index.ts)
 CREATE TABLE IF NOT EXISTS vuihoc."MO_HINH_LOP" (
@@ -514,7 +502,7 @@ CREATE INDEX IF NOT EXISTS custom_catalogs_lookup_idx ON vuihoc."DANH_MUC_BO_SUN
 DO $security$
 DECLARE table_name text;
 BEGIN
- FOREACH table_name IN ARRAY ARRAY['NHOM_QUYEN', 'NGUOI_DUNG', 'MON_HOC', 'TRINH_DO', 'KHUNG_GIO', 'GOI_HOC', 'MO_HINH_LOP', 'CAP_HOC', 'DANH_MUC_SU_CO', 'GIAO_VIEN', 'HOC_SINH', 'LOP_HOC', 'NHOM_TIEU_CHI', 'TAI_LIEU_QUY_TRINH', 'CAU_HINH_TRO_LY', 'BANG_CONG_THANG', 'CA_HOC', 'MAU_BAO_CAO', 'DANH_MUC_BO_SUNG', 'VAN_PHONG_NHAN_XET', 'CAU_HINH_HE_THONG', 'LUOT_NHAN_XET_AI', 'TUY_CHON_NGUOI_DUNG']
+ FOREACH table_name IN ARRAY ARRAY['NHOM_QUYEN', 'NGUOI_DUNG', 'MON_HOC', 'TRINH_DO', 'KHUNG_GIO', 'MO_HINH_LOP', 'CAP_HOC', 'DANH_MUC_SU_CO', 'GIAO_VIEN', 'HOC_SINH', 'LOP_HOC', 'NHOM_TIEU_CHI', 'TAI_LIEU_QUY_TRINH', 'CAU_HINH_TRO_LY', 'BANG_CONG_THANG', 'CA_HOC', 'MAU_BAO_CAO', 'DANH_MUC_BO_SUNG', 'VAN_PHONG_NHAN_XET', 'CAU_HINH_HE_THONG', 'LUOT_NHAN_XET_AI', 'TUY_CHON_NGUOI_DUNG']
  LOOP
   EXECUTE format('ALTER TABLE vuihoc.%I ENABLE ROW LEVEL SECURITY', table_name);
   EXECUTE format('REVOKE ALL ON TABLE vuihoc.%I FROM PUBLIC, anon, authenticated', table_name);
@@ -526,6 +514,22 @@ BEGIN
 END; $security$;
 REVOKE ALL ON SCHEMA vuihoc FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA vuihoc TO service_role;
+
+
+-- Lịch sử nghiệp vụ: lưu trong cùng giao dịch với thay đổi dữ liệu.
+-- Không dùng cho bộ lọc, tab, phân trang hay trạng thái hiển thị tạm.
+CREATE TABLE IF NOT EXISTS vuihoc."NHAT_KY_NGHIEP_VU" (
+  madinhdanh uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  thoigian timestamptz NOT NULL DEFAULT clock_timestamp(),
+  maxacthuc uuid,
+  vaitroketnoi text NOT NULL DEFAULT session_user,
+  tenbang text NOT NULL,
+  khoabanghi jsonb NOT NULL,
+  thaotac text NOT NULL CHECK (thaotac IN ('INSERT','UPDATE','DELETE')),
+  truongthaydoi text[] NOT NULL DEFAULT ARRAY[]::text[],
+  dulieutruoc jsonb,
+  dulieusau jsonb
+);
 
 -- BEGIN DEMO SEED: dữ liệu thử nghiệm, chạy lại không ghi đè bản ghi đã có.
 
@@ -567,11 +571,6 @@ INSERT INTO vuihoc."KHUNG_GIO" ("madinhdanh", "makhunggio", "tenkhunggio", "khoa
 ('SLOT-3', 'SLOT-A1', 'Ca Chiều', '16:15 - 17:45', 90, TRUE)
 ON CONFLICT DO NOTHING;
 
-INSERT INTO vuihoc."GOI_HOC" ("madinhdanh", "magoihoc", "tengoihoc", "sothang", "songayquydoi", "danghoatdong") VALUES
-('PKG-1', 'PKG-03M', 'Gói 3 tháng', 3, 90, TRUE),
-('PKG-2', 'PKG-06M', 'Gói 6 tháng', 6, 180, TRUE),
-('PKG-3', 'PKG-12M', 'Gói 12 tháng', 12, 365, TRUE)
-ON CONFLICT DO NOTHING;
 
 INSERT INTO vuihoc."MO_HINH_LOP" ("madinhdanh", "mamohinh", "tenmohinh", "sisotoida", "danghoatdong") VALUES
 ('MOD-1', '1-1', 'Lớp 1 - 1 (Kèm 1-1)', 1, TRUE),
@@ -680,5 +679,350 @@ INSERT INTO vuihoc."TUY_CHON_NGUOI_DUNG" ("manguoidung", "phanhedangchon", "ched
 ON CONFLICT DO NOTHING;
 
 -- END DEMO SEED
+
+
+CREATE OR REPLACE FUNCTION vuihoc.ghi_nhat_ky_nghiep_vu()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $audit$
+DECLARE truoc jsonb; sau jsonb; fields text[]; keydata jsonb := '{}'::jsonb; col text;
+BEGIN
+ IF TG_OP <> 'INSERT' THEN truoc := to_jsonb(OLD); END IF;
+ IF TG_OP <> 'DELETE' THEN sau := to_jsonb(NEW); END IF;
+ IF TG_OP = 'UPDATE' AND (truoc - 'ngaycapnhat') IS NOT DISTINCT FROM (sau - 'ngaycapnhat') THEN RETURN NEW; END IF;
+ SELECT coalesce(array_agg(k ORDER BY k), ARRAY[]::text[]) INTO fields
+ FROM (SELECT jsonb_object_keys(coalesce(truoc,'{}'::jsonb) || coalesce(sau,'{}'::jsonb)) AS k) keys
+ WHERE k <> 'ngaycapnhat' AND (truoc->k) IS DISTINCT FROM (sau->k);
+ FOREACH col IN ARRAY TG_ARGV LOOP keydata := keydata || jsonb_build_object(col, coalesce(sau,truoc)->col); END LOOP;
+ INSERT INTO vuihoc."NHAT_KY_NGHIEP_VU" (maxacthuc,tenbang,khoabanghi,thaotac,truongthaydoi,dulieutruoc,dulieusau)
+ VALUES (auth.uid(),TG_TABLE_NAME,keydata,TG_OP,fields,truoc,sau);
+ IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END; $audit$;
+REVOKE ALL ON FUNCTION vuihoc.ghi_nhat_ky_nghiep_vu() FROM PUBLIC, anon, authenticated;
+ALTER TABLE vuihoc."NHAT_KY_NGHIEP_VU" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON vuihoc."NHAT_KY_NGHIEP_VU" FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT ON vuihoc."NHAT_KY_NGHIEP_VU" TO service_role;
+CREATE INDEX IF NOT EXISTS nhat_ky_nghiep_vu_lookup ON vuihoc."NHAT_KY_NGHIEP_VU" (tenbang,thoigian DESC);
+DO $audit_triggers$
+DECLARE t record; keys text;
+BEGIN
+ FOR t IN SELECT tablename FROM pg_tables WHERE schemaname='vuihoc'
+ AND tablename NOT IN ('NHAT_KY_NGHIEP_VU','TUY_CHON_NGUOI_DUNG','GOI_HOC') LOOP
+  SELECT string_agg(quote_literal(a.attname), ',' ORDER BY a.attnum) INTO keys
+  FROM pg_index i JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=ANY(i.indkey)
+  WHERE i.indrelid=format('vuihoc.%I',t.tablename)::regclass AND i.indisprimary;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=format('vuihoc.%I',t.tablename)::regclass AND tgname='audit_business_change') THEN
+   EXECUTE format('CREATE TRIGGER audit_business_change AFTER INSERT OR UPDATE OR DELETE ON vuihoc.%I FOR EACH ROW EXECUTE FUNCTION vuihoc.ghi_nhat_ky_nghiep_vu(%s)',t.tablename,keys);
+  END IF;
+ END LOOP;
+END; $audit_triggers$;
+
+
+-- MÔ HÌNH NGHIỆP VỤ THEO THỜI GIAN.
+-- Chạy migration này sau schema.sql trên database đã tồn tại.
+-- Schema mới đã bao gồm nội dung này. Không tự suy đoán/chuyển JSONB lịch sử cũ.
+CREATE TABLE IF NOT EXISTS vuihoc."LICH_RANH_TUAN" (
+ madinhdanh text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+ magiaovien text NOT NULL REFERENCES vuihoc."GIAO_VIEN"(madinhdanh) ON DELETE RESTRICT,
+ ngaydautuan date NOT NULL CHECK (extract(isodow FROM ngaydautuan)=1),
+ ngaycuoituan date GENERATED ALWAYS AS (ngaydautuan + 6) STORED,
+ namhoc text,
+ manguoicapnhat text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(magiaovien,ngaydautuan)
+);
+CREATE TABLE IF NOT EXISTS vuihoc."CHI_TIET_LICH_RANH" (
+ malichtuan text NOT NULL REFERENCES vuihoc."LICH_RANH_TUAN"(madinhdanh) ON DELETE CASCADE,
+ ngay date NOT NULL,
+ makhunggio text NOT NULL REFERENCES vuihoc."KHUNG_GIO"(madinhdanh) ON DELETE RESTRICT,
+ trangthai text NOT NULL CHECK (trangthai IN ('free','none')),
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(malichtuan,ngay,makhunggio)
+);
+-- busy được tính từ BUOI_HOC, không cho giáo viên tự đăng ký busy.
+CREATE TABLE IF NOT EXISTS vuihoc."BUOI_HOC" (
+ madinhdanh text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+ malop text NOT NULL REFERENCES vuihoc."LOP_HOC"(madinhdanh) ON DELETE RESTRICT,
+ ngayhoc date NOT NULL,
+ makhunggio text NOT NULL REFERENCES vuihoc."KHUNG_GIO"(madinhdanh) ON DELETE RESTRICT,
+ batdau timestamptz NOT NULL, ketthuc timestamptz NOT NULL,
+ magiaovienchinh text NOT NULL REFERENCES vuihoc."GIAO_VIEN"(madinhdanh) ON DELETE RESTRICT,
+ magiaoviendaythay text REFERENCES vuihoc."GIAO_VIEN"(madinhdanh) ON DELETE RESTRICT,
+ tieude text NOT NULL DEFAULT '',
+ lienketphonghoc text NOT NULL DEFAULT '',
+ hoclieu jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(hoclieu)='object'),
+ trangthai text NOT NULL DEFAULT 'CHUA_DIEN_RA' CHECK (trangthai IN ('CHUA_DIEN_RA','DANG_HOC','HOAN_THANH','HUY')),
+ vaolopluc timestamptz, ketthucluc timestamptz,
+ manguoivaolop text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ manguoiketthuc text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ chuyencan text CHECK (chuyencan IN ('ATTENDED','LATE','ABSENT')),
+ nhatky text NOT NULL DEFAULT '', lienketbanghi text,
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(malop,ngayhoc,makhunggio),
+ CHECK (ketthuc>batdau),
+ CHECK ((batdau AT TIME ZONE 'Asia/Bangkok')::date=ngayhoc),
+ CHECK (ketthucluc IS NULL OR (vaolopluc IS NOT NULL AND ketthucluc>=vaolopluc)),
+ CHECK (trangthai NOT IN ('DANG_HOC','HOAN_THANH') OR vaolopluc IS NOT NULL),
+ CHECK (trangthai<>'HOAN_THANH' OR ketthucluc IS NOT NULL),
+ CHECK (magiaoviendaythay IS NULL OR magiaoviendaythay<>magiaovienchinh)
+);
+CREATE TABLE IF NOT EXISTS vuihoc."DIEM_DANH_BUOI_HOC" (
+ mabuoi text NOT NULL REFERENCES vuihoc."BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,
+ mahocsinh text NOT NULL REFERENCES vuihoc."HOC_SINH"(madinhdanh) ON DELETE RESTRICT,
+ trangthai text NOT NULL CHECK (trangthai IN ('present','late','absent')),
+ ghichu text NOT NULL DEFAULT '',
+ manguoicapnhat text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(mabuoi,mahocsinh)
+);
+CREATE TABLE IF NOT EXISTS vuihoc."NHAN_XET_BUOI_HOC" (
+ mabuoi text NOT NULL REFERENCES vuihoc."BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,
+ mahocsinh text NOT NULL REFERENCES vuihoc."HOC_SINH"(madinhdanh) ON DELETE RESTRICT,
+ noidung text NOT NULL DEFAULT '',
+ tieuchidachon jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(tieuchidachon)='object'),
+ mavanphong text REFERENCES vuihoc."VAN_PHONG_NHAN_XET"(madinhdanh) ON DELETE SET NULL,
+ soluottaoai integer NOT NULL DEFAULT 0 CHECK (soluottaoai>=0),
+ manguoicapnhat text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(mabuoi,mahocsinh)
+);
+CREATE TABLE IF NOT EXISTS vuihoc."SU_CO_BUOI_HOC" (
+ madinhdanh text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+ mabuoi text NOT NULL REFERENCES vuihoc."BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,
+ manhomsuco text NOT NULL REFERENCES vuihoc."DANH_MUC_SU_CO"(madinhdanh) ON DELETE RESTRICT,
+ masuco text NOT NULL, tensuco text NOT NULL,
+ muckhancap text CHECK (muckhancap IN ('EMERGENCY','ADVANCED')),
+ noidung text NOT NULL DEFAULT '',
+ trangthai text NOT NULL DEFAULT 'DANG_XU_LY' CHECK (trangthai IN ('DANG_XU_LY','DA_GIAI_QUYET','HUY_CA')),
+ manguoibao text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ manguoixuly text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ baoluc timestamptz NOT NULL DEFAULT now(), xulyluc timestamptz,
+ ghichuxuly text NOT NULL DEFAULT '',
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now(),
+ CHECK (xulyluc IS NULL OR xulyluc>=baoluc)
+);
+CREATE TABLE IF NOT EXISTS vuihoc."CONG_DAY_BUOI_HOC" (
+ madinhdanh text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+ mabuoi text NOT NULL REFERENCES vuihoc."BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,
+ magiaovien text NOT NULL REFERENCES vuihoc."GIAO_VIEN"(madinhdanh) ON DELETE RESTRICT,
+ kycong text NOT NULL REFERENCES vuihoc."BANG_CONG_THANG"(kycong) ON DELETE RESTRICT,
+ vaitro text NOT NULL CHECK (vaitro IN ('CHINH','DAY_THAY')),
+ hesocong numeric(6,3) NOT NULL DEFAULT 1 CHECK (hesocong>=0),
+ ghichu text NOT NULL DEFAULT '',
+ dagui boolean NOT NULL DEFAULT false, guiluc timestamptz,
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(mabuoi,magiaovien),
+ UNIQUE(mabuoi)
+);
+-- Chính sách mẫu: một ca hoàn tất tính công cho người thực dạy (cover nếu có).
+-- Sự cố không tự áp hệ số 0; vận hành điều chỉnh hệ số kèm lý do.
+CREATE TABLE IF NOT EXISTS vuihoc."GIAI_TRINH_CONG_DAY" (
+ madinhdanh text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+ macong text NOT NULL REFERENCES vuihoc."CONG_DAY_BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,
+ noidung text NOT NULL, loaisuco text NOT NULL,
+ minhchung jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(minhchung)='array'),
+ trangthai text NOT NULL DEFAULT 'CHO_DUYET' CHECK (trangthai IN ('CHO_DUYET','DA_DUYET','TU_CHOI')),
+ guiluc timestamptz NOT NULL DEFAULT now(),
+ manguoigui text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ manguoiduyet text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ duyetluc timestamptz, ghichuduyet text NOT NULL DEFAULT '',
+ ngaytao timestamptz NOT NULL DEFAULT now(), ngaycapnhat timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS mot_giai_trinh_dang_cho ON vuihoc."GIAI_TRINH_CONG_DAY"(macong) WHERE trangthai='CHO_DUYET';
+CREATE INDEX IF NOT EXISTS buoi_hoc_ngay_gv ON vuihoc."BUOI_HOC"(ngayhoc,magiaovienchinh);
+CREATE INDEX IF NOT EXISTS buoi_hoc_cover ON vuihoc."BUOI_HOC"(magiaoviendaythay,ngayhoc) WHERE magiaoviendaythay IS NOT NULL;
+CREATE INDEX IF NOT EXISTS su_co_buoi ON vuihoc."SU_CO_BUOI_HOC"(mabuoi);
+CREATE INDEX IF NOT EXISTS cong_day_ky_gv ON vuihoc."CONG_DAY_BUOI_HOC"(kycong,magiaovien);
+
+CREATE OR REPLACE FUNCTION vuihoc.kiem_tra_ngay_lich_ranh()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $fn$
+DECLARE dau date;
+BEGIN
+ SELECT ngaydautuan INTO dau FROM vuihoc."LICH_RANH_TUAN" WHERE madinhdanh=NEW.malichtuan FOR SHARE;
+ IF dau IS NULL OR NEW.ngay NOT BETWEEN dau AND dau+6 THEN
+  RAISE EXCEPTION 'Ngày lịch rảnh phải nằm trong tuần đã đăng ký';
+ END IF;
+ RETURN NEW;
+END; $fn$;
+CREATE OR REPLACE FUNCTION vuihoc.khoa_dinh_danh_lich_tuan()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $fn$
+BEGIN
+ IF NEW.ngaydautuan<>OLD.ngaydautuan OR NEW.magiaovien<>OLD.magiaovien THEN
+  RAISE EXCEPTION 'Tạo lịch tuần mới thay vì chuyển lịch cũ sang tuần/giáo viên khác';
+ END IF;
+ RETURN NEW;
+END; $fn$;
+DROP TRIGGER IF EXISTS kiem_tra_ngay ON vuihoc."CHI_TIET_LICH_RANH";
+CREATE TRIGGER kiem_tra_ngay BEFORE INSERT OR UPDATE ON vuihoc."CHI_TIET_LICH_RANH" FOR EACH ROW EXECUTE FUNCTION vuihoc.kiem_tra_ngay_lich_ranh();
+DROP TRIGGER IF EXISTS khoa_dinh_danh ON vuihoc."LICH_RANH_TUAN";
+CREATE TRIGGER khoa_dinh_danh BEFORE UPDATE ON vuihoc."LICH_RANH_TUAN" FOR EACH ROW EXECUTE FUNCTION vuihoc.khoa_dinh_danh_lich_tuan();
+
+CREATE OR REPLACE FUNCTION vuihoc.kiem_tra_ky_cong_buoi()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $fn$
+DECLARE d date; buoi text; ky text; khoa boolean; gv text; cover text; cong text;
+BEGIN
+ IF TG_TABLE_NAME='BUOI_HOC' THEN
+  IF TG_OP='INSERT' THEN d:=NEW.ngayhoc; ELSE d:=OLD.ngayhoc; END IF;
+  buoi:=CASE WHEN TG_OP='DELETE' THEN OLD.madinhdanh ELSE NEW.madinhdanh END;
+  IF TG_OP='UPDATE' AND EXISTS (SELECT 1 FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=OLD.madinhdanh)
+    AND (NEW.ngayhoc,NEW.malop,NEW.makhunggio,NEW.magiaovienchinh,NEW.magiaoviendaythay,NEW.trangthai)
+      IS DISTINCT FROM (OLD.ngayhoc,OLD.malop,OLD.makhunggio,OLD.magiaovienchinh,OLD.magiaoviendaythay,OLD.trangthai) THEN
+   RAISE EXCEPTION 'Ca đã phát sinh công: không đổi định danh/người dạy/trạng thái; cần quy trình hiệu chỉnh công';
+  END IF;
+ ELSE
+  IF TG_TABLE_NAME='GIAI_TRINH_CONG_DAY' THEN
+   cong:=CASE WHEN TG_OP='DELETE' THEN OLD.macong ELSE NEW.macong END;
+   SELECT mabuoi INTO buoi FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE madinhdanh=cong;
+   IF TG_OP='UPDATE' AND NEW.macong<>OLD.macong THEN RAISE EXCEPTION 'Không chuyển giải trình sang bản công khác'; END IF;
+  ELSE
+   buoi:=CASE WHEN TG_OP='DELETE' THEN OLD.mabuoi ELSE NEW.mabuoi END;
+   IF TG_OP='UPDATE' AND NEW.mabuoi<>OLD.mabuoi THEN RAISE EXCEPTION 'Không chuyển bản ghi sang ca khác'; END IF;
+  END IF;
+  SELECT ngayhoc,magiaovienchinh,magiaoviendaythay INTO d,gv,cover FROM vuihoc."BUOI_HOC" WHERE madinhdanh=buoi FOR SHARE;
+ END IF;
+ ky:=to_char(d,'YYYY-MM');
+ -- Cùng thứ tự khóa với thao tác chốt kỳ; tránh ghi công đồng thời với khóa tháng.
+ PERFORM pg_advisory_xact_lock(hashtextextended('vuihoc-ky-'||ky,0));
+ SELECT dakhoa INTO khoa FROM vuihoc."BANG_CONG_THANG" WHERE kycong=ky FOR UPDATE;
+ IF khoa THEN RAISE EXCEPTION 'Kỳ công % đã khóa',ky; END IF;
+ IF TG_TABLE_NAME='CONG_DAY_BUOI_HOC' AND TG_OP<>'DELETE' THEN
+  IF NEW.kycong<>ky THEN RAISE EXCEPTION 'Kỳ công phải lấy từ ngày của ca học (%)',ky; END IF;
+  IF NEW.magiaovien IS DISTINCT FROM coalesce(cover,gv) OR NEW.vaitro<>(CASE WHEN cover IS NULL THEN 'CHINH' ELSE 'DAY_THAY' END) THEN
+   RAISE EXCEPTION 'Công phải thuộc giáo viên thực dạy của ca';
+  END IF;
+  IF TG_OP='UPDATE' AND NEW.hesocong<>OLD.hesocong AND btrim(NEW.ghichu)='' THEN RAISE EXCEPTION 'Điều chỉnh hệ số công cần lý do'; END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END; $fn$;
+
+CREATE OR REPLACE FUNCTION vuihoc.sinh_cong_khi_hoan_tat()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $fn$
+DECLARE ky text:=to_char(NEW.ngayhoc,'YYYY-MM');
+BEGIN
+ IF NEW.trangthai='HOAN_THANH' THEN
+  INSERT INTO vuihoc."BANG_CONG_THANG"(kycong,dakhoa,daguithongbao) VALUES(ky,false,false) ON CONFLICT(kycong) DO NOTHING;
+  INSERT INTO vuihoc."CONG_DAY_BUOI_HOC"(mabuoi,magiaovien,kycong,vaitro)
+  VALUES(NEW.madinhdanh,coalesce(NEW.magiaoviendaythay,NEW.magiaovienchinh),ky,CASE WHEN NEW.magiaoviendaythay IS NULL THEN 'CHINH' ELSE 'DAY_THAY' END)
+  ON CONFLICT(mabuoi) DO NOTHING;
+ END IF;
+ RETURN NEW;
+END; $fn$;
+DROP TRIGGER IF EXISTS sinh_cong ON vuihoc."BUOI_HOC";
+CREATE TRIGGER sinh_cong AFTER INSERT OR UPDATE ON vuihoc."BUOI_HOC" FOR EACH ROW EXECUTE FUNCTION vuihoc.sinh_cong_khi_hoan_tat();
+
+CREATE OR REPLACE VIEW vuihoc."V_CONG_DAY_THEO_CA" WITH (security_invoker=true) AS
+ SELECT c.*, b.ngayhoc,b.malop,b.makhunggio,b.batdau,b.ketthuc,b.vaolopluc,b.ketthucluc,
+ b.trangthai AS trangthaibuoi, b.magiaovienchinh,b.magiaoviendaythay,
+ EXISTS(SELECT 1 FROM vuihoc."NHAN_XET_BUOI_HOC" n WHERE n.mabuoi=b.madinhdanh AND btrim(n.noidung)<>'') AS conhanxet,
+ EXISTS(SELECT 1 FROM vuihoc."SU_CO_BUOI_HOC" s WHERE s.mabuoi=b.madinhdanh) AS cosuco
+ FROM vuihoc."CONG_DAY_BUOI_HOC" c JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi;
+
+DO $security$
+DECLARE t text; keys text;
+BEGIN
+ FOREACH t IN ARRAY ARRAY['LICH_RANH_TUAN','CHI_TIET_LICH_RANH','BUOI_HOC','DIEM_DANH_BUOI_HOC','NHAN_XET_BUOI_HOC','SU_CO_BUOI_HOC','CONG_DAY_BUOI_HOC','GIAI_TRINH_CONG_DAY'] LOOP
+  EXECUTE format('ALTER TABLE vuihoc.%I ENABLE ROW LEVEL SECURITY',t);
+  EXECUTE format('REVOKE ALL ON vuihoc.%I FROM PUBLIC,anon,authenticated',t);
+  EXECUTE format('GRANT ALL ON vuihoc.%I TO service_role',t);
+  IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=format('vuihoc.%I',t)::regclass AND tgname='set_updated_at') THEN
+   EXECUTE format('CREATE TRIGGER set_updated_at BEFORE UPDATE ON vuihoc.%I FOR EACH ROW EXECUTE FUNCTION vuihoc.set_updated_at()',t);
+  END IF;
+  SELECT string_agg(quote_literal(a.attname),',' ORDER BY a.attnum) INTO keys
+  FROM pg_index i JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=ANY(i.indkey)
+  WHERE i.indrelid=format('vuihoc.%I',t)::regclass AND i.indisprimary;
+  IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=format('vuihoc.%I',t)::regclass AND tgname='audit_business_change') THEN
+   EXECUTE format('CREATE TRIGGER audit_business_change AFTER INSERT OR UPDATE OR DELETE ON vuihoc.%I FOR EACH ROW EXECUTE FUNCTION vuihoc.ghi_nhat_ky_nghiep_vu(%s)',t,keys);
+  END IF;
+ END LOOP;
+ FOREACH t IN ARRAY ARRAY['BUOI_HOC','DIEM_DANH_BUOI_HOC','NHAN_XET_BUOI_HOC','SU_CO_BUOI_HOC','CONG_DAY_BUOI_HOC','GIAI_TRINH_CONG_DAY'] LOOP
+  EXECUTE format('DROP TRIGGER IF EXISTS kiem_tra_ky_cong ON vuihoc.%I',t);
+  EXECUTE format('CREATE TRIGGER kiem_tra_ky_cong BEFORE INSERT OR UPDATE OR DELETE ON vuihoc.%I FOR EACH ROW EXECUTE FUNCTION vuihoc.kiem_tra_ky_cong_buoi()',t);
+ END LOOP;
+END; $security$;
+REVOKE ALL ON vuihoc."V_CONG_DAY_THEO_CA" FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON vuihoc."V_CONG_DAY_THEO_CA" TO service_role;
+REVOKE ALL ON FUNCTION vuihoc.kiem_tra_ngay_lich_ranh(),vuihoc.khoa_dinh_danh_lich_tuan(),vuihoc.kiem_tra_ky_cong_buoi(),vuihoc.sinh_cong_khi_hoan_tat() FROM PUBLIC,anon,authenticated;
+
+
+-- Biên bản dự giờ: mã giáo viên bắt buộc, không chỉ nằm trong JSONB.
+-- Chạy sau schema.sql phiên bản 31 bảng, hoặc sau migration timed_workflow.
+CREATE TABLE IF NOT EXISTS vuihoc."BIEN_BAN_DU_GIO" (
+ madinhdanh text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+ magiaovien text NOT NULL REFERENCES vuihoc."GIAO_VIEN"(madinhdanh) ON DELETE RESTRICT,
+ mabienban text NOT NULL UNIQUE,
+ mabuoi text REFERENCES vuihoc."BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,
+ malophoc text NOT NULL REFERENCES vuihoc."LOP_HOC"(malophoc) ON UPDATE CASCADE ON DELETE RESTRICT,
+ manguoinhan text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ manguoidanhgia text REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE SET NULL,
+ ngaydanhgia date NOT NULL,
+ ngaycahoc date,
+ macahoc text,
+ guiluc timestamptz,
+ hotennguoidanhgia text NOT NULL,
+ vaitronguoidanhgia text NOT NULL,
+ tenlophoc text NOT NULL,
+ sobuoi integer NOT NULL CHECK (sobuoi>0),
+ tenbuoihoc text NOT NULL,
+ khunggio text NOT NULL,
+ mohinh text NOT NULL,
+ diemtong numeric(4,2) NOT NULL CHECK (diemtong BETWEEN 0 AND 10),
+ xeploai text NOT NULL CHECK (xeploai IN ('Xuất sắc','Tốt','Khá','Cần bồi dưỡng')),
+ diemtieuchi jsonb NOT NULL CHECK (
+  jsonb_typeof(diemtieuchi)='object'
+  AND diemtieuchi ?& ARRAY['tc1','tc2','tc3']
+  AND jsonb_typeof(diemtieuchi->'tc1')='number'
+  AND jsonb_typeof(diemtieuchi->'tc2')='number'
+  AND jsonb_typeof(diemtieuchi->'tc3')='number'
+  AND (diemtieuchi->>'tc1')::numeric BETWEEN 0 AND 10
+  AND (diemtieuchi->>'tc2')::numeric BETWEEN 0 AND 10
+  AND (diemtieuchi->>'tc3')::numeric BETWEEN 0 AND 10
+ ),
+ nhanxetchung text NOT NULL DEFAULT '',
+ uudiem text NOT NULL DEFAULT '',
+ cancaithien text NOT NULL DEFAULT '',
+ khuyennghi text NOT NULL DEFAULT '',
+ trangthai text NOT NULL CHECK (trangthai IN ('DA_DUYET','CHO_GOP_Y')),
+ lienketphonghoc text,
+ lienketbanghi text,
+ ngaytao timestamptz NOT NULL DEFAULT now(),
+ ngaycapnhat timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS bien_ban_gv_ngay ON vuihoc."BIEN_BAN_DU_GIO"(magiaovien,ngaydanhgia DESC);
+CREATE INDEX IF NOT EXISTS bien_ban_buoi ON vuihoc."BIEN_BAN_DU_GIO"(mabuoi) WHERE mabuoi IS NOT NULL;
+CREATE OR REPLACE FUNCTION vuihoc.kiem_tra_giao_vien_du_gio()
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $fn$
+DECLARE b record; u text;
+BEGIN
+ IF NEW.mabuoi IS NOT NULL THEN
+  SELECT bh.*,lh.malophoc AS malopgoc INTO b
+  FROM vuihoc."BUOI_HOC" bh JOIN vuihoc."LOP_HOC" lh ON lh.madinhdanh=bh.malop
+  WHERE bh.madinhdanh=NEW.mabuoi FOR SHARE OF bh;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Ca dự giờ không tồn tại'; END IF;
+  IF NEW.magiaovien IS DISTINCT FROM coalesce(b.magiaoviendaythay,b.magiaovienchinh) THEN
+   RAISE EXCEPTION 'Giáo viên dự giờ phải là người thực dạy của ca';
+  END IF;
+  IF NEW.malophoc<>b.malopgoc THEN RAISE EXCEPTION 'Lớp dự giờ không khớp ca'; END IF;
+  IF NEW.ngaycahoc IS NOT NULL AND NEW.ngaycahoc<>b.ngayhoc THEN RAISE EXCEPTION 'Ngày ca dự giờ không khớp'; END IF;
+  NEW.ngaycahoc:=b.ngayhoc;
+ END IF;
+ IF NEW.manguoinhan IS NOT NULL THEN
+  SELECT manguoidung INTO u FROM vuihoc."GIAO_VIEN" WHERE madinhdanh=NEW.magiaovien;
+  IF u IS DISTINCT FROM NEW.manguoinhan THEN RAISE EXCEPTION 'Tài khoản nhận biên bản không thuộc giáo viên được đánh giá'; END IF;
+ END IF;
+ RETURN NEW;
+END; $fn$;
+DROP TRIGGER IF EXISTS kiem_tra_giao_vien ON vuihoc."BIEN_BAN_DU_GIO";
+CREATE TRIGGER kiem_tra_giao_vien BEFORE INSERT OR UPDATE ON vuihoc."BIEN_BAN_DU_GIO" FOR EACH ROW EXECUTE FUNCTION vuihoc.kiem_tra_giao_vien_du_gio();
+DO $triggers$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='vuihoc."BIEN_BAN_DU_GIO"'::regclass AND tgname='set_updated_at') THEN
+  CREATE TRIGGER set_updated_at BEFORE UPDATE ON vuihoc."BIEN_BAN_DU_GIO" FOR EACH ROW EXECUTE FUNCTION vuihoc.set_updated_at();
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='vuihoc."BIEN_BAN_DU_GIO"'::regclass AND tgname='audit_business_change') THEN
+  CREATE TRIGGER audit_business_change AFTER INSERT OR UPDATE OR DELETE ON vuihoc."BIEN_BAN_DU_GIO" FOR EACH ROW EXECUTE FUNCTION vuihoc.ghi_nhat_ky_nghiep_vu('madinhdanh');
+ END IF;
+END; $triggers$;
+ALTER TABLE vuihoc."BIEN_BAN_DU_GIO" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON vuihoc."BIEN_BAN_DU_GIO" FROM PUBLIC,anon,authenticated;
+GRANT ALL ON vuihoc."BIEN_BAN_DU_GIO" TO service_role;
+REVOKE ALL ON FUNCTION vuihoc.kiem_tra_giao_vien_du_gio() FROM PUBLIC,anon,authenticated;
 
 COMMIT;

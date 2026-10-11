@@ -72,12 +72,11 @@ export async function upsertUserToSupabase(userData: any) {
   return data;
 }
 
-// 2. Danh mục Dùng chung (Môn học, Khung giờ, Gói học, Mô hình lớp)
+// 2. Danh mục Dùng chung (Môn học, Khung giờ, Mô hình lớp)
 export async function fetchMasterDataFromSupabase() {
-  const [subjects, timeSlots, packages, classModels, incidents] = await Promise.all([
+  const [subjects, timeSlots, classModels, incidents] = await Promise.all([
     supabase.from('subjects').select('*').order('code'),
     supabase.from('time_slots').select('*').order('slot_number'),
-    supabase.from('course_packages').select('*').order('months'),
     supabase.from('class_models').select('*').order('code'),
     supabase.from('incident_categories').select('*').order('code'),
   ]);
@@ -85,7 +84,6 @@ export async function fetchMasterDataFromSupabase() {
   return {
     subjects: subjects.data || [],
     timeSlots: timeSlots.data || [],
-    packages: packages.data || [],
     classModels: classModels.data || [],
     incidents: incidents.data || [],
   };
