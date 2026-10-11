@@ -116,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
                 }}
                 className="max-w-[210px] rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"
               >
-                <option value={PREVIEW_ACCOUNT.id}>Quản trị xem trước</option>
+                <option value={PREVIEW_ACCOUNT.id}>Tài khoản mẫu · Toàn quyền hai cổng</option>
                 {users.filter(user => user.status === 'active').map(user => (
                   <option key={user.id} value={user.id}>{user.name} · {user.role}</option>
                 ))}

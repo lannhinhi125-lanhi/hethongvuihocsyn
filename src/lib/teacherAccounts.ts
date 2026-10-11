@@ -1,6 +1,8 @@
+import { isPreviewAccount } from './previewMode';
 import type { UserAccount, SystemRoleGroup, TeacherProfile } from '../types';
 export const TEACHER_PROFILE_PERMISSION = 'Thêm/sửa hồ sơ và cấp tài khoản giáo viên';
 export function canManageTeacherProfiles(user: UserAccount, groups: SystemRoleGroup[]): boolean {
+  if (isPreviewAccount(user)) return true;
   if (user.status !== 'active' || user.role === 'Giáo viên Giảng dạy') return false;
   const permissions = groups.find(group => user.roleGroupId ? group.id === user.roleGroupId : group.name === user.role)?.permissions || [];
   return permissions.some(permission => ['ALL', 'PH3_ALL', 'PH3_WRITE', TEACHER_PROFILE_PERMISSION].includes(permission));

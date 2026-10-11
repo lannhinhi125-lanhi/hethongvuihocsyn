@@ -335,3 +335,15 @@ Bỏ qua đăng nhập chỉ áp dụng giao diện xem trước; không thay đ
 ## Vào hệ thống để xem trước
 
 `src/lib/previewMode.ts` bật `PORTAL_PREVIEW_MODE = true`: vào trực tiếp với quyền quản trị xem trước, không tạo tài khoản trong dữ liệu nghiệp vụ. Chế độ này chỉ mở giao diện; dữ liệu Supabase cần adapter CRUD và cấu hình kết nối. `src/lib/databaseNames.ts` chứa ánh xạ đầy đủ tên bảng/cột.
+
+## Phạm vi bản mẫu hiện tại
+
+Tài khoản mẫu demo (chế độ xem trước) mở đủ 8 phân hệ quản trị và 4 mục cổng giảng dạy. Dùng nút Cổng Giảng dạy/Cổng Quản trị ở cuối thanh bên để đổi cổng, giữ cùng tài khoản. Dữ liệu nghiệp vụ trên UI vẫn ở bộ nhớ; SQL chứa dữ liệu mẫu riêng. Không có máy chủ hay cơ chế tự lưu được thêm.
+
+Dùng src/lib/supabaseMapper.ts để chuyển object UI sang đúng tên cột và đọc ngược lại. File supabase/ui_database_mapping.json liệt kê đủ ánh xạ cho 23 bảng. Hàm ánh xạ báo lỗi nếu gặp trường chưa khai báo, bỏ passwordRaw và để database quản lý timestamp kỹ thuật. Mật khẩu thật thuộc Supabase Auth.
+
+Mã môn chuẩn trong database là SUB-MATH và SUB-ENG. Tiêu chí AI trên UI đã dùng subject.code. Giám sát ca học vẫn hiển thị TOAN/ANH; mapper chuyển hai chiều khi lưu/đọc CA_HOC. Các ID (madinhdanh) khác mã nghiệp vụ (mamonhoc, malophoc, matrinhdo...). JSONB giữ key TypeScript như id/name/options/status; không đổi thành tên cột SQL. Bản SQL này sửa các key JSONB bị đổi nhầm ở bản mẫu trước và dừng nếu trùng key, không tự bỏ dữ liệu.
+
+Khóa ngoại chặn mã tham chiếu không tồn tại. Thứ tự nạp: nhóm quyền/danh mục → người dùng → giáo viên → lớp/học sinh → ca học, mẫu báo cáo, bảng công. Khi lưu một nghiệp vụ sửa nhiều bảng, cần giao dịch. Mảng danhsachmahocsinh và mã bên trong JSONB vẫn cần kiểm tra ở lớp xử lý dữ liệu; schema không tự tạo khóa ngoại cho từng phần tử JSON.
+
+Chạy lại schema.sql để cập nhật bản mẫu. Nếu dữ liệu cũ chứa mã không còn trong danh mục, SQL sẽ dừng và chỉ ra khóa lỗi, không tự xóa dữ liệu. Bản mẫu chưa đồng nghĩa với việc thao tác UI được lưu thật lên Supabase.

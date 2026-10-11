@@ -434,7 +434,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const selectedClassSchedule = selectedClass ? scheduleEntriesForClass(selectedClass) : [];
   const selectedClassMaterial = selectedClass ? selectedWeekMaterial(selectedClass, selectedSessionNum) : undefined;
   const selectedSubjectKey = selectedClass
-    ? subjects.find(subject => subject.code === selectedClass.subject)?.abbr ||
+    ? subjects.find(subject => subject.code === selectedClass.subject)?.code ||
       (selectedClass.subject === 'SUB-ENG' ? 'ENG' : 'TOAN')
     : '';
   const reviewCriteria = criteriaCategories.filter(category => category.subject === selectedSubjectKey);
@@ -960,7 +960,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1 text-xs">
               <section className="space-y-2">
                 <label className="block font-semibold text-slate-700">
-                  Tiêu chí bắt buộc · {subjects.find(subject => subject.abbr === selectedSubjectKey)?.name || selectedSubjectKey}
+                  Tiêu chí bắt buộc · {subjects.find(subject => subject.code === selectedSubjectKey)?.name || selectedSubjectKey}
                 </label>
                 <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                   {reviewCriteria.length ? reviewCriteria.map(category => (

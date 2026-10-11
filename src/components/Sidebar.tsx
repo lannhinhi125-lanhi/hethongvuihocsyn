@@ -1,6 +1,6 @@
 import { usePermissions } from '../hooks/usePermissions';
 import { teacherModuleIds } from '../lib/accessControl';
-import { PORTAL_PREVIEW_MODE } from '../lib/previewMode';
+import { PORTAL_PREVIEW_MODE, isPreviewAccount } from '../lib/previewMode';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -84,6 +84,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   };
 
   const handleToggleWorkspace = () => {
+    if (isPreviewAccount(currentUser)) {
+      setWorkspaceMode(workspaceMode === 'ADMIN' ? 'TEACHER' : 'ADMIN');
+      setTeacherPortalTab('availability');
+      onCloseMobile?.();
+      return;
+    }
     if (PORTAL_PREVIEW_MODE) {
       const target = workspaceMode === 'ADMIN'
         ? users.find(user => resolveAccountTeacher(user, teachers, users)) || users.find(user => user.status === 'active' && user.role === 'Giáo viên Giảng dạy')

@@ -50,8 +50,8 @@ export const Module6_AIStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'criteria' | 'knowledge' | 'rag-config'>('criteria');
   const activeSubjects = subjects.filter(subject => subject.status);
   const enabledKnowledgeDocuments = sopDocuments.filter(document => document.isEnabled !== false);
-  const [currentSubject, setCurrentSubject] = useState('TOAN');
-  const [criterionSubjectKeys, setCriterionSubjectKeys] = useState<string[]>(['TOAN']);
+  const [currentSubject, setCurrentSubject] = useState('SUB-MATH');
+  const [criterionSubjectKeys, setCriterionSubjectKeys] = useState<string[]>(['SUB-MATH']);
 
   // Simulator state
   const [simUsageCount, setSimUsageCount] = useState(0);
@@ -262,7 +262,7 @@ export const Module6_AIStudio: React.FC = () => {
 
     setTimeout(() => {
       const studentName = 'Nguyễn Minh Khang';
-      const subjectText = activeSubjects.find(subject => subject.abbr === currentSubject)?.name || currentSubject;
+      const subjectText = activeSubjects.find(subject => subject.code === currentSubject)?.name || currentSubject;
       let generated = '';
 
       if (activeToneKey === 'khich-le') {
@@ -451,7 +451,7 @@ export const Module6_AIStudio: React.FC = () => {
                   onChange={event => setCurrentSubject(event.target.value)}
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-800"
                 >
-                  {activeSubjects.map(subject => <option key={subject.id} value={subject.abbr}>{subject.name}</option>)}
+                  {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
                 </select>
               </label>
             </div>
@@ -481,7 +481,7 @@ export const Module6_AIStudio: React.FC = () => {
               <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">
-                    Cấu trúc tiêu chí nhận xét · {activeSubjects.find(subject => subject.abbr === currentSubject)?.name || currentSubject}
+                    Cấu trúc tiêu chí nhận xét · {activeSubjects.find(subject => subject.code === currentSubject)?.name || currentSubject}
                   </h3>
                   <span className="text-[11px] text-slate-400">Gia sư tick chọn sau ca học</span>
                 </div>
@@ -1103,11 +1103,11 @@ export const Module6_AIStudio: React.FC = () => {
                       <label key={subject.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50">
                         <input
                           type="checkbox"
-                          checked={criterionSubjectKeys.includes(subject.abbr)}
+                          checked={criterionSubjectKeys.includes(subject.code)}
                           onChange={event => {
                             setCriterionSubjectKeys(previous => event.target.checked
-                              ? [...previous, subject.abbr]
-                              : previous.filter(key => key !== subject.abbr));
+                              ? [...previous, subject.code]
+                              : previous.filter(key => key !== subject.code));
                           }}
                           className="accent-[#FF5C00]"
                         />
@@ -1122,7 +1122,7 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Danh mục mẫu của môn {activeSubjects.find(subject => subject.abbr === currentSubject)?.name || currentSubject}:
+                  Danh mục mẫu của môn {activeSubjects.find(subject => subject.code === currentSubject)?.name || currentSubject}:
                 </label>
                 <select
                   value={selectedParentCatId}

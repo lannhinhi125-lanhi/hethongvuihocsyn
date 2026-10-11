@@ -1,4 +1,4 @@
-import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, PREVIEW_ROLE } from './previewMode';
+import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, PREVIEW_ROLE, isPreviewAccount } from './previewMode';
 import type { UserAccount, SystemRoleGroup } from '../types';
 import { expandPermissions, permissionModules, rolePortal, type AccountPortal } from './portalPermissions';
 export function assignedRole(user: UserAccount, groups: SystemRoleGroup[]): SystemRoleGroup | undefined {
@@ -12,11 +12,13 @@ export function accountPortal(user: UserAccount, groups: SystemRoleGroup[]): Acc
 }
 export function hasPermission(user: UserAccount, groups: SystemRoleGroup[], feature: string): boolean {
   if (user.status !== 'active') return false;
+  if (isPreviewAccount(user)) return [...expandPermissions(['ALL'], 'ADMIN'), ...expandPermissions(['ALL'], 'TEACHER')].includes(feature);
   const role = assignedRole(user, groups);
   if (!role) return false;
   return expandPermissions(role.permissions || [], rolePortal(role)).includes(feature);
 }
 export function canAccessModule(user: UserAccount, groups: SystemRoleGroup[], moduleId: string): boolean {
+  if (isPreviewAccount(user)) return [...permissionModules.ADMIN, ...permissionModules.TEACHER].some(module => module.id === moduleId);
   const role = assignedRole(user, groups);
   if (!role || user.status !== 'active') return false;
   const module = permissionModules[rolePortal(role)].find(item => item.id === moduleId);

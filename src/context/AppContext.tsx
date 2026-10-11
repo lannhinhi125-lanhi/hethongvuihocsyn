@@ -1,4 +1,4 @@
-import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
+import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, isPreviewAccount } from '../lib/previewMode';
 import { assignedRole, hasPermission, changedFields } from '../lib/accessControl';
 import { classChangeAllowed, teacherChangeAllowed, incidentChangeAllowed } from '../lib/mutationPermissions';
 import { payrollLockIssue } from '../lib/workflow';
@@ -243,7 +243,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateTeacher = (id: string, updates: Partial<TeacherProfile>) => {
     const teacher = teachers.find(t => t.id === id);
-    if (!teacher || !teacherChangeAllowed([teacher], [{ ...teacher, ...updates }], can, ownTeacher?.id)) { showToast('Bạn không có quyền sửa các trường hồ sơ đã chọn.', 'error'); return false; }
+    if (!teacher || !teacherChangeAllowed([teacher], [{ ...teacher, ...updates }], can, isPreviewAccount(actor) ? id : ownTeacher?.id)) { showToast('Bạn không có quyền sửa các trường hồ sơ đã chọn.', 'error'); return false; }
     const editsProfile = Object.keys(updates).some(key => !['schedule', 'freeSlots', 'busySlots', 'isFull', 'evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores', 'evaluationReports'].includes(key));
     if (editsProfile && !canManageTeacherProfiles(currentUser, roleGroups)) { showToast('Bạn chưa được cấp quyền sửa hồ sơ giáo viên.', 'error'); return false; }
     const editsAvailability = ['schedule', 'freeSlots', 'busySlots', 'isFull'].some(key => Object.prototype.hasOwnProperty.call(updates, key));
@@ -786,7 +786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         incidents,
         setIncidents: guardedSetter(setIncidents, (before, after) => incidentChangeAllowed(before, after, can)),
         teachers,
-        setTeachers: guardedSetter(setTeachers, (before, after) => teacherChangeAllowed(before, after, can, ownTeacher?.id)),
+        setTeachers: guardedSetter(setTeachers, (before, after) => isPreviewAccount(actor) || teacherChangeAllowed(before, after, can, ownTeacher?.id)),
         addTeacher,
         updateTeacher,
         students,
