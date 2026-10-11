@@ -5,13 +5,14 @@ import {pathToFileURL} from 'node:url';
 const root=process.env.PGLITE_MODULE_PATH;
 assert.ok(root,'Set PGLITE_MODULE_PATH to @electric-sql/pglite');
 const {PGlite}=await import(pathToFileURL(root.replace(/[/\\]$/,'')+'/dist/index.js').href);
-const db=new PGlite();
+const {pgcrypto}=await import(pathToFileURL(root.replace(/[/\\]$/,'')+'/dist/contrib/pgcrypto.js').href);
+const db=new PGlite({extensions:{pgcrypto}});
 try {
  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY);
  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;`);
  await db.exec(readFileSync('supabase/schema.sql','utf8'));
  // Also verify migration-only upgrade using the previous schema portion.
- const upgraded=new PGlite();
+ const upgraded=new PGlite({extensions:{pgcrypto}});
  try {
   await upgraded.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT null::uuid $$;`);
   const base=readFileSync('supabase/schema.sql','utf8').split('-- MÔ HÌNH NGHIỆP VỤ THEO THỜI GIAN.')[0]+'COMMIT;';

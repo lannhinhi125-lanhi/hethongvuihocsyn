@@ -231,7 +231,7 @@ export const Module1_UsersRoles: React.FC = () => {
             : r
         )
       );
-      showToast(`Đã lưu cấu hình Nhóm quyền "${roleFormName}"!`, 'success');
+      showToast(`Đang lưu cấu hình Nhóm quyền "${roleFormName}"!`, 'success');
     } else {
       const newRole: SystemRoleGroup = {
         id: 'ROLE-' + crypto.randomUUID(),
@@ -243,7 +243,7 @@ export const Module1_UsersRoles: React.FC = () => {
         permissions
       };
       setRoleGroups(prev => [...prev, newRole]);
-      showToast(`Đã thêm Nhóm quyền mới "${roleFormName}"!`, 'success');
+      showToast(`Đang lưu Nhóm quyền mới "${roleFormName}"!`, 'success');
     }
     setIsRoleModalOpen(false);
   };
@@ -407,9 +407,10 @@ export const Module1_UsersRoles: React.FC = () => {
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5 font-mono bg-slate-100 px-2 py-1 rounded w-fit">
                               <span className={isRevealed ? '' : 'tracking-widest'}>
-                                {isRevealed ? u.passwordRaw : '••••••••••'}
+                                {u.passwordRaw ? (isRevealed ? u.passwordRaw : '••••••••••') : 'Đã bảo mật'}
                               </span>
                               <button
+                                disabled={!u.passwordRaw}
                                 onClick={() => togglePasswordVisibility(u.id)}
                                 className="text-slate-400 hover:text-slate-700"
                                 title="Ẩn/Hiện mật khẩu"
@@ -417,6 +418,7 @@ export const Module1_UsersRoles: React.FC = () => {
                                 {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                               </button>
                               <button
+                                disabled={!u.passwordRaw}
                                 onClick={() => copyToClipboard(u.passwordRaw, 'Mật khẩu')}
                                 className="text-slate-400 hover:text-[#FF5C00]"
                                 title="Sao chép mật khẩu"
@@ -794,7 +796,8 @@ export const Module1_UsersRoles: React.FC = () => {
                   <div className="relative flex items-center">
                     <input
                       type={editUserPassVisible ? 'text' : 'password'}
-                      required
+                      placeholder="Để trống để giữ mật khẩu hiện tại"
+                      minLength={8}
                       value={editUserPass}
                       onChange={e => setEditUserPass(e.target.value)}
                       className="w-full pl-3 pr-16 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"

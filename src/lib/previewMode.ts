@@ -1,6 +1,6 @@
 import type { UserAccount, SystemRoleGroup } from '../types';
-// Truy cập giao diện không đăng nhập theo yêu cầu; danh tính chỉ ở bộ nhớ.
-export const PORTAL_PREVIEW_MODE = true;
+// Đăng nhập thật bằng NGUOI_DUNG; không bỏ qua quyền bằng tài khoản mẫu.
+export const PORTAL_PREVIEW_MODE = false;
 export const PREVIEW_ACCOUNT: UserAccount = {
   id: 'PREVIEW-ADMIN', roleGroupId: 'PREVIEW-ROLE', name: 'Tài khoản mẫu toàn quyền',
   username: 'demo', passwordRaw: 'Demo@123456', email: '', phone: '',

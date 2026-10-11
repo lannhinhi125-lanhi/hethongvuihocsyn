@@ -59,7 +59,7 @@ Hệ thống được phát triển bằng **React 19**, **Vite**, **TypeScript*
 
 Xem [hướng dẫn chọn file SQL](supabase/README.md), [bảng đối chiếu UI → database](supabase/DATA_DICTIONARY.md) và [SQL kiểm tra](supabase/verify_schema.sql).
 
-Giao diện hiện giữ dữ liệu trong bộ nhớ, chưa tự lưu vào Supabase. Cần tích hợp CRUD, Supabase Auth và quyền truy cập. RLS hiện chưa cấp quyền client. Helper API cũ cần chuyển sang tên bảng/cột trong databaseNames.ts thông qua supabaseMapper.ts.
+Đăng nhập và đọc/lưu tài khoản, nhóm quyền đã nối Supabase bằng SQL RPC, không dùng Supabase Auth. Xem [hướng dẫn áp dụng](supabase/SIMPLE_ACCOUNTS.md). Các màn nghiệp vụ khác vẫn giữ dữ liệu trong bộ nhớ, chưa tự lưu vào Supabase; cần tích hợp CRUD theo mapper và kiểm tra quyền tại database.
 
 ---
 

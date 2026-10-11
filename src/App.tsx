@@ -1,7 +1,5 @@
-import { runtimeStorage } from './lib/localData';
+import { useAccountSession, logoutAccount, refreshAccountSession } from './lib/accountSession';
 import { canAccessModule, teacherModuleIds, accountPortal } from './lib/accessControl';
-import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from './lib/previewMode';
-import { resolveActiveAccount } from './lib/workflow';
 import { LoginView } from './views/LoginView';
 import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
@@ -21,41 +19,25 @@ import { TeacherAvailabilityView } from './views/TeacherAvailabilityView';
 import { TeacherWorkReconciliationView } from './views/TeacherWorkReconciliationView';
 
 const MainLayout: React.FC = () => {
-  const { activeModule, workspaceMode, teacherPortalTab, currentUser, users, roleGroups, setCurrentUser, setActiveModule } = useApp();
-  const [authenticatedUserId, setAuthenticatedUserId] = useState(() => runtimeStorage.getItem('vuihoc_authenticated_user_id'));
-  const activeAccount = PORTAL_PREVIEW_MODE
-    ? resolveActiveAccount(users, currentUser.id) || (currentUser.id === PREVIEW_ACCOUNT.id ? PREVIEW_ACCOUNT : users.find(user => user.status === 'active' && user.role === 'Quản trị Toàn quyền')) || PREVIEW_ACCOUNT
-    : resolveActiveAccount(users, authenticatedUserId);
+  const { activeModule, workspaceMode, teacherPortalTab, currentUser, users, roleGroups, setCurrentUser, setActiveModule, setTeacherPortalTab } = useApp();
+  const session = useAccountSession();
+  const activeAccount = session.actor ? users.find(user => user.id === session.actor!.id && user.status === 'active') : undefined;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   useEffect(() => {
-    if (!PORTAL_PREVIEW_MODE || currentUser.id === PREVIEW_ACCOUNT.id || users.some(user => user.id === currentUser.id)) return;
-    const admin = users.find(user => user.role === 'Quản trị Toàn quyền' && user.status === 'active');
-    setCurrentUser(admin || PREVIEW_ACCOUNT);
-  }, []);
-
-  useEffect(() => {
-    if (activeAccount && activeAccount !== currentUser) setCurrentUser(activeAccount);
-    if (activeAccount && workspaceMode === 'ADMIN' && !canAccessModule(activeAccount, roleGroups, 'PH' + activeModule)) {
-      const first = [1,2,3,4,5,6,7,8].find(id => canAccessModule(activeAccount, roleGroups, 'PH' + id));
-      if (first) setActiveModule(first);
+    if (!activeAccount) return;
+    if (currentUser !== activeAccount) setCurrentUser(activeAccount);
+    if (accountPortal(activeAccount,roleGroups)==='ADMIN' && !canAccessModule(activeAccount,roleGroups,'PH'+activeModule)) {
+      const first=[1,2,3,4,5,6,7,8].find(id=>canAccessModule(activeAccount,roleGroups,'PH'+id));
+      if(first)setActiveModule(first);
     }
-  }, [activeAccount, currentUser, activeModule, workspaceMode, roleGroups, setCurrentUser, setActiveModule]);
-
-  useEffect(() => {
-    if (!PORTAL_PREVIEW_MODE && authenticatedUserId && !activeAccount) {
-      runtimeStorage.removeItem('vuihoc_authenticated_user_id');
-      runtimeStorage.removeItem('vuihoc_authenticated');
-      setAuthenticatedUserId(null);
+    if(accountPortal(activeAccount,roleGroups)==='TEACHER' && !canAccessModule(activeAccount,roleGroups,teacherModuleIds[teacherPortalTab])) {
+      const first=['availability','schedule','evaluation','reconcile'].find(tab=>canAccessModule(activeAccount,roleGroups,teacherModuleIds[tab]));
+      if(first)setTeacherPortalTab(first as 'availability'|'schedule'|'evaluation'|'reconcile');
     }
-  }, [authenticatedUserId, activeAccount]);
-
-  if (!activeAccount) return <LoginView onLogin={userId => {
-    runtimeStorage.setItem('vuihoc_authenticated_user_id', userId);
-    setAuthenticatedUserId(userId);
-    setMobileMenuOpen(false);
-  }} />;
-  if (currentUser !== activeAccount) return null;
+  },[activeAccount,currentUser,roleGroups,activeModule,teacherPortalTab]);
+  if(session.loading)return <main className="p-8" role="status">Đang kiểm tra phiên đăng nhập…</main>;
+  if(!activeAccount)return <LoginView onLogin={()=>setMobileMenuOpen(false)} />;
+  if(currentUser.id!==activeAccount.id)return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased font-sans">
@@ -65,10 +47,13 @@ const MainLayout: React.FC = () => {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Header với Breadcrumb, Switcher vai trò, Xóa & Reset dữ liệu */}
-        <Header onLogout={() => { runtimeStorage.removeItem('vuihoc_authenticated'); runtimeStorage.removeItem('vuihoc_authenticated_user_id'); setAuthenticatedUserId(null); setMobileMenuOpen(false); }} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
+        <Header onLogout={() => { void logoutAccount(); setMobileMenuOpen(false); }} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         {/* Scrollable Main Content */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
+          {session.saving && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm">Đang lưu tài khoản / nhóm quyền vào Supabase…</p>}
+          {session.error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Không lưu được: {session.error} <button onClick={()=>void refreshAccountSession()} className="underline">Tải lại dữ liệu</button></p>}
+          {session.saved && !session.saving && !session.error && <p role="status" className="mb-4 text-sm text-green-700">Đã lưu tài khoản / nhóm quyền vào Supabase.</p>}
           <div className="max-w-7xl mx-auto w-full">
             {workspaceMode === 'ADMIN' && accountPortal(currentUser, roleGroups) === 'ADMIN' ? (
               // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================

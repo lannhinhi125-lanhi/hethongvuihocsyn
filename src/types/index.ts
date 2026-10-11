@@ -1,6 +1,6 @@
 // Định nghĩa toàn bộ types cho hệ thống Vuihoc Tutor liên thông 8 phân hệ
 
-export type UserRole = 'Quản trị Toàn quyền' | 'Quản lý Chuyên môn' | 'Nhân viên Vận hành Lớp' | 'Giáo viên Giảng dạy';
+export type UserRole = string;
 
 export interface UserAccount {
   roleGroupId?: string;

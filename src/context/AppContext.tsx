@@ -1,5 +1,6 @@
+import { useAccountSession, setSessionUsers, setSessionGroups, logoutAccount } from '../lib/accountSession';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, isPreviewAccount } from '../lib/previewMode';
-import { assignedRole, hasPermission, changedFields } from '../lib/accessControl';
+import { assignedRole, hasPermission, changedFields, accountPortal } from '../lib/accessControl';
 import { classChangeAllowed, teacherChangeAllowed, incidentChangeAllowed } from '../lib/mutationPermissions';
 import { payrollLockIssue } from '../lib/workflow';
 import { resolveAccountTeacher } from '../lib/evaluation';
@@ -135,8 +136,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('ADMIN');
   const [teacherPortalTab, setTeacherPortalTab] = useState<'schedule' | 'availability' | 'payroll' | 'evaluation' | 'reconcile'>('availability');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [users, setUsers] = useState<UserAccount[]>([]);
-  const [roleGroups, setRoleGroups] = useState<SystemRoleGroup[]>([]);
+  const accountSession = useAccountSession();
+  const users = accountSession.users, roleGroups = accountSession.groups;
+  const setUsers = setSessionUsers, setRoleGroups = setSessionGroups;
+  useEffect(() => { setCurrentUser(accountSession.actor || EMPTY_USER); }, [accountSession.actor]);
   const [teachingCategories, setTeachingCategories] = useState<CategoryGroup[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [levels, setLevels] = useState<LevelItem[]>([]);
@@ -154,12 +157,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [payrollStore, setPayrollStore] = useState<Record<string, MonthPayrollData>>({});
   // Tự động chuyển workspace khi đổi user
   useEffect(() => {
-    if (currentUser.role === 'Giáo viên Giảng dạy') {
+    if (accountPortal(currentUser, roleGroups) === 'TEACHER') {
       setWorkspaceMode('TEACHER');
     } else {
       setWorkspaceMode('ADMIN');
     }
-  }, [currentUser]);
+  }, [currentUser, roleGroups]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
     const id = Date.now().toString();
@@ -191,17 +194,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!permit('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
     if (!assignedRole({ ...newUser, id: '' }, roleGroups)) { showToast('Chọn nhóm quyền đang tồn tại.', 'error'); return; }
     if (!permit("Cấp tài khoản & Mật khẩu người dùng")) return;
-    const id = `USR-${String(users.length + 1).padStart(2, '0')}`;
+    const id = 'USR-' + crypto.randomUUID();
     const user: UserAccount = { ...newUser, id };
     setUsers(prev => [user, ...prev]);
-    showToast(`Đã cấp tài khoản mới [${user.username}] thành công!`, 'success');
+    showToast(`Đang lưu tài khoản [${user.username}]…`, 'info');
   };
 
   const updateUser = (id: string, updates: Partial<UserAccount>) => {
     if (['role', 'roleGroupId'].some(key => key in updates) && !permit('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
     if (!permit("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return;
     setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
-    showToast('Cập nhật thông tin tài khoản thành công!', 'success');
+    showToast('Đang lưu thông tin tài khoản…', 'info');
   };
 
   const toggleLockUser = (id: string) => {
@@ -727,8 +730,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!permit("Tạo, sửa, xóa & Gán Nhóm quyền")) return;
     clearLegacyBrowserData();
     runtimeStorage.clear();
-    setUsers([]);
-    setRoleGroups([]);
+    void logoutAccount();
     setTeachingCategories([]);
     setSubjects([]);
     setLevels([]);

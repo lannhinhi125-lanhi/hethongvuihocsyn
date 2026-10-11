@@ -100,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       if (onCloseMobile) onCloseMobile();
       return;
     }
-    if (currentUser.role === 'Giáo viên Giảng dạy') return;
+    if (!PORTAL_PREVIEW_MODE) return;
     if (workspaceMode === 'ADMIN') {
       setWorkspaceMode('TEACHER');
       showToast('Đã chuyển sang Cổng Giảng dạy (Giáo viên & Gia sư)', 'info');
@@ -190,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
               <span className="text-slate-600">·</span>
               <span>{currentTime.toLocaleDateString('vi-VN')}</span>
             </div>
-            {(PORTAL_PREVIEW_MODE || currentUser.role !== 'Giáo viên Giảng dạy') && <button
+            {PORTAL_PREVIEW_MODE && <button
               onClick={handleToggleWorkspace}
               className="w-full py-1.5 px-2.5 rounded-md text-xs font-medium flex items-center justify-between transition-colors cursor-pointer bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700/60"
             >

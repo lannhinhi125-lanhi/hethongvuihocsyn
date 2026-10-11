@@ -16,5 +16,5 @@ export const isSupabaseConfigured = (): boolean => Boolean(
 // Chỉ dùng anon/public key tại frontend; service_role key thuộc máy chủ.
 export const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
   db: { schema: supabaseConfig.schema },
-  auth: { persistSession: true, autoRefreshToken: true },
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 });

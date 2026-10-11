@@ -28,7 +28,7 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 - BANG_CONG_THANG.danhsachgiaovien chứa TeacherPayrollSummary, sessions và hệ số công; danhsachgiaitrinh chứa DisputeItem.
 - Cây tiêu chí, cây sự cố và danh mục bổ sung dùng JSONB. Key bên trong giữ nguyên camelCase.
 - Khóa ngoại SQL không kiểm tra mã nằm sâu trong JSONB. Backend cần kiểm tra liên kết, cập nhật nhất quán và tránh ghi đè thay đổi của người khác.
-- passwordRaw không lưu. NGUOI_DUNG.maxacthuc liên kết auth.users.id; dữ liệu người dùng mẫu không tạo tài khoản Supabase Auth.
+- passwordRaw không lưu. NGUOI_DUNG.matkhau_bam lưu bcrypt; phiên đăng nhập trong NGUOI_DUNG. Không dùng Supabase Auth. Xem SIMPLE_ACCOUNTS.md.
 - Ngày tạo/cập nhật do SQL quản lý; SOP.updatedAt được mapper ánh xạ riêng.
 - Dùng toSupabaseRow/fromSupabaseRow khi gửi/nhận dữ liệu. Chỉ báo lưu thành công khi database xác nhận. Kiểm thử thêm/sửa/xóa và tải lại trang sau khi tích hợp.
 
@@ -63,7 +63,7 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 | subject | mamonhoc | text |
 | status | trangthai | text NOT NULL CHECK ("trangthai" IN ('active', 'locked')) |
 | avatarInitials | chucaiavatar | text NOT NULL |
-| auth_user_id | maxacthuc | uuid UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL |
+| auth_user_id (ngừng dùng) | maxacthuc | uuid UNIQUE, giữ dữ liệu cũ; không còn FK auth.users và không gửi tới UI |
 | created_at | ngaytao | timestamptz NOT NULL DEFAULT now() |
 | updated_at | ngaycapnhat | timestamptz NOT NULL DEFAULT now() |
 
@@ -381,7 +381,7 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 
 ## Nhật ký hành động nghiệp vụ
 
-NHAT_KY_NGHIEP_VU ghi tự động mỗi INSERT/UPDATE/DELETE của bảng nghiệp vụ, trong cùng giao dịch. Gồm madinhdanh, thoigian (giờ server), maxacthuc (auth.uid), vaitroketnoi, tenbang, khoabanghi, thaotac, truongthaydoi, dulieutruoc và dulieusau. Không ghi bộ lọc/tab/phân trang; TUY_CHON_NGUOI_DUNG không tạo nhật ký nghiệp vụ. UPDATE không thay đổi dữ liệu ngoài ngaycapnhat cũng không tạo nhật ký.
+NHAT_KY_NGHIEP_VU ghi tự động mỗi INSERT/UPDATE/DELETE của bảng nghiệp vụ, trong cùng giao dịch. Gồm madinhdanh, thoigian (giờ server), manguoithuchien (NGUOI_DUNG.madinhdanh từ phiên đã kiểm tra); maxacthuc là cột cũ không còn dùng, vaitroketnoi, tenbang, khoabanghi, thaotac, truongthaydoi, dulieutruoc và dulieusau. Không ghi bộ lọc/tab/phân trang; TUY_CHON_NGUOI_DUNG không tạo nhật ký nghiệp vụ. UPDATE không thay đổi dữ liệu ngoài ngaycapnhat cũng không tạo nhật ký.
 
 | Hành động | Dữ liệu kết quả | Lịch sử |
 | --- | --- | --- |
@@ -391,7 +391,7 @@ NHAT_KY_NGHIEP_VU ghi tự động mỗi INSERT/UPDATE/DELETE của bảng nghi�
 | Điểm danh/nhận xét | LOP_HOC.chitietcahoc.attendance/feedback/feedbackCriteria | Snapshot trước/sau |
 | Phân công, sự cố, đánh giá, bảng công, duyệt giải trình | Bảng nghiệp vụ tương ứng | INSERT/UPDATE/DELETE và trường thay đổi |
 
-Trigger được cài sau seed; dữ liệu mẫu không được coi là hành động của người dùng. SQL Editor/service_role không có JWT người dùng thì maxacthuc có thể null; khi tích hợp cần truyền danh tính được xác thực, không dùng tên tự nhập để xác định người thao tác. Các trường checkin/checkout trong JSONB là dữ liệu nghiệp vụ phía ứng dụng; thoigian nhật ký do database ghi. Bảng nhật ký không cấp UPDATE/DELETE cho service_role.
+Trigger được cài sau seed; dữ liệu mẫu không được coi là hành động của người dùng. SQL Editor không có phiên ứng dụng thì manguoithuchien có thể null. RPC lấy danh tính từ token hợp lệ; không dùng tên tự nhập để xác định người thao tác. Mật khẩu băm và token không được lưu vào nội dung nhật ký. Các trường checkin/checkout trong JSONB là dữ liệu nghiệp vụ phía ứng dụng; thoigian nhật ký do database ghi. Bảng nhật ký không cấp UPDATE/DELETE cho service_role.
 
 Đã bỏ gói thời hạn khỏi schema mới, mapping, kiểu dữ liệu và AppContext. Nếu database cũ đã có GOI_HOC thì file này không tự xóa dữ liệu cũ; bảng đó không còn được ứng dụng sử dụng.
 
@@ -402,3 +402,7 @@ Trigger được cài sau seed; dữ liệu mẫu không được coi là hành 
 
 
 Bổ sung bảng thứ 32: BIEN_BAN_DU_GIO có FK bắt buộc tới mã giáo viên. Xem [hướng dẫn](TEACHER_EVALUATIONS.md).
+
+## Bổ sung tài khoản nội bộ (2026-10-11)
+
+NGUOI_DUNG thêm matkhau_bam text, maphien_bam text, phienhethan timestamptz, solansai integer và tamkhoaden timestamptz. NHAT_KY_NGHIEP_VU thêm manguoithuchien text FK NGUOI_DUNG. Cấu trúc vẫn 32 bảng. Thông tin đăng nhập không có trong mapper UI và không trả về client.

@@ -6,7 +6,8 @@ import {toSupabaseRow} from '../src/lib/supabaseMapper';
 const root=process.env.PGLITE_MODULE_PATH;
 assert.ok(root);
 const {PGlite}=await import(pathToFileURL(root.replace(/[/\\]$/,'')+'/dist/index.js').href);
-const db=new PGlite();
+const {pgcrypto}=await import(pathToFileURL(root.replace(/[/\\]$/,'')+'/dist/contrib/pgcrypto.js').href);
+const db=new PGlite({extensions:{pgcrypto}});
 try {
  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT null::uuid $$;`);
  await db.exec(readFileSync('supabase/schema.sql','utf8'));
@@ -35,7 +36,7 @@ try {
  await reject({...base,id:'OBS-7',reportCode:'OBS/7',criteriaScores:{tc1:11,tc2:9,tc3:9}});
  await reject({...base,id:'OBS-8',reportCode:'OBS/8',teacherId:undefined});
  assert.throws(()=>toSupabaseRow('teacher_evaluations',{evaluationDate:'31/02/2026'}));
- const upgraded=new PGlite();
+ const upgraded=new PGlite({extensions:{pgcrypto}});
  try {
   await upgraded.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT null::uuid $$;`);
   const old=readFileSync('supabase/schema.sql','utf8').split('-- Biên bản dự giờ: mã giáo viên bắt buộc')[0]+'COMMIT;';

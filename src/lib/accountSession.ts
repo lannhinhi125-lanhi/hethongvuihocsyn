@@ -1,0 +1,102 @@
+import { useSyncExternalStore, type SetStateAction } from 'react';
+import { supabase } from '../config/supabase';
+import { fromSupabaseRow, toSupabaseRow } from './supabaseMapper';
+import type { UserAccount, SystemRoleGroup } from '../types';
+
+type Snapshot = { actor: UserAccount | null; users: UserAccount[]; groups: SystemRoleGroup[]; loading: boolean; saving: boolean; error: string; saved: boolean };
+let state: Snapshot = { actor: null, users: [], groups: [], loading: true, saving: false, error: '', saved: false };
+const listeners = new Set<() => void>();
+const KEY = 'vuihoc_session_token';
+let token: string | null = null;
+try { token = sessionStorage.getItem(KEY); } catch { /* Phiên vẫn dùng được trong bộ nhớ. */ }
+let generation = 0;
+let revision = 0;
+let flushing = false;
+let pending: { dataset: 'users' | 'role_groups'; before: object | null; after: object | null; password?: string }[] = [];
+let confirmed: Snapshot = state;
+let timer: ReturnType<typeof setTimeout> | undefined;
+function publish(next: Snapshot) { state = next; listeners.forEach(listener => listener()); }
+function remember(value: string | null) { token = value; try { if (value) sessionStorage.setItem(KEY,value); else sessionStorage.removeItem(KEY); } catch { /* Bộ nhớ là nguồn dự phòng. */ } }
+async function rpc(name: string, args: Record<string,unknown>) {
+  const { data, error } = await supabase.schema('public').rpc(name,args);
+  if (error) throw new Error(error.code === 'PGRST202' ? 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.' : error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+function hydrate(data: {actor: Record<string,unknown>; users: Record<string,unknown>[]; role_groups: Record<string,unknown>[]}) {
+  const next: Snapshot = { actor: fromSupabaseRow('users',data.actor) as unknown as UserAccount,
+    users: data.users.map(row => fromSupabaseRow('users',row) as unknown as UserAccount),
+    groups: data.role_groups.map(row => fromSupabaseRow('role_groups',row) as unknown as SystemRoleGroup),
+    loading: false, saving: false, error: '', saved: state.saved };
+  confirmed=next; publish(next);
+}
+export async function refreshAccountSession() {
+  if (!token || state.saving || pending.length) { if (!token) publish({...state,loading:false}); return; }
+  const version=generation, startRevision=revision;
+  try { const data=await rpc('vuihoc_session',{p_token:token}); if(version===generation && startRevision===revision) hydrate(data); }
+  catch(error) { if(version!==generation || startRevision!==revision)return; remember(null); publish({...state,actor:null,users:[],groups:[],loading:false,error:(error as Error).message}); }
+}
+export async function loginAccount(username: string,password: string) {
+  const version=++generation;
+  const data=await rpc('vuihoc_login',{p_username:username,p_password:password});
+  if(version!==generation)return;
+  remember(data.token); hydrate(data);
+}
+export async function logoutAccount() {
+  const oldToken=token; ++generation; remember(null); pending=[]; clearTimeout(timer);
+  confirmed={actor:null,users:[],groups:[],loading:false,saving:false,error:'',saved:false}; publish(confirmed);
+  if(oldToken) { try { await rpc('vuihoc_logout',{p_token:oldToken}); } catch { /* Phiên cục bộ đã đóng; phiên DB tự hết hạn. */ } }
+}
+async function flush() {
+  if(flushing || !pending.length || !token) return;
+  flushing=true; const version=generation;
+  try {
+    while(pending.length && token && version===generation) {
+      const changes=pending; pending=[];
+      await rpc('vuihoc_save_accounts',{p_token:token,p_changes:changes});
+      if(version!==generation)return;
+      let users=[...confirmed.users], groups=[...confirmed.groups];
+      for(const c of changes) {
+        const rows=c.dataset==='users'?users:groups;
+        const row=c.after?fromSupabaseRow(c.dataset,c.after as Record<string,unknown>):null;
+        const id=(row?.id || (c.before as Record<string,unknown>)?.madinhdanh) as string;
+        const updated=rows.filter(item=>item.id!==id);
+        if(row)updated.push(row as unknown as UserAccount & SystemRoleGroup);
+        if(c.dataset==='users')users=updated as UserAccount[]; else groups=updated as SystemRoleGroup[];
+      }
+      confirmed={...confirmed,users,groups,saved:true};
+    }
+    if(version!==generation)return;
+    publish({...state,saving:false,saved:true});
+    await refreshAccountSession();
+  } catch(error) {
+    if(version!==generation)return;
+    pending=[]; publish({...confirmed,saving:false,error:(error as Error).message,saved:false});
+  } finally { flushing=false; if(pending.length)void flush(); }
+}
+
+function change(dataset: 'users' | 'role_groups', action: SetStateAction<UserAccount[]> | SetStateAction<SystemRoleGroup[]>) {
+  if(!token || !state.actor) return;
+  const before=dataset==='users'?state.users:state.groups;
+  const after=typeof action==='function' ? (action as (rows: typeof before)=>typeof before)(before) : action;
+  const old=new Map(before.map(row=>[row.id,row])); const next=new Map(after.map(row=>[row.id,row]));
+  for(const id of new Set([...old.keys(),...next.keys()])) {
+    const b=old.get(id),a=next.get(id);
+    if(JSON.stringify(b)===JSON.stringify(a))continue;
+    pending.push({dataset,before:b?toSupabaseRow(dataset,b):null,after:a?toSupabaseRow(dataset,a):null,
+      ...(dataset==='users' && a && 'passwordRaw' in a && a.passwordRaw ? {password:a.passwordRaw} : {})});
+  }
+  if(!pending.length)return;
+  revision++;
+  publish({...state,...(dataset==='users'?{users:after as UserAccount[]}:{groups:after as SystemRoleGroup[]}),saving:true,saved:false,error:''});
+  clearTimeout(timer); timer=setTimeout(()=>void flush(),0);
+}
+export const setSessionUsers = (action: SetStateAction<UserAccount[]>) => change('users',action);
+export const setSessionGroups = (action: SetStateAction<SystemRoleGroup[]>) => change('role_groups',action);
+export function useAccountSession() { return useSyncExternalStore(listener=>{listeners.add(listener);return()=>{listeners.delete(listener);};},()=>state); }
+if(typeof window!=='undefined') {
+  void refreshAccountSession();
+  window.addEventListener('focus',()=>void refreshAccountSession());
+  window.addEventListener('beforeunload',event=>{if(state.saving){event.preventDefault();event.returnValue='';}});
+  setInterval(()=>void refreshAccountSession(),60_000);
+}

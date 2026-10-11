@@ -23,15 +23,15 @@ export async function checkSupabaseConnection(): Promise<{ success: boolean; mes
       };
     }
 
-    const { error } = await supabase.from('NGUOI_DUNG').select('madinhdanh').limit(1);
+    const { error } = await supabase.schema('public').rpc('vuihoc_status');
     const latency = Math.round(performance.now() - start);
 
     if (error) {
       // Nếu bảng chưa được tạo bằng schema.sql
-      if (error.code === '42P01') {
+      if (error.code === '42P01' || error.code === 'PGRST202') {
         return {
           success: false,
-          message: 'Kết nối thành công nhưng chưa nạp bảng. Hãy chạy file supabase/schema.sql trên Supabase SQL Editor.',
+          message: 'Chưa có SQL đăng nhập. Hãy chạy supabase/migrations/20261011_simple_accounts.sql trên Supabase SQL Editor.',
           latencyMs: latency,
         };
       }
@@ -44,7 +44,7 @@ export async function checkSupabaseConnection(): Promise<{ success: boolean; mes
 
     return {
       success: true,
-      message: 'Kết nối Supabase thành công và sẵn sàng đồng bộ dữ liệu!',
+      message: 'Kết nối Supabase thành công. SQL tài khoản/phân quyền đã sẵn sàng.',
       latencyMs: latency,
     };
   } catch (err: any) {

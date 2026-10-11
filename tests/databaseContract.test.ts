@@ -30,7 +30,8 @@ for (const [file, interfaces] of groups) {
 const modulePath=process.env.PGLITE_MODULE_PATH;
 assert.ok(modulePath,'Set PGLITE_MODULE_PATH to the installed @electric-sql/pglite directory.');
 const {PGlite}=await import(pathToFileURL(modulePath.replace(/[/\\]$/,'')+'/dist/index.js').href);
-const db=new PGlite();
+const {pgcrypto}=await import(pathToFileURL(modulePath.replace(/[/\\]$/,'')+'/dist/contrib/pgcrypto.js').href);
+const db=new PGlite({extensions:{pgcrypto}});
 try {
  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
  CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY);
@@ -55,9 +56,10 @@ try {
   }
  }
  assert.equal((await db.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc' AND tablename='GOI_HOC'")).rows[0].n,0);
- await db.exec("SET request.jwt.claim.sub='11111111-1111-4111-8111-111111111111'; UPDATE vuihoc.\"GIAO_VIEN\" SET lichranh=lichranh || '{\"TEST-SLOT\":[\"free\"]}'::jsonb WHERE madinhdanh='GV-001';");
+ await db.exec("SET vuihoc.actor='USR-01'; UPDATE vuihoc.\"GIAO_VIEN\" SET lichranh=lichranh || '{\"TEST-SLOT\":[\"free\"]}'::jsonb WHERE madinhdanh='GV-001';");
  const audit=(await db.query('SELECT * FROM vuihoc."NHAT_KY_NGHIEP_VU" ORDER BY thoigian DESC LIMIT 1')).rows[0];
- assert.equal(audit.maxacthuc,'11111111-1111-4111-8111-111111111111');
+ assert.equal(audit.manguoithuchien,'USR-01');
+ assert.equal(audit.maxacthuc,null);
  assert.ok(audit.truongthaydoi.includes('lichranh'));
  assert.notDeepEqual(audit.dulieutruoc.lichranh,audit.dulieusau.lichranh);
  const count=async()=>Number((await db.query('SELECT count(*)::int n FROM vuihoc."NHAT_KY_NGHIEP_VU"')).rows[0].n);

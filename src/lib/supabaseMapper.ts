@@ -8,7 +8,7 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
   const result: DataRow = {};
   for (const [field,content] of Object.entries(value)) {
     if (dataset === 'weekly_availability' && field === 'weekEnd') continue;
-    if (field === 'passwordRaw' || field === 'created_at' || field === 'updated_at') continue;
+    if (field === 'auth_user_id' || field === 'passwordRaw' || field === 'created_at' || field === 'updated_at') continue;
     if (!Object.hasOwn(fields,field)) throw new Error('Chưa ánh xạ trường ' + dataset + '.' + field);
     if (dataset === 'teacher_evaluations' && ['evaluationDate','sessionDate'].includes(field) && content != null && content !== '') {
       const raw = String(content);
