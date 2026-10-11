@@ -26,7 +26,7 @@ ALTER TABLE vuihoc."NHAT_KY_NGHIEP_VU" ADD COLUMN IF NOT EXISTS manguoithuchien 
 CREATE OR REPLACE FUNCTION vuihoc.ghi_nhat_ky_nghiep_vu()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $audit$
 DECLARE truoc jsonb; sau jsonb; fields text[]; keydata jsonb:='{}'; col text;
- secret text[]:=ARRAY['matkhau_bam','maphien_bam','phienhethan','solansai','tamkhoaden','ngaycapnhat'];
+ secret text[]:=ARRAY['matkhau_mahoa','khoamatkhau','matkhau_bam','maphien_bam','phienhethan','solansai','tamkhoaden','ngaycapnhat'];
 BEGIN
  IF TG_OP<>'INSERT' THEN truoc:=to_jsonb(OLD)-secret; END IF;
  IF TG_OP<>'DELETE' THEN sau:=to_jsonb(NEW)-secret; END IF;
@@ -42,7 +42,7 @@ BEGIN
 END; $audit$;
 
 CREATE OR REPLACE FUNCTION vuihoc.tai_khoan_cong_khai(u vuihoc."NGUOI_DUNG") RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $$
- SELECT to_jsonb(u)-ARRAY['matkhau_bam','maphien_bam','phienhethan','solansai','tamkhoaden','maxacthuc','ngaytao','ngaycapnhat'] $$;
+ SELECT to_jsonb(u)-ARRAY['matkhau_mahoa','khoamatkhau','matkhau_bam','maphien_bam','phienhethan','solansai','tamkhoaden','maxacthuc','ngaytao','ngaycapnhat'] $$;
 CREATE OR REPLACE FUNCTION vuihoc.nguoi_dung_phien(p_token text) RETURNS vuihoc."NGUOI_DUNG"
  LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,extensions AS $$
  DECLARE u vuihoc."NGUOI_DUNG";

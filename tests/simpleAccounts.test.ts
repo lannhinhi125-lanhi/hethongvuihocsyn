@@ -11,15 +11,17 @@ try {
  // Deliberately no auth schema/users/uid: app login must work independently.
  await db.exec(readFileSync('supabase/schema.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011_simple_accounts.sql','utf8'));
- await assert.rejects(db.exec(readFileSync('supabase/setup_admin.sql','utf8')),/đặt mật khẩu riêng/);
- await db.exec(readFileSync('supabase/setup_admin.sql','utf8').replace('THAY_MAT_KHAU_CUA_BAN','TestAdmin@890'));
+ await db.exec(readFileSync('supabase/migrations/20261011_encrypted_passwords.sql','utf8'));
+ const setup=readFileSync('supabase/setup_admin.sql','utf8').replace(/matkhau text:='[^']*'/, "matkhau text:='THAY_MAT_KHAU_CUA_BAN'");
+ await assert.rejects(db.exec(setup),/mật khẩu/);
+ await db.exec(setup.replace('THAY_MAT_KHAU_CUA_BAN','TestAdmin@890'));
  const call=async(name:string,args:unknown[]) => (await db.query('SELECT public.'+name+'('+args.map((_,i)=>'$'+(i+1)).join(',')+') result',args)).rows[0].result;
  await db.exec('SET ROLE anon');
  await assert.rejects(db.query('SELECT * FROM vuihoc."NGUOI_DUNG"'),/permission denied/);
  assert.ok((await call('vuihoc_login',['admin.tong','bad'])).error);
  const login=await call('vuihoc_login',[' ADMIN.TONG ','TestAdmin@890']);
  const token=login.token; assert.equal(token.length,64); assert.equal(login.actor.madinhdanh,'USR-01');
- const raw=JSON.stringify(login); for(const secret of ['matkhau_bam','maphien_bam','TestAdmin@890','maxacthuc'])assert.ok(!raw.includes(secret));
+ const raw=JSON.stringify(login); for(const secret of ['matkhau_mahoa','khoamatkhau','matkhau_bam','maphien_bam','TestAdmin@890','maxacthuc'])assert.ok(!raw.includes(secret));
  await assert.rejects(call('vuihoc_session',['a'.repeat(64)]),/hết hạn/);
  const save=(changes:unknown[],t=token)=>call('vuihoc_save_accounts',[t,JSON.stringify(changes)]);
  const before=login.users.find((u:any)=>u.madinhdanh==='USR-01');
@@ -29,7 +31,9 @@ try {
  const group={madinhdanh:'ROLE-CUSTOM',tennhomquyen:'Giáo viên tùy chỉnh',phanloai:'GIẢNG DẠY',mota:'Test',soluongnguoidung:0,danhsachquyen:['Xem lịch rảnh cá nhân'],congtruycap:'TEACHER'};
  const teacher={madinhdanh:'USER-CUSTOM',manhomquyen:group.madinhdanh,hoten:'Giáo viên thử',tendangnhap:'teacher.custom',thudientu:'t@example.com',sodienthoai:'',vaitro:group.tennhomquyen,trangthai:'active',chucaiavatar:'GV'};
  await save([{dataset:'role_groups',before:null,after:group},{dataset:'users',before:null,after:teacher,password:'Teacher@890'}]);
+ assert.equal((await call('vuihoc_reveal_password',[token,'USER-CUSTOM'])).password,'Teacher@890');
  const tlogin=await call('vuihoc_login',['teacher.custom','Teacher@890']);
+ await assert.rejects(call('vuihoc_reveal_password',[tlogin.token,'USR-01']),/không có quyền/);
  assert.equal(tlogin.users.length,1);assert.equal(tlogin.role_groups.length,1);assert.equal(tlogin.role_groups[0].congtruycap,'TEACHER');
  await assert.rejects(save([{dataset:'role_groups',before:null,after:{...group,madinhdanh:'ESCALATE',congtruycap:'ADMIN',danhsachquyen:['ALL']}}],tlogin.token),/Không có quyền/);
  await assert.rejects(save([{dataset:'role_groups',before:group,after:null}]),/đang được tài khoản/);
@@ -42,18 +46,21 @@ try {
  teacherBefore=(await call('vuihoc_session',[token])).users.find((u:any)=>u.madinhdanh==='USER-CUSTOM');
  await save([{dataset:'users',before:teacherBefore,after:{...teacherBefore,trangthai:'active'},password:'NewTeacher@890'}]);
  assert.ok((await call('vuihoc_login',['teacher.custom','Teacher@890'])).error);
+ assert.equal((await call('vuihoc_reveal_password',[token,'USER-CUSTOM'])).password,'NewTeacher@890');
  const newTeacher=await call('vuihoc_login',['teacher.custom','NewTeacher@890']);assert.ok(newTeacher.token);
  await call('vuihoc_logout',[newTeacher.token]);await assert.rejects(call('vuihoc_session',[newTeacher.token]),/hết hạn/);
  for(let i=0;i<5;i++)assert.ok((await call('vuihoc_login',['teacher.custom','wrong'])).error);
  assert.ok((await call('vuihoc_login',['teacher.custom','NewTeacher@890'])).error,'5 failed attempts temporarily lock login');
  await db.exec('RESET ROLE');
- const rows=(await db.query('SELECT matkhau_bam,maphien_bam FROM vuihoc."NGUOI_DUNG" WHERE madinhdanh=$1',['USR-01'])).rows[0];
- assert.notEqual(rows.matkhau_bam,'TestAdmin@890');assert.notEqual(rows.maphien_bam,token);
+ const rows=(await db.query(`SELECT matkhau_bam,encode(matkhau_mahoa,'hex') AS cipher,maphien_bam FROM vuihoc."NGUOI_DUNG" WHERE madinhdanh=$1`,['USR-01'])).rows[0];
+ assert.equal(rows.matkhau_bam,null);assert.ok(rows.cipher);assert.notEqual(rows.cipher,'TestAdmin@890');assert.notEqual(rows.maphien_bam,token);
  const audit=JSON.stringify((await db.query('SELECT * FROM vuihoc."NHAT_KY_NGHIEP_VU"')).rows);
- for(const secret of ['TestAdmin@890','Teacher@890','NewTeacher@890',rows.matkhau_bam,rows.maphien_bam])assert.ok(!audit.includes(secret));
+ for(const secret of ['TestAdmin@890','Teacher@890','NewTeacher@890',rows.cipher,rows.maphien_bam])assert.ok(!audit.includes(secret));
+ assert.ok(!audit.includes('khoamatkhau'));assert.ok(!audit.includes('matkhau_mahoa'));
  assert.ok(audit.includes('USR-01'));assert.ok(audit.includes('matkhau'));
  assert.equal((await db.query("SELECT count(*)::int n FROM pg_tables WHERE schemaname='vuihoc'")).rows[0].n,32);
  await db.exec(readFileSync('supabase/migrations/20261011_simple_accounts.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261011_encrypted_passwords.sql','utf8'));
  assert.ok((await call('vuihoc_login',['admin.tong','TestAdmin@890'])).token,'migration rerun preserves password');
- console.log('Passed: no Supabase Auth, bcrypt, private tokens, anon denial, role assignment, custom groups, CAS, locks, password reset, last admin protection, audit redaction, 32 tables, migration rerun.');
+ console.log('Passed: no Supabase Auth, AES password encryption, private tokens, anon denial, role assignment, custom groups, CAS, locks, password reset, last admin protection, audit redaction, 32 tables, migration rerun.');
 } finally {await db.close();}

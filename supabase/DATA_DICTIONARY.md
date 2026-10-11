@@ -28,7 +28,7 @@ Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage
 - BANG_CONG_THANG.danhsachgiaovien chứa TeacherPayrollSummary, sessions và hệ số công; danhsachgiaitrinh chứa DisputeItem.
 - Cây tiêu chí, cây sự cố và danh mục bổ sung dùng JSONB. Key bên trong giữ nguyên camelCase.
 - Khóa ngoại SQL không kiểm tra mã nằm sâu trong JSONB. Backend cần kiểm tra liên kết, cập nhật nhất quán và tránh ghi đè thay đổi của người khác.
-- passwordRaw không lưu. NGUOI_DUNG.matkhau_bam lưu bcrypt; phiên đăng nhập trong NGUOI_DUNG. Không dùng Supabase Auth. Xem SIMPLE_ACCOUNTS.md.
+- passwordRaw không lưu. NGUOI_DUNG.matkhau_mahoa lưu bản mã; matkhau_bam chỉ giữ tương thích mật khẩu cũ. Phiên đăng nhập trong NGUOI_DUNG. Không dùng Supabase Auth. Xem SIMPLE_ACCOUNTS.md.
 - Ngày tạo/cập nhật do SQL quản lý; SOP.updatedAt được mapper ánh xạ riêng.
 - Dùng toSupabaseRow/fromSupabaseRow khi gửi/nhận dữ liệu. Chỉ báo lưu thành công khi database xác nhận. Kiểm thử thêm/sửa/xóa và tải lại trang sau khi tích hợp.
 
@@ -406,3 +406,7 @@ Bổ sung bảng thứ 32: BIEN_BAN_DU_GIO có FK bắt buộc tới mã giáo v
 ## Bổ sung tài khoản nội bộ (2026-10-11)
 
 NGUOI_DUNG thêm matkhau_bam text, maphien_bam text, phienhethan timestamptz, solansai integer và tamkhoaden timestamptz. NHAT_KY_NGHIEP_VU thêm manguoithuchien text FK NGUOI_DUNG. Cấu trúc vẫn 32 bảng. Thông tin đăng nhập không có trong mapper UI và không trả về client.
+
+## Mật khẩu có giải mã
+
+NGUOI_DUNG thêm matkhau_mahoa bytea; CAU_HINH_HE_THONG thêm khoamatkhau text. Khóa và bản mã không thuộc mapper UI, không có trong nhật ký. public.vuihoc_reveal_password chỉ giải mã khi người có quyền yêu cầu. Xem ENCRYPTED_PASSWORDS.md.

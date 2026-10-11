@@ -9,7 +9,7 @@
 | Chưa có schema vuihoc | Chạy toàn bộ schema.sql trong Supabase SQL Editor |
 | Đã có bản 23 bảng | Chạy migrations/20261011_timed_workflow.sql, sau đó migrations/20261011_teacher_evaluations.sql |
 | Đã có bản 31 bảng | Chỉ chạy migrations/20261011_teacher_evaluations.sql |
-| Đã có đủ 32 bảng | Chạy migrations/20261011_simple_accounts.sql rồi đặt mật khẩu theo setup_admin.sql |
+| Đã có đủ 32 bảng | Chạy migrations/20261011_simple_accounts.sql (nếu chưa có), rồi migrations/20261011_encrypted_passwords.sql; xem ENCRYPTED_PASSWORDS.md |
 
 Không cần chạy migration riêng sau khi đã chạy schema.sql mới. Migration được giữ để nâng cấp database hiện có mà không xóa dữ liệu.
 
@@ -22,11 +22,12 @@ Không cần chạy migration riêng sau khi đã chạy schema.sql mới. Migra
 - [TEACHER_EVALUATIONS.md](TEACHER_EVALUATIONS.md): biên bản dự giờ, khóa ngoại giáo viên và ca.
 - [SIMPLE_ACCOUNTS.md](SIMPLE_ACCOUNTS.md): hướng dẫn đăng nhập bằng NGUOI_DUNG, không dùng Supabase Auth.
 - [setup_admin.sql](setup_admin.sql): đặt mật khẩu quản trị đầu tiên.
+- [ENCRYPTED_PASSWORDS.md](ENCRYPTED_PASSWORDS.md): nâng cấp để quản trị giữ nút mắt xem lại mật khẩu.
 - migrations/: các bản nâng cấp từ cấu trúc cũ.
 
 ## Trạng thái tích hợp
 
-Đã nối đăng nhập riêng và đọc/lưu tài khoản, nhóm quyền bằng SQL RPC; **không dùng Supabase Auth**. Chạy migration và đặt mật khẩu theo SIMPLE_ACCOUNTS.md. Các màn nghiệp vụ khác chưa nối CRUD và chưa chuyển sang bảng nghiệp vụ mới. Chỉ nhập URL/key chưa đủ để mọi màn lưu được. RLS tiếp tục chặn truy cập bảng trực tiếp từ anon.
+Đã nối đăng nhập riêng và đọc/lưu tài khoản, nhóm quyền bằng SQL RPC; **không dùng Supabase Auth**. Chạy migration theo SIMPLE_ACCOUNTS.md và ENCRYPTED_PASSWORDS.md; database cũ đã có quản trị không cần đặt lại mật khẩu. Các màn nghiệp vụ khác chưa nối CRUD và chưa chuyển sang bảng nghiệp vụ mới. Chỉ nhập URL/key chưa đủ để mọi màn lưu được. RLS tiếp tục chặn truy cập bảng trực tiếp từ anon.
 
 Dữ liệu cũ trong JSONB không tự chuyển sang các bảng mới. Những phần còn cần xử lý khi nối giao diện:
 

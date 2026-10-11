@@ -17,9 +17,12 @@ let confirmed: Snapshot = state;
 let timer: ReturnType<typeof setTimeout> | undefined;
 function publish(next: Snapshot) { state = next; listeners.forEach(listener => listener()); }
 function remember(value: string | null) { token = value; try { if (value) sessionStorage.setItem(KEY,value); else sessionStorage.removeItem(KEY); } catch { /* Bộ nhớ là nguồn dự phòng. */ } }
-async function rpc(name: string, args: Record<string,unknown>) {
-  const { data, error } = await supabase.schema('public').rpc(name,args);
-  if (error) throw new Error(error.code === 'PGRST202' ? 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.' : error.message);
+async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSignal) {
+  const request = supabase.schema('public').rpc(name,args);
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
+  if (error) throw new Error(error.code === 'PGRST202'
+    ? (name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261011_encrypted_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
+    : error.message);
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -99,4 +102,14 @@ if(typeof window!=='undefined') {
   window.addEventListener('focus',()=>void refreshAccountSession());
   window.addEventListener('beforeunload',event=>{if(state.saving){event.preventDefault();event.returnValue='';}});
   setInterval(()=>void refreshAccountSession(),60_000);
+}
+
+/** Chỉ lấy theo yêu cầu, không đưa mật khẩu giải mã vào danh sách tài khoản/cache. */
+export async function revealAccountPassword(userId: string, signal: AbortSignal): Promise<string> {
+  if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
+  const version = generation;
+  const data = await rpc('vuihoc_reveal_password', { p_token: token, p_user_id: userId }, signal);
+  if (version !== generation || signal.aborted) throw new Error('Yêu cầu xem mật khẩu đã kết thúc.');
+  if (typeof data?.password !== 'string') throw new Error('Không lấy được mật khẩu.');
+  return data.password;
 }

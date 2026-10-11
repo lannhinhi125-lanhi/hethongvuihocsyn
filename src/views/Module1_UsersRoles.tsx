@@ -1,3 +1,5 @@
+import { SavedPasswordCell } from '../components/SavedPasswordCell';
+import { PasswordRevealButton } from '../components/PasswordRevealButton';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -12,8 +14,6 @@ import {
   ShieldCheck,
   UserPlus,
   Copy,
-  Eye,
-  EyeOff,
   Pencil,
   Lock,
   Unlock,
@@ -36,8 +36,6 @@ export const Module1_UsersRoles: React.FC = () => {
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
-  // Password visibility tracking per row
-  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
 
   // Modals state
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
@@ -72,16 +70,8 @@ export const Module1_UsersRoles: React.FC = () => {
   const copyToClipboard = (text: string, label: string) => {
     if (label.toLocaleLowerCase('vi').includes('mật khẩu') && !requirePermission('Chỉnh sửa thông tin tài khoản & Mật khẩu')) return;
     navigator.clipboard.writeText(text).then(() => {
-      showToast(`Đã sao chép ${label}: "${text}"`, 'success');
+      showToast(`Đã sao chép ${label}.`, 'success');
     });
-  };
-
-  const togglePasswordVisibility = (id: string) => {
-    if (!requirePermission("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return;
-    setRevealedPasswords(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
   };
 
   // Filter users
@@ -261,10 +251,10 @@ export const Module1_UsersRoles: React.FC = () => {
     <div className="space-y-4">
       <div className="grid gap-2 sm:grid-cols-2">
         {(['ADMIN', 'TEACHER'] as const).map(value => <button type="button" key={value} aria-pressed={portal === value} onClick={() => {
-          setPortal(value); setFilterRole(''); setFilterStatus(''); setSearchKeyword(''); setRevealedPasswords({});
+          setPortal(value); setFilterRole(''); setFilterStatus(''); setSearchKeyword('');
         }} className={'rounded-xl border p-3 text-left transition-colors ' + (portal === value ? 'border-orange-300 bg-orange-50' : 'border-slate-200 bg-white hover:bg-slate-50')}>
           <span className={'block text-sm font-bold ' + (portal === value ? 'text-orange-700' : 'text-slate-700')}>{portalLabels[value]}</span>
-          <span className="mt-1 block text-[11px] text-slate-500">{users.filter(user => (user.role === 'Giáo viên Giảng dạy' ? 'TEACHER' : 'ADMIN') === value).length} tài khoản · {roleGroups.filter(role => rolePortal(role) === value).length} nhóm quyền · {permissionModules[value].length} phân hệ</span>
+          <span className="mt-1 block text-[11px] text-slate-500">{users.filter(user => accountPortal(user, roleGroups) === value).length} tài khoản · {roleGroups.filter(role => rolePortal(role) === value).length} nhóm quyền · {permissionModules[value].length} phân hệ</span>
         </button>)}
       </div>
       {/* Header thanh chuyển đổi Tab */}
@@ -373,7 +363,6 @@ export const Module1_UsersRoles: React.FC = () => {
                     </tr>
                   ) : (
                     filteredUsers.map(u => {
-                      const isRevealed = !!revealedPasswords[u.id];
 
                       let roleBadgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
                       if (u.role === 'Quản trị Toàn quyền') roleBadgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
@@ -405,27 +394,9 @@ export const Module1_UsersRoles: React.FC = () => {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex items-center gap-1.5 font-mono bg-slate-100 px-2 py-1 rounded w-fit">
-                              <span className={isRevealed ? '' : 'tracking-widest'}>
-                                {u.passwordRaw ? (isRevealed ? u.passwordRaw : '••••••••••') : 'Đã bảo mật'}
-                              </span>
-                              <button
-                                disabled={!u.passwordRaw}
-                                onClick={() => togglePasswordVisibility(u.id)}
-                                className="text-slate-400 hover:text-slate-700"
-                                title="Ẩn/Hiện mật khẩu"
-                              >
-                                {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                disabled={!u.passwordRaw}
-                                onClick={() => copyToClipboard(u.passwordRaw, 'Mật khẩu')}
-                                className="text-slate-400 hover:text-[#FF5C00]"
-                                title="Sao chép mật khẩu"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                            <SavedPasswordCell userId={u.id} pendingPassword={u.passwordRaw}
+                              canReveal={can('Xem danh sách tài khoản và nhóm quyền') && can('Chỉnh sửa thông tin tài khoản & Mật khẩu')}
+                              onError={message => showToast(message, 'error')} />
                           </td>
                           <td className="py-3 px-4 text-slate-600">
                             <div>{u.email}</div>
@@ -620,14 +591,7 @@ export const Module1_UsersRoles: React.FC = () => {
                       className="w-full pl-3 pr-16 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"
                     />
                     <div className="absolute right-2 flex items-center gap-1.5 text-slate-400">
-                      <button
-                        type="button"
-                        onClick={() => setNewUserPassVisible(!newUserPassVisible)}
-                        className="hover:text-slate-700"
-                        title="Ẩn/Hiện mật khẩu"
-                      >
-                        {newUserPassVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
+                      <PasswordRevealButton visible={newUserPassVisible} onVisibleChange={setNewUserPassVisible} className="hover:text-slate-700" />
                       <button
                         type="button"
                         onClick={() => copyToClipboard(newUserPass, 'Mật khẩu')}
@@ -803,14 +767,7 @@ export const Module1_UsersRoles: React.FC = () => {
                       className="w-full pl-3 pr-16 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"
                     />
                     <div className="absolute right-2 flex items-center gap-1.5 text-slate-400">
-                      <button
-                        type="button"
-                        onClick={() => setEditUserPassVisible(!editUserPassVisible)}
-                        className="hover:text-slate-700"
-                        title="Ẩn/Hiện mật khẩu"
-                      >
-                        {editUserPassVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
+                      <PasswordRevealButton visible={editUserPassVisible} onVisibleChange={setEditUserPassVisible} className="hover:text-slate-700" />
                       <button
                         type="button"
                         onClick={() => copyToClipboard(editUserPass, 'Mật khẩu')}
