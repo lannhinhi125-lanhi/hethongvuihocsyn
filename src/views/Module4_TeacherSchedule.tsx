@@ -6,22 +6,23 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ClassItem } from '../types';
 import { findKnowledgeDocument } from '../lib/knowledgeSearch';
+import { materialForSessionDate, teachingWeekForDate } from '../lib/teacherScheduleMaterials';
+import { canEndClass, canEnterClass, minutesUntilClassEnd, scheduledClassStart } from '../lib/classSessionTiming';
 import {
   Calendar,
   Sparkles,
   ExternalLink,
-  Copy,
   ChevronRight,
   ChevronLeft,
   X,
   CheckCircle,
   BookOpen,
   AlertTriangle,
-  Trash2,
-  Play
+  Trash2
 } from 'lucide-react';
 
 export const Module4_TeacherSchedule: React.FC = () => {
+  const initialWeek = teachingWeekForDate(new Date());
   const { can, requirePermission } = usePermissions();
   const {
     incidents, classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
@@ -31,9 +32,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [reportedIncidentCode,setReportedIncidentCode]=useState('');
   const reportableIncidents=incidents.flatMap(group=>group.subIncidents.filter(item=>item.status));
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
-  const [fromDate, setFromDate] = useState('2026-10-05');
-  const [toDate, setToDate] = useState('2026-10-11');
-  const [currentWeekLabel, setCurrentWeekLabel] = useState('Tuần: 05/10 - 11/10/2026');
+  const [fromDate, setFromDate] = useState(initialWeek.from);
+  const [toDate, setToDate] = useState(initialWeek.to);
+  const [currentWeekLabel, setCurrentWeekLabel] = useState(initialWeek.label);
 
   // Bot chat tra cứu tài liệu tri thức; câu trả lời hiện là mô phỏng trước khi kết nối Gemini.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
@@ -88,7 +89,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
     setChatInput('');
   };
 
-  const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
+  const [selectedClassId, setSelectedClass] = useState<string | null>(null);
+  const selectedClass = classes.find(cls => cls.id === selectedClassId) || null;
   const [selectedSessionNum, setSelectedSessionNum] = useState<number>(1);
   const [selectedSessionDate, setSelectedSessionDate] = useState('');
 
@@ -101,15 +103,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [aiGenerationCount, setAiGenerationCount] = useState(0);
   const [isCriteriaSaved, setIsCriteriaSaved] = useState(false);
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast(`Đã sao chép ${label}: "${text}"`, 'success');
-    });
-  };
-
   const handleOpenClassModal = (cls: ClassItem, sessionNum: number = 1, sessionDate = fromDate) => {
     if (!requirePermission('Vào phòng học và xem học liệu lớp được giao')) return;
-    setSelectedClass(cls);
+    setSelectedClass(cls.id);
     setSelectedSessionNum(sessionNum);
     setSelectedSessionDate(sessionDate);
     const storedSession = cls.activeSessions?.[sessionNum];
@@ -144,14 +140,30 @@ export const Module4_TeacherSchedule: React.FC = () => {
       return dateValue === selectedSessionDate;
     }) || weekDates[schedule.dayIndex] : new Date(`${selectedSessionDate || fromDate}T00:00:00`);
     const dateStr = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`;
-    const checkinTime = new Date().toTimeString().slice(0, 8);
-    const scheduledStart = Number((schedule?.time.match(/^(\d{1,2}):(\d{2})/) || [])[1]) * 60 + Number((schedule?.time.match(/^(\d{1,2}):(\d{2})/) || [])[2]);
-    const [checkinHour, checkinMinute] = checkinTime.split(':').map(Number);
-    const teacherAttendance = checkinHour * 60 + checkinMinute > scheduledStart ? 'LATE' : 'ATTENDED';
+    const scheduledStart = schedule ? scheduledClassStart(dateStr, schedule.time) : null;
+    if (!scheduledStart) {
+      showToast('Chưa xác định được giờ bắt đầu của buổi học.', 'warning');
+      return;
+    }
+    const now = new Date();
     const storedSession = selectedClass.activeSessions?.[selectedSessionNum];
     const activeSession = storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === dateStr
       ? storedSession
       : undefined;
+    if (activeSession?.status === 'Đã hoàn thành') {
+      showToast('Buổi học này đã kết thúc.', 'info');
+      return;
+    }
+    if (activeSession?.status === 'Đang học' && (activeSession.checkinAt || activeSession.checkinTime)) {
+      window.open(selectedClass.roomLink, '_blank');
+      return;
+    }
+    if (!canEnterClass(now, scheduledStart)) {
+      showToast(`Chưa đến giờ vào lớp. Buổi học bắt đầu lúc ${scheduledStart.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}.`, 'warning');
+      return;
+    }
+    const checkinTime = now.toTimeString().slice(0, 8);
+    const teacherAttendance = now.getTime() >= scheduledStart.getTime() + 60_000 ? 'LATE' : 'ATTENDED';
     setClasses(previous => previous.map(cls => cls.id === selectedClass.id ? {
       ...cls,
       activeSessions: {
@@ -166,7 +178,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
           materialHs: activeSession?.materialHs || '',
           exerciseLms: selectedClassMaterial?.lms || activeSession?.exerciseLms || '',
           checkinTime,
-          checkinAt: new Date().toISOString(),
+          checkinAt: now.toISOString(),
           checkinUserId: currentUser.id,
           teacherAttendance,
           checkinBy: currentUser.name
@@ -175,9 +187,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     } : cls));
     setClassLiveStatus('DANG_HOC');
     showToast(`Đã ghi nhận ${currentUser.name} vào lớp lúc ${checkinTime}. Chuyên cần: ${teacherAttendance === 'ATTENDED' ? 'Có mặt' : 'Đi muộn'}.`, teacherAttendance === 'ATTENDED' ? 'success' : 'warning');
-    setTimeout(() => {
-      window.open(selectedClass.roomLink, '_blank');
-    }, 400);
+    window.open(selectedClass.roomLink, '_blank');
   };
 
   const handleConfirmCompleteSession = () => {
@@ -185,6 +195,23 @@ export const Module4_TeacherSchedule: React.FC = () => {
     if (!selectedClass) return;
     if (classLiveStatus !== 'DANG_HOC') {
       showToast('Lớp học chưa diễn ra! Chỉ khi ca học ở trạng thái "Đang học" mới có thể xác nhận hoàn tất.', 'warning');
+      return;
+    }
+    const activeSession = selectedClass.activeSessions?.[selectedSessionNum];
+    if (!activeSession || activeSession.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] !== selectedSessionDate) {
+      showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
+      return;
+    }
+    const checkinAt = activeSession.checkinAt
+      ? new Date(activeSession.checkinAt)
+      : activeSession.checkinTime ? new Date(`${selectedSessionDate}T${activeSession.checkinTime}`) : null;
+    if (!checkinAt || Number.isNaN(checkinAt.getTime())) {
+      showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
+      return;
+    }
+    const remainingMinutes = minutesUntilClassEnd(checkinAt, new Date());
+    if (!canEndClass(checkinAt, new Date())) {
+      showToast(`Chưa thể kết thúc lớp học. Còn ${remainingMinutes} phút để đủ 1 giờ từ lúc vào lớp.`, 'warning');
       return;
     }
     setClasses(prev =>
@@ -392,11 +419,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
     })
   ).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).slice(0, 2).map((entry, index) => ({ ...entry, session: index + 1 }));
 
-  const selectedWeekMaterial = (cls: ClassItem, session: number) => (cls.materials || []).find(material => {
-    if (material.session !== session) return false;
-    const startDate = material.week.match(/Từ ngày (\d{2})\/(\d{2})\/(\d{4})/);
-    return Boolean(startDate && `${startDate[3]}-${startDate[2]}-${startDate[1]}` === fromDate);
-  });
+  const selectedWeekMaterial = (cls: ClassItem, session: number, date: string) =>
+    materialForSessionDate(cls.materials || [], session, date);
 
   const weekDates = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(`${fromDate}T00:00:00`);
@@ -423,7 +447,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
           return [{
             cls,
             session: entry.session,
-            material: selectedWeekMaterial(cls, entry.session),
+            material: selectedWeekMaterial(cls, entry.session, dateStringForWeekDay(dayIndex)),
             coverAssignment,
             sessionDate: dateStringForWeekDay(dayIndex)
           }];
@@ -431,7 +455,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
     ))
   }));
   const selectedClassSchedule = selectedClass ? scheduleEntriesForClass(selectedClass) : [];
-  const selectedClassMaterial = selectedClass ? selectedWeekMaterial(selectedClass, selectedSessionNum) : undefined;
+  const selectedClassMaterial = selectedClass
+    ? selectedWeekMaterial(selectedClass, selectedSessionNum, selectedSessionDate || fromDate)
+    : undefined;
   const selectedSubjectKey = selectedClass
     ? subjects.find(subject => subject.code === selectedClass.subject)?.code ||
       (selectedClass.subject === 'SUB-ENG' ? 'ENG' : 'TOAN')
@@ -685,7 +711,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         assignment.sessionNum === session && assignment.dateStr === sessionDateText
                       );
                       const activeSession = selectedClass.activeSessions?.[session];
-                      const material = selectedWeekMaterial(selectedClass, session);
+                      const material = selectedWeekMaterial(selectedClass, session, sessionDateText);
                       return <button key={session} type="button" onClick={() => {
                         setSelectedSessionNum(session);
                         if (sessionDateText) setSelectedSessionDate(sessionDateText);
@@ -715,19 +741,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
                     <div className="font-bold text-slate-800">Thông tin giáo viên</div>
                     <div className="text-slate-600">
                       Giáo viên: <span className="font-bold text-slate-800">{selectedClass.teacherName}</span>
-                    </div>
-                    <div className="text-slate-600 flex items-center gap-1.5 pt-1">
-                      <span>Nickname:</span>
-                      <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">
-                        TM_M558
-                      </span>
-                      <button
-                        onClick={() => copyToClipboard('TM_M558', 'Nickname')}
-                        className="text-slate-400 hover:text-[#FF5C00]"
-                        title="Sao chép"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
 
@@ -781,23 +794,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       {classLiveStatus === 'CHUA_DIEN_RA' && (
-                        <>
-                          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold">
-                            Trạng thái: Chưa diễn ra
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setClassLiveStatus('DANG_HOC');
-                              showToast('Đã bắt đầu ca học! Trạng thái chuyển sang: ĐANG HỌC.', 'success');
-                            }}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                            title="Bắt đầu ca để chuyển sang trạng thái Đang học"
-                          >
-                            <Play className="w-3 h-3 text-amber-600 fill-amber-600" />
-                            <span>Bắt đầu giờ dạy</span>
-                          </button>
-                        </>
+                        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold">
+                          Trạng thái: Chưa diễn ra
+                        </span>
                       )}
                       {classLiveStatus === 'DANG_HOC' && (
                         <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold flex items-center gap-1.5 animate-pulse">
@@ -896,35 +895,25 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         <AlertTriangle className="w-3.5 h-3.5" />
                         <span>Báo Sự Cố Ca Học</span>
                       </button>
-                      {classLiveStatus === 'CHUA_DIEN_RA' ? (
-                        <button
-                          type="button"
-                          disabled
-                          className="px-4 py-2 bg-slate-100 text-slate-400 font-bold rounded-xl border border-slate-200 text-xs flex items-center gap-1.5 cursor-not-allowed opacity-70"
-                          title="Lớp học chưa diễn ra! Chỉ khi ca học ở trạng thái 'Đang học' thì gia sư mới có thể ấn xác nhận."
-                        >
-                          <CheckCircle className="w-4 h-4 text-slate-300" />
-                          <span>Chưa thể xác nhận (Chờ Đang học)</span>
-                        </button>
-                      ) : classLiveStatus === 'DANG_HOC' ? (
+                      {classLiveStatus === 'DANG_HOC' ? (
                         <button
                           type="button"
                           disabled={!can("Giáo viên Check-in / Check-out vào ca dạy")} onClick={handleConfirmCompleteSession}
                           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          <span>Xác Nhận Hoàn Tất Ca Dạy</span>
+                          <span>Kết thúc lớp học</span>
                         </button>
-                      ) : (
+                      ) : classLiveStatus === 'DA_HOAN_THANH' ? (
                         <button
                           type="button"
                           disabled
                           className="px-4 py-2 bg-emerald-50 text-emerald-700 font-bold rounded-xl border border-emerald-200 text-xs flex items-center gap-1.5 cursor-default"
                         >
                           <CheckCircle className="w-4 h-4 text-emerald-600" />
-                          <span>Đã Hoàn Tất Ca Dạy</span>
+                          <span>Đã kết thúc lớp học</span>
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>

@@ -8,7 +8,7 @@ Bộ [schema.sql](schema.sql) tạo 31 bảng trong schema vuihoc và dữ liệ
 
 ## Trạng thái tích hợp
 
-Giao diện hiện giữ dữ liệu trong bộ nhớ (AppContext/runtimeStorage), chưa tự ghi vào database. RLS chỉ cấp quyền service_role; anon/authenticated chưa được đọc/ghi. Chỉ điền URL/key chưa đủ để lưu. Helper cũ trong src/lib/supabase.ts và supabaseClient.ts còn dùng tên bảng tiếng Anh, cần chuyển qua supabaseMapper.ts và nối CRUD/Auth với giao diện. service_role chỉ dùng phía backend.
+Giao diện dùng src/config/supabase.ts để kết nối và src/lib/supabaseMapper.ts để ánh xạ dữ liệu. service_role chỉ dùng phía backend.
 
 ## Phân hệ và nơi lưu
 

@@ -1,6 +1,7 @@
 import { EmptyState } from '../components/EmptyState';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
+import { hasSessionStartPassed } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -623,14 +624,18 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Chế độ mô phỏng thời gian phục vụ kiểm thử theo yêu cầu:
   // "ở trong danh mục tạo 1 cca cchotoi từ 12:50 - 13:50 đi, rồi cho 1 giáo viên đđăngkis lịch rảnh đó, rồi tý đến 12:50 giáo viên chưa vào thì màn hình vận hành hiện màu đỏ ô đó đố. để thử nghiệm áy"
   const [testTimeMode, setTestTimeMode] = useState<'12:50' | '12:45' | '13:05' | 'REALTIME'>('REALTIME');
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(new Date()), 10_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Lấy mốc thời gian hiện thời để đối chiếu
   const getCurrentEffectiveTime = () => {
     if (testTimeMode === '12:45') return '12:45';
     if (testTimeMode === '12:50') return '12:50';
     if (testTimeMode === '13:05') return '13:05';
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return `${String(clockNow.getHours()).padStart(2, '0')}:${String(clockNow.getMinutes()).padStart(2, '0')}`;
   };
 
   // Hàm kiểm tra ca học đã đến giờ nhưng giáo viên chưa vào phòng -> CHUYỂN TRẠNG THÁI ĐỎ LẬP TỨC
@@ -638,20 +643,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (s.status === 'NGHI_HOC' || s.status === 'DA_HOC') return false;
     if (s.attendance === 'ATTENDED' || s.checkinTime !== null) return false;
 
-    const parts = s.timeSlot.split('-');
-    if (!parts[0]) return false;
-    const startStr = parts[0].trim();
-    const [startH, startM] = startStr.split(':').map(Number);
-    if (isNaN(startH) || isNaN(startM)) return false;
-    const startMinutes = startH * 60 + startM;
-
-    const currentStr = getCurrentEffectiveTime();
-    const [curH, curM] = currentStr.split(':').map(Number);
-    if (isNaN(curH) || isNaN(curM)) return false;
-    const currentMinutes = curH * 60 + curM;
-
-    // Đã đến hoặc quá giờ bắt đầu ca mà GV chưa vào phòng
-    return currentMinutes >= startMinutes;
+    return hasSessionStartPassed(s.sessionDate, s.timeSlot, clockNow, getCurrentEffectiveTime());
   };
 
   // Xác nhận nhanh giáo viên vào lớp cho 1 ca học cụ thể (Gỡ bỏ màu đỏ)
