@@ -256,6 +256,18 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Lọc chỉ những GIÁO VIÊN HỢP LỆ cho lớp học theo: Môn học, Khối lớp, Trạng thái và Trùng lịch
   const eligibleTeachersForClass = useMemo(() => {
+    const requestedSlots = Array.from(
+      clsSchedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
+      match => ({
+        dayIndex: match[3] ? 6 : Number(match[1]) - 2,
+        timeRange: (match[2] || match[4] || '').replace(/\s/g, '')
+      })
+    );
+    const editingClass = classes.find(item => item.id === editingClassId);
+    const originalSlots = editingClass ? new Set(Array.from(
+      editingClass.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
+      match => `${match[3] ? 6 : Number(match[1]) - 2}|${(match[2] || match[4] || '').replace(/\s/g, '')}`
+    )) : new Set<string>();
     return teachers.filter(t => {
       // 1. Phải dạy đúng môn học của lớp
       if (t.subject !== clsSubject) return false;
@@ -271,6 +283,18 @@ export const Module4_StudentsClasses: React.FC = () => {
       if (t.models && t.models.length > 0 && !t.models.includes(targetModelGroup)) {
         return false;
       }
+
+      // Mỗi ca của lớp phải nằm trong lịch rảnh đã đăng ký của giáo viên.
+      // Khi sửa lớp, ca đang thuộc chính giáo viên đó có thể đã được đánh dấu bận.
+      if (!requestedSlots.length || !requestedSlots.every(entry => {
+        const slot = timeSlots.find(item => item.status && item.timeRange.replace(/\s/g, '') === entry.timeRange);
+        if (!slot) return false;
+        const availability = t.schedule?.[slot.code] || t.schedule?.[slot.id];
+        const state = availability?.[entry.dayIndex];
+        const isOwnExistingSlot = editingClass && (editingClass.teacherId === t.id || editingClass.teacherName === t.name) &&
+          originalSlots.has(`${entry.dayIndex}|${entry.timeRange}`);
+        return state === 'free' || (isOwnExistingSlot && state === 'busy');
+      })) return false;
 
       // 4. Kiểm tra xung đột lịch với các lớp khác mà giáo viên này đang dạy
       if (clsSchedule) {
@@ -288,8 +312,8 @@ export const Module4_StudentsClasses: React.FC = () => {
       }
 
       return true;
-    });
-  }, [teachers, classes, clsSubject, clsGrade, clsModel, clsSchedule, editingClassId]);
+    }).sort((a, b) => b.freeSlots - a.freeSlots || a.name.localeCompare(b.name, 'vi'));
+  }, [teachers, classes, timeSlots, clsSubject, clsGrade, clsModel, clsSchedule, editingClassId]);
 
   // Tự động kiểm tra tính hợp lệ của giáo viên khi thay đổi môn, khối hoặc lịch học
   useEffect(() => {
@@ -773,10 +797,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsStartDate(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));
     setClsSelectedStudentIds(preStudent ? [preStudent.id] : []);
 
-    const initialEligible = teachers.find(
-      t => t.subject === targetSub && t.grades && t.grades.includes(targetGrade) && t.status !== 'TAM_NGUNG'
-    );
-    setClsTeacher(initialEligible ? initialEligible.name : '');
+    setClsTeacher('');
 
     setIsClassModalOpen(true);
   };
@@ -1807,7 +1828,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         </option>
                         {eligibleTeachersForClass.map(t => (
                           <option key={t.id} value={t.name}>
-                            {t.name} ({t.grades.join(', ')}) - Còn {t.freeSlots} ca rảnh
+                            {t.name} ({t.grades.join(', ')}) - Còn {t.freeSlots} ca rảnh{t.id === eligibleTeachersForClass[0].id ? ' · Đề xuất' : ''}
                           </option>
                         ))}
                       </>
