@@ -1,13 +1,34 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, BookOpen, CalendarDays, Check, GraduationCap, LoaderCircle, LockKeyhole, Sparkles, UserRound } from 'lucide-react';
 import { PasswordRevealButton } from '../components/PasswordRevealButton';
 import { loginAccount, useAccountSession } from '../lib/accountSession';
 
+const RECENT_LOGIN_KEY = 'vuihoc_recent_login';
+function readRecentLogin(): { username: string; password: string } | null {
+  try {
+    const raw = sessionStorage.getItem(RECENT_LOGIN_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw);
+    if (typeof value?.username === 'string' && typeof value?.password === 'string') return value;
+    sessionStorage.removeItem(RECENT_LOGIN_KEY);
+  } catch { /* Storage may be unavailable; login still works. */ }
+  return null;
+}
+function saveRecentLogin(value: { username: string; password: string } | null): boolean {
+  try {
+    if (value) sessionStorage.setItem(RECENT_LOGIN_KEY, JSON.stringify(value));
+    else sessionStorage.removeItem(RECENT_LOGIN_KEY);
+    return true;
+  } catch { return false; }
+}
 export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onLogin }) => {
   const session = useAccountSession();
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [recentLogin] = useState(readRecentLogin);
+  const [rememberLogin, setRememberLogin] = useState(Boolean(recentLogin));
+  const [rememberError, setRememberError] = useState('');
+  const [username, setUsername] = useState(recentLogin?.username ?? '');
+  const [password, setPassword] = useState(recentLogin?.password ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const loginError = error || session.error;
@@ -69,6 +90,7 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
               setError('');
               try {
                 await loginAccount(username, password);
+                saveRecentLogin(rememberLogin ? { username, password } : null);
                 setPassword('');
                 onLogin('');
               } catch (err) {
@@ -81,16 +103,30 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
                 <label htmlFor="login-username" className="mb-2 block text-sm font-semibold text-slate-700">Tên đăng nhập</label>
                 <div className="relative">
                   <UserRound aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
-                  <input id="login-username" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={username} onChange={e => setUsername(e.target.value)} placeholder="Nhập tên đăng nhập" aria-invalid={loginError ? true : undefined} aria-describedby={loginError ? 'login-error' : undefined} className="block w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3.5 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-orange-200 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100" />
+                  <input id="login-username" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={username} onChange={e => setUsername(e.target.value)} placeholder="Nhập tên đăng nhập" aria-invalid={loginError ? true : undefined} aria-describedby={loginError ? 'login-error' : undefined} className="block w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3.5 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-orange-200 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100" />
                 </div>
               </div>
               <div>
                 <label htmlFor="login-password" className="mb-2 block text-sm font-semibold text-slate-700">Mật khẩu</label>
                 <div className="relative">
                   <LockKeyhole aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
-                  <input id="login-password" type={passwordVisible ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Nhập mật khẩu của bạn" aria-invalid={loginError ? true : undefined} aria-describedby={loginError ? 'login-error' : undefined} className="block w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3.5 pl-11 pr-12 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-orange-200 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100" />
+                  <input id="login-password" name="password" type={passwordVisible ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Nhập mật khẩu của bạn" aria-invalid={loginError ? true : undefined} aria-describedby={loginError ? 'login-error' : undefined} className="block w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3.5 pl-11 pr-12 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-orange-200 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100" />
                   <PasswordRevealButton visible={passwordVisible} onVisibleChange={setPasswordVisible} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2.5 text-slate-400 transition hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-2 focus-visible:outline-orange-500" />
                 </div>
+              </div>
+              <div>
+                <label className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-600">
+                  <input type="checkbox" checked={rememberLogin} disabled={busy} aria-describedby="remember-login-hint" className="h-4 w-4 rounded border-slate-300 accent-orange-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500" onChange={e => {
+                    setRememberLogin(e.target.checked);
+                    setRememberError('');
+                    if (!e.target.checked && !saveRecentLogin(null)) {
+                      setRememberError('Không thể xóa thông tin đã nhớ. Vui lòng đóng tab này.');
+                    }
+                  }} />
+                  Ghi nhớ đăng nhập gần nhất
+                </label>
+                <p id="remember-login-hint" className="mt-1.5 pl-[26px] text-xs leading-5 text-slate-500">Lưu tạm tài khoản và mật khẩu trong tab này. Chỉ bật trên máy cá nhân.</p>
+                {rememberError && <p role="alert" className="mt-2 text-xs text-red-600">{rememberError}</p>}
               </div>
               {loginError && <p id="login-error" role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">{loginError}</p>}
               <button disabled={busy} type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-[#f4671e] px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition hover:brightness-105 hover:shadow-orange-500/30 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-500 disabled:cursor-wait disabled:opacity-60">
