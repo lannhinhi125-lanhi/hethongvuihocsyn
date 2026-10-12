@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
 
 
   const handleConfirmClear = async () => {
-    if (await confirmAction('XÓA SẠCH DỮ LIỆU: Thao tác này xóa toàn bộ dữ liệu trong phiên và đăng xuất. Dữ liệu trên Supabase không bị xóa. Bạn có chắc chắn không?')) {
+    if (await confirmAction('XÓA SẠCH DỮ LIỆU: Thao tác này xóa toàn bộ dữ liệu trong phiên và đăng xuất. Dữ liệu đã lưu trong hệ thống vẫn được giữ. Bạn có chắc chắn không?')) {
       clearAllData();
     }
   };

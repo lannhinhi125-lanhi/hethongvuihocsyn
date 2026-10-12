@@ -166,9 +166,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return resetBusinessData;
   }, [accountSession.actor?.id, accountSession.actor?.roleGroupId, teacherAccess]);
   useEffect(() => { if (businessStatus.error) showToast(businessStatus.error,'error'); },[businessStatus.error]);
-  useEffect(() => { if (businessStatus.saved && !businessStatus.saving && !businessStatus.error) showToast('Đã lưu dữ liệu lên Supabase.','success'); },[businessStatus.saved, businessStatus.saving]);
+  useEffect(() => { if (businessStatus.saved && !businessStatus.saving && !businessStatus.error) showToast('Lưu thành công.','success'); },[businessStatus.saved, businessStatus.saving]);
   useEffect(() => { if (accountSession.error) showToast(accountSession.error, 'error'); }, [accountSession.error]);
-  useEffect(() => { if (accountSession.saved && !accountSession.saving && !accountSession.error) showToast('Đã lưu tài khoản và phân quyền lên Supabase.', 'success'); }, [accountSession.saving, accountSession.saved]);
+  useEffect(() => { if (accountSession.saved && !accountSession.saving && !accountSession.error) showToast('Lưu thành công.', 'success'); }, [accountSession.saving, accountSession.saved]);
   // Tự động chuyển workspace khi đổi user
   useEffect(() => {
     if (accountPortal(currentUser, roleGroups) === 'TEACHER') {
@@ -182,7 +182,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const business = getBusinessSnapshot(), accounts = getAccountSnapshot();
     if ((type === 'success' || type === 'info') && (business.saving || accounts.saving)) return;
     if (type === 'success' && (business.error || accounts.error)) return;
-    if (type === 'success' && businessSaving()) { message='Đang lưu dữ liệu lên Supabase…'; type='info'; }
+    if (type === 'success' && businessSaving()) { message='Đang lưu…'; type='info'; }
     const id = Date.now().toString() + Math.random().toString(36).slice(2);
     setToasts(prev => [...prev, { id, type, message }]);
     setTimeout(() => {
@@ -389,7 +389,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!can('Ghi nhận và xử lý sự cố ca dạy') && !permit('Báo cáo sự cố ca dạy (đi muộn, lỗi mạng, nghỉ)')) return false;
     try {
       await teacherSessionRequest('vuihoc_report_lesson_incident',{p_class_code:classCode,p_date:date,p_time_range:timeRange,p_incident_code:incidentCode,p_note:note});
-      await loadBusinessData();showToast('Đã lưu báo cáo sự cố theo đúng buổi học lên Supabase.','success');return true;
+      await loadBusinessData();showToast('Lưu báo cáo sự cố thành công.','success');return true;
     } catch(error){showToast((error as Error).message,'error');return false;}
   };
 
@@ -783,7 +783,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }}
     >
       <ConfirmAction />
-      {(businessStatus.saving || accountSession.saving) && <div role="status" className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] rounded-xl bg-blue-600 px-4 py-2 text-sm text-white shadow-lg">Đang lưu dữ liệu lên Supabase…</div>}
+      {(businessStatus.saving || accountSession.saving) && <div role="status" className="fixed top-3 left-1/2 -translate-x-1/2 z-[110] rounded-xl bg-blue-600 px-4 py-2 text-sm text-white shadow-lg">Đang lưu…</div>}
       {(businessStatus.error || accountSession.error) && <div role="alert" className="sticky top-0 z-40 border-b border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
         <strong>Chưa lưu được dữ liệu.</strong> {businessStatus.error || accountSession.error} Vui lòng kiểm tra lỗi và thực hiện lại thao tác.
       </div>}

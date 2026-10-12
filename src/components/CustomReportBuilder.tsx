@@ -91,7 +91,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     const next = overwrite && selectedTemplate ? templates.map(item => item.id === templateId ? saved : item) : [saved, ...templates];
     if (persistTemplates(next)) {
       setTemplateId(saved.id); setSaveOpen(false);
-      showToast('Đang lưu mẫu báo cáo lên Supabase…', 'success');
+      showToast('Đang lưu mẫu báo cáo…', 'success');
     }
   };
   const exportCsv = () => {

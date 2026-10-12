@@ -178,7 +178,7 @@ export const Module1_UsersRoles: React.FC = () => {
     try {
       await deleteAccount(deletingUser.id);
       setDeletingUser(null);
-      showToast('Đã xóa tài khoản trên Supabase.', 'success');
+      showToast('Xóa tài khoản thành công.', 'success');
     } catch (error) { setDeleteError((error as Error).message); }
     finally { setDeleteBusy(false); }
   };
