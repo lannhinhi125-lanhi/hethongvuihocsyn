@@ -34,12 +34,12 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
   const loginError = error || session.error;
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#fff8f1] px-4 py-8 sm:px-8 lg:py-12">
+    <main className="login-page relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#fff8f1] px-4 py-8 sm:px-8 lg:py-12">
       <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-40 h-[480px] w-[480px] rounded-full bg-orange-200/35 blur-3xl" />
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-48 -left-24 h-[480px] w-[480px] rounded-full bg-amber-200/30 blur-3xl" />
 
       <div className="relative w-full max-w-[1080px]">
-        <header className="mb-6 flex items-center gap-3 px-1 sm:mb-8">
+        <header className="login-brand mb-6 flex items-center gap-3 px-1 sm:mb-8">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 text-2xl font-extrabold text-white shadow-lg shadow-orange-500/15" aria-hidden="true">V</div>
           <div>
             <p className="text-lg font-extrabold tracking-tight text-[#222342]">VUIHOC <span className="font-semibold text-orange-600">TUTOR</span></p>
@@ -47,8 +47,8 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
           </div>
         </header>
 
-        <div className="grid overflow-hidden rounded-[28px] border border-white bg-white shadow-[0_24px_80px_-24px_rgba(125,64,20,0.20)] lg:grid-cols-[1.05fr_1fr]">
-          <section className="relative overflow-hidden bg-gradient-to-br from-[#ff8b36] via-[#ff7426] to-[#ef5917] px-7 py-8 text-white sm:px-10 lg:flex lg:flex-col lg:px-12 lg:py-12" aria-labelledby="welcome-heading">
+        <div className="login-card grid overflow-hidden rounded-[28px] border border-white bg-white shadow-[0_24px_80px_-24px_rgba(125,64,20,0.20)] lg:grid-cols-[1.05fr_1fr]">
+          <section className="login-welcome relative overflow-hidden bg-gradient-to-br from-[#ff8b36] via-[#ff7426] to-[#ef5917] px-7 py-8 text-white sm:px-10 lg:flex lg:flex-col lg:px-12 lg:py-12" aria-labelledby="welcome-heading">
             <div aria-hidden="true" className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[45px] border-white/10" />
             <div className="relative">
               <p className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1.5 text-xs font-semibold"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Cùng nhau tạo nên những giờ học vui</p>
@@ -56,7 +56,7 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
               <p className="mt-4 max-w-sm text-sm leading-6 text-orange-50">Kết nối đội ngũ, đồng hành cùng học sinh và lan tỏa cảm hứng trong mỗi buổi học.</p>
             </div>
 
-            <div aria-hidden="true" className="relative my-10 hidden h-56 sm:block lg:my-12">
+            <div aria-hidden="true" className="login-illustration relative my-10 hidden h-56 sm:block lg:my-12">
               <div className="absolute inset-x-6 bottom-0 h-40 rounded-[50%] bg-orange-300/30" />
               <div className="absolute left-8 right-5 top-5 -rotate-3 rounded-2xl border border-white/70 bg-[#fffaf4] p-5 text-slate-800 shadow-xl shadow-orange-950/10">
                 <div className="flex items-center gap-3 border-b border-orange-100 pb-4">
@@ -76,9 +76,9 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
             <p className="relative mt-auto hidden items-center gap-2 text-xs font-medium text-orange-50 lg:flex"><BookOpen className="h-4 w-4" aria-hidden="true" /> Một nơi kết nối. Ngàn niềm vui học tập.</p>
           </section>
 
-          <section className="flex flex-col justify-center px-6 py-9 sm:px-12 sm:py-12 lg:px-14" aria-labelledby="login-heading">
-            <div className="mb-7">
-              <div aria-hidden="true" className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600"><GraduationCap className="h-6 w-6" /></div>
+          <section className="login-form-panel flex flex-col justify-center px-6 py-9 sm:px-12 sm:py-12 lg:px-14" aria-labelledby="login-heading">
+            <div className="login-intro mb-7">
+              <div aria-hidden="true" className="login-icon mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600"><GraduationCap className="h-6 w-6" /></div>
               <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-orange-600">Chào mừng trở lại</p>
               <h2 id="login-heading" className="text-[28px] font-bold tracking-tight text-[#222342]">Đăng nhập Vuihoc</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">Một ngày mới, cùng bắt đầu thật hứng khởi!</p>
@@ -133,10 +133,10 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
                 {busy ? <><LoaderCircle aria-hidden="true" className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" /> Đang đăng nhập…</> : <>Đăng nhập <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" /></>}
               </button>
             </form>
-            <p className="mt-7 border-t border-slate-100 pt-5 text-center text-xs leading-5 text-slate-500">Cần hỗ trợ tài khoản?<br /><span className="text-slate-600">Vui lòng liên hệ quản trị viên của bạn.</span></p>
+            <p className="login-support mt-7 border-t border-slate-100 pt-5 text-center text-xs leading-5 text-slate-500">Cần hỗ trợ tài khoản?<br /><span className="text-slate-600">Vui lòng liên hệ quản trị viên của bạn.</span></p>
           </section>
         </div>
-        <footer className="mt-6 text-center text-xs text-slate-500">VUIHOC TUTOR · Đồng hành trên hành trình tri thức</footer>
+        <footer className="login-footer mt-6 text-center text-xs text-slate-500">VUIHOC TUTOR · Đồng hành trên hành trình tri thức</footer>
       </div>
     </main>
   );

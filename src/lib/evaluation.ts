@@ -27,6 +27,11 @@ export function resolveAccountTeacher(user: UserAccount, teachers: TeacherProfil
 }
 
 export function resolveTeacherAccount(teacher: TeacherProfile, users: UserAccount[]): UserAccount | undefined {
+  // The database foreign key is authoritative, including renamed role groups.
+  if (teacher.user_id) return users.find(user => user.id === teacher.user_id);
+  const sameId = users.find(user => user.id === teacher.id);
+  if (sameId) return sameId;
+
   const matches = users.filter(user => user.role === 'Giáo viên Giảng dạy' && (
     user.id === teacher.id ||
     Boolean(teacher.email && user.email.toLowerCase() === teacher.email.toLowerCase()) ||

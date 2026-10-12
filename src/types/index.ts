@@ -103,6 +103,7 @@ export interface SuccessfulSession {
 }
 
 export interface TeacherProfile {
+  user_id?: string | null;
   id: string;
   name: string;
   username?: string;

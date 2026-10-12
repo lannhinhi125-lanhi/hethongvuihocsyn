@@ -15,3 +15,8 @@ assert.equal(resolveTeacherAccount(teacher,[{...account, email:'other@example.co
 assert.equal(resolveTeacherAccount(teacher,[{...account, role:'Quản trị Toàn quyền'}]), undefined);
 assert.equal(resolveTeacherAccount(teacher,[account,{...account,id:'USR-2'}]), undefined);
 console.log('Passed: date bounds, missing dates, exact account binding and ambiguous recipients.');
+
+// Explicit database links take priority over stale email/name/role values.
+assert.equal(resolveTeacherAccount({...teacher,user_id:account.id},[{...account,email:undefined,role:"Custom teacher role"} as unknown as UserAccount])?.id,account.id);
+assert.equal(resolveTeacherAccount({...teacher,user_id:account.id},[account,{...account,id:"USR-2"}])?.id,account.id);
+assert.equal(resolveTeacherAccount({...teacher,user_id:"deleted-account"},[account]),undefined);

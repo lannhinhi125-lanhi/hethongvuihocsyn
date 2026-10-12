@@ -1,3 +1,5 @@
+import { SavedPasswordCell } from '../components/SavedPasswordCell';
+import { revealAccountPassword } from '../lib/accountSession';
 import { EmptyState } from '../components/EmptyState';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
@@ -58,7 +60,7 @@ export const Module3_Teachers: React.FC = () => {
   const canManageProfiles = canManageTeacherProfiles(currentUser, roleGroups);
   const activeSubjects = subjects.filter(subject => subject.status);
   const activeCategories = teachingCategories.filter(category => category.status !== false);
-  const [isDetailPasswordVisible, setIsDetailPasswordVisible] = useState(false);
+
   const [isCreatingTeacher, setIsCreatingTeacher] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{id:string;username:string;password:string} | null>(null);
   const [scheduleModalTeacher, setScheduleModalTeacher] = useState<TeacherProfile | null>(null);
@@ -155,7 +157,7 @@ export const Module3_Teachers: React.FC = () => {
   useEffect(() => { setCreatedCredentials(null); setSelectedTeacherForDetail(null); }, [currentUser.id]);
   useEffect(() => { if (!selectedTeacherForDetail) setCreatedCredentials(null); }, [selectedTeacherForDetail?.id]);
   const detailAccount = selectedTeacherForDetail && createdCredentials?.id === selectedTeacherForDetail.id
-    ? {username:createdCredentials.username,passwordRaw:createdCredentials.password,status:'active'}
+    ? {id:createdCredentials.id,username:createdCredentials.username,passwordRaw:createdCredentials.password,status:'active'}
     : selectedTeacherForDetail ? resolveTeacherAccount(selectedTeacherForDetail, users) : undefined;
 
   // Evaluation flow state
@@ -310,7 +312,6 @@ export const Module3_Teachers: React.FC = () => {
     const credentials = await createTeacherWithAccount(profile).finally(()=>setIsCreatingTeacher(false));
     if (!credentials) return;
     setCreatedCredentials(credentials);
-    setIsDetailPasswordVisible(false);
     setSelectedTeacherForDetail({ ...profile, id: credentials.id, username: credentials.username });
     setIsCreateModalOpen(false);
     setNewTeacherName(''); setNewTeacherEmail(''); setNewTeacherPhone(''); setNewTeacherGrades([]); setNewTeacherDegree('');
@@ -599,7 +600,7 @@ export const Module3_Teachers: React.FC = () => {
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
-                              onClick={() => { setCreatedCredentials(null); setIsDetailPasswordVisible(false); setSelectedTeacherForDetail(t); }}
+                              onClick={() => { setCreatedCredentials(null); setSelectedTeacherForDetail(t); }}
                               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                               title="Xem lý lịch chi tiết"
                             >
@@ -1143,15 +1144,14 @@ export const Module3_Teachers: React.FC = () => {
                     <input aria-label="Tên đăng nhập giáo viên" readOnly value={detailAccount.username} className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-mono text-slate-800" />
                   </label>
                   <div>
-                    <label htmlFor="teacher-detail-password" className="block text-slate-600 mb-1">Mật khẩu</label>
-                    <div className="flex gap-2">
-                      <input id="teacher-detail-password" readOnly type={isDetailPasswordVisible ? 'text' : 'password'} value={detailAccount.passwordRaw || ''} className="min-w-0 flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white font-mono text-slate-800" />
-                      <button type="button" aria-label={isDetailPasswordVisible ? 'Ẩn mật khẩu giáo viên' : 'Hiện mật khẩu giáo viên'} aria-pressed={isDetailPasswordVisible} onClick={() => setIsDetailPasswordVisible(value => !value)} className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600"><Eye className="w-4 h-4" /></button>
-                    </div>
+                    <span className="block text-slate-600 mb-1">Mật khẩu</span>
+                    <SavedPasswordCell userId={detailAccount.id} pendingPassword={detailAccount.passwordRaw}
+                      canReveal={can('Xem danh sách tài khoản và nhóm quyền') && can('Chỉnh sửa thông tin tài khoản & Mật khẩu')}
+                      onError={message => showToast(message, 'warning')} />
                   </div>
                   <div className="flex flex-wrap justify-between items-center gap-2">
                     <span className="text-slate-500">Vai trò: Giáo viên • {detailAccount.status === 'active' ? 'Đang hoạt động' : 'Đã khóa'}</span>
-                    <button type="button" onClick={async () => { try { await navigator.clipboard.writeText('Tên đăng nhập: ' + detailAccount.username + '\nMật khẩu: ' + detailAccount.passwordRaw); showToast('Đã sao chép tài khoản giáo viên.', 'success'); } catch { showToast('Vui lòng sao chép trực tiếp từ các ô thông tin.', 'warning'); } }} className="inline-flex items-center gap-1.5 text-orange-700 font-semibold"><Copy className="w-3.5 h-3.5" /> Sao chép tài khoản</button>
+                    <button type="button" onClick={async () => { try { const password = detailAccount.passwordRaw || await revealAccountPassword(detailAccount.id, new AbortController().signal); await navigator.clipboard.writeText('Tên đăng nhập: ' + detailAccount.username + '\nMật khẩu: ' + password); showToast('Đã sao chép tài khoản giáo viên.', 'success'); } catch { showToast('Vui lòng sao chép trực tiếp từ các ô thông tin.', 'warning'); } }} className="inline-flex items-center gap-1.5 text-orange-700 font-semibold"><Copy className="w-3.5 h-3.5" /> Sao chép tài khoản</button>
                   </div>
                 </> : <p className="text-slate-500">Chưa có tài khoản đăng nhập liên kết với hồ sơ này.</p>}
               </section>}
