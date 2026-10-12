@@ -70,6 +70,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
   const payrollMonthOptions = getPayrollMonthOptions();
   const [activeTab, setActiveTab] = useState<'summary' | 'sessions' | 'disputes'>('summary');
+  const [detailTeacherId, setDetailTeacherId] = useState<string | null>(null);
   const [staffTypeFilter, setStaffTypeFilter] = useState<'ALL' | 'GIAO_VIEN' | 'GIA_SU'>('ALL');
   const [subjectFilter, setSubjectFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -292,6 +293,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
     monthData.disputes, staffTypeFilter, subjectFilter, disputeIdFilter, disputeStatusFilter,
     disputeTypeFilter, disputeSessionFilter, disputeContentFilter, disputeAdminNoteFilter
   ]);
+
+  const detailTeacher = monthData.teachers.find(teacher => teacher.teacherId === detailTeacherId);
+  const detailSessions = detailTeacher ? filteredSessions.filter(item => item.teacherId === detailTeacher.teacherId) : [];
 
   const activeFilterCount = (activeTab === 'summary'
     ? [
@@ -672,7 +676,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="flex overflow-x-auto border-b border-slate-200 px-3 pt-2 bg-slate-50/50">
           <button
-            onClick={() => setActiveTab('summary')}
+            onClick={() => { setDetailTeacherId(null); setActiveTab('summary'); }}
             className={`shrink-0 px-3 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'summary'
                 ? 'border-[#FF5C00] text-[#E05200]'
@@ -697,7 +701,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
             <Clock className="w-3.5 h-3.5" />
             <span>Chi tiết từng buổi học &amp; Chốt công</span>
             <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded-full text-[10px] font-bold">
-              {filteredSessions.length}
+              {detailSessions.length}
             </span>
           </button>
 
@@ -725,7 +729,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
             {activeTab === 'summary'
               ? `${filteredStaff.length} nhân sự`
               : activeTab === 'sessions'
-              ? `${filteredSessions.length} buổi học`
+              ? `${detailSessions.length} buổi học`
               : `${filteredDisputes.length} đơn giải trình`}
           </span>
           <div className="flex items-center gap-2">
@@ -885,7 +889,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                             type="button"
                             onClick={() => {
                               resetFilters();
-                              setSearchTerm(t.teacherName);
+                              setDetailTeacherId(t.teacherId);
                               setActiveTab('sessions');
                             }}
                             className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100 cursor-pointer"
@@ -907,6 +911,19 @@ export const Module7_WorkReconciliation: React.FC = () => {
         {/* Nội dung Tab 2: Chi tiết từng buổi học & Chốt công */}
         {activeTab === 'sessions' && (
           <div className="p-4 overflow-x-auto">
+            {!detailTeacher ? (
+              <div className="py-12 text-center text-sm text-slate-500">
+                <p>Vui lòng chọn gia sư từ bảng chốt công để xem chi tiết.</p>
+                <button type="button" onClick={() => { setDetailTeacherId(null); setActiveTab('summary'); }} className="mt-3 font-semibold text-[#E05200] hover:underline">Về bảng tổng hợp công</button>
+              </div>
+            ) : <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">{detailTeacher.teacherName} ({detailTeacher.teacherId})</h3>
+                <p className="mt-1 text-xs text-slate-500">Kỳ chốt công: {selectedMonth} · {detailSessions.length} buổi học</p>
+              </div>
+              <button type="button" onClick={() => { resetFilters(); setDetailTeacherId(null); setActiveTab('summary'); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Chọn gia sư khác</button>
+            </div>
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
@@ -931,7 +948,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 </tr>
               </thead>
               <PaginatedTableBody className="divide-y divide-slate-100">
-                {filteredSessions.map(({ teacherId, teacherName, staffRole, subject, session }) => {
+                {detailSessions.map(({ teacherId, teacherName, staffRole, subject, session }) => {
                   const isTutor = staffRole === 'GIA_SU';
 
                   return (
@@ -1003,8 +1020,10 @@ export const Module7_WorkReconciliation: React.FC = () => {
                     </tr>
                   );
                 })}
+                {!detailSessions.length && <tr><td colSpan={8} className="p-8 text-center text-slate-500">Không có buổi học phù hợp với bộ lọc trong kỳ này.</td></tr>}
               </PaginatedTableBody>
             </table>
+            </>}
           </div>
         )}
 
