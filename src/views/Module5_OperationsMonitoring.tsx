@@ -1,3 +1,4 @@
+import { EmptyState } from '../components/EmptyState';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
 import { PaginatedList } from '../components/Pagination';
@@ -827,7 +828,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
           {/* BẢNG GIÁM SÁT BUỔI HỌC VỚI BỘ LỌC TẠI CỘT */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                   {/* Hàng 1: Tiêu đề các cột */}
@@ -922,8 +923,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {diaryFilteredSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400">
-                        Không có buổi học nào trong khoảng thời gian hoặc điều kiện lọc này!
+                      <td colSpan={7} className="px-4 py-2 text-center">
+                        <EmptyState title="Không có buổi học nào phù hợp với bộ lọc." />
                       </td>
                     </tr>
                   ) : (
@@ -1169,7 +1170,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
           {/* BẢNG QUẢN LÝ SỰ CỐ VỚI BỘ LỌC TẠI CỘT */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                   {/* Hàng 1: Tiêu đề cột Tab 2 */}
@@ -1282,8 +1283,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {incidentFilteredSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-400">
-                        Không có ca sự cố nào trong phạm vi ngày hoặc bộ lọc đã chọn!
+                      <td colSpan={9} className="px-4 py-2 text-center">
+                        <EmptyState title="Không có ca sự cố nào phù hợp với bộ lọc." />
                       </td>
                     </tr>
                   ) : (

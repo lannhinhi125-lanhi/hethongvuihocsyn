@@ -17,7 +17,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   isOpen,
   onClose,
   title = 'Bộ lọc nâng cao',
-  subtitle = 'Tùy chỉnh nhiều tiêu chí tìm kiếm & đối soát dữ liệu',
+  subtitle = 'Chọn điều kiện để thu hẹp kết quả.',
   activeCount = 0,
   onReset,
   onApply,
@@ -26,7 +26,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-[100] overflow-hidden">
+    <div role="dialog" aria-modal="true" aria-label={title} className="workspace-ui fixed inset-0 z-[100] overflow-hidden">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
@@ -37,21 +37,21 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200 filter-drawer-enter">
           {/* Header */}
-          <div className="p-4 px-5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+          <div className="p-5 border-b border-orange-100 bg-orange-50/40 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
                 <Filter className="w-4 h-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-sm text-slate-800">{title}</h3>
                   {activeCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white shadow-2xs">
-                      {activeCount} đang bật
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-600 text-white shadow-2xs">
+                      {activeCount} điều kiện
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>
+                <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
               </div>
             </div>
 
@@ -59,7 +59,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               type="button"
               onClick={onClose}
               className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              title="Đóng bộ lọc"
+              title="Đóng bộ lọc" aria-label="Đóng bộ lọc"
             >
               <X className="w-5 h-5" />
             </button>
@@ -98,7 +98,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     onApply();
                     onClose();
                   }}
-                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>Áp dụng lọc</span>
@@ -107,7 +107,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>Áp dụng</span>

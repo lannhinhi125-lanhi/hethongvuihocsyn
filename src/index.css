@@ -47,3 +47,66 @@
 @media (prefers-reduced-motion: reduce) {
   .filter-drawer-enter { animation: none; }
 }
+
+/* Shared workspace treatment; login and teaching status colors stay independent. */
+@layer base {
+  .workspace-ui button:not(:disabled), .workspace-ui select:not(:disabled) {
+    cursor: pointer;
+  }
+  .workspace-ui button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .workspace-ui :where(button, input, select, textarea, a):focus-visible {
+    outline: 2px solid #f97316;
+    outline-offset: 3px;
+  }
+  .workspace-ui :where(input, select, textarea):disabled {
+    cursor: not-allowed;
+    background-color: #f1f5f9;
+    color: #64748b;
+  }
+  .workspace-ui :where(input, textarea)::placeholder {
+    color: #94a3b8;
+  }
+}
+
+.workspace-ui :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), select, textarea) {
+  border-radius: 0.625rem;
+}
+.workspace-ui :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), select, textarea):focus-visible {
+  border-color: #fb923c;
+  outline: 2px solid #fed7aa;
+  outline-offset: 1px;
+}
+.workspace-table-scroll {
+  max-height: min(68vh, 760px);
+  isolation: isolate;
+  scrollbar-gutter: stable;
+}
+.workspace-table-scroll > table > thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8fafc;
+  box-shadow: 0 1px 0 #e2e8f0;
+}
+.workspace-table-scroll > table > thead > tr > th {
+  vertical-align: middle;
+  line-height: 1.5;
+}
+.workspace-table-scroll > table > tbody > tr:not([class*='bg-']):has(td:not([colspan])):hover {
+  background-color: #fff7ed;
+}
+.workspace-table-scroll > table > tbody > tr > td {
+  line-height: 1.6;
+}
+@media print {
+  .workspace-table-scroll {
+    max-height: none;
+    overflow: visible;
+  }
+  .workspace-table-scroll > table > thead {
+    position: static;
+  }
+}

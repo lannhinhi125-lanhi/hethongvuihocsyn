@@ -30,13 +30,13 @@ function useChildPage(children: React.ReactNode) {
 type Page = ReturnType<typeof useChildPage>;
 function PageControls({ page }: { page: Page }) {
   if (page.total <= PAGE_SIZE) return null;
-  const button = 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed';
-  return <nav aria-label="Phân trang danh sách" className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs text-slate-500 print:hidden">
+  const button = 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed';
+  return <nav aria-label="Phân trang danh sách" className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 print:hidden">
     <span>{page.start + 1}–{page.end} / {page.total} bản ghi</span>
     <div className="flex items-center gap-2">
       <button type="button" className={button} disabled={page.page === 0} onClick={() => page.onChange(0)} aria-label="Trang đầu">Đầu</button>
       <button type="button" className={button} disabled={page.page === 0} onClick={() => page.onChange(page.page - 1)}>Trước</button>
-      <span aria-live="polite">Trang {page.page + 1}/{page.pages}</span>
+      <span aria-live="polite" className="rounded-lg bg-orange-50 px-3 py-1.5 font-semibold text-orange-700">Trang {page.page + 1}/{page.pages}</span>
       <button type="button" className={button} disabled={page.page + 1 >= page.pages} onClick={() => page.onChange(page.page + 1)}>Sau</button>
       <button type="button" className={button} disabled={page.page + 1 >= page.pages} onClick={() => page.onChange(page.pages - 1)} aria-label="Trang cuối">Cuối</button>
     </div>

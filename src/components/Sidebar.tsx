@@ -48,28 +48,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
   // Menu Quản trị chuẩn theo mẫu hệ thống (có đối soát công, không có thù lao)
   const adminNavItems = [
-    { id: 1, label: 'Tài khoản & Phân quyền', icon: ShieldCheck },
-    { id: 2, label: 'Danh mục Dùng chung', icon: SlidersHorizontal },
-    { id: 3, label: 'Hồ sơ & Chuyên môn', icon: UserCheck },
-    { id: 4, label: 'Học sinh & Ghép lớp', icon: Users },
-    { id: 5, label: 'Giám sát Ca & Sự cố', icon: CalendarCheck },
-    { id: 6, label: 'Trợ lý AI Giảng dạy', icon: Sparkles },
+    { id: 1, label: 'Tài khoản & phân quyền', icon: ShieldCheck },
+    { id: 2, label: 'Danh mục dùng chung', icon: SlidersHorizontal },
+    { id: 3, label: 'Hồ sơ & chuyên môn', icon: UserCheck },
+    { id: 4, label: 'Học sinh & ghép lớp', icon: Users },
+    { id: 5, label: 'Giám sát ca & sự cố', icon: CalendarCheck },
+    { id: 6, label: 'Trợ lý AI giảng dạy', icon: Sparkles },
     { id: 7, label: 'Đối soát công ca dạy', icon: ClipboardCheck },
-    { id: 8, label: 'Báo cáo & Thống kê', icon: PieChart }
+    { id: 8, label: 'Báo cáo & thống kê', icon: PieChart }
   ];
 
   const adminNavGroups = [
-    { title: 'Hệ thống & Cấu hình', ids: [1, 2] },
+    { title: 'Hệ thống & cấu hình', ids: [1, 2] },
     { title: 'Vận hành đào tạo', ids: [3, 4, 5] },
-    { title: 'Đối soát & Quản trị', ids: [6, 7, 8] }
+    { title: 'Đối soát & quản trị', ids: [6, 7, 8] }
   ];
 
   // Menu Cổng Giáo viên & Gia sư theo đúng luồng:
-  // 1. Đăng ký lịch rảnh (lên đầu) -> 2. Lịch dạy & Phòng học -> 3. Hồ sơ & Chuyên môn -> 4. Đối soát công ca dạy
+  // 1. Đăng ký lịch rảnh (lên đầu) -> 2. Lịch dạy & phòng học -> 3. Hồ sơ & chuyên môn -> 4. Đối soát công ca dạy
   const teacherNavItems = [
     { id: 'availability', label: 'Đăng ký lịch rảnh', icon: Clock },
-    { id: 'schedule', label: 'Lịch dạy & Phòng học', icon: CalendarCheck },
-    { id: 'evaluation', label: 'Hồ sơ & Chuyên môn', icon: FileCheck },
+    { id: 'schedule', label: 'Lịch dạy & phòng học', icon: CalendarCheck },
+    { id: 'evaluation', label: 'Hồ sơ & chuyên môn', icon: FileCheck },
     { id: 'reconcile', label: 'Đối soát công ca dạy', icon: ClipboardCheck }
   ];
 
@@ -135,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
               <h1 className="font-semibold text-sm tracking-tight text-white leading-tight">
                 VUIHOC <span className="text-orange-400 font-semibold">TUTOR</span>
               </h1>
-              <p className="text-[11px] font-normal text-[#9BAED4]">Vận hành Trực tuyến</p>
+              <p className="text-[11px] font-normal text-[#9BAED4]">Quản lý & giảng dạy</p>
             </div>
           </div>
 

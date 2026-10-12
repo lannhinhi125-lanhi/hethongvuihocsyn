@@ -1,3 +1,4 @@
+import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -1246,7 +1247,7 @@ export const Module8_Reports: React.FC = () => {
                 </span>
                 <span className="text-[11px] text-slate-500 font-mono">{dashboardRows.length} kỳ đối soát</span>
               </div>
-              <div className="overflow-x-auto">
+              <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold uppercase text-[11px]">
                     <tr>
@@ -1298,8 +1299,8 @@ export const Module8_Reports: React.FC = () => {
                       ))}
                     {dashboardRows.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-500">
-                          Không có dữ liệu trong khoảng thời gian đã chọn.
+                        <td colSpan={6} className="px-4 py-2 text-center">
+                          <EmptyState title="Không có dữ liệu trong khoảng thời gian đã chọn." />
                         </td>
                       </tr>
                     )}
@@ -1675,7 +1676,7 @@ export const Module8_Reports: React.FC = () => {
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
               {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
+                  <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
@@ -1778,8 +1779,8 @@ export const Module8_Reports: React.FC = () => {
                       <tbody className="divide-y divide-slate-100 font-medium">
                         {filteredClasses.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="py-10 text-center text-slate-400">
-                              Không có lớp học nào thỏa mãn bộ lọc đã chọn!
+                            <td colSpan={9} className="px-4 py-2 text-center">
+                              <EmptyState title="Không có lớp học nào phù hợp với bộ lọc." />
                             </td>
                           </tr>
                         ) : (
@@ -1904,7 +1905,7 @@ export const Module8_Reports: React.FC = () => {
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
               {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
+                  <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
@@ -2004,8 +2005,8 @@ export const Module8_Reports: React.FC = () => {
                       <tbody className="divide-y divide-slate-100 font-medium">
                         {filteredStudents.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="py-10 text-center text-slate-400">
-                              Không có học sinh nào thỏa mãn bộ lọc đã chọn!
+                            <td colSpan={8} className="px-4 py-2 text-center">
+                              <EmptyState title="Không có học sinh nào phù hợp với bộ lọc." />
                             </td>
                           </tr>
                         ) : (
@@ -2123,7 +2124,7 @@ export const Module8_Reports: React.FC = () => {
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
               {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
+                  <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
@@ -2208,8 +2209,8 @@ export const Module8_Reports: React.FC = () => {
                       <tbody className="divide-y divide-slate-100 font-medium">
                         {filteredTutors.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="py-10 text-center text-slate-400">
-                              Không có gia sư nào thỏa mãn bộ lọc đã chọn!
+                            <td colSpan={8} className="px-4 py-2 text-center">
+                              <EmptyState title="Không có gia sư nào phù hợp với bộ lọc." />
                             </td>
                           </tr>
                         ) : (
@@ -2332,7 +2333,7 @@ export const Module8_Reports: React.FC = () => {
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
               {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
+                  <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
@@ -2395,8 +2396,8 @@ export const Module8_Reports: React.FC = () => {
                       <tbody className="divide-y divide-slate-100 font-medium">
                         {filteredIncidents.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="py-10 text-center text-slate-400">
-                              Không có dữ liệu sự cố nào phù hợp!
+                            <td colSpan={8} className="px-4 py-2 text-center">
+                              <EmptyState title="Không có dữ liệu sự cố nào phù hợp." />
                             </td>
                           </tr>
                         ) : (
@@ -2520,7 +2521,7 @@ export const Module8_Reports: React.FC = () => {
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
               {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
+                  <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
@@ -2673,7 +2674,7 @@ export const Module8_Reports: React.FC = () => {
               {/* BẢNG SỐ LIỆU VỚI BỘ LỌC TRÊN CỘT */}
               {fixedViewMode === 'table' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
+                  <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>

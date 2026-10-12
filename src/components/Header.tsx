@@ -29,21 +29,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
 
   // Tiêu đề chức năng hệ thống (chuẩn nghiệp vụ, có đối soát công, không có thù lao)
   const adminModuleTitles: Record<number, { cat: string; title: string }> = {
-    1: { cat: 'Hệ thống', title: 'Tài khoản & Phân quyền' },
-    2: { cat: 'Hệ thống', title: 'Danh mục Dùng chung' },
-    3: { cat: 'Chuyên môn', title: 'Hồ sơ & Chuyên môn' },
-    4: { cat: 'Vận hành', title: 'Học sinh & Ghép lớp' },
-    5: { cat: 'Vận hành', title: 'Giám sát Ca & Sự cố' },
-    6: { cat: 'Vận hành', title: 'Trợ lý AI Giảng dạy' },
-    7: { cat: 'Vận hành & Đối soát', title: 'Đối soát công ca dạy & Gia sư' },
-    8: { cat: 'Thống kê', title: 'Báo cáo & Thống kê' }
+    1: { cat: 'Hệ thống', title: 'Tài khoản & phân quyền' },
+    2: { cat: 'Hệ thống', title: 'Danh mục dùng chung' },
+    3: { cat: 'Chuyên môn', title: 'Hồ sơ & chuyên môn' },
+    4: { cat: 'Vận hành', title: 'Học sinh & ghép lớp' },
+    5: { cat: 'Vận hành', title: 'Giám sát ca & sự cố' },
+    6: { cat: 'Vận hành', title: 'Trợ lý AI giảng dạy' },
+    7: { cat: 'Vận hành & Đối soát', title: 'Đối soát công ca dạy' },
+    8: { cat: 'Thống kê', title: 'Báo cáo & thống kê' }
   };
 
   // Tiêu đề Cổng Giáo viên & Gia sư (chuẩn nghiệp vụ giảng dạy)
   const teacherTabTitles: Record<string, { cat: string; title: string }> = {
-    schedule: { cat: 'Giảng dạy', title: 'Lịch dạy & Phòng học' },
-    reconcile: { cat: 'Nghiệp vụ ca dạy', title: 'Đối soát công ca dạy & Gia sư' },
-    evaluation: { cat: 'Chuyên môn', title: 'Hồ sơ & Chuyên môn' },
+    schedule: { cat: 'Giảng dạy', title: 'Lịch dạy & phòng học' },
+    reconcile: { cat: 'Nghiệp vụ ca dạy', title: 'Đối soát công ca dạy' },
+    evaluation: { cat: 'Chuyên môn', title: 'Hồ sơ & chuyên môn' },
     availability: { cat: 'Thời khóa biểu', title: 'Đăng ký lịch rảnh' }
   };
 
@@ -61,13 +61,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+      <header className="h-16 shrink-0 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
         <div className="flex items-center gap-3 min-w-0">
           {/* Mobile menu button */}
           <button
             onClick={onToggleMobileMenu}
             className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 lg:hidden cursor-pointer"
-            title="Mở menu"
+            title="Mở menu" aria-label="Mở menu"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -97,10 +97,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
           <button
             disabled={currentUser.role !== 'Quản trị Toàn quyền'} onClick={handleConfirmClear}
             className="p-1.5 sm:px-2.5 sm:py-1.5 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-md border border-slate-200 hover:border-rose-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-            title="Xóa toàn bộ dữ liệu trong phiên và đăng xuất"
+            title="Xóa dữ liệu phiên và đăng xuất" aria-label="Xóa dữ liệu phiên và đăng xuất"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-            <span className="hidden xl:inline">Xóa dữ liệu</span>
+            <span className="hidden xl:inline">Xóa dữ liệu phiên</span>
           </button>
 
           <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
@@ -126,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
           ) : <button type="button" onClick={onLogout} className="px-3 py-2 text-xs border border-slate-200 rounded-lg">Đăng xuất</button>}
           {/* Avatar người dùng hiện tại */}
           <div className="flex items-center gap-2 pl-1">
-            <div className="w-8 h-8 rounded-md bg-slate-900 text-white flex items-center justify-center font-semibold text-xs border border-slate-700">
+            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-700 flex items-center justify-center font-semibold text-xs border border-orange-100">
               {currentUser.avatarInitials}
             </div>
             <div className="text-left hidden lg:block">

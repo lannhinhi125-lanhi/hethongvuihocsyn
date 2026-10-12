@@ -1,3 +1,4 @@
+import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { ClassDetailsModal } from '../components/ClassDetailsModal';
@@ -1133,7 +1134,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
           {/* Bảng danh sách học sinh */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-[11px]">
                   <tr>
@@ -1150,7 +1151,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 text-xs">
-                  {filteredStudents.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-slate-500">Không có học sinh phù hợp với bộ lọc.</td></tr>}
+                  {filteredStudents.length === 0 && <tr><td colSpan={10} className="px-4 py-2 text-center"><EmptyState title="Không có học sinh phù hợp với bộ lọc." /></td></tr>}
                   {filteredStudents.map(student => <tr key={student.id} className="hover:bg-slate-50">
                     <td className="px-3 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{student.id}</td>
                     <td className="px-3 py-3 font-semibold text-[#FF5C00] min-w-36">{student.name}</td>
@@ -1212,12 +1213,12 @@ export const Module4_StudentsClasses: React.FC = () => {
             </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-left text-xs">
+          <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden"><div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn"><table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px]"><tr>
               {([['Mã lớp','code'],['Tên lớp','name'],['Loại lớp','category'],['Khối lớp','grade'],['Môn học','subject'],['Mô hình','model'],['Trình độ','level'],['Lịch học','schedule'],['Sĩ số','occupancy'],['Trạng thái','status'],['Giáo viên','teacher']] as [string, ClassFilterKey][]).map(([label,key]) => <th key={key} className="py-3 px-3 whitespace-nowrap">{classColumn(label,key)}</th>)}
               <th className="py-3 px-3 text-center">Thao tác</th>
             </tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
-              {!filteredClasses.length && <tr><td colSpan={12} className="p-8 text-center text-slate-400">Không có lớp học phù hợp với bộ lọc.</td></tr>}
+              {!filteredClasses.length && <tr><td colSpan={12} className="px-4 py-2 text-center"><EmptyState title="Không có lớp học phù hợp với bộ lọc." /></td></tr>}
               {filteredClasses.map(item => <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-3 py-3 font-mono font-semibold text-[#FF5C00] whitespace-nowrap">{item.code}</td><td className="px-3 py-3 font-semibold min-w-40">{item.name}</td>
                 <td className="px-3 py-3 whitespace-nowrap">{classCategoryName(item)}</td><td className="px-3 py-3 whitespace-nowrap">{gradeName(item.grade)}</td><td className="px-3 py-3 whitespace-nowrap text-[#FF5C00]">{subjectName(item.subject)}</td>
@@ -1292,7 +1293,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
           {/* Bảng lịch sử học liệu theo lớp */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full min-w-[1200px] text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                   <tr>
@@ -1345,7 +1346,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                       </tr>
                     );
                   })}
-                  {!materialRowsForView.length && <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-500">Không có lớp nào khớp với bộ lọc hiện tại.</td></tr>}
+                  {!materialRowsForView.length && <tr><td colSpan={9} className="px-4 py-2 text-center"><EmptyState title="Không có lớp nào khớp với bộ lọc hiện tại." /></td></tr>}
                 </PaginatedTableBody>
               </table>
             </div>

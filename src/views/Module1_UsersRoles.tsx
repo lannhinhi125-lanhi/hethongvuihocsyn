@@ -1,3 +1,4 @@
+import { EmptyState } from '../components/EmptyState';
 import { confirmAction } from '../components/ConfirmAction';
 import { deleteAccount } from '../lib/accountSession';
 import { SavedPasswordCell } from '../components/SavedPasswordCell';
@@ -365,13 +366,13 @@ export const Module1_UsersRoles: React.FC = () => {
 
           {/* Bảng danh sách User có Xem/Copy Username & Password */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="py-3.5 px-4">Nhân sự</th>
                     <th className="py-3.5 px-4">Tên đăng nhập</th>
-                    <th className="py-3.5 px-4">Mật khẩu (Xem / Copy)</th>
+                    <th className="py-3.5 px-4">Mật khẩu</th>
                     <th className="py-3.5 px-4">Liên hệ</th>
                     <th className="py-3.5 px-4">Nhóm quyền</th>
                     <th className="py-3.5 px-4">Trạng thái</th>
@@ -381,8 +382,8 @@ export const Module1_UsersRoles: React.FC = () => {
                 <PaginatedTableBody className="divide-y divide-slate-100 font-normal">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">
-                        Không tìm thấy tài khoản người dùng phù hợp.
+                      <td colSpan={7} className="px-4 py-2 text-center">
+                        <EmptyState title="Không tìm thấy tài khoản phù hợp." />
                       </td>
                     </tr>
                   ) : (
@@ -490,7 +491,7 @@ export const Module1_UsersRoles: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-slate-800">Nhóm quyền — {portalLabels[portal]}</h2>
-              <p className="text-xs text-slate-500">Chọn nhóm quyền để cấu hình tiêu chí theo từng phân hệ của cổng này.</p>
+              <p className="text-xs text-slate-500">Chọn nhóm quyền để thiết lập quyền truy cập.</p>
             </div>
             <button
               disabled={!can('Tạo, sửa, xóa & Gán Nhóm quyền')}
@@ -567,7 +568,7 @@ export const Module1_UsersRoles: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="font-bold text-base text-slate-800">Cấp Tài khoản Người dùng Mới</h3>
+                <h3 className="font-bold text-base text-slate-800">Tạo tài khoản</h3>
                 <p className="text-xs text-slate-400">Thiết lập thông tin đăng nhập và gán nhóm quyền tương ứng</p>
               </div>
               <button
@@ -735,8 +736,8 @@ export const Module1_UsersRoles: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="font-bold text-base text-slate-800">Chỉnh sửa Thông tin Tài khoản</h3>
-                <p className="text-xs text-slate-400">Xem, sao chép hoặc thay đổi thông tin định danh và quyền hạn</p>
+                <h3 className="font-bold text-base text-slate-800">Chỉnh sửa tài khoản</h3>
+                <p className="text-xs text-slate-400">Cập nhật thông tin và nhóm quyền của tài khoản.</p>
               </div>
               <button
                 onClick={() => setEditingUser(null)}

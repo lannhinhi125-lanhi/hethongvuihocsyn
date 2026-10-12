@@ -1,3 +1,4 @@
+import { EmptyState } from '../components/EmptyState';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -396,10 +397,10 @@ export const Module3_Teachers: React.FC = () => {
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-slate-800">Quản lý Giáo viên &amp; Đánh giá Dự giờ</h2>
+            <h2 className="text-xl font-bold text-slate-800">Giáo viên &amp; đánh giá dự giờ</h2>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Dữ liệu liên kết trực tiếp với Danh mục môn học, Khung giờ chuẩn và Giám sát ca dạy.
+            Quản lý hồ sơ, lịch rảnh và đánh giá chất lượng giảng dạy.
           </p>
         </div>
 
@@ -516,7 +517,7 @@ export const Module3_Teachers: React.FC = () => {
 
           {/* Bảng hồ sơ giáo viên */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
                   <tr>
@@ -530,7 +531,7 @@ export const Module3_Teachers: React.FC = () => {
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
-                  {filteredTeachers.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-500">Không có giáo viên phù hợp với bộ lọc.</td></tr>}
+                  {filteredTeachers.length === 0 && <tr><td colSpan={7} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
                   {filteredTeachers.map(t => {
                     const isMath = t.subject === 'SUB-MATH';
                     const badgeColor = isMath
@@ -648,7 +649,7 @@ export const Module3_Teachers: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Dữ liệu khung giờ học được đồng bộ tự động từ danh mục ca chuẩn Time Slot. Vận hành tra cứu tình trạng rảnh hoặc kín lịch để ghép lớp.
+                Tra cứu lịch rảnh của giáo viên để phân công lớp phù hợp.
               </p>
             </div>
 
@@ -663,7 +664,7 @@ export const Module3_Teachers: React.FC = () => {
           </div>
           {/* Bảng danh sách */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                   <tr>
@@ -678,7 +679,7 @@ export const Module3_Teachers: React.FC = () => {
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
-                  {filteredAvailability.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">Không có giáo viên phù hợp với bộ lọc.</td></tr>}
+                  {filteredAvailability.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
                   {filteredAvailability
                     .map(t => (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors">
@@ -761,7 +762,7 @@ export const Module3_Teachers: React.FC = () => {
 
           {/* Bảng danh sách giáo viên chuyên môn */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                   <tr>
@@ -917,8 +918,8 @@ export const Module3_Teachers: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="font-bold text-base text-slate-800">Thêm mới Hồ sơ Giáo viên</h3>
-                <p className="text-xs text-slate-400">Thông tin liên kết trực tiếp với bảng tài khoản NGUOI_DUNG và danh mục MON_HOC</p>
+                <h3 className="font-bold text-base text-slate-800">Thêm giáo viên</h3>
+                <p className="text-xs text-slate-400">Điền thông tin cá nhân và chuyên môn của giáo viên.</p>
               </div>
               <button onClick={() => { if (!isCreatingTeacher) setIsCreateModalOpen(false); }} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />

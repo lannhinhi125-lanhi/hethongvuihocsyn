@@ -44,7 +44,7 @@ const MainLayout: React.FC = () => {
   if(business.error && !Object.keys(business.data).length)return <main className="p-8" role="alert">{business.error} <button className="underline" onClick={()=>void loadBusinessData()}>Thử tải lại</button> <button className="underline" onClick={()=>void logoutAccount()}>Đăng xuất</button></main>;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased font-sans">
+    <div className="workspace-ui flex h-screen overflow-hidden bg-[#f8f9fc] text-slate-800 antialiased font-sans">
       {/* Sidebar điều hướng thông minh theo phân quyền (Quản trị vs Giáo viên & Gia sư) */}
       <Sidebar mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} />
 
