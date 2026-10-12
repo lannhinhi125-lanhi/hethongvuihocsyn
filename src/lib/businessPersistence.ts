@@ -47,7 +47,12 @@ export function acceptBusinessTeacher(teacher:Row){
 }
 export function setBusinessValue(key:string,action:SetStateAction<any>){
  if(state.loading){publish({...state,error:'Đang tải dữ liệu. Vui lòng đợi rồi lưu lại.'});return;}
- const previous=state.data[key]??initial(key),value=typeof action==='function'?action(previous):action;
+ const previous=state.data[key]??initial(key);
+ let value=typeof action==='function'?action(previous):action;
+ if(collections.includes(key as SupabaseDataset)&&key!=='time_slots'&&Array.isArray(previous)&&Array.isArray(value)){
+  const existingIds=new Set(previous.map((row:Row)=>row.id));
+  value=[...value.filter((row:Row)=>!existingIds.has(row.id)),...value.filter((row:Row)=>existingIds.has(row.id))];
+ }
  if(JSON.stringify(value)===JSON.stringify(previous))return;
  try {encode(key,value);}catch(error){publish({...state,error:(error as Error).message});return;}
  publish({...state,data:{...state.data,[key]:value},saving:true,error:''});
@@ -76,7 +81,15 @@ async function flush(){
    confirmed=snapshot;
    for(const c of changes){raw[c.dataset]=(raw[c.dataset]||[]).filter(r=>r.madinhdanh!==(c.after||c.before).madinhdanh);if(c.after)raw[c.dataset].push(c.after);}
    const more=JSON.stringify(state.data)!==JSON.stringify(snapshot);
-   if(!more&&receipt.data){raw=receipt.data;confirmed=decode(raw);}
+   if(!more&&receipt.data){
+    raw=receipt.data;confirmed=decode(raw);
+    // Keep the visible order after the server confirms the save.
+    for(const key of collections){
+     if(key==='time_slots'||!Array.isArray(snapshot[key]))continue;
+     const positions=new Map(snapshot[key].map((row:Row,index:number)=>[row.id,index]));
+     confirmed[key].sort((a:Row,b:Row)=>Number(positions.get(a.id)??Infinity)-Number(positions.get(b.id)??Infinity));
+    }
+   }
    publish({...state,data:more?state.data:confirmed,saving:more,saved:state.saved+1});
   }
  }catch(error){if(version===generation)publish({...state,data:confirmed,saving:false,error:(error as Error).message});}

@@ -8,7 +8,7 @@ import { StudentSchedulePicker } from '../components/StudentSchedulePicker';
 import { ClassSuggestions } from '../components/ClassSuggestions';
 import { ColumnFilter } from '../components/ColumnFilter';
 import { schedulesOverlap } from '../lib/workflow';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
 import { StudentRecord, ClassItem } from '../types';
@@ -326,6 +326,35 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [isBatchGradeDropdownOpen, setIsBatchGradeDropdownOpen] = useState(false);
   const [isBatchLevelDropdownOpen, setIsBatchLevelDropdownOpen] = useState(false);
   const [isBatchClassDropdownOpen, setIsBatchClassDropdownOpen] = useState(false);
+  const batchGradeDropdownRef = useRef<HTMLDivElement>(null);
+  const batchLevelDropdownRef = useRef<HTMLDivElement>(null);
+  const batchClassDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isBatchMaterialModalOpen) {
+      setIsBatchGradeDropdownOpen(false);
+      setIsBatchLevelDropdownOpen(false);
+      setIsBatchClassDropdownOpen(false);
+      return;
+    }
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!batchGradeDropdownRef.current?.contains(target)) setIsBatchGradeDropdownOpen(false);
+      if (!batchLevelDropdownRef.current?.contains(target)) setIsBatchLevelDropdownOpen(false);
+      if (!batchClassDropdownRef.current?.contains(target)) setIsBatchClassDropdownOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setIsBatchGradeDropdownOpen(false);
+      setIsBatchLevelDropdownOpen(false);
+      setIsBatchClassDropdownOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOutside, true);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside, true);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isBatchMaterialModalOpen]);
   const [materialDetails, setMaterialDetails] = useState<{ item: ClassItem; month: string; week: string; materials: ClassItem['materials'] } | null>(null);
   const [editingMaterialClassId, setEditingMaterialClassId] = useState<string | null>(null);
   const [pendingMaterialDelete, setPendingMaterialDelete] = useState<{ item: ClassItem; month: string; week: string } | null>(null);
@@ -1909,7 +1938,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
                   </select>
                 </label>
-                <div className="relative">
+                <div ref={batchGradeDropdownRef} className="relative">
                   <span className="block font-semibold text-slate-700">Lớp/khối trong loại lớp</span>
                   <button type="button" aria-expanded={isBatchGradeDropdownOpen} onClick={() => { setIsBatchGradeDropdownOpen(open => !open); setIsBatchLevelDropdownOpen(false); setIsBatchClassDropdownOpen(false); }} className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left font-normal text-slate-700">
                     <span>{batchGradeIds.length ? `${batchGradeIds.length} mục đã chọn` : 'Chọn lớp/khối'}</span><ChevronDown className="h-4 w-4" />
@@ -1933,7 +1962,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     />
                   </div>}
                 </div>
-                <div className="relative">
+                <div ref={batchLevelDropdownRef} className="relative">
                   <span className="block font-semibold text-slate-700">Trình độ lớp</span>
                   <button type="button" aria-expanded={isBatchLevelDropdownOpen} onClick={() => { setIsBatchLevelDropdownOpen(open => !open); setIsBatchGradeDropdownOpen(false); setIsBatchClassDropdownOpen(false); }} className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left font-normal text-slate-700">
                     <span>{batchLevelIds.length ? `${batchLevelIds.length} trình độ đã chọn` : 'Chọn trình độ'}</span><ChevronDown className="h-4 w-4" />
@@ -1957,7 +1986,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     />
                   </div>}
                 </div>
-                <div className="relative sm:col-span-2">
+                <div ref={batchClassDropdownRef} className="relative sm:col-span-2">
                   <span className="block font-semibold text-slate-700">Chọn lớp nhận học liệu ({batchSelectedClassIds.length} lớp)</span>
                   <button type="button" aria-expanded={isBatchClassDropdownOpen} onClick={() => { setIsBatchClassDropdownOpen(open => !open); setIsBatchGradeDropdownOpen(false); setIsBatchLevelDropdownOpen(false); }} className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left font-normal text-slate-700">
                     <span>{batchSelectedClassIds.length ? `${batchSelectedClassIds.length} lớp đã chọn` : 'Chọn một hoặc nhiều lớp'}</span><ChevronDown className="h-4 w-4" />

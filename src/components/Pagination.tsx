@@ -51,7 +51,7 @@ function useChildPage(children: React.ReactNode) {
       if (!isValidElement<{ className?: string }>(row) || row.type === React.Fragment) return row;
       const key = String(row.key ?? (window.start + index));
       return highlightedKeys.includes(key) ? React.cloneElement(row, {
-        className: `${row.props.className || ''} !bg-amber-100 ring-1 ring-inset ring-amber-300 transition-colors duration-700`
+        className: `${row.props.className || ''} !bg-slate-200 ring-1 ring-inset ring-slate-300 transition-colors duration-700`
       }) : row;
     }),
     onChange: (page: number) => setSelection({ signature, page }) };
