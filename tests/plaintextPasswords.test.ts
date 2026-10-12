@@ -38,5 +38,10 @@ try {
  const audit=JSON.stringify((await db.query('SELECT dulieutruoc,dulieusau FROM vuihoc."NHAT_KY_NGHIEP_VU"')).rows);assert.ok(!audit.includes('87654321'));assert.ok(!audit.includes('001234'));
  await db.exec(migration);assert.ok((await call('vuihoc_login',['gv.001','87654321'])).token);
  await db.exec(readFileSync('supabase/schema.sql','utf8'));assert.ok((await call('vuihoc_login',['gv.001','87654321'])).token);
+ const cleanup=readFileSync('supabase/migrations/20261012_cleanup_user_columns.sql','utf8');
+ await db.exec(cleanup);await db.exec(cleanup);
+ assert.equal((await db.query(`SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='NGUOI_DUNG' AND column_name='maxacthuc'`)).rows[0].n,0);
+ const afterCleanup=await call('vuihoc_login',['gv.001','87654321']);assert.ok(afterCleanup.token);
+ assert.ok((await call('vuihoc_business_data',[afterCleanup.token])).teachers.length);
  console.log('PASS: upgrade, one text column, numeric/leading-zero preservation, old password fallback, reset/login, validation, teacher issuance, audit, rerun.');
 } finally {await db.close();}
