@@ -1,3 +1,4 @@
+import { confirmAction } from '../components/ConfirmAction';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -144,9 +145,9 @@ export const Module6_AIStudio: React.FC = () => {
     setIsCatModalOpen(false);
   };
 
-  const handleDeleteCategory = (catId: string, name: string) => {
+  const handleDeleteCategory = async (catId: string, name: string) => {
     if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    if (window.confirm(`Xóa danh mục "${name}"?`)) {
+    if (await confirmAction(`Xóa danh mục "${name}"?`)) {
       setCriteriaCategories(prev => prev.filter(c => c.id !== catId));
       showToast(`Đã xóa danh mục "${name}"!`, 'info');
     }
@@ -532,8 +533,8 @@ export const Module6_AIStudio: React.FC = () => {
                                   <Pencil className="w-3 h-3" />
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    if (window.confirm(`Xóa tiêu chí "${cri.name}"?`)) {
+                                  onClick={async () => {
+                                    if (await confirmAction(`Xóa tiêu chí "${cri.name}"?`)) {
                                       setCriteriaCategories(prev =>
                                         prev.map(c =>
                                           c.id === cat.id
@@ -790,8 +791,8 @@ export const Module6_AIStudio: React.FC = () => {
                             <Pencil className="w-3 h-3" /> Sửa
                           </button>
                           <button
-                            onClick={() => {
-                              if (window.confirm(`Xóa văn bản "${doc.title}"?`)) {
+                            onClick={async () => {
+                              if (await confirmAction(`Xóa văn bản "${doc.title}"?`)) {
                                 setSopDocuments(prev => prev.filter(d => d.id !== doc.id));
                               }
                             }}

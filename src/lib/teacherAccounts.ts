@@ -13,9 +13,8 @@ export function generateTeacherCredentials(teachers: TeacherProfile[], users: Us
   for (const code of used) { const match = /^GV-(\d+)$/.exec(code); if (match) number = Math.max(number, Number(match[1]) + 1); }
   let id = 'GV-' + String(number).padStart(3, '0');
   while (used.has(id)) id = 'GV-' + String(++number).padStart(3, '0');
-  const random = crypto.getRandomValues(new Uint8Array(16));
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-  const password = 'Gv@' + Array.from(random, value => alphabet[value % alphabet.length]).join('');
+  const random = crypto.getRandomValues(new Uint8Array(8));
+  const password = Array.from(random, value => String(value % 10)).join('');
   return { id, username: id, password };
 }
 

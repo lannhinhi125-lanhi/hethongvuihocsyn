@@ -1,3 +1,5 @@
+import { confirmAction } from '../components/ConfirmAction';
+import { deleteAccount } from '../lib/accountSession';
 import { SavedPasswordCell } from '../components/SavedPasswordCell';
 import { PasswordRevealButton } from '../components/PasswordRevealButton';
 import { PaginatedList } from '../components/Pagination';
@@ -15,6 +17,7 @@ import {
   UserPlus,
   Copy,
   Pencil,
+  Trash2,
   Lock,
   Unlock,
   CheckCircle,
@@ -25,8 +28,11 @@ import {
 
 export const Module1_UsersRoles: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { users, roleGroups, setRoleGroups, addUser, updateUser, toggleLockUser, showToast } = useApp();
+  const { users, currentUser, roleGroups, setRoleGroups, addUser, updateUser, toggleLockUser, showToast } = useApp();
 
+  const [deletingUser, setDeletingUser] = useState<UserAccount | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [portal, setPortal] = useState<AccountPortal>('ADMIN');
   const [roleFormPortal, setRoleFormPortal] = useState<AccountPortal>('ADMIN');
   const portalUsers = users.filter(user => accountPortal(user, roleGroups) === portal);
@@ -50,8 +56,8 @@ export const Module1_UsersRoles: React.FC = () => {
   // Create User Form state
   const [newUserName, setNewUserName] = useState('');
   const [newUserUsername, setNewUserUsername] = useState('');
-  const [newUserPass, setNewUserPass] = useState('Vuihoc@2026');
-  const [newUserPassVisible, setNewUserPassVisible] = useState(false);
+  const [newUserPass, setNewUserPass] = useState('123456');
+  const [newUserPassVisible, setNewUserPassVisible] = useState(true);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
@@ -61,7 +67,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [editUserName, setEditUserName] = useState('');
   const [editUserUsername, setEditUserUsername] = useState('');
   const [editUserPass, setEditUserPass] = useState('');
-  const [editUserPassVisible, setEditUserPassVisible] = useState(false);
+  const [editUserPassVisible, setEditUserPassVisible] = useState(true);
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
   const [editUserRole, setEditUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
@@ -89,6 +95,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const handleCreateUserSubmit = (e: React.FormEvent) => {
     if (!requirePermission("Cấp tài khoản & Mật khẩu người dùng")) return;
     e.preventDefault();
+    if (!/^[0-9]{6,8}$/.test(newUserPass)) { showToast('Mật khẩu phải gồm 6–8 chữ số.', 'error'); return; }
     if (!newUserName.trim() || !newUserUsername.trim()) {
       showToast('Vui lòng điền họ tên và tên đăng nhập!', 'error');
       return;
@@ -118,7 +125,7 @@ export const Module1_UsersRoles: React.FC = () => {
     // Reset form
     setNewUserName('');
     setNewUserUsername('');
-    setNewUserPass('Vuihoc@2026');
+    setNewUserPass('123456');
     setNewUserEmail('');
     setNewUserPhone('');
   };
@@ -129,7 +136,7 @@ export const Module1_UsersRoles: React.FC = () => {
     setEditUserName(user.name);
     setEditUserUsername(user.username);
     setEditUserPass(user.passwordRaw);
-    setEditUserPassVisible(false);
+    setEditUserPassVisible(true);
     setEditUserEmail(user.email);
     setEditUserPhone(user.phone);
     setEditUserRole((assignedRole(user, roleGroups)?.name || user.role) as UserAccount['role']);
@@ -140,6 +147,7 @@ export const Module1_UsersRoles: React.FC = () => {
     if (!requirePermission("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return;
     e.preventDefault();
     if (!editingUser) return;
+    if (editUserPass && !/^[0-9]{6,8}$/.test(editUserPass)) { showToast('Mật khẩu phải gồm 6–8 chữ số.', 'error'); return; }
 
     const roleChanged = assignedRole(editingUser, roleGroups)?.name !== editUserRole;
     if (roleChanged && !requirePermission('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
@@ -157,6 +165,22 @@ export const Module1_UsersRoles: React.FC = () => {
     });
 
     setEditingUser(null);
+  };
+
+  const handleDeleteUser = (user: UserAccount) => {
+    if (!requirePermission('Chỉnh sửa thông tin tài khoản & Mật khẩu') || !requirePermission('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
+    if (user.id === currentUser.id || user.id === 'USR-01') { showToast('Không thể xóa tài khoản này.', 'error'); return; }
+    setDeleteError(''); setDeletingUser(user);
+  };
+  const confirmDeleteUser = async () => {
+    if (!deletingUser || deleteBusy) return;
+    setDeleteBusy(true); setDeleteError('');
+    try {
+      await deleteAccount(deletingUser.id);
+      setDeletingUser(null);
+      showToast('Đã xóa tài khoản trên Supabase.', 'success');
+    } catch (error) { setDeleteError((error as Error).message); }
+    finally { setDeleteBusy(false); }
   };
 
   // Role group actions
@@ -238,10 +262,10 @@ export const Module1_UsersRoles: React.FC = () => {
     setIsRoleModalOpen(false);
   };
 
-  const handleDeleteRole = (id: string, name: string) => {
+  const handleDeleteRole = async (id: string, name: string) => {
     if (!requirePermission("Tạo, sửa, xóa & Gán Nhóm quyền")) return;
     if (users.some(user => assignedRole(user, roleGroups)?.id === id)) { showToast('Nhóm quyền đang có tài khoản sử dụng, không thể xóa.', 'warning'); return; }
-    if (window.confirm(`Bạn có chắc chắn muốn XÓA nhóm quyền "${name}" khỏi hệ thống?`)) {
+    if (await confirmAction(`Bạn có chắc chắn muốn XÓA nhóm quyền "${name}" khỏi hệ thống?`)) {
       setRoleGroups(prev => prev.filter(r => r.id !== id));
       showToast(`Đã xóa nhóm quyền "${name}"!`, 'info');
     }
@@ -441,6 +465,11 @@ export const Module1_UsersRoles: React.FC = () => {
                                 >
                                   {u.status === 'active' ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                                 </button>
+                                <button type="button" disabled={u.id === currentUser.id || !can('Chỉnh sửa thông tin tài khoản & Mật khẩu') || !can('Tạo, sửa, xóa & Gán Nhóm quyền')}
+                                  onClick={() => handleDeleteUser(u)} title="Xóa tài khoản" aria-label={`Xóa tài khoản ${u.username}`}
+                                  className="p-1 rounded text-rose-500 hover:bg-rose-50 disabled:opacity-40">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             )}
                           </td>
@@ -585,6 +614,7 @@ export const Module1_UsersRoles: React.FC = () => {
                   <div className="relative flex items-center">
                     <input
                       type={newUserPassVisible ? 'text' : 'password'}
+                      inputMode="numeric" pattern="[0-9]{6,8}" minLength={6} maxLength={8}
                       required
                       value={newUserPass}
                       onChange={e => setNewUserPass(e.target.value)}
@@ -760,8 +790,8 @@ export const Module1_UsersRoles: React.FC = () => {
                   <div className="relative flex items-center">
                     <input
                       type={editUserPassVisible ? 'text' : 'password'}
+                      inputMode="numeric" pattern="[0-9]{6,8}" minLength={6} maxLength={8}
                       placeholder="Để trống để giữ mật khẩu hiện tại"
-                      minLength={8}
                       value={editUserPass}
                       onChange={e => setEditUserPass(e.target.value)}
                       className="w-full pl-3 pr-16 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"
@@ -991,6 +1021,17 @@ export const Module1_UsersRoles: React.FC = () => {
           </div>
         </div>
       )}
+      {deletingUser && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div role="dialog" aria-modal="true" aria-labelledby="delete-account-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <h2 id="delete-account-title" className="font-bold text-lg">Xóa tài khoản?</h2>
+          <p className="mt-3 text-sm text-slate-600">Tài khoản <strong>{deletingUser.username}</strong> sẽ bị xóa khỏi hệ thống. Hồ sơ và lịch sử giảng dạy được giữ; mẫu báo cáo cá nhân sẽ bị xóa.</p>
+          {deleteError && <p role="alert" className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{deleteError}</p>}
+          <div className="mt-5 flex justify-end gap-3">
+            <button type="button" disabled={deleteBusy} onClick={() => setDeletingUser(null)} className="rounded-lg border px-4 py-2">Hủy</button>
+            <button type="button" disabled={deleteBusy} onClick={() => void confirmDeleteUser()} className="rounded-lg bg-rose-600 px-4 py-2 text-white disabled:opacity-50">{deleteBusy ? 'Đang xóa…' : 'Xóa tài khoản'}</button>
+          </div>
+        </div>
+      </div>}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+// Historical encrypted-password migration compatibility. Current behavior: plaintextPasswords.test.ts.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -7,10 +8,10 @@ const {pgcrypto}=await import(pathToFileURL(root+'/dist/contrib/pgcrypto.js').hr
 const db=new PGlite({extensions:{pgcrypto}});
 try {
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
- await db.exec(readFileSync('supabase/schema.sql','utf8'));
+ await db.exec((readFileSync('supabase/schema.sql','utf8').split('-- MAT KHAU TEXT 6-8 CHU SO.')[0]+'COMMIT;'));
  await db.exec(readFileSync('supabase/migrations/20261011_teacher_persistence.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011_teacher_persistence.sql','utf8'));
- const setup=readFileSync('supabase/setup_admin.sql','utf8').replace(/matkhau text:='[^']*'/,"matkhau text:='TeacherTest@890'");
+ const setup=readFileSync('tests/fixtures/setup_admin_encrypted.sql','utf8').replace(/matkhau text:='[^']*'/,"matkhau text:='TeacherTest@890'");
  await db.exec(setup);
  const call=async(name:string,args:unknown[]) => (await db.query('SELECT public.'+name+'('+args.map((_,i)=>'$'+(i+1)).join(',')+') result',args)).rows[0].result;
  await db.exec('SET ROLE anon');

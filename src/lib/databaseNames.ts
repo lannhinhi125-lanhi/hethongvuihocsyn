@@ -29,7 +29,6 @@ export const DATABASE_NAMES = {
       "subject_code": "mamonhoc",
       "status": "trangthai",
       "avatar_initials": "chucaiavatar",
-      "auth_user_id": "maxacthuc",
       "created_at": "ngaytao",
       "updated_at": "ngaycapnhat"
     }
@@ -495,7 +494,6 @@ export const APP_DATABASE_FIELDS = {
     "subject": "mamonhoc",
     "status": "trangthai",
     "avatarInitials": "chucaiavatar",
-    "auth_user_id": "maxacthuc",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
   },

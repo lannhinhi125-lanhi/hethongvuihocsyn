@@ -1,3 +1,4 @@
+import { confirmAction } from './ConfirmAction';
 import React from 'react';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
 import { useApp } from '../context/AppContext';
@@ -52,8 +53,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
       : teacherTabTitles[teacherPortalTab] || { cat: 'Cổng Giáo viên', title: 'Bảng Giảng Dạy' };
 
 
-  const handleConfirmClear = () => {
-    if (window.confirm('XÓA SẠCH DỮ LIỆU: Thao tác này xóa toàn bộ dữ liệu trong phiên và đăng xuất. Dữ liệu trên Supabase không bị xóa. Bạn có chắc chắn không?')) {
+  const handleConfirmClear = async () => {
+    if (await confirmAction('XÓA SẠCH DỮ LIỆU: Thao tác này xóa toàn bộ dữ liệu trong phiên và đăng xuất. Dữ liệu trên Supabase không bị xóa. Bạn có chắc chắn không?')) {
       clearAllData();
     }
   };

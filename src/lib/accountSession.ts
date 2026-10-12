@@ -21,7 +21,7 @@ async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSig
   const request = supabase.schema('public').rpc(name,args);
   const { data, error } = await (signal ? request.abortSignal(signal) : request);
   if (error) throw new Error(error.code === 'PGRST202'
-    ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_ai_usage' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261011_encrypted_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
+    ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_ai_usage' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261012_plaintext_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
     : error.message);
   if (data?.error) throw new Error(data.error);
   return data;
@@ -130,3 +130,27 @@ export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuiho
     throw error;
   }
 }
+
+/** Delete only after server confirmation; surface failures to the caller. */
+export async function deleteAccount(userId: string): Promise<void> {
+  if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
+  if (state.saving || flushing || pending.length) throw new Error('Đang lưu thay đổi khác. Vui lòng thử lại.');
+  const user = state.users.find(item => item.id === userId);
+  if (!user) throw new Error('Tài khoản không còn tồn tại.');
+  const version = generation;
+  revision++;
+  publish({...state,saving:true,error:'',saved:false});
+  try {
+    await rpc('vuihoc_save_accounts',{p_token:token,p_changes:[{dataset:'users',before:toSupabaseRow('users',user),after:null}]});
+    if (version !== generation) throw new Error('Phiên đăng nhập đã thay đổi.');
+    const users = state.users.filter(item => item.id !== userId);
+    confirmed = {...confirmed,users,saving:false,saved:true,error:''};
+    publish({...state,users,saving:false,saved:true,error:''});
+  } catch (error) {
+    const message = (error as Error).message;
+    if (version === generation) publish({...state,saving:false,saved:false,error:message});
+    throw error;
+  }
+}
+
+export function getAccountSnapshot() { return state; }

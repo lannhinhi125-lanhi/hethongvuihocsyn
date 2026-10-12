@@ -35,6 +35,7 @@ function decode(rows:Record<string,Row[]>){
 }
 export function resetBusinessData(){generation++;raw={};confirmed={};publish({data:{},loading:false,saving:false,error:'',saved:0});}
 export async function loadBusinessData(){
+ if(state.saving) return;
  const version=++generation;publish({...state,loading:true,error:''});
  try {const result=await teacherSessionRequest('vuihoc_business_data');if(version!==generation)return;raw=result;confirmed=decode(result);publish({...state,data:confirmed,loading:false,error:''});}
  catch(error){if(version===generation)publish({...state,loading:false,error:(error as Error).message});}

@@ -1,3 +1,4 @@
+// Historical encrypted-password migration compatibility. Current behavior: plaintextPasswords.test.ts.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -11,7 +12,7 @@ const call=async(name:string,args:unknown[]) => (await db.query('SELECT public.'
 try {
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
  // Actual upgrade from the previous 32-table version, not only fresh schema.
- await db.exec(readFileSync('supabase/schema.sql','utf8').split('-- MẬT KHẨU MÃ HÓA CÓ THỂ XEM LẠI.')[0]+'COMMIT;');
+ await db.exec((readFileSync('supabase/schema.sql','utf8').split('-- MAT KHAU TEXT 6-8 CHU SO.')[0]+'COMMIT;').split('-- MẬT KHẨU MÃ HÓA CÓ THỂ XEM LẠI.')[0]+'COMMIT;');
  await db.query('UPDATE vuihoc."NGUOI_DUNG" SET matkhau_bam=extensions.crypt($1,extensions.gen_salt($2,10)) WHERE madinhdanh=$3',['LegacyAdmin@890','bf','USR-01']);
  await db.query('UPDATE vuihoc."NGUOI_DUNG" SET matkhau_bam=extensions.crypt($1,extensions.gen_salt($2,10)) WHERE madinhdanh=$3',['LegacyTeacher@890','bf','GV-001']);
  await db.exec(migration);
@@ -32,7 +33,7 @@ try {
  const user=(await db.query('SELECT matkhau_bam,matkhau_mahoa FROM vuihoc."NGUOI_DUNG" WHERE madinhdanh=$1',['USR-01'])).rows[0];
  assert.equal(user.matkhau_bam,null);assert.ok(user.matkhau_mahoa);
  const key=(await db.query('SELECT khoamatkhau FROM vuihoc."CAU_HINH_HE_THONG" WHERE madinhdanh=$1',['global'])).rows[0].khoamatkhau;
- await db.exec(migration);await db.exec(readFileSync('supabase/schema.sql','utf8'));
+ await db.exec(migration);await db.exec((readFileSync('supabase/schema.sql','utf8').split('-- MAT KHAU TEXT 6-8 CHU SO.')[0]+'COMMIT;'));
  assert.equal((await db.query('SELECT khoamatkhau FROM vuihoc."CAU_HINH_HE_THONG" WHERE madinhdanh=$1',['global'])).rows[0].khoamatkhau,key);
  assert.equal((await call('vuihoc_reveal_password',[admin.token,'USR-01'])).password,'LegacyAdmin@890','rerun keeps encryption key and ciphertext usable');
  const logs=JSON.stringify((await db.query('SELECT * FROM vuihoc."NHAT_KY_NGHIEP_VU"')).rows);

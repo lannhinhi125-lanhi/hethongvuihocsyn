@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
-/** Mật khẩu chỉ hiển thị trong thời gian giữ chuột, chạm hoặc phím Space/Enter. */
+/** Click to toggle; hide when leaving the window. */
 export function PasswordRevealButton({ visible, onVisibleChange, disabled = false, className = '' }: {
   visible: boolean; onVisibleChange: (visible: boolean) => void; disabled?: boolean; className?: string;
 }) {
@@ -14,23 +14,10 @@ export function PasswordRevealButton({ visible, onVisibleChange, disabled = fals
     document.addEventListener('visibilitychange', visibility);
     return () => { window.removeEventListener('blur', hide); document.removeEventListener('visibilitychange', visibility); };
   }, []);
-  return <button type="button" disabled={disabled} aria-label="Giữ để xem mật khẩu" aria-pressed={visible}
-    title={disabled ? 'Bạn không có quyền xem mật khẩu' : 'Giữ để xem mật khẩu, thả để ẩn'}
-    className={'select-none touch-none disabled:opacity-40 ' + className}
-    onPointerDown={event => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-      onVisibleChange(true);
-    }}
-    onPointerUp={() => onVisibleChange(false)}
-    onPointerCancel={() => onVisibleChange(false)}
-    onPointerLeave={() => onVisibleChange(false)}
-    onLostPointerCapture={() => onVisibleChange(false)}
-    onBlur={() => onVisibleChange(false)}
-    onContextMenu={event => event.preventDefault()}
-    onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); if (!event.repeat) onVisibleChange(true); } }}
-    onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); onVisibleChange(false); } }}>
+  return <button type="button" disabled={disabled} aria-label={visible ? 'Ẩn mật khẩu' : 'Xem mật khẩu'} aria-pressed={visible}
+    title={visible ? 'Ẩn mật khẩu' : 'Xem mật khẩu'}
+    className={'select-none disabled:opacity-40 ' + className}
+    onClick={() => onVisibleChange(!visible)}>
     {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
   </button>;
 }

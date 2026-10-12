@@ -1,5 +1,7 @@
 # Bộ SQL Supabase Vuihoc
 
+**Mật khẩu hiện tại:** dùng một cột `NGUOI_DUNG.matkhau` dạng text, 6–8 chữ số. Database đang có chạy `migrations/20261012_plaintext_passwords.sql` sau các bản cũ. Xem [PLAINTEXT_PASSWORDS.md](PLAINTEXT_PASSWORDS.md). Không chạy lại các migration mã hóa/xóa tài khoản cũ sau bản này; `schema.sql` mới đã chứa đầy đủ.
+
 **Bản tinh gọn:** xem [NORMALIZATION.md](NORMALIZATION.md). Database hiện có 32 bảng cần chạy migration normalize_database sau các migration cũ.
 
 **File chính: [schema.sql](schema.sql)** — tạo đầy đủ 31 bảng, dữ liệu mẫu, khóa ngoại, trigger và view. Đây là file dùng khi tạo database mới.
@@ -40,3 +42,7 @@ Chưa chạy migration lên Supabase thật trong phiên này. Chưa upload tệ
 ## Kiểm tra cục bộ
 
 Các bài tests/databaseContract.test.ts, tests/timedWorkflow.test.ts và tests/teacherEvaluationSchema.test.ts dùng PGLITE_MODULE_PATH trỏ tới thư mục cài @electric-sql/pglite. Đã kiểm tra tạo mới/chạy lại, migration nâng cấp, khóa ngoại, tuần riêng biệt, sinh công đúng tháng, dạy thay, khóa kỳ và liên kết biên bản với đúng giáo viên.
+
+## Don cot tai khoan
+
+Sau ban mat khau text, chay `migrations/20261012_cleanup_user_columns.sql` de bo `NGUOI_DUNG.maxacthuc` (ma Supabase Auth cu khong con dung). Giu cac cot phien dang nhap, khoa tai khoan, thong tin ho so, nhom quyen va thoi gian. File schema.sql moi da bao gom buoc nay.

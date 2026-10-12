@@ -8,13 +8,14 @@ const db=new PGlite({extensions:{pgcrypto}});
 try {
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
  await db.exec(readFileSync('supabase/schema.sql','utf8'));
- await db.exec(readFileSync('supabase/migrations/20261011_teacher_persistence.sql','utf8'));
- await db.exec(readFileSync('supabase/migrations/20261011_teacher_persistence.sql','utf8'));
- const setup=readFileSync('supabase/setup_admin.sql','utf8').replace(/matkhau text:='[^']*'/,"matkhau text:='TeacherTest@890'");
+ // Current schema already contains teacher persistence.
+
+
+ const setup=readFileSync('supabase/setup_admin.sql','utf8').replace(/matkhau text:='[^']*'/,"matkhau text:='234567'");
  await db.exec(setup);
  const call=async(name:string,args:unknown[]) => (await db.query('SELECT public.'+name+'('+args.map((_,i)=>'$'+(i+1)).join(',')+') result',args)).rows[0].result;
  await db.exec('SET ROLE anon');
- const login=await call('vuihoc_login',['admin.tong','TeacherTest@890']);const token=login.token;
+ const login=await call('vuihoc_login',['admin.tong','234567']);const token=login.token;
 
  const read=()=>call('vuihoc_business_data',[token]);
  const save=(changes:unknown[],t=token)=>call('vuihoc_save_business',[t,JSON.stringify(changes)]);

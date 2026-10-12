@@ -1,3 +1,4 @@
+// Historical encrypted-password migration compatibility. Current behavior: plaintextPasswords.test.ts.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -9,10 +10,10 @@ const db=new PGlite({extensions:{pgcrypto}});
 try {
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
  // Deliberately no auth schema/users/uid: app login must work independently.
- await db.exec(readFileSync('supabase/schema.sql','utf8'));
+ await db.exec((readFileSync('supabase/schema.sql','utf8').split('-- MAT KHAU TEXT 6-8 CHU SO.')[0]+'COMMIT;'));
  await db.exec(readFileSync('supabase/migrations/20261011_simple_accounts.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261011_encrypted_passwords.sql','utf8'));
- const setup=readFileSync('supabase/setup_admin.sql','utf8').replace(/matkhau text:='[^']*'/, "matkhau text:='THAY_MAT_KHAU_CUA_BAN'");
+ const setup=readFileSync('tests/fixtures/setup_admin_encrypted.sql','utf8').replace(/matkhau text:='[^']*'/, "matkhau text:='THAY_MAT_KHAU_CUA_BAN'");
  await assert.rejects(db.exec(setup),/mật khẩu/);
  await db.exec(setup.replace('THAY_MAT_KHAU_CUA_BAN','TestAdmin@890'));
  const call=async(name:string,args:unknown[]) => (await db.query('SELECT public.'+name+'('+args.map((_,i)=>'$'+(i+1)).join(',')+') result',args)).rows[0].result;

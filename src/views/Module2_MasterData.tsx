@@ -1,3 +1,4 @@
+import { confirmAction } from '../components/ConfirmAction';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from '../components/CatalogTreeBranch';
@@ -375,8 +376,8 @@ export const Module2_MasterData: React.FC = () => {
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (window.confirm(`Xóa môn học ${s.name}?`)) {
+                            onClick={async () => {
+                              if (await confirmAction(`Xóa môn học ${s.name}?`)) {
                                 setSubjects(prev => prev.filter(item => item.id !== s.id));
                                 showToast(`Đã xóa môn học [${s.name}]!`, 'info');
                               }
@@ -444,8 +445,8 @@ export const Module2_MasterData: React.FC = () => {
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (window.confirm(`Xóa trình độ ${l.name}?`)) {
+                            onClick={async () => {
+                              if (await confirmAction(`Xóa trình độ ${l.name}?`)) {
                                 setLevels(prev => prev.filter(item => item.id !== l.id));
                                 showToast(`Đã xóa trình độ [${l.name}]`, 'info');
                               }
@@ -506,8 +507,8 @@ export const Module2_MasterData: React.FC = () => {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (window.confirm(`Xóa khung giờ ${s.name}?`)) {
+                          onClick={async () => {
+                            if (await confirmAction(`Xóa khung giờ ${s.name}?`)) {
                               setTimeSlots(prev => prev.filter(item => item.id !== s.id));
                               showToast(`Đã xóa khung giờ [${s.name}]`, 'info');
                             }
@@ -568,8 +569,8 @@ export const Module2_MasterData: React.FC = () => {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (window.confirm(`Xóa mô hình ${m.name}?`)) {
+                          onClick={async () => {
+                            if (await confirmAction(`Xóa mô hình ${m.name}?`)) {
                               setModels(prev => prev.filter(item => item.id !== m.id));
                               showToast(`Đã xóa mô hình [${m.name}]`, 'info');
                             }
