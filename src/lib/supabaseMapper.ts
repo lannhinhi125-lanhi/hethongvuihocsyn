@@ -50,6 +50,11 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
       result[fields[field]] = iso;
       continue;
     }
+    // Nhãn hiển thị cũ không phải mã lớp hợp lệ; học sinh chưa ghép lớp lưu NULL.
+    if (dataset === 'students' && field === 'currentClassCode' && content === 'Chưa xếp lớp') {
+      result[fields[field]] = null;
+      continue;
+    }
     // Undefined trong trường có mặt nghĩa là người dùng xóa giá trị tùy chọn.
     const foreignKey = ['roleGroupId','teacherId','parentId','user_id','auth_user_id','active_tone_key','currentClassCode','categoryId','coverTeacherId','updatedBy','checkinUserId','checkoutUserId','reportedBy','handledBy','submittedBy','reviewedBy','toneId','recipientUserId','evaluatorUserId','lessonId'].includes(field);
     const codes = STATUS_CODES[dataset as keyof typeof STATUS_CODES] as Record<string,string> | undefined;

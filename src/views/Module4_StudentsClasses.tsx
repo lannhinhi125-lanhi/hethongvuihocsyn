@@ -236,6 +236,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [clsCode, setClsCode] = useState('');
+  const [clsSchoolYear, setClsSchoolYear] = useState('2026');
   const [clsCategory, setClsCategory] = useState('');
   const [clsStatus, setClsStatus] = useState<NonNullable<ClassItem['status']>>('Chờ khai giảng');
   const [clsName, setClsName] = useState('');
@@ -249,8 +250,8 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [clsSelectedStudentIds, setClsSelectedStudentIds] = useState<string[]>([]);
 
   useEffect(() => {
-    if (isClassModalOpen && !editingClassId) setClsCode(generateClassCode(clsSubject, clsGrade, clsLevel, clsModel));
-  }, [isClassModalOpen, editingClassId, clsSubject, clsGrade, clsLevel, clsModel, classes, subjects, levels]);
+    if (isClassModalOpen && !editingClassId) setClsCode(generateClassCode(clsSubject, clsLevel));
+  }, [isClassModalOpen, editingClassId, clsSubject, clsGrade, clsLevel, clsModel, clsSchoolYear, classes, subjects, levels]);
 
   // Lọc chỉ những GIÁO VIÊN HỢP LỆ cho lớp học theo: Môn học, Khối lớp, Trạng thái và Trùng lịch
   const eligibleTeachersForClass = useMemo(() => {
@@ -453,13 +454,11 @@ export const Module4_StudentsClasses: React.FC = () => {
   ), [classes, batchCategoryId, batchGradeIds, batchLevelIds, batchSubject]);
 
   // Helper auto class code
-  const generateClassCode = (subject: string, grade: string, level: string, model: string) => {
+  const generateClassCode = (subject: string, level: string) => {
     const token = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').replace(/[^a-z0-9]/gi, '').toUpperCase();
     const sub = token(subjects.find(item => item.code === subject)?.abbr || subject);
-    const grd = /^Lớp (\d+)$/.exec(grade);
-    const gradeCode = grd ? 'K' + grd[1].padStart(2, '0') : token(grade);
     const lvl = token(levels.find(item => item.code === level)?.abbr || level);
-    const prefix = [sub, gradeCode, lvl, token(model)].join('_');
+    const prefix = [sub, lvl, clsSchoolYear.slice(-2), String(Number(clsSchoolYear) + 1).slice(-2)].join('_');
     const used = new Set(classes.map(item => item.code));
     let number = 1;
     while (used.has(prefix + '_' + String(number).padStart(2, '0'))) number++;
@@ -562,7 +561,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         motherPhone: stdMotherPhone.trim(),
         scheduleSlots: stdSlots,
         status: stdStatus,
-        currentClassCode: 'Chưa xếp lớp'
+        currentClassCode: undefined
       };
       addStudent(newStudent);
     }
@@ -689,7 +688,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         motherName: motherFormatted,
         motherPhone: stdMotherPhone.trim(),
         scheduleSlots: stdSlots,
-        currentClassCode: 'Chưa xếp lớp'
+        currentClassCode: undefined
       };
       updateStudent(editingStudentId, studentObj);
     } else {
@@ -706,7 +705,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         motherPhone: stdMotherPhone.trim(),
         scheduleSlots: stdSlots,
         status: 'Chờ xếp lớp',
-        currentClassCode: 'Chưa xếp lớp'
+        currentClassCode: undefined
       };
       addStudent(studentObj);
     }
@@ -738,7 +737,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsLevel(targetLvl);
     setClsModel(targetMdl);
     setClsName(`${subjectName(targetSub)} ${gradeName(targetGrade)} - ${levelName(targetLvl)} (${targetMdl})`);
-    setClsCode(generateClassCode(targetSub, targetGrade, targetLvl, targetMdl));
+    setClsCode(generateClassCode(targetSub, targetLvl));
     setClsRoomLink('');
     setClsSchedule(preStudent ? preStudent.scheduleSlots.join(', ') : '');
     setClsSelectedStudentIds(preStudent ? [preStudent.id] : []);
@@ -781,7 +780,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       setClsCategory(teachingCategories.find(item => item.options.some(option => option.id === student.grade))?.id || '');
       setClsGrade(student.grade); setClsSubject(student.subject); setClsLevel(student.level); setClsModel(student.model);
       setClsName(subjectName(student.subject) + ' ' + gradeName(student.grade) + ' - ' + levelName(student.level) + ' (' + student.model + ')');
-      setClsCode(generateClassCode(student.subject, student.grade, student.level, student.model));
+      setClsCode(generateClassCode(student.subject, student.level));
       setClsSchedule(student.scheduleSlots.join(', '));
     }
     setClsSelectedStudentIds(prev => [...prev, student.id]);
@@ -800,7 +799,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       const student = students.find(item => item.id === id);
       return !student || student.grade !== clsGrade || student.subject !== clsSubject || student.level !== clsLevel || student.model !== clsModel || (!originalIds.includes(id) && (student.status !== 'Chờ xếp lớp' || Boolean(assignedClass(student))));
     })) { showToast('Danh sách đã chọn có học sinh không còn chờ lớp hoặc không khớp thông tin lớp. Vui lòng kiểm tra lại.', 'error'); return; }
-    const savedCode = editingClassId ? clsCode : generateClassCode(clsSubject, clsGrade, clsLevel, clsModel);
+    const savedCode = editingClassId ? clsCode : generateClassCode(clsSubject, clsLevel);
     if (classes.some(item => item.id !== editingClassId && item.code === savedCode)) { showToast('Mã lớp bị trùng. Vui lòng kiểm tra lại.', 'error'); return; }
 
     // Bắt buộc phải có giáo viên HỢP LỆ
@@ -1656,6 +1655,11 @@ export const Module4_StudentsClasses: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveClassSubmit} className="mt-4 space-y-3.5 text-xs">
+              {!editingClassId && <label className="block font-semibold text-slate-700">Năm học tạo lớp
+                <select aria-label="Năm học tạo lớp" value={clsSchoolYear} onChange={event => setClsSchoolYear(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">
+                  {Array.from({ length: 12 }, (_, index) => 2020 + index).map(year => <option key={year} value={String(year)}>{year} - {year + 1}</option>)}
+                </select>
+              </label>}
               <section className="border border-orange-200 rounded-xl p-3 bg-orange-50/40 space-y-2">
                 <div className="flex justify-between gap-2"><h4 className="font-semibold text-[#FF5C00]">Chọn học sinh chờ lớp</h4><span className="text-[11px] text-slate-500">Đã chọn: {clsSelectedStudentIds.length}/{models.find(item => item.code === clsModel)?.maxStudents || 0}</span></div>
                 <p className="text-[11px] text-slate-500">{editingClassId ? 'Thêm học sinh có cùng môn, khối, mô hình và trình độ với lớp.' : 'Chọn học sinh đầu tiên để tự điền loại lớp, khối, môn, mô hình, trình độ, lịch đăng ký và mã lớp.'}</p>
@@ -1670,7 +1674,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Mã lớp học (Tự sinh chuẩn Master Data)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Mã lớp học (Môn_Trình độ_Năm học_Số thứ tự)</label>
                   <input
                     type="text"
                     readOnly

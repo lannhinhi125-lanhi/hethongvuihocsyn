@@ -327,7 +327,7 @@ export const Module2_MasterData: React.FC = () => {
               <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
                 <tr>
                   <th className="py-3 px-4">Mã Môn</th>
-                  <th className="py-3 px-4">Viết tắt</th>
+                  <th className="py-3 px-4">Mã dùng tạo lớp</th>
                   <th className="py-3 px-4">Tên Môn học</th>
                   <th className="py-3 px-4">Mô tả trường dữ liệu</th>
                   <th className="py-3 px-4">Trạng thái</th>
@@ -404,7 +404,7 @@ export const Module2_MasterData: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
                 <tr>
-                  <th className="py-3 px-4">Mã Trình độ</th>
+                  <th className="py-3 px-4">Mã Trình độ</th><th className="py-3 px-4">Mã dùng tạo lớp</th>
                   <th className="py-3 px-4">Tên Khung trình độ</th>
                   <th className="py-3 px-4">Đối tượng học sinh</th>
                   <th className="py-3 px-4">Mục tiêu đầu ra</th>
@@ -417,10 +417,10 @@ export const Module2_MasterData: React.FC = () => {
                   .filter(l => l.name.toLowerCase().includes(searchKeyword.toLowerCase()) || l.code.toLowerCase().includes(searchKeyword.toLowerCase()))
                   .map(l => (
                     <tr key={l.id} className="hover:bg-slate-50/80">
-                      <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{l.code}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{l.code}</td><td className="py-3 px-4 font-mono font-bold text-slate-700">{l.abbr}</td>
                       <td className="py-3 px-4">
                         <span className="px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 font-bold border border-rose-200">
-                          {l.name} ({l.abbr})
+                          {l.name}
                         </span>
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-700">{l.target}</td>
@@ -459,7 +459,7 @@ export const Module2_MasterData: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                {!levels.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={6} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
+                {!levels.some(item => (item.name + ' ' + item.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))) && <tr><td colSpan={7} className="p-6 text-center text-slate-400">Chưa có mục phù hợp. Thêm mục mới hoặc đổi từ khóa tìm kiếm.</td></tr>}
               </PaginatedTableBody>
             </table>
           </div>
@@ -625,14 +625,14 @@ export const Module2_MasterData: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Mã viết tắt (Abbr) <span className="text-rose-500">*</span>
+                    Mã dùng tạo lớp <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={subAbbr}
                     onChange={e => setSubAbbr(e.target.value)}
-                    placeholder="TOAN / ENG"
+                    placeholder="T / TA"
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"
                   />
                 </div>
@@ -712,7 +712,7 @@ export const Module2_MasterData: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Mã viết tắt (Abbr) <span className="text-rose-500">*</span>
+                    Mã dùng tạo lớp <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"

@@ -346,7 +346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (cls && cls.studentIds) {
       setStudents(prev => prev.map(s => {
         if (cls.studentIds.includes(s.id)) {
-          return { ...s, status: 'Chờ xếp lớp', currentClassCode: 'Chưa xếp lớp' };
+          return { ...s, status: 'Chờ xếp lớp', currentClassCode: undefined };
         }
         return s;
       }));

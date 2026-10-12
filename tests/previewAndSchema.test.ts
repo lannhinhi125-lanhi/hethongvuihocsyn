@@ -26,3 +26,10 @@ assert.throws(()=>toSupabaseRow('students',{id:'HS-1',unknownField:1}),/ánh x�
 assert.throws(()=>toSupabaseRow('users',PREVIEW_ACCOUNT),/mẫu/);
 assert.deepEqual(toSupabaseRow('users',{id:'USR-1',passwordRaw:'secret'}),{madinhdanh:'USR-1'});
 console.log('Preview bypass disabled: all admin/teacher features rejected. UI/SQL mappings passed.');
+
+// Unassigned students must not send a display label as a class foreign key.
+for (const currentClassCode of [undefined, null, '', 'Chưa xếp lớp']) {
+ assert.equal(toSupabaseRow('students', {id:'HS-NEW',currentClassCode}).malophientai, null);
+}
+assert.equal(toSupabaseRow('students', {id:'HS-NEW',currentClassCode:'LOP-1'}).malophientai, 'LOP-1');
+assert.equal(Object.hasOwn(toSupabaseRow('students', {id:'HS-NEW',name:'Học sinh mới'}), 'malophientai'), false);
