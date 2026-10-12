@@ -135,6 +135,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         scheduleEntries.forEach((entry, index) => {
           if (entry.dayIndex !== dayIndex) return;
           const sessionDate = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+          if (cls.startDate && sessionDate < cls.startDate) return;
           const sessionNum = index + 1;
           const storedSession = cls.activeSessions?.[sessionNum];
           const activeDate = storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0];

@@ -209,6 +209,7 @@ CREATE TABLE IF NOT EXISTS vuihoc."LOP_HOC" (
   "sisotoida" numeric NOT NULL,
   "danhsachmahocsinh" text[] NOT NULL DEFAULT ARRAY[]::text[],
   "lichhoc" text NOT NULL,
+  "ngaybatdau" date,
   "lienketphonghoc" text NOT NULL,
   "magiaovien" text,
   "hoclieu" jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof("hoclieu") = 'array'),

@@ -17,6 +17,8 @@
 
 Sau khi chạy schema.sql mới, chạy thêm migrations/20261012_incident_credit.sql để bật tự động chốt hệ số công theo sự cố. Với database hiện có, chỉ cần chạy migration này; không xóa dữ liệu cũ.
 
+Để lưu ngày bắt đầu lớp và chỉ tạo lịch từ ngày đó, chạy tiếp migrations/20261013_class_start_date.sql. Database đã có trước đây giữ nguyên các lớp cũ chưa đặt ngày bắt đầu.
+
 ## Các file còn dùng
 
 - [schema.sql](schema.sql): cấu trúc đầy đủ và dữ liệu mẫu.

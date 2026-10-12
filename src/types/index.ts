@@ -191,6 +191,7 @@ export interface ClassCoverAssignment {
 export interface ClassItem {
   categoryId?: string;
   status?: 'Chờ khai giảng' | 'Đang học' | 'Tạm dừng' | 'Đã kết thúc';
+  startDate?: string; // YYYY-MM-DD; legacy classes may not have one yet.
   id: string;
   code: string;
   name: string;

@@ -142,7 +142,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       {!compact && <h4 className="font-semibold text-[#FF5C00]">Thông tin lớp học</h4>}
       <div><span className="block font-mono text-[10px] font-semibold text-[#FF5C00]">{item.code}</span><span className="font-semibold text-slate-800">{item.name}</span></div>
       <span className="inline-block rounded bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-[#FF5C00]">{item.model}</span>
-      {!compact && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600"><p>Giáo viên: <strong>{item.teacherName || 'Chưa phân công'}</strong></p><p>Sĩ số: <strong>{item.studentIds.length}/{item.maxStudents}</strong></p><p>Trình độ: <strong>{levelName(item.level)}</strong></p><p className="sm:col-span-2">Lịch học: <strong>{item.schedule || 'Chưa có lịch'}</strong></p></div>}
+      {!compact && <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600"><p>Giáo viên: <strong>{item.teacherName || 'Chưa phân công'}</strong></p><p>Sĩ số: <strong>{item.studentIds.length}/{item.maxStudents}</strong></p><p>Trình độ: <strong>{levelName(item.level)}</strong></p><p>Bắt đầu: <strong>{item.startDate ? new Date(`${item.startDate}T00:00:00`).toLocaleDateString('vi-VN') : 'Chưa đặt'}</strong></p><p className="sm:col-span-2">Lịch học: <strong>{item.schedule || 'Chưa có lịch'}</strong></p></div>}
     </div>;
   };
   const [stdCodeFilter, setStdCodeFilter] = useState('');
@@ -246,6 +246,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [clsModel, setClsModel] = useState('1-3');
   const [clsRoomLink, setClsRoomLink] = useState('');
   const [clsSchedule, setClsSchedule] = useState('T3 (18:00 - 19:30), T5 (18:00 - 19:30)');
+  const [clsStartDate, setClsStartDate] = useState('');
   const [clsTeacher, setClsTeacher] = useState('');
   const [clsSelectedStudentIds, setClsSelectedStudentIds] = useState<string[]>([]);
 
@@ -769,6 +770,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsCode(generateClassCode(targetSub, targetLvl));
     setClsRoomLink('');
     setClsSchedule(preStudent ? preStudent.scheduleSlots.join(', ') : '');
+    setClsStartDate(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));
     setClsSelectedStudentIds(preStudent ? [preStudent.id] : []);
 
     const initialEligible = teachers.find(
@@ -791,6 +793,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsModel(c.model);
     setClsRoomLink(c.roomLink);
     setClsSchedule(c.schedule);
+    setClsStartDate(c.startDate || '');
     setClsTeacher(c.teacherName || '');
     setClsSelectedStudentIds(c.studentIds);
     setIsClassModalOpen(true);
@@ -820,6 +823,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     e.preventDefault();
     if (!clsName.trim()) return;
+    if (!editingClassId && !clsStartDate) { showToast('Chọn ngày bắt đầu lớp học.', 'error'); return; }
     const category = teachingCategories.find(item => item.id === clsCategory);
     if (!category || !category.options.some(option => option.id === clsGrade)) { showToast('Chọn loại lớp và khối con tương ứng từ danh mục.', 'error'); return; }
     if (!subjects.some(item => item.code === clsSubject) || !levels.some(item => item.code === clsLevel)) { showToast('Chọn môn học và trình độ từ danh mục.', 'error'); return; }
@@ -867,6 +871,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         maxStudents: max,
         roomLink: clsRoomLink.trim(),
         schedule: clsSchedule.trim(),
+        startDate: clsStartDate || undefined,
         teacherName: clsTeacher,
         teacherId: assignedTeacher?.id,
         studentIds: clsSelectedStudentIds
@@ -885,6 +890,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         maxStudents: max,
         studentIds: clsSelectedStudentIds,
         schedule: clsSchedule.trim(),
+        startDate: clsStartDate,
         roomLink: clsRoomLink.trim(),
         teacherName: clsTeacher,
         teacherId: assignedTeacher?.id,
@@ -1251,7 +1257,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <td className="px-3 py-3 font-mono font-semibold text-[#FF5C00] whitespace-nowrap">{item.code}</td><td className="px-3 py-3 font-semibold min-w-40">{item.name}</td>
                 <td className="px-3 py-3 whitespace-nowrap">{classCategoryName(item)}</td><td className="px-3 py-3 whitespace-nowrap">{gradeName(item.grade)}</td><td className="px-3 py-3 whitespace-nowrap text-[#FF5C00]">{subjectName(item.subject)}</td>
                 <td className="px-3 py-3"><span className="rounded bg-orange-50 text-[#FF5C00] px-2 py-1 font-semibold">{item.model}</span></td><td className="px-3 py-3 whitespace-nowrap"><span className="rounded bg-blue-50 text-blue-700 px-2 py-1">{levelName(item.level)}</span></td>
-                <td className="px-3 py-3 min-w-44 text-[11px]">{item.schedule || 'Chưa có lịch'}</td><td className="px-3 py-3 whitespace-nowrap"><span className={item.studentIds.length >= item.maxStudents ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-700'}>{item.studentIds.length}/{item.maxStudents}</span></td>
+                <td className="px-3 py-3 min-w-44 text-[11px]">{item.schedule || 'Chưa có lịch'}{item.startDate && <div className="mt-1 text-slate-500">Bắt đầu: {new Date(`${item.startDate}T00:00:00`).toLocaleDateString('vi-VN')}</div>}</td><td className="px-3 py-3 whitespace-nowrap"><span className={item.studentIds.length >= item.maxStudents ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-700'}>{item.studentIds.length}/{item.maxStudents}</span></td>
                 <td className="px-3 py-3 whitespace-nowrap"><span className={'px-2 py-1 rounded text-[10px] font-semibold ' + ((item.status || 'Đang học') === 'Đang học' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Tạm dừng' ? 'bg-amber-50 text-amber-700' : item.status === 'Đã kết thúc' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700')}>{item.status || 'Đang học'}</span></td>
                 <td className="px-3 py-3 min-w-32">{item.teacherName || 'Chưa phân công'}</td>
                 <td className="px-3 py-3"><div className="flex justify-center gap-2"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button><button type="button" title="Xóa lớp" onClick={() => setPendingDelete({type:'class',id:item.id,name:item.name})} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
@@ -1750,6 +1756,12 @@ export const Module4_StudentsClasses: React.FC = () => {
               </div>
 
               {/* Lịch học & Giáo viên */}
+              <label className="block font-semibold text-slate-700">
+                Ngày bắt đầu lớp học {!editingClassId && <span className="text-rose-500">*</span>}
+                <input type="date" required={!editingClassId} value={clsStartDate} onChange={event => setClsStartDate(event.target.value)}
+                  className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-[#FF5C00]" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">Lịch học bắt đầu từ ngày này; nếu chưa trùng thứ đã chọn, ca đầu tiên là ngày học kế tiếp.</span>
+              </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Thời gian học của lớp</label>

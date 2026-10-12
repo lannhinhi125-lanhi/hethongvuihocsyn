@@ -93,6 +93,10 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     if (!activeTeacher) return undefined;
 
     return classes.find(cls => {
+      const targetDate = new Date(`${fromDate}T00:00:00`);
+      targetDate.setDate(targetDate.getDate() + dayKey);
+      const targetDateString = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+      if (cls.startDate && targetDateString < cls.startDate) return false;
       const isTeacherMatch =
         cls.teacherId === activeTeacher.id ||
         (cls.teacherName && activeTeacher.name && (
@@ -112,9 +116,6 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
       if (!hasScheduledSlot) return false;
       if (isTeacherMatch) return true;
 
-      const targetDate = new Date(`${fromDate}T00:00:00`);
-      targetDate.setDate(targetDate.getDate() + dayKey);
-      const targetDateString = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
       const scheduledEntries = Array.from(
         cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
         match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, time: (match[2] || match[4] || '').trim() })

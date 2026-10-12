@@ -432,13 +432,16 @@ export const Module4_TeacherSchedule: React.FC = () => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   };
   const weekDayNames = ['Thứ 2 / Mon', 'Thứ 3 / Tue', 'Thứ 4 / Wed', 'Thứ 5 / Thu', 'Thứ 6 / Fri', 'Thứ 7 / Sat', 'Chủ nhật / Sun'];
-  const timetableSlots = Array.from(new Set(teacherClasses.flatMap(cls => scheduleEntriesForClass(cls).map(entry => entry.time)))).sort((a, b) => a.localeCompare(b));
+  const timetableSlots = Array.from(new Set(teacherClasses.flatMap(cls => scheduleEntriesForClass(cls)
+    .filter(entry => !cls.startDate || dateStringForWeekDay(entry.dayIndex) >= cls.startDate)
+    .map(entry => entry.time)))).sort((a, b) => a.localeCompare(b));
   const teacherScheduleRows = timetableSlots.map(time => ({
     time,
     days: weekDates.map((_, dayIndex) => teacherClasses.flatMap(cls =>
       scheduleEntriesForClass(cls)
         .filter(entry => entry.time === time && entry.dayIndex === dayIndex)
         .flatMap(entry => {
+          if (cls.startDate && dateStringForWeekDay(dayIndex) < cls.startDate) return [];
           const coverAssignment = cls.coverAssignments?.find(assignment =>
             assignment.sessionNum === entry.session && assignment.dateStr === dateStringForWeekDay(dayIndex)
           );
