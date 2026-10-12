@@ -726,62 +726,50 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const overdueSessionsList = diaryFilteredSessions.filter(isShiftOverdueAndMissing);
 
   return (
-    <div className="space-y-5 text-slate-700">
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs xl:flex-row xl:items-center xl:justify-between">
+    <div className="space-y-6 text-slate-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-slate-800">Giám sát và sự cố</h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Theo dõi ca dạy, chuyên cần và xử lý sự cố; điều phối giáo viên dạy thay khi cần.
+          <h1 className="text-lg font-bold text-slate-800">Giám sát ca &amp; sự cố</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Theo dõi ca dạy, chuyên cần và điều phối giáo viên dạy thay.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 xl:shrink-0">
-          <div className="flex w-fit items-center gap-1 rounded-xl border border-slate-200/70 bg-slate-50 p-1 text-xs">
-          {/* TAB 1: NHẬT KÝ & GIÁM SÁT BUỔI HỌC */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('diary')}
-            className={`rounded-lg border px-3 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'diary'
-                ? 'border-orange-200/80 bg-white text-[#FF5C00] shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            <span>Nhật ký &amp; giám sát</span>
-            <span className="px-2 py-0.5 rounded-full bg-orange-100 text-[#FF5C00] text-[10px] font-bold">
-              {diaryFilteredSessions.length}
-            </span>
-          </button>
-
-          {/* TAB 2: THÔNG TIN SỰ CỐ & ĐIỀU PHỐI DẠY THAY */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('incidents')}
-            className={`rounded-lg border px-3 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'incidents'
-                ? 'border-orange-200/80 bg-white text-[#FF5C00] shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <TriangleAlert className="h-3.5 w-3.5" />
-            <span>Sự cố &amp; điều phối dạy thay</span>
-            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-              {kpiIncTotal}
-            </span>
-          </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab('diary')}
+              aria-pressed={activeTab === 'diary'}
+              className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === 'diary' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>Nhật ký giám sát</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('incidents')}
+              aria-pressed={activeTab === 'incidents'}
+              className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === 'incidents' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <TriangleAlert className="w-4 h-4" />
+              <span>Sự cố &amp; điều phối dạy thay</span>
+            </button>
           </div>
-        <button
-          type="button"
-          onClick={() => setIsTimeFilterOpen(true)}
-          className="shrink-0 rounded-lg border border-slate-200/70 bg-white px-2.5 py-2 text-[11px] font-semibold text-slate-600 hover:border-orange-200 hover:bg-orange-50/60 hover:text-[#FF5C00] flex items-center gap-1 cursor-pointer"
-          title="Mở bộ lọc nâng cao"
-        >
-          <Filter className="h-3.5 w-3.5 text-[#FF5C00]" />
-          <span>Lọc</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setIsTimeFilterOpen(true)}
+            className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-[#FF5C00] flex items-center gap-1.5 cursor-pointer"
+            title="Mở bộ lọc nâng cao"
+          >
+            <Filter className="w-4 h-4 text-[#FF5C00]" />
+            <span>Lọc</span>
+          </button>
         </div>
       </div>
-
       {/* ========================================================================= */}
       {/* ================= TAB 1: NHẬT KÝ & GIÁM SÁT BUỔI HỌC ==================== */}
       {/* ========================================================================= */}
