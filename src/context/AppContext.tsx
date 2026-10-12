@@ -146,7 +146,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [teachingCategories, setTeachingCategories] = useBusinessValue<CategoryGroup[]>('teaching_categories');
   const [subjects, setSubjects] = useBusinessValue<SubjectItem[]>('subjects');
   const [levels, setLevels] = useBusinessValue<LevelItem[]>('levels');
-  const [timeSlots, setTimeSlots] = useBusinessValue<TimeSlotItem[]>('time_slots');
+  const [storedTimeSlots, setTimeSlots] = useBusinessValue<TimeSlotItem[]>('time_slots');
+  const timeSlots = React.useMemo(() => {
+    const startMinutes = (slot: TimeSlotItem) => {
+      const match = slot.timeRange.match(/^\s*(\d{1,2}):(\d{2})/);
+      return match ? Number(match[1]) * 60 + Number(match[2]) : Number.POSITIVE_INFINITY;
+    };
+    return [...storedTimeSlots].sort((a, b) => startMinutes(a) - startMinutes(b));
+  }, [storedTimeSlots]);
   const [models, setModels] = useBusinessValue<ClassModelItem[]>('class_models');
   const [incidents, setIncidents] = useBusinessValue<IncidentCategory[]>('incident_categories');
   const [teachers, setTeachers] = useBusinessValue<TeacherProfile[]>('teachers');

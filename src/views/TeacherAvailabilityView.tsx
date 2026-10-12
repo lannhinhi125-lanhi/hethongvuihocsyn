@@ -169,6 +169,21 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     showToast(setToFree ? `Đã bật rảnh tất cả ca cho ${days[dayIndex].label}` : `Đã xóa chọn tất cả ca cho ${days[dayIndex].label}`, 'info');
   };
 
+  const setAllSlotsFree = () => {
+    if (!canEdit || !activeSlots.length) return;
+    setScheduleState(prev => {
+      const updated = { ...prev };
+      activeSlots.forEach(slot => {
+        updated[slot.code] = days.map(day => {
+          const current = prev[slot.code]?.[day.key] || 'none';
+          const assigned = getAssignedClassForSlot(day.key, slot.code, slot.timeRange);
+          return current === 'busy' || assigned ? 'busy' : 'free';
+        });
+      });
+      return updated;
+    });
+    showToast('Đã bật rảnh tất cả ca từ Thứ Hai đến Chủ Nhật. Nhấn Lưu Lịch Rảnh để lưu đăng ký.', 'info');
+  };
   const handleSaveAvailability = () => {
     if (!requirePermission("Giáo viên đăng ký lịch rảnh theo tuần")) return;
     if (!canEdit || !activeTeacher) return;
@@ -257,6 +272,15 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
             </button>
           </div>
 
+          {canEdit && <button
+            type="button"
+            onClick={setAllSlotsFree}
+            disabled={!activeSlots.length}
+            title="Bật rảnh toàn bộ ca từ Thứ Hai đến Chủ Nhật, bỏ qua ca đã có lớp"
+            className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Bật rảnh tất cả (cả tuần)
+          </button>}
           {/* Nút lưu */}
           {canEdit && <button
             disabled={!can("Giáo viên đăng ký lịch rảnh theo tuần")} onClick={handleSaveAvailability}
@@ -386,7 +410,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
                   onClick={() => setAllSlotsForDay(selectedDayKey, true)}
                   className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer"
                 >
-                  Bật rảnh tất cả ca
+                  Bật rảnh tất cả ca ngày này
                 </button>
                 <button
                   type="button"
