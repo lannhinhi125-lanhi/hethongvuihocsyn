@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext';
 import { ClassItem } from '../types';
 import { findKnowledgeDocument } from '../lib/knowledgeSearch';
 import { materialForSessionDate, teachingWeekForDate } from '../lib/teacherScheduleMaterials';
-import { canEndClass, canEnterClass, minutesUntilClassEnd, scheduledClassStart } from '../lib/classSessionTiming';
+import { canEnterClass, scheduledClassStart } from '../lib/classSessionTiming';
 import {
   Calendar,
   Sparkles,
@@ -209,11 +209,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
       showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
       return;
     }
-    const remainingMinutes = minutesUntilClassEnd(checkinAt, new Date());
-    if (!canEndClass(checkinAt, new Date())) {
-      showToast(`Chưa thể kết thúc lớp học. Còn ${remainingMinutes} phút để đủ 1 giờ từ lúc vào lớp.`, 'warning');
-      return;
-    }
+    if (!window.confirm('Bạn có chắc muốn kết thúc buổi học này? Trạng thái buổi học sẽ chuyển thành Đã hoàn thành.')) return;
     setClasses(prev =>
       prev.map(c => {
         if (c.id === selectedClass.id) {
@@ -613,7 +609,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
           <table className="w-full border-collapse text-left text-xs min-w-[1100px]">
             <thead>
               <tr className="bg-slate-800 text-white font-medium text-center">
-                <th className="p-3 w-32 border-r border-slate-700 bg-slate-900 font-bold">Ca tối (Evening)</th>
+                <th className="p-3 w-32 border-r border-slate-700 bg-slate-900 font-bold">Khung giờ</th>
                   {weekDates.map((date, index) => <th key={index} className={`p-3 border-r border-slate-700 w-1/7 ${index === 6 ? 'bg-slate-700/60' : ''}`}>
                     {weekDayNames[index]}<br /><span className={`text-[11px] font-normal ${index === 6 ? 'text-orange-200 font-bold' : 'text-slate-300'}`}>({date.toLocaleDateString('vi-VN')})</span>
                   </th>)}

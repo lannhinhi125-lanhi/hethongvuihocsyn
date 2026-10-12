@@ -1,7 +1,7 @@
 import { EmptyState } from '../components/EmptyState';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
-import { hasSessionStartPassed } from '../lib/sessionAlerts';
+import { hasSessionStartPassed, minutesEndedEarly } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -645,6 +645,17 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   // Hàm kiểm tra ca học đã đến giờ nhưng giáo viên chưa vào phòng -> CHUYỂN TRẠNG THÁI ĐỎ LẬP TỨC
+  const earlyEndMinutes = (session: MonitoringSession) => {
+    const cls = classes.find(item => item.code === session.classCode);
+    const normalize = (value: string) => value.replace(/\s/g, '');
+    const active = Object.values(cls?.activeSessions || {}).find(item =>
+      item.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === session.sessionDate &&
+      normalize(item.dateStr.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/)?.[0] || '') === normalize(session.timeSlot));
+    const lesson = persistedLessons.find(item => item.classId === cls?.id && item.date === session.sessionDate &&
+      normalize(timeSlots.find(slot => slot.id === item.timeSlotId)?.timeRange || '') === normalize(session.timeSlot));
+    return minutesEndedEarly(session.sessionDate, session.timeSlot, active?.checkoutAt || lesson?.checkoutAt);
+  };
+
   const isShiftOverdueAndMissing = (s: MonitoringSession) => {
     if (s.status === 'NGHI_HOC' || s.status === 'DA_HOC') return false;
     if (s.attendance === 'ATTENDED' || s.checkinTime !== null) return false;
@@ -915,9 +926,12 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     </tr>
                   ) : (
                     diaryFilteredSessions.map(s => {
+                      const earlyMinutes = earlyEndMinutes(s);
                       const isCompleted = s.status === 'DA_HOC';
                       const isOverdue = isShiftOverdueAndMissing(s);
-                      const highlightClass = isOverdue
+                      const highlightClass = earlyMinutes > 0
+                        ? 'bg-violet-50 border-l-4 border-l-violet-600 border-b border-violet-200 hover:bg-violet-100'
+                        : isOverdue
                         ? 'bg-rose-100/80 border-l-4 border-l-rose-600 border-b border-rose-200 text-rose-950 hover:bg-rose-100 ring-1 ring-inset ring-rose-300 transition-colors shadow-2xs font-medium'
                         : s.isJustUpdated
                         ? 'bg-orange-50/50 border-l-4 border-l-[#FF5C00]'
@@ -963,7 +977,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Thời gian & Ngày */}
                           <td className="py-3.5 px-3 text-xs">
-                            {isOverdue ? (
+                            {earlyMinutes > 0 ? (
+                              <span title={`K?t th?c tr??c gi? quy ??nh ${earlyMinutes} ph?t`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-100 text-violet-800 font-bold text-[11px] border border-violet-200">
+                                <span className="w-2 h-2 rounded-full bg-violet-500" /> K?t th?c s?m {earlyMinutes} ph?t
+                              </span>
+                            ) : isOverdue ? (
                               <div className="space-y-1">
                                 <div className="inline-block px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold font-mono text-xs border border-rose-200">
                                   {s.timeSlot}
@@ -1275,8 +1293,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     </tr>
                   ) : (
                     incidentFilteredSessions.map(s => {
+                      const earlyMinutes = earlyEndMinutes(s);
                       const isCompleted = s.status === 'DA_HOC';
-                      const highlightClass = s.isJustUpdated
+                      const highlightClass = earlyMinutes > 0
+                        ? 'bg-violet-50 border-l-4 border-l-violet-600 border-b border-violet-200 hover:bg-violet-100'
+                        : s.isJustUpdated
                         ? 'bg-orange-50/50 border-l-4 border-l-[#FF5C00]'
                         : 'hover:bg-slate-50/80 border-b border-slate-100';
 

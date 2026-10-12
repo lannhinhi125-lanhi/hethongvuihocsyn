@@ -10,3 +10,15 @@ export const hasSessionStartPassed = (sessionDate: string, timeSlot: string, now
   const [hour, minute] = time.split(':').map(Number);
   return Number.isFinite(hour) && Number.isFinite(minute) && hour * 60 + minute >= startHour * 60 + startMinute;
 };
+
+export const minutesEndedEarly = (date: string, time: string, checkoutAt?: string | null): number => {
+  const match = time.match(/^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$/);
+  if (!checkoutAt || !match || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return 0;
+  const [sh, sm, eh, em] = match.slice(1).map(Number);
+  if (sh > 23 || eh > 23 || sm > 59 || em > 59) return 0;
+  const end = new Date(date + 'T' + String(eh).padStart(2, '0') + ':' + String(em).padStart(2, '0') + ':00+07:00');
+  if (eh * 60 + em < sh * 60 + sm) end.setUTCDate(end.getUTCDate() + 1);
+  const checkout = new Date(checkoutAt);
+  if (Number.isNaN(checkout.getTime())) return 0;
+  return Math.max(0, Math.ceil((end.getTime() - checkout.getTime()) / 60_000));
+};
