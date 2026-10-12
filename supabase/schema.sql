@@ -731,6 +731,7 @@ CREATE TABLE IF NOT EXISTS vuihoc."SU_CO_BUOI_HOC" (
  mabuoi text NOT NULL REFERENCES vuihoc."BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,
  manhomsuco text NOT NULL REFERENCES vuihoc."DANH_MUC_SU_CO"(madinhdanh) ON DELETE RESTRICT,
  masuco text NOT NULL, tensuco text NOT NULL,
+ hesocongapdung numeric(6,3) CHECK (hesocongapdung>=0),
  muckhancap text CHECK (muckhancap IN ('EMERGENCY','ADVANCED')),
  noidung text NOT NULL DEFAULT '',
  trangthai text NOT NULL DEFAULT 'DANG_XU_LY' CHECK (trangthai IN ('DANG_XU_LY','DA_GIAI_QUYET','HUY_CA')),
@@ -755,7 +756,7 @@ CREATE TABLE IF NOT EXISTS vuihoc."CONG_DAY_BUOI_HOC" (
  UNIQUE(mabuoi)
 );
 -- Chính sách mẫu: một ca hoàn tất tính công cho người thực dạy (cover nếu có).
--- Sự cố không tự áp hệ số 0; vận hành điều chỉnh hệ số kèm lý do.
+-- Hệ số sự cố được chốt trên biên bản và áp vào công khi ghi nhận hoặc khi ca hoàn tất.
 CREATE TABLE IF NOT EXISTS vuihoc."GIAI_TRINH_CONG_DAY" (
  madinhdanh text PRIMARY KEY DEFAULT gen_random_uuid()::text,
  macong text NOT NULL REFERENCES vuihoc."CONG_DAY_BUOI_HOC"(madinhdanh) ON DELETE RESTRICT,

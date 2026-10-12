@@ -529,6 +529,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     e.preventDefault();
     if (!selectedIncidentSession) return;
+    const selectedIncident = incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild);
+    if (selectedIncident?.creditCoeff === undefined) {
+      showToast('Loại sự cố này chưa được cấu hình hệ số công.', 'error');
+      return;
+    }
     if (incHasCover && !requirePermission('Tìm và phân công giáo viên dạy thay')) return;
 
     const now = new Date();
@@ -1759,6 +1764,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                         <option key={item.code} value={item.code}>{item.name}</option>
                       ))}
                     </select>
+                    <p className="mt-1 text-xs text-orange-700">
+                      Hệ số công áp dụng: {incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild)?.creditCoeff ?? 'Chưa thiết lập'}
+                    </p>
                   </div>
                 </div>
               </section>

@@ -15,7 +15,7 @@
 | Đã có bản 31 bảng | Chỉ chạy migrations/20261011_teacher_evaluations.sql |
 | Đã có đủ 32 bảng | Chạy migrations/20261011_simple_accounts.sql (nếu chưa có), rồi migrations/20261011_encrypted_passwords.sql; xem ENCRYPTED_PASSWORDS.md |
 
-Không cần chạy migration riêng sau khi đã chạy schema.sql mới. Migration được giữ để nâng cấp database hiện có mà không xóa dữ liệu.
+Sau khi chạy schema.sql mới, chạy thêm migrations/20261012_incident_credit.sql để bật tự động chốt hệ số công theo sự cố. Với database hiện có, chỉ cần chạy migration này; không xóa dữ liệu cũ.
 
 ## Các file còn dùng
 
