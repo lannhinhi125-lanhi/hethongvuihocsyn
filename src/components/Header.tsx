@@ -2,6 +2,7 @@ import { confirmAction } from './ConfirmAction';
 import React from 'react';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
 import { useApp } from '../context/AppContext';
+import { TeacherNotifications } from './TeacherNotifications';
 import {
   Menu,
   ChevronRight,
@@ -93,6 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
 
         {/* Thanh công cụ phải */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {workspaceMode === 'TEACHER' && <TeacherNotifications />}
           {/* Nút Xóa sạch dữ liệu (Empty State) */}
           <button
             disabled={currentUser.role !== 'Quản trị Toàn quyền'} onClick={handleConfirmClear}

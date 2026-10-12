@@ -5,7 +5,7 @@ type Row = Record<string, any>;
 type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number };
 const emptyRag = { welcomeGreeting:'',quickPrompts:[],personaTone:'',strictGroundingOnly:true,fallbackResponse:'',systemPrompt:'' };
 let state: Snapshot = {data:{},loading:false,saving:false,error:'',saved:0};
-let confirmed: Record<string,any> = {}, generation=0, flushing=false, scheduled=false;
+let confirmed: Record<string,any> = {}, generation=0, flushing=false, scheduled=false, refreshing=false;
 let raw: Record<string,Row[]> = {};
 const listeners=new Set<()=>void>();
 function publish(next:Snapshot){state=next;listeners.forEach(fn=>fn());}
@@ -39,6 +39,18 @@ export async function loadBusinessData(){
  const version=++generation;publish({...state,loading:true,error:''});
  try {const result=await teacherSessionRequest('vuihoc_business_data');if(version!==generation)return;raw=result;confirmed=decode(result);publish({...state,data:confirmed,loading:false,error:''});}
  catch(error){if(version===generation)publish({...state,loading:false,error:(error as Error).message});}
+}
+export async function refreshBusinessData(){
+ if(refreshing || state.loading || state.saving || !Object.keys(state.data).length)return;
+ refreshing=true;
+ const version=generation, savedAt=state.saved;
+ try {
+  const result=await teacherSessionRequest('vuihoc_business_data');
+  if(version!==generation || state.loading || state.saving || state.saved!==savedAt)return;
+  raw=result;confirmed=decode(result);
+  publish({...state,data:confirmed,error:''});
+ }catch { /* Keep the last available data and retry on the next refresh. */ }
+ finally {refreshing=false;}
 }
 export function acceptBusinessTeacher(teacher:Row){
  const rows=[teacher,...(state.data.teachers||[]).filter((r:Row)=>r.id!==teacher.id)];
