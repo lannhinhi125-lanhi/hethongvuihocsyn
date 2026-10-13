@@ -551,12 +551,17 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     e.preventDefault();
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     if (savingIncident || businessStatus.saving || !selectedIncidentSession) return;
+    const isCompletedIncidentSession = selectedIncidentSession.status === 'DA_HOC' || studyStatus(selectedIncidentSession) === 'DA_HOC';
     const selectedIncident = incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild);
     if (selectedIncident?.creditCoeff === undefined) {
       showToast('Loại sự cố này chưa được cấu hình hệ số công.', 'error');
       return;
     }
-    if (incHasCover && !requirePermission('Tìm và phân công giáo viên dạy thay')) return;
+    if (!isCompletedIncidentSession && incHasCover && !requirePermission('Tìm và phân công giáo viên dạy thay')) return;
+    if (isCompletedIncidentSession && incStatus === 'HUY_CA') {
+      showToast('Ca đã học không thể chuyển thành hủy ca. Bạn vẫn có thể cập nhật biên bản sự cố.', 'warning');
+      return;
+    }
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });
@@ -573,11 +578,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       entry.dayIndex === weekday && entry.time === selectedIncidentSession.timeSlot
     ) + 1;
 
-    if (selectedIncidentSession.status !== 'DA_HOC' && incParent === 'GRP-TCH' && incHasCover && !incCoverTeacher) {
+    if (!isCompletedIncidentSession && incParent === 'GRP-TCH' && incHasCover && !incCoverTeacher) {
       showToast('Vui lòng chọn giáo viên dạy thay đang rảnh đúng ngày và khung giờ của ca này.', 'error');
       return;
     }
-    if (selectedIncidentSession.status !== 'DA_HOC' && incParent === 'GRP-TCH' && incHasCover &&
+    if (!isCompletedIncidentSession && incParent === 'GRP-TCH' && incHasCover &&
       (!targetClass || sessionNum < 1 || !coverTeacher || !coverCandidates.some(candidate => candidate.id === coverTeacher.id))) {
       showToast('Không thể gán cover: giáo viên không còn rảnh đúng ca này hoặc ca chưa được nối với lịch lớp.', 'error');
       return;
@@ -589,7 +594,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           let nextCover = s.coverTeacher;
           let nextStatus = s.status;
 
-          if (s.status !== 'DA_HOC') {
+          if (!isCompletedIncidentSession) {
             if (incParent === 'GRP-TCH') {
               if (incHasCover && incCoverTeacher) {
                 nextCover = coverTeacher?.name || null;
@@ -626,7 +631,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       return updated;
     })) return;
 
-    if (targetClass && sessionNum > 0 && selectedIncidentSession.status !== 'DA_HOC') {
+    if (targetClass && sessionNum > 0 && !isCompletedIncidentSession) {
       setClasses(previous => previous.map(cls => {
         if (cls.id !== targetClass.id) return cls;
         const coverAssignments = (cls.coverAssignments || []).filter(assignment =>
@@ -1100,17 +1105,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                                 Sổ Ca Dạy
                               </button>
 
-                              {(s.status === 'DAY_THAY' || s.hasIncident || s.status === 'CO_SU_CO') && (
-                                isCompleted ? (
-                                  <button
-                                    type="button"
-                                    disabled
-                                    className="px-2 py-1.5 rounded-xl bg-slate-100 text-slate-400 font-bold text-[11px] border border-slate-200 cursor-not-allowed opacity-50"
-                                    title="Ca học đã hoàn thành - Khóa điều phối Dạy thay"
-                                  >
-                                    <span className="line-through">Dạy thay</span>
-                                  </button>
-                                ) : (
+                              {can('Ghi nhận và xử lý sự cố ca dạy') && (
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1118,11 +1113,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                                       openIncidentModal(s);
                                     }}
                                     className="px-2 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] border border-rose-200 transition-all cursor-pointer"
-                                    title="Chuyển sang Tab 2 để điều phối Dạy thay và lập biên bản"
+                                    title={isCompleted ? 'Cập nhật biên bản sự cố của ca đã học' : 'Lập biên bản sự cố và điều phối dạy thay'}
                                   >
-                                    Sự cố
+                                    {s.hasIncident ? 'Biên bản' : 'Sự cố'}
                                   </button>
-                                )
                               )}
                             </div>
                           </td>
@@ -1623,7 +1617,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
               {/* Khối Điều phối Cover (Dạy thay) - chỉ dành cho Giáo viên */}
               {incParent === 'GRP-TCH' ? (
-                selectedIncidentSession.status === 'DA_HOC' ? (
+                selectedIncidentSession.status === 'DA_HOC' || studyStatus(selectedIncidentSession) === 'DA_HOC' ? (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] text-amber-800 font-medium">
                     Buổi học này <strong>đã hoàn thành</strong>. Chức năng gán Cover đã được tự động khóa (chỉ cho phép xem và cập nhật biên bản sự cố).
                   </div>

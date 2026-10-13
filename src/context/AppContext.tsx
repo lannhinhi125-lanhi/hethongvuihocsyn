@@ -428,6 +428,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return {
                 ...s,
                 type: 'COVER' as const,
+                reconciliationSent: false,
                 statusText: `Dạy thay bởi ${newTeacherName}`,
                 hrPayNote: `Ca Cover giao cho ${newTeacherName}`
               };
@@ -468,6 +469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return {
                 ...s,
                 creditCoeff: newCoeff,
+                reconciliationSent: false,
                 hrPayNote: note?.trim() || `Hệ số được cập nhật: ${newCoeff}`
               };
             }
@@ -522,7 +524,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 reconcileStatus: ['CHO_GUI', 'DA_XU_LY_GT'].includes(teacher.reconcileStatus)
                   ? 'DA_GUI'
                   : teacher.reconcileStatus,
-                payrollSent: true
+                payrollSent: true,
+                sessions: teacher.sessions.map(session => ({ ...session, reconciliationSent: true }))
               }
               : teacher
           )
@@ -538,7 +541,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const ownTeacher = resolveAccountTeacher(currentUser, teachers, users);
     const record = period?.teachers.find(teacher => teacher.teacherId === dispute.teacherId);
     if (!period || period.isLocked) { showToast('Không thể gửi giải trình khi kỳ chưa có dữ liệu hoặc đã khóa.', 'error'); return false; }
-    if (!ownTeacher || ownTeacher.id !== dispute.teacherId || !record?.payrollSent || !record.sessions.some(session => session.id === dispute.sessionId)) { showToast('Chỉ được giải trình ca dạy trong bảng công đã gửi của chính mình.', 'error'); return false; }
+    if (!ownTeacher || ownTeacher.id !== dispute.teacherId || !record?.sessions.some(session => session.id === dispute.sessionId && (session.reconciliationSent ?? record.payrollSent))) { showToast('Chỉ được giải trình ca dạy đã được gửi đối soát của chính mình.', 'error'); return false; }
     if (!dispute.content.trim()) { showToast('Vui lòng nhập nội dung giải trình.', 'error'); return false; }
     if (period.disputes.some(item => item.teacherId === dispute.teacherId && item.sessionId === dispute.sessionId && item.status === 'CHO_DUYET')) { showToast('Ca này đã có giải trình đang chờ duyệt.', 'warning'); return false; }
     setPayrollStore(prev => {
@@ -620,6 +623,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return {
                   ...s,
                   type: 'APPROVED_EXPLANATION' as const,
+                  reconciliationSent: false,
                   statusText: 'Đã duyệt GT (Miễn phạt)',
                   creditCoeff,
                   hrPayNote: note.trim() || `Đã duyệt giải trình · Hệ số ${creditCoeff}`,
@@ -629,6 +633,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return {
                   ...s,
                   type: 'EMERGENCY' as const,
+                  reconciliationSent: false,
                   statusText: status === 'TU_CHOI' ? 'Bị từ chối GT' : 'Đang chờ duyệt GT',
                   creditCoeff,
                   hrPayNote: note.trim() || `Từ chối giải trình · Hệ số ${creditCoeff}`,

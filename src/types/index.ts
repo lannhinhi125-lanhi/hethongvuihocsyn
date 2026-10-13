@@ -254,6 +254,7 @@ export interface RAGBotConfig {
 // Phân hệ 7: Chốt công & Đối soát (Dành cho Giáo viên & Gia sư)
 export interface SessionPayrollRecord {
   id: string;
+  lessonId?: string;
   week: string;
   date: string;
   dateStr: string;
@@ -279,6 +280,7 @@ export interface SessionPayrollRecord {
   durationMinutes?: number;
   studentCount?: number;
   reconcileStatus?: 'CHO_DOI_SOAT' | 'DA_XAC_NHAN' | 'CO_GIAI_TRINH' | 'DA_CHOT';
+  reconciliationSent?: boolean;
 }
 
 export interface DisputeItem {

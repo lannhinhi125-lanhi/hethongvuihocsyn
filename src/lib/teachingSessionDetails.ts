@@ -19,8 +19,10 @@ export const teachingSessionsInWeek = (cls: ClassItem, date: string) => {
 };
 
 export interface TeachingLesson {
+  id?: string;
   classId: string;
   date: string;
+  status?: string;
   timeSlotId: string;
   roomUrl?: string;
   recordingUrl?: string | null;

@@ -213,6 +213,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
       showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
       return;
     }
+    const studentsWithoutFeedback = selectedClass.studentIds.filter(
+      studentId => !activeSession.feedback?.[studentId]?.trim()
+    );
+    if (studentsWithoutFeedback.length > 0) {
+      showToast(`Cần lưu nhận xét cho đủ ${selectedClass.studentIds.length} học sinh trước khi hoàn thành ca.`, 'warning');
+      return;
+    }
     if (!window.confirm('Bạn có chắc muốn kết thúc buổi học này? Trạng thái buổi học sẽ chuyển thành Đã hoàn thành.')) return;
     setClasses(prev =>
       prev.map(c => {

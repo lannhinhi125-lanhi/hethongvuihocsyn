@@ -8,7 +8,6 @@ import {
   Download,
   Printer,
   CheckCircle2,
-  Clock,
   AlertCircle,
   FileSpreadsheet,
   Send,
@@ -21,10 +20,13 @@ import {
 } from 'lucide-react';
 import { SessionPayrollRecord, DisputeItem } from '../types';
 import { getCurrentPayrollMonth, getPayrollMonthOptions } from '../lib/payrollPeriods';
+import { useBusinessValue } from '../lib/businessPersistence';
+import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
 export const TeacherWorkReconciliationView: React.FC = () => {
+  const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const { can, requirePermission } = usePermissions();
-  const { currentUser, payrollStore, submitDispute, showToast, teachers, users } = useApp();
+  const { currentUser, payrollStore, submitDispute, showToast, teachers, users, classes } = useApp();
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
@@ -49,6 +51,23 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     ? monthData.teachers.find(record => record.teacherId === ownTeacher.id)
     : undefined;
 
+  const completedSessions = useMemo(() => (myRecord?.sessions || []).filter(session => {
+    const matchingClass = classes.find(cls => cls.code === session.classCode);
+    const classroomSession = Object.values(matchingClass?.activeSessions || {}).find(item =>
+      item.dateStr.slice(0, 10) === session.date &&
+      (!item.dateStr.includes(' - ') || item.dateStr.includes(session.time))
+    );
+    const lesson = datedLessons.find(item => item.id === (session.lessonId || session.id));
+    const canceledWithIncident = (session.type === 'EMERGENCY' || session.type === 'STUDENT_CANCELED') &&
+      (lesson?.status === 'HUY' || lesson?.status === 'NGHI_HOC' ||
+        classroomSession?.status === 'Nghỉ có phép' || session.type === 'STUDENT_CANCELED');
+    if (canceledWithIncident) return true;
+    return Boolean(classroomSession &&
+      classroomSession.status === 'Đã hoàn thành' &&
+      matchingClass?.studentIds.length &&
+      matchingClass.studentIds.every(studentId => classroomSession.feedback?.[studentId]?.trim()));
+  }), [myRecord, classes, datedLessons]);
+
   // Các đơn giải trình của bản thân
   const myDisputes = useMemo(() => {
     if (!myRecord) return [];
@@ -58,7 +77,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   // Thống kê cá nhân
   const stats = useMemo(() => {
     if (!myRecord) return { totalSessions: 0, totalCredit: 0, standard: 0, cover: 0, canceled: 0, late: 0 };
-    const sessions = myRecord.sessions || [];
+    const sessions = completedSessions;
     const totalCredit = sessions.reduce((acc, s) => acc + s.creditCoeff, 0);
     return {
       totalSessions: sessions.length,
@@ -68,7 +87,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       canceled: sessions.filter(s => s.type === 'STUDENT_CANCELED').length,
       late: sessions.filter(s => s.type === 'LATE').length
     };
-  }, [myRecord]);
+  }, [myRecord, completedSessions]);
 
   // Xuất file CSV / Excel cá nhân gửi bộ phận tính công
   const handleExportPersonalCsv = () => {
@@ -96,7 +115,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       'Ghi chú đối soát'
     ];
 
-    const rows = (myRecord.sessions || []).map((s, idx) => [
+    const rows = completedSessions.map((s, idx) => [
       idx + 1,
       myRecord.teacherId,
       `"${myRecord.teacherName}"`,
@@ -137,6 +156,10 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     if (!requirePermission("Gửi giải trình / khiếu nại sai lệch ca dạy")) return;
     if (!myRecord || !selectedSessionForDispute) {
       showToast('Vui lòng chọn ca dạy cần giải trình!', 'error');
+      return;
+    }
+    if (!(selectedSessionForDispute.reconciliationSent ?? myRecord.payrollSent)) {
+      showToast('Ca này chưa được gửi yêu cầu đối soát.', 'warning');
       return;
     }
     if (monthData.isLocked) { showToast('Kỳ công đã khóa. Vui lòng liên hệ vận hành để mở lại kỳ.', 'warning'); return; }
@@ -199,40 +222,9 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   }
 
   const isTutor = myRecord.staffRole === 'GIA_SU';
-  const isPayrollPublished = Boolean(myRecord.payrollSent);
-
-  if (!isPayrollPublished) {
-    return (
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">Đối soát công cá nhân</h2>
-            <p className="mt-1 text-xs text-slate-500">{myRecord.teacherName} · {myRecord.teacherId}</p>
-          </div>
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            <Calendar className="h-4 w-4" />
-            Kỳ công
-            <select
-              value={selectedMonth}
-              onChange={event => setSelectedMonth(event.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800"
-            >
-              {payrollMonthOptions.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
-          <Clock className="mx-auto h-8 w-8 text-amber-500" />
-          <h3 className="mt-3 text-sm font-bold text-slate-800">Bảng công chưa được gửi</h3>
-          <p className="mt-1 text-xs text-slate-600">
-            Bảng công kỳ {selectedMonth} sẽ hiển thị tại đây sau khi bộ phận quản lý gửi đối soát.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const canDisputeSession = (session: SessionPayrollRecord) =>
+    !monthData.isLocked && Boolean(session.reconciliationSent ?? myRecord.payrollSent);
+  const hasDisputableSessions = completedSessions.some(canDisputeSession);
 
   return (
     <div className="space-y-6">
@@ -298,8 +290,10 @@ export const TeacherWorkReconciliationView: React.FC = () => {
 
           {/* Nút Gửi giải trình */}
           <button
+            disabled={!hasDisputableSessions}
+            title={hasDisputableSessions ? 'Gửi giải trình công' : 'Chờ quản trị gửi yêu cầu đối soát'}
             onClick={() => setShowDisputeModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Send className="w-4 h-4" />
             <span>Gửi giải trình công</span>
@@ -334,9 +328,9 @@ export const TeacherWorkReconciliationView: React.FC = () => {
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase">Tổng ca đã dạy</div>
+          <div className="text-[11px] font-semibold text-slate-500 uppercase">Tổng ca tính công</div>
           <div className="text-2xl font-black text-slate-800 mt-1">{stats.totalSessions}</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">Ca trong kỳ</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Gồm ca dạy và ca nghỉ có công sự cố</div>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 shadow-2xs">
@@ -388,7 +382,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             </p>
           </div>
           <div className="text-xs text-slate-500">
-            Tổng cộng: <span className="font-bold text-slate-800">{myRecord.sessions?.length || 0}</span> ca dạy
+            Tổng cộng: <span className="font-bold text-slate-800">{completedSessions.length}</span> ca dạy
           </div>
         </div>
 
@@ -409,7 +403,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               </tr>
             </thead>
             <PaginatedTableBody className="divide-y divide-slate-100">
-              {(myRecord.sessions || []).map(session => (
+              {completedSessions.map(session => (
                 <tr key={session.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3 px-4 font-mono font-bold text-slate-700">{session.id}</td>
                   <td className="py-3 px-4">
@@ -451,8 +445,8 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                   <td className="py-3 px-4 text-[11px] text-slate-500 max-w-xs">{session.hrPayNote}</td>
                   <td className="py-3 px-4 text-center">
                     <button
-                      disabled={monthData.isLocked || myDisputes.some(dispute => dispute.sessionId === session.id && dispute.status === 'CHO_DUYET')}
-                      title={monthData.isLocked ? 'Kỳ công đã khóa' : 'Gửi giải trình ca dạy'}
+                      disabled={!canDisputeSession(session) || myDisputes.some(dispute => dispute.sessionId === session.id && dispute.status === 'CHO_DUYET')}
+                      title={monthData.isLocked ? 'Kỳ công đã khóa' : !canDisputeSession(session) ? 'Chờ quản trị gửi yêu cầu đối soát' : 'Gửi giải trình ca dạy'}
                       onClick={() => {
                         setSelectedSessionForDispute(session);
                         setShowDisputeModal(true);
@@ -539,13 +533,13 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                 <select
                   value={selectedSessionForDispute?.id || ''}
                   onChange={e => {
-                    const found = (myRecord.sessions || []).find(s => s.id === e.target.value);
+                    const found = completedSessions.find(s => s.id === e.target.value);
                     setSelectedSessionForDispute(found || null);
                   }}
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-blue-500"
                 >
                   <option value="">-- Chọn ca học --</option>
-                  {(myRecord.sessions || []).map(s => (
+                  {completedSessions.filter(canDisputeSession).map(s => (
                     <option key={s.id} value={s.id}>
                       {s.id} - {s.dateStr} ({s.time}) - {s.className} ({s.creditCoeff} công)
                     </option>
@@ -663,7 +657,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(myRecord.sessions || []).map((s, idx) => (
+                  {completedSessions.map((s, idx) => (
                     <tr key={s.id}>
                       <td className="p-2 text-slate-500">{idx + 1}</td>
                       <td className="p-2">{s.dateStr}</td>

@@ -50,6 +50,12 @@ try {
       assert.equal(session(staff, 'GV-001', id).creditCoeff, -1);
       assert.equal(session(staff, cover, id).creditCoeff, 1);
       assert.equal(session(staff, cover, id).type, 'COVER');
+      const completedIncident = (await read(login.token)).lesson_incidents.find(item => item.madinhdanh === incident.madinhdanh);
+      await save(login.token, [{ dataset: 'lesson_incidents', before: completedIncident, after: { ...completedIncident, noidung: 'Updated after the lesson ended' } }]);
+      staff = await month();
+      assert.equal(session(staff, 'GV-001', id).creditCoeff, -1);
+      assert.equal(session(staff, cover, id).creditCoeff, 1);
+      assert.equal((await db.query('SELECT trangthai,magiaoviendaythay FROM vuihoc."BUOI_HOC" WHERE madinhdanh=$1', [id])).rows[0].trangthai, 'HOAN_THANH');
     }
   }
   await save(operator.token, [
