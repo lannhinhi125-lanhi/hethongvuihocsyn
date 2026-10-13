@@ -72,6 +72,9 @@ try {
  assert.equal(session(month,'NORMAL-COVER','GV-002').creditCoeff,1);
  assert.equal(session(month,'NORMAL-COVER','GV-002').type,'COVER');
  assert.equal(staff(month).sessions.reduce((sum,s)=>sum+s.creditCoeff,0),-2);
+ const adminIncident=(await read()).lesson_incidents.find(i=>i.madinhdanh==='INC-NORMAL-COVER');
+ await rpc('vuihoc_save_business',[admin.token,JSON.stringify([{dataset:'lesson_incidents',before:adminIncident,after:{...adminIncident,noidung:'Admin handled this incident'}}])]);
+ month=await work();assert.equal(session(month,'NORMAL-COVER').handledBy,admin.actor.madinhdanh);
  const ownMonth=async()=> (await read(teacher.token)).monthly_payroll.find(m=>m.kycong==='2026-11');
  let own=await ownMonth();
  assert.equal(own.danhsachgiaovien.length,1);
@@ -109,6 +112,14 @@ try {
  assert.equal(session(month,'NORMAL-CANCELED').creditCoeff,0.25,'Incident note saves preserve payroll overrides');
  const stale=structuredClone(month),fresh=structuredClone(month);session(fresh,'NORMAL-CANCELED').creditCoeff=0.75;session(fresh,'NORMAL-CANCELED').hrPayNote='New adjustment';
  await save(month,fresh);await assert.rejects(save(stale,changed),/phiên khác/);
+ const cls=(await db.query(`SELECT danhsachmahocsinh FROM vuihoc."LOP_HOC" WHERE madinhdanh='CLS-001'`)).rows[0];
+ const complete={dateStr:'2026-12-01 (18:00 - 19:30)',status:'Đã hoàn thành',sessionNum:'NORMAL-COMMENT',feedback:{}};
+ await db.query(`UPDATE vuihoc."LOP_HOC" SET chitietcahoc=jsonb_set(chitietcahoc,'{NORMAL-COMMENT}',$1::jsonb) WHERE madinhdanh='CLS-001'`,[JSON.stringify(complete)]);
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" c JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi WHERE b.malop='CLS-001' AND b.ngayhoc='2026-12-01'`)).rows[0].n,0,'No work before all student comments');
+ complete.feedback=Object.fromEntries(cls.danhsachmahocsinh.map(id=>[id,'Completed student review']));
+ await db.query(`UPDATE vuihoc."LOP_HOC" SET chitietcahoc=jsonb_set(chitietcahoc,'{NORMAL-COMMENT}',$1::jsonb) WHERE madinhdanh='CLS-001'`,[JSON.stringify(complete)]);
+ assert.equal((await db.query(`SELECT c.hesocong FROM vuihoc."CONG_DAY_BUOI_HOC" c JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi WHERE b.malop='CLS-001' AND b.ngayhoc='2026-12-01'`)).rows[0].hesocong,'1.000','All comments create standard work');
+ assert.ok((await read(teacher.token)).monthly_payroll.find(m=>m.kycong==='2026-12').danhsachgiaovien[0].sessions.length>0);
  month=await work();
  const lock=structuredClone(month);lock.dakhoa=true;lock.thoigiankhoa=new Date().toISOString();lock.danhsachgiaovien.forEach(t=>{t.payrollSent=true;t.reconcileStatus='DA_CHOT';});
  await save(month,lock);

@@ -1,6 +1,8 @@
 # Lưu dữ liệu nghiệp vụ lên Supabase
 
-Mã nguồn đã nối đọc/lưu dữ liệu qua RPC và phiên đăng nhập nội bộ. Giữ nguyên 31 bảng, không tạo lại CA_HOC và không dùng service_role ở trình duyệt.
+Mã nguồn đã nối đọc/lưu dữ liệu qua RPC và phiên đăng nhập nội bộ, không tạo lại CA_HOC và không dùng service_role ở trình duyệt.
+
+Bảng công tháng đã có bản nâng cấp riêng: chạy `migrations/20261014_normalize_monthly_payroll.sql` cuối cùng. Bản này chuyển công/giải trình sang các bảng hiện có, thêm bảng trạng thái gửi đối soát theo giáo viên/kỳ, rồi xóa hai cột danh sách JSONB. Màn hình nhận danh sách truy vấn qua RPC. Xem [NORMALIZED_PAYROLL.md](NORMALIZED_PAYROLL.md).
 
 ## Nâng cấp database đang có
 
@@ -24,7 +26,7 @@ Thay đổi liên quan trong cùng thao tác UI được gửi theo một giao d
 
 ## Phạm vi còn giữ cấu trúc cũ
 
-Đây là bước nối lưu dữ liệu, không phải migration chuyển toàn bộ JSONB sang quan hệ. Lịch rảnh UI vẫn lưu trong GIAO_VIEN.lichranh; học liệu/điểm danh/nhận xét phòng học và báo cáo dự giờ UI còn dùng các cột JSONB có sẵn. Bảng theo tuần, điểm danh/nhận xét riêng và BIEN_BAN_DU_GIO chưa thay thế hoàn toàn các nguồn UI đó. Bảng công UI vẫn dùng BANG_CONG_THANG; công canonical tự sinh từ BUOI_HOC chưa được hợp nhất hoàn toàn với bảng công UI. Không nên coi cấu trúc hiện tại là hoàn tất chuẩn hóa 3NF.
+Đây là bước nối lưu dữ liệu, không phải migration chuyển toàn bộ JSONB sang quan hệ. Lịch rảnh UI vẫn lưu trong GIAO_VIEN.lichranh; học liệu/điểm danh/nhận xét phòng học và báo cáo dự giờ UI còn dùng các cột JSONB có sẵn. Bảng theo tuần, điểm danh/nhận xét riêng và BIEN_BAN_DU_GIO chưa thay thế hoàn toàn các nguồn UI đó. Riêng bảng công sau bản nâng cấp ngày 14/10 đọc/ghi từ CONG_DAY_BUOI_HOC và GIAI_TRINH_CONG_DAY; BANG_CONG_THANG chỉ giữ metadata của kỳ. Không nên coi cấu trúc hiện tại là hoàn tất chuẩn hóa toàn dự án.
 
 Tệp minh chứng/tệp SOP nhị phân chưa upload Supabase Storage; nội dung văn bản và metadata được lưu. Chatbot/nhận xét AI hiện là mô phỏng; lịch sử chat và bộ lọc tạm thời không phải bản ghi nghiệp vụ.
 

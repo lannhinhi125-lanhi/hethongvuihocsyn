@@ -140,7 +140,7 @@ BEGIN
  INSERT INTO vuihoc."CONG_DAY_BUOI_HOC"(mabuoi,magiaovien,kycong,vaitro,hesocong,ghichu,loaicong)
  VALUES(p_buoi,p_giaovien,ky,CASE WHEN b.magiaoviendaythay=p_giaovien THEN 'DAY_THAY' ELSE 'CHINH' END,p_heso,p_ghichu,p_loai)
  ON CONFLICT(mabuoi,magiaovien) DO UPDATE SET
-   hesocong=excluded.hesocong,ghichu=excluded.ghichu,loaicong=excluded.loaicong,dagui=false
+   hesocong=excluded.hesocong,ghichu=excluded.ghichu,loaicong=excluded.loaicong,dagui=false,guiluc=NULL
  WHERE p_thayheso AND ("CONG_DAY_BUOI_HOC".hesocong,"CONG_DAY_BUOI_HOC".ghichu,"CONG_DAY_BUOI_HOC".loaicong)
    IS DISTINCT FROM (excluded.hesocong,excluded.ghichu,excluded.loaicong);
 END $fn$;
@@ -261,7 +261,7 @@ $query$;
 CREATE OR REPLACE FUNCTION vuihoc.luu_bang_cong(p_actor text,p_own text,b jsonb,v jsonb)
 RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog AS $save$
 DECLARE ky text; original jsonb; teacher_portal boolean; can_edit boolean; can_review boolean; can_send boolean; can_lock boolean;
- t jsonb; old_t jsonb; s jsonb; old_s jsonb; d jsonb; old_d jsonb; credit text; pending boolean;
+ t jsonb; old_t jsonb; s jsonb; old_s jsonb; d jsonb; old_d jsonb; credit text;
 BEGIN
  IF v IS NULL OR b IS NULL THEN RAISE EXCEPTION 'Kỳ công được sinh từ ca học; không tạo/xóa danh sách thủ công'; END IF;
  ky:=b->>'kycong';
@@ -333,7 +333,9 @@ BEGIN
    END IF;
    UPDATE vuihoc."CONG_DAY_BUOI_HOC" SET hesocong=(s->>'creditCoeff')::numeric,
     ghichu=coalesce(s->>'hrPayNote',''),loaicong=s->>'type',
-    dagui=coalesce((s->>'reconciliationSent')::boolean,false),trangthaidoisoat=coalesce(s->>'reconcileStatus','CHO_DOI_SOAT')
+    dagui=coalesce((s->>'reconciliationSent')::boolean,false),
+    guiluc=CASE WHEN coalesce((s->>'reconciliationSent')::boolean,false) THEN coalesce(guiluc,now()) ELSE NULL END,
+    trangthaidoisoat=coalesce(s->>'reconcileStatus','CHO_DOI_SOAT')
    WHERE kycong=ky AND magiaovien=t->>'teacherId' AND mabuoi=s->>'id';
   END LOOP;
   INSERT INTO vuihoc."DOI_SOAT_CONG_GIAO_VIEN"(kycong,magiaovien,dagui,trangthai)
@@ -559,7 +561,7 @@ SELECT c.kycong,c.magiaovien,g.hoten AS tengiaovien,g.mamonhoc,
  EXISTS(SELECT 1 FROM vuihoc."NHAN_XET_BUOI_HOC" n WHERE n.mabuoi=b.madinhdanh AND btrim(n.noidung)<>'') AS conhanxet,
  sc.madinhdanh AS masuco,sc.tensuco,sc.hesocongapdung,sc.manguoixuly,sc.xulyluc,
  gt.madinhdanh AS magiaitrinh,gt.trangthai AS trangthaigiaitrinh,gt.loaisuco,
- gt.noidung AS noidunggiaitrinh,gt.ghichuduyet
+ gt.noidung AS noidunggiaitrinh,gt.ghichuduyet,c.loaicong,c.trangthaidoisoat
 FROM vuihoc."CONG_DAY_BUOI_HOC" c
 JOIN vuihoc."GIAO_VIEN" g ON g.madinhdanh=c.magiaovien
 JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi
@@ -634,3 +636,11 @@ REVOKE ALL ON FUNCTION public.vuihoc_business_data(text),public.vuihoc_save_busi
 GRANT EXECUTE ON FUNCTION public.vuihoc_business_data(text),public.vuihoc_save_business(text,jsonb) TO anon,authenticated;
 NOTIFY pgrst,'reload schema';
 COMMIT;
+
+-- The result is computed from the new source tables, not stored as a list.
+SELECT m.kycong,
+ (SELECT count(*) FROM vuihoc."CONG_DAY_BUOI_HOC" c WHERE c.kycong=m.kycong) AS so_ca_cong,
+ (SELECT count(*) FROM vuihoc."GIAI_TRINH_CONG_DAY" d JOIN vuihoc."CONG_DAY_BUOI_HOC" c ON c.madinhdanh=d.macong WHERE c.kycong=m.kycong) AS so_giai_trinh,
+ NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc'
+  AND table_name='BANG_CONG_THANG' AND column_name IN ('danhsachgiaovien','danhsachgiaitrinh')) AS da_xoa_hai_cot_jsonb
+FROM vuihoc."BANG_CONG_THANG" m ORDER BY m.kycong DESC;

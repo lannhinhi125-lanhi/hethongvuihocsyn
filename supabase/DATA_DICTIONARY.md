@@ -20,7 +20,7 @@ Giao diện dùng src/config/supabase.ts để kết nối và src/lib/supabaseM
 | Học sinh, phụ huynh | HOC_SINH |
 | Lớp, học liệu, điểm danh, nhận xét | LOP_HOC; hoclieu, chitietcahoc, phancongdaythay |
 | Giám sát ca, check-in, sự cố | BUOI_HOC và các bảng con |
-| Bảng công, hệ số công, giải trình | BANG_CONG_THANG; danhsachgiaovien, danhsachgiaitrinh |
+| Bảng công, hệ số công, giải trình | BANG_CONG_THANG (kỳ); CONG_DAY_BUOI_HOC; GIAI_TRINH_CONG_DAY; DOI_SOAT_CONG_GIAO_VIEN |
 | AI, SOP | NHOM_TIEU_CHI, TAI_LIEU_QUY_TRINH, CAU_HINH_TRO_LY, VAN_PHONG_NHAN_XET, LUOT_NHAN_XET_AI |
 | Báo cáo | MAU_BAO_CAO; số liệu tính từ bảng nghiệp vụ |
 | Cấu hình | CAU_HINH_HE_THONG, TUY_CHON_NGUOI_DUNG |
@@ -29,7 +29,7 @@ Giao diện dùng src/config/supabase.ts để kết nối và src/lib/supabaseM
 
 - LOP_HOC.chitietcahoc: object theo số buổi, chứa attendance, feedback, feedbackCriteria và các trường ClassRoomSession.
 - GIAO_VIEN.lichranh: mã khung giờ → danh sách trạng thái trong tuần. baocaodanhgia chứa EvaluationRecord.
-- BANG_CONG_THANG.danhsachgiaovien chứa TeacherPayrollSummary, sessions và hệ số công; danhsachgiaitrinh chứa DisputeItem.
+- Sau `20261014_normalize_monthly_payroll.sql`, danh sách công và giải trình truy vấn từ các bảng nghiệp vụ; BANG_CONG_THANG không còn hai cột danh sách JSONB. Xem [NORMALIZED_PAYROLL.md](NORMALIZED_PAYROLL.md).
 - Cây tiêu chí, cây sự cố và danh mục bổ sung dùng JSONB. Key bên trong giữ nguyên camelCase.
 - Khóa ngoại SQL không kiểm tra mã nằm sâu trong JSONB. Backend cần kiểm tra liên kết, cập nhật nhất quán và tránh ghi đè thay đổi của người khác.
 - passwordRaw không lưu. NGUOI_DUNG.matkhau_mahoa lưu bản mã; matkhau_bam chỉ giữ tương thích mật khẩu cũ. Phiên đăng nhập trong NGUOI_DUNG. Không dùng Supabase Auth. Xem SIMPLE_ACCOUNTS.md.
@@ -268,8 +268,8 @@ Giao diện dùng src/config/supabase.ts để kết nối và src/lib/supabaseM
 | --- | --- | --- |
 | isLocked | dakhoa | boolean NOT NULL |
 | adminSentNotice | daguithongbao | boolean NOT NULL |
-| teachers | danhsachgiaovien | jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof("danhsachgiaovien") = 'array') |
-| disputes | danhsachgiaitrinh | jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof("danhsachgiaitrinh") = 'array') |
+| teachers | Trường truy vấn trong API | Không có cột lưu; lấy từ GIAO_VIEN, CONG_DAY_BUOI_HOC và DOI_SOAT_CONG_GIAO_VIEN |
+| disputes | Trường truy vấn trong API | Không có cột lưu; lấy từ GIAI_TRINH_CONG_DAY theo macong |
 | id | madinhdanh | text PRIMARY KEY DEFAULT gen_random_uuid()::text |
 | month_period | kycong | text NOT NULL UNIQUE CHECK (kycong ~ '^\d{4}-(0[1-9]|1[0-2])$') |
 | locked_at | thoigiankhoa | timestamptz |

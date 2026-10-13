@@ -10,6 +10,10 @@ Migration chuyển ca/giải trình từ dữ liệu cũ sang `CONG_DAY_BUOI_HOC
 Toàn bộ thay đổi nằm trong một giao dịch. Nếu ca không có `BUOI_HOC` đúng kỳ,
 giao dịch báo mã ca và hủy; hai cột cùng dữ liệu cũ vẫn còn. Chạy lại được.
 
+Giải trình có mã khác nhau trong hai nguồn cũ được giữ thành các bản ghi riêng,
+kể cả cùng trỏ tới một ca. Danh sách quản trị hiển thị đầy đủ để xử lý. Đơn mới
+bị chặn khi ca đã có giải trình chờ duyệt.
+
 - `BANG_CONG_THANG`: mã kỳ, khóa/mở kỳ, thời gian khóa, lý do mở, thông báo.
 - `CONG_DAY_BUOI_HOC`: mỗi ca/giáo viên một dòng, hệ số, loại công, ghi chú,
   trạng thái đối soát và đã gửi. Công giáo viên vắng và công giáo viên dạy thay
