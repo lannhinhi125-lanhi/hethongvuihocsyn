@@ -21,6 +21,11 @@ Sau khi chạy schema.sql mới, chạy thêm migrations/20261012_incident_credi
 
 ## Các file còn dùng
 
+Bảng công tháng hiện có: chạy **`migrations/20261014_normalize_monthly_payroll.sql`**
+cuối cùng để chuyển dữ liệu, dùng truy vấn và xóa hai cột danh sách JSONB.
+Xem [NORMALIZED_PAYROLL.md](NORMALIZED_PAYROLL.md). Không chạy lại seed/schema
+hoặc các bản đồng bộ công cũ sau bước này.
+
 - [schema.sql](schema.sql): cấu trúc đầy đủ và dữ liệu mẫu.
 - [verify_schema.sql](verify_schema.sql): truy vấn kiểm tra bảng, khóa ngoại, RLS và dữ liệu.
 - [DATA_DICTIONARY.md](DATA_DICTIONARY.md): đối chiếu trường UI với cột SQL của các bảng nền.

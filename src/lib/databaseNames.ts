@@ -225,6 +225,8 @@ export const DATABASE_NAMES = {
       "updated_at": "ngaycapnhat"
     }
   },
+  // teachers/disputes are computed API fields after payroll normalization.
+  // They are not physical columns in BANG_CONG_THANG.
   "monthly_payroll": {
     "table": "BANG_CONG_THANG",
     "columns": {
@@ -655,6 +657,7 @@ export const APP_DATABASE_FIELDS = {
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
   },
+  // The RPC keeps these virtual list keys for compatibility with the UI codec.
   "monthly_payroll": {
     "isLocked": "dakhoa",
     "adminSentNotice": "daguithongbao",

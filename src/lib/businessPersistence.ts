@@ -16,6 +16,8 @@ function encode(key:string,value:any):Row[]{
  if(key==='active_tone_key')return [toSupabaseRow('app_settings',{id:raw.app_settings?.[0]?.madinhdanh||'global',active_tone_key:value})];
  if(key==='rag_bot_config')return [toSupabaseRow('rag_bot_config',{...value,id:raw.rag_bot_config?.[0]?.madinhdanh||'global'})];
  if(key==='tone_directives')return Object.entries(value).map(([id,v])=>toSupabaseRow('tone_directives',{...(v as object),id}));
+ // Payroll lists are SELECT results in the API, not stored BANG_CONG_THANG columns.
+ // The save RPC interprets a changed projection and writes scalar work/dispute fields.
  if(key==='monthly_payroll')return Object.entries(value).map(([month,v])=>toSupabaseRow('monthly_payroll',{...(v as object),id:raw.monthly_payroll?.find(r=>r.kycong===month)?.madinhdanh||'PAYROLL-'+month,month_period:month}));
  return value.map((r:Row)=>{
   const row=toSupabaseRow(key as SupabaseDataset,r);if(key==='sop_documents')delete row.ngaycapnhat;return row;
