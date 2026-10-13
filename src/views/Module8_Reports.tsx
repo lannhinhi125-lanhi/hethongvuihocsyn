@@ -5,6 +5,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CustomReportBuilder } from '../components/CustomReportBuilder';
 import { makeReportDatasets } from '../lib/reportDatasets';
+import { reportCreationDate } from '../lib/reportCreationDate';
+import { incidentReportPeriods, type ReportIncident, type ReportLesson } from '../lib/incidentReportPeriods';
+import { useBusinessValue } from '../lib/businessPersistence';
 import { FilterDrawer } from '../components/FilterDrawer';
 import {
   PieChart,
@@ -183,15 +186,11 @@ const getDateFilterRange = (
 };
 
 const isDateInRange = (date: string, range: { start: string; end: string }) =>
-  (!range.start || date >= range.start) && (!range.end || date <= range.end);
-
-const dateRangesOverlap = (
-  from: string,
-  to: string,
-  range: { start: string; end: string }
-) => (!range.start || to >= range.start) && (!range.end || from <= range.end);
+  Boolean(date) && (!range.start || date >= range.start) && (!range.end || date <= range.end);
 
 export const Module8_Reports: React.FC = () => {
+  const [reportLessons] = useBusinessValue<ReportLesson[]>('dated_lessons');
+  const [reportIncidents] = useBusinessValue<ReportIncident[]>('lesson_incidents');
   const { can, requirePermission } = usePermissions();
   const { showToast, classes: sourceClasses, students: sourceStudents, teachers: sourceTeachers, subjects: sourceSubjects, models: sourceModels, payrollStore } = useApp();
 
@@ -293,10 +292,7 @@ export const Module8_Reports: React.FC = () => {
   // DỮ LIỆU CỐ ĐỊNH CHUẨN ĐỒNG BỘ
   // =========================================================================
   // Báo cáo lấy từ dữ liệu nghiệp vụ; không có bộ bản ghi mẫu riêng.
-  const creationDate = (record: object): string => {
-    const value = record as { createdAt?: string; created_at?: string; startDate?: string };
-    return (value.createdAt || value.created_at || value.startDate || '').slice(0, 10);
-  };
+  const creationDate = (record: { created_at?: string }): string => reportCreationDate(record.created_at);
   const subjectLabel = (code: string) => sourceSubjects.find(item => item.code === code)?.name || code;
   const subjectCode = (code: string) => code === 'SUB-MATH' ? 'TOAN' : code === 'SUB-ENG' ? 'ENG' : code;
   const rawClasses = useMemo(() => sourceClasses.map(c => ({
@@ -318,13 +314,7 @@ export const Module8_Reports: React.FC = () => {
     grades: t.grades.join(', '), gradeGroup: t.levelId === 'CAP-TH' ? 'PRIMARY' : t.levelId === 'CAP-THCS' ? 'THCS' : t.levelId === 'CAP-THPT' ? 'THPT' : 'IELTS',
     status: t.status === 'DANG_DAY' ? 'Đang đứng lớp' : t.status === 'CHO_LOP' ? 'Sẵn sàng nhận lớp' : t.statusLabel, assigned: t.busySlots
   })), [sourceTeachers, sourceSubjects]);
-  const rawIncidents = useMemo(() => Object.entries(payrollStore).map(([month, data]) => {
-    const sessions = data.teachers.flatMap(t => t.sessions);
-    const affected = sessions.filter(s => ['COVER', 'STUDENT_CANCELED', 'LATE', 'EMERGENCY'].includes(s.type));
-    const urgent = affected.filter(s => s.type === "LATE" || s.type === "EMERGENCY").length;
-    const rate = sessions.length ? Number((affected.length / sessions.length * 100).toFixed(2)) : 0;
-    return { period: month, periodCode: month, dateFrom: month + '-01', dateTo: month + '-' + new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate(), total: sessions.length, incidents: affected.length, urgent, notice: affected.length - urgent, rate, rateStr: rate + '%', main: affected[0]?.statusText || 'Chưa ghi nhận sự cố' };
-  }), [payrollStore]);
+  const rawIncidents = useMemo(() => incidentReportPeriods(reportLessons, reportIncidents), [reportLessons, reportIncidents]);
   const rawMatrix = useMemo(() => sourceSubjects.map(subject => {
     const assigned = sourceClasses.filter(c => c.subject === subject.code).flatMap(c => c.studentIds.map(id => sourceStudents.find(s => s.id === id))).filter((s): s is NonNullable<typeof s> => Boolean(s));
     const countGrade = (from: number, to: number) => assigned.filter(s => { const grade = Number(s.grade.match(/\d+/)?.[0] || 0); return grade >= from && grade <= to; }).length;
@@ -415,15 +405,14 @@ export const Module8_Reports: React.FC = () => {
 
   // 4. Dữ liệu lọc riêng cho Sự cố
   const filteredIncidents = useMemo(() => {
-    return rawIncidents.filter(i => {
-      if (!dateRangesOverlap(i.dateFrom, i.dateTo, incDateRange)) return false;
+    return incidentReportPeriods(reportLessons, reportIncidents, incDateRange).filter(i => {
       if (incFilterPeriod && !i.period.toLowerCase().includes(incFilterPeriod.toLowerCase())) return false;
       if (incFilterUrgent === 'URGENT' && i.urgent <= i.notice) return false;
       if (incFilterUrgent === 'NOTICE' && i.notice < i.urgent) return false;
       if (incFilterMain && !i.main.toLowerCase().includes(incFilterMain.toLowerCase())) return false;
       return true;
     });
-  }, [rawIncidents, incDateRange, incFilterPeriod, incFilterUrgent, incFilterMain]);
+  }, [reportLessons, reportIncidents, incDateRange, incFilterPeriod, incFilterUrgent, incFilterMain]);
 
   // 5. Dữ liệu lọc riêng cho Ma trận
   const filteredMatrix = useMemo(() => {
@@ -446,10 +435,9 @@ export const Module8_Reports: React.FC = () => {
     });
   }, [rawTeachersInspection, inspFilterCode, inspFilterName, inspFilterSubject, inspFilterRank, inspFilterScore]);
 
-  const dashboardIncidents = useMemo(() => rawIncidents.filter(incident =>
-    dateRangesOverlap(incident.dateFrom, incident.dateTo, dashDateRange) &&
+  const dashboardIncidents = useMemo(() => incidentReportPeriods(reportLessons, reportIncidents, dashDateRange).filter(incident =>
     (!dashSearchMetric || incident.period.toLocaleLowerCase('vi').includes(dashSearchMetric.trim().toLocaleLowerCase('vi')))
-  ), [rawIncidents, dashDateRange, dashSearchMetric]);
+  ), [reportLessons, reportIncidents, dashDateRange, dashSearchMetric]);
 
   const dashboardRows = useMemo(() => dashboardIncidents.map(incident => {
     const periodClasses = rawClasses.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
@@ -511,7 +499,7 @@ export const Module8_Reports: React.FC = () => {
   const previousAvailableClassCount = previousDashboardClasses.filter(item => item.status.toLowerCase().includes('trống')).length;
   const previousWaitingStudentCount = previousDashboardStudents.filter(item => item.status.toLowerCase().includes('ghép')).length;
   const previousDashboardIncidents = previousDashboardRange
-    ? rawIncidents.filter(item => dateRangesOverlap(item.dateFrom, item.dateTo, previousDashboardRange))
+    ? incidentReportPeriods(reportLessons, reportIncidents, previousDashboardRange)
     : [];
   const previousIncidentTotal = previousDashboardIncidents.reduce((total, incident) => total + incident.total, 0);
   const previousIncidentCount = previousDashboardIncidents.reduce((total, incident) => total + incident.incidents, 0);
@@ -579,7 +567,7 @@ export const Module8_Reports: React.FC = () => {
   };
 
   const dashboardTrendPoints = useMemo(() => {
-    const eventDates = [...rawClasses.map(item => item.date), ...rawStudents.map(item => item.date)].sort();
+    const eventDates = [...rawClasses.map(item => item.date), ...rawStudents.map(item => item.date)].filter(Boolean).sort();
     if (eventDates.length === 0) return [];
     const startDate = dashDateRange.start || eventDates[0];
     const endDate = dashDateRange.end || eventDates[eventDates.length - 1];
@@ -749,7 +737,7 @@ export const Module8_Reports: React.FC = () => {
     setTutFilterSubject('ALL');
     setTutFilterGrade('ALL');
     setTutFilterStatus('ALL');
-    showToast('Đã đặt lại bộ lọc Gia sư!', 'info');
+    showToast('Đã đặt lại bộ lọc giáo viên!', 'info');
   };
 
   const resetIncFilters = () => {
@@ -999,7 +987,7 @@ export const Module8_Reports: React.FC = () => {
           </div>
 
           <p className="px-1 text-[11px] text-slate-500">
-            Sự cố được cộng theo toàn bộ kỳ báo cáo có giao với khoảng ngày đã chọn; chưa có dữ liệu để tách theo từng ngày.
+            Sự cố và tổng ca được tính theo ngày thực tế trong khoảng đã chọn.
           </p>
 
           {/* Biểu đồ đường cong tăng trưởng (khi ở chế độ visual hoặc both) */}
@@ -1508,7 +1496,7 @@ export const Module8_Reports: React.FC = () => {
                   </span>
                 </div>
                 <div className="mt-2">
-                  <div className="text-xs font-bold text-slate-800 leading-tight">3. Gia sư mới</div>
+                  <div className="text-xs font-bold text-slate-800 leading-tight">3. Giáo viên mới</div>
                   <div className="text-[10px] text-slate-400">Phân bổ ca dạy</div>
                 </div>
               </button>
@@ -2081,7 +2069,7 @@ export const Module8_Reports: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Tỷ lệ Gia sư Sẵn sàng Tiếp nhận Lớp</span>
+                      <span className="text-xs font-bold text-slate-800">Tỷ lệ giáo viên sẵn sàng nhận lớp</span>
                       <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">
                         {tutStats.readyRate}% Sẵn sàng
                       </span>
@@ -3016,7 +3004,7 @@ export const Module8_Reports: React.FC = () => {
       <FilterDrawer
         isOpen={isTutFilterOpen}
         onClose={() => setIsTutFilterOpen(false)}
-        title="Bộ lọc Gia sư mới gia nhập"
+        title="Bộ lọc giáo viên mới"
         subtitle="Tìm theo mã/tên gia sư và lọc theo môn, khối, trạng thái"
         activeCount={
           (tutFilterSubject !== 'ALL' ? 1 : 0) +
@@ -3024,7 +3012,7 @@ export const Module8_Reports: React.FC = () => {
           (tutFilterStatus !== 'ALL' ? 1 : 0)
         }
         onReset={resetTutFilters}
-        onApply={() => showToast('Đã áp dụng bộ lọc Gia sư!', 'success')}
+        onApply={() => showToast('Đã áp dụng bộ lọc giáo viên!', 'success')}
       >
         <div className="space-y-4 text-xs">
           <div className="space-y-1.5">

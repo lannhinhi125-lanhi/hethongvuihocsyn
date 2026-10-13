@@ -103,6 +103,7 @@ export interface SuccessfulSession {
 }
 
 export interface TeacherProfile {
+  created_at?: string;
   user_id?: string | null;
   id: string;
   name: string;
@@ -135,6 +136,7 @@ export interface TeacherProfile {
 
 // Phân hệ 4 & 5: Lớp học & Học sinh
 export interface StudentRecord {
+  created_at?: string;
   id: string;
   name: string;
   grade: string; // 'Lớp 1' ... 'Lớp 5'
@@ -189,6 +191,7 @@ export interface ClassCoverAssignment {
 }
 
 export interface ClassItem {
+  created_at?: string;
   categoryId?: string;
   status?: 'Chờ khai giảng' | 'Đang học' | 'Tạm dừng' | 'Đã kết thúc';
   startDate?: string; // YYYY-MM-DD; legacy classes may not have one yet.
