@@ -1418,11 +1418,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Vận hành xử lý */}
                           <td className="py-3.5 px-3 bg-orange-50/20 border-l border-orange-100/60">
-                            {s.handledByName ? (
+                            {s.handledByName || s.handledByOpsId ? (
                               <div>
-                                <div className="font-bold text-slate-800 text-[11px]">{s.handledByName}</div>
+                                <div className="font-bold text-slate-800 text-[11px]">{s.handledByName || s.handledByOpsId}</div>
                                 <div className="text-[10px] text-slate-400 font-mono">
-                                  {s.handledByOpsId} &bull; {s.handledAt ? s.handledAt.slice(0, 5) : 'Đã ghi nhận'}
+                                  {s.handledByOpsId} &bull; {s.handledAt ? /^\d{4}-/.test(s.handledAt) ? new Date(s.handledAt).toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' }) : s.handledAt : 'Đã ghi nhận'}
                                 </div>
                               </div>
                             ) : (
