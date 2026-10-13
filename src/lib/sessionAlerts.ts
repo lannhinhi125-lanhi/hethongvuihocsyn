@@ -22,3 +22,17 @@ export const minutesEndedEarly = (date: string, time: string, checkoutAt?: strin
   if (Number.isNaN(checkout.getTime())) return 0;
   return Math.max(0, Math.ceil((end.getTime() - checkout.getTime()) / 60_000));
 };
+
+export const monitoringStudyStatus = (date: string, slot: string, now: Date, effectiveTime?: string): 'CHUA_HOC' | 'DANG_HOC' | 'DA_HOC' => {
+  const match = slot.match(/^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$/);
+  if (!match) return 'CHUA_HOC';
+  const [sh, sm, eh, em] = match.slice(1).map(Number);
+  if (sh > 23 || eh > 23 || sm > 59 || em > 59) return 'CHUA_HOC';
+  const start = new Date(date + 'T' + String(sh).padStart(2, '0') + ':' + String(sm).padStart(2, '0') + ':00+07:00');
+  const end = new Date(date + 'T' + String(eh).padStart(2, '0') + ':' + String(em).padStart(2, '0') + ':00+07:00');
+  if (eh * 60 + em < sh * 60 + sm) end.setUTCDate(end.getUTCDate() + 1);
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  const current = effectiveTime ? new Date(today + 'T' + effectiveTime + ':00+07:00') : now;
+  if (Number.isNaN(start.getTime()) || current < start) return 'CHUA_HOC';
+  return current < end ? 'DANG_HOC' : 'DA_HOC';
+};

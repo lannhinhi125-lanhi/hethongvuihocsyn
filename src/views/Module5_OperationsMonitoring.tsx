@@ -1,7 +1,9 @@
+import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
+import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
-import { useBusinessValue } from '../lib/businessPersistence';
+import { useBusinessValue, useBusinessStatus, waitForBusinessSave } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
-import { hasSessionStartPassed, minutesEndedEarly } from '../lib/sessionAlerts';
+import { monitoringStudyStatus, minutesEndedEarly } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -58,9 +60,11 @@ export interface MonitoringSession {
 
 export const Module5_OperationsMonitoring: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { showToast, currentUser, classes, setClasses, teachers, timeSlots, students, levels, subjects, teachingCategories, incidents } = useApp();
+  const { showToast, currentUser, classes, setClasses, teachers, timeSlots, students, levels, subjects, teachingCategories, incidents, users } = useApp();
   const INCIDENT_MASTER_DATA: Record<string, { code: string; name: string }[]> = Object.fromEntries(incidents.map(group => [group.code, group.subIncidents.filter(item => item.status).map(item => ({ code: item.code, name: item.name }))]));
 
+  const businessStatus = useBusinessStatus();
+  const [savingIncident, setSavingIncident] = useState(false);
   const currentOps = { id: currentUser.id, name: currentUser.name };
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
 
@@ -145,7 +149,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           );
           const local = sessions.find(session => session.classCode === cls.code && session.sessionDate === sessionDate && session.timeSlot === entry.timeSlot);
           const stored = persistedLessons.find(l=>l.classId===cls.id&&l.date===sessionDate&&timeSlots.find(t=>t.id===l.timeSlotId)?.timeRange===entry.timeSlot);
-          const existing = local && stored ? storedMonitoringSession(local,persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents) : undefined;
+          const existing = local && stored ? storedMonitoringSession(local,persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents,users) : undefined;
           const assignedStudents = cls.studentIds.map(studentId => students.find(student => student.id === studentId)).filter((student): student is NonNullable<typeof student> => Boolean(student));
           const sessionCode = existing?.sessionCode || `${cls.code}-${sessionDate}-${sessionNum}`;
           const teacherAttendance = activeSession?.teacherAttendance || (activeSession?.checkinTime ? 'ATTENDED' : undefined);
@@ -211,7 +215,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               aiComment: '',
               criteria: []
             }))
-          },persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents));
+          },persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents,users));
         });
       }
     });
@@ -227,7 +231,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       });
       return merged;
     });
-  }, [classes, students, levels, dateFrom, dateTo, selectedMonth, persistedLessons, persistedIncidents]);
+  }, [classes, students, levels, dateFrom, dateTo, selectedMonth, persistedLessons, persistedIncidents, users]);
 
   // Bộ lọc cột cho Tab 1 (Nhật ký & Giám sát buổi học)
   const [colFilterCode, setColFilterCode] = useState('');
@@ -374,6 +378,24 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   // Lọc theo phạm vi ngày / tuần / tháng
+  const [testTimeMode, setTestTimeMode] = useState<'12:50' | '12:45' | '13:05' | 'REALTIME'>('REALTIME');
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(new Date()), 10_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Lấy mốc thời gian hiện thời để đối chiếu
+  const getCurrentEffectiveTime = () => {
+    if (testTimeMode === '12:45') return '12:45';
+    if (testTimeMode === '12:50') return '12:50';
+    if (testTimeMode === '13:05') return '13:05';
+    return `${String(clockNow.getHours()).padStart(2, '0')}:${String(clockNow.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Hàm kiểm tra ca học đã đến giờ nhưng giáo viên chưa vào phòng -> CHUYỂN TRẠNG THÁI ĐỎ LẬP TỨC
+  const studyStatus = (session: MonitoringSession) => session.status === 'NGHI_HOC' ? 'NGHI_HOC' : monitoringStudyStatus(session.sessionDate, session.timeSlot, clockNow, getCurrentEffectiveTime());
+
   const dateFilteredSessions = sessions.filter(s => {
     if (!s.sessionDate) return true;
     if (specificDate) return s.sessionDate === specificDate;
@@ -425,7 +447,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     }
     if (colFilterTime !== 'ALL' && s.timeSlot !== colFilterTime) return false;
     if (colFilterAttendance !== 'ALL' && s.attendance !== colFilterAttendance) return false;
-    if (colFilterStatus !== 'ALL' && s.status !== colFilterStatus) return false;
+    if (colFilterStatus !== 'ALL' && studyStatus(s) !== colFilterStatus) return false;
     return true;
   });
 
@@ -460,7 +482,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Thống kê KPI Tab 1
   const kpiTotal = dateFilteredSessions.length;
-  const kpiCompleted = dateFilteredSessions.filter(s => s.status === 'DA_HOC').length;
+  const kpiCompleted = dateFilteredSessions.filter(s => studyStatus(s) === 'DA_HOC').length;
   const kpiIncidents = dateFilteredSessions.filter(s => s.hasIncident || s.status === 'CO_SU_CO' || s.status === 'NGHI_HOC').length;
   const kpiCover = dateFilteredSessions.filter(s => s.coverTeacher || s.status === 'DAY_THAY').length;
 
@@ -525,11 +547,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   // Lưu biên bản sự cố và điều phối cover
-  const handleSaveIncidentSubmit = (e: React.FormEvent) => {
+  const handleSaveIncidentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
-    e.preventDefault();
-    if (!selectedIncidentSession) return;
+    if (savingIncident || businessStatus.saving || !selectedIncidentSession) return;
     const selectedIncident = incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild);
     if (selectedIncident?.creditCoeff === undefined) {
       showToast('Loại sự cố này chưa được cấu hình hệ số công.', 'error');
@@ -623,28 +644,20 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       }));
     }
 
-    showToast(`Đã lưu biên bản ca ${selectedIncidentSession.sessionCode}! Vận hành phụ trách: ${currentOps.name}.`, 'success');
-    setSelectedIncidentSession(null);
+    setSavingIncident(true);
+    try {
+      await waitForBusinessSave();
+      showToast(`Đã lưu biên bản ca ${selectedIncidentSession.sessionCode} và cập nhật bảng công. Người xử lý: ${currentOps.name}.`, 'success');
+      setSelectedIncidentSession(null);
+    } catch (error) {
+      showToast((error as Error).message, 'error');
+    } finally {
+      setSavingIncident(false);
+    }
   };
 
   // Chế độ mô phỏng thời gian phục vụ kiểm thử theo yêu cầu:
   // "ở trong danh mục tạo 1 cca cchotoi từ 12:50 - 13:50 đi, rồi cho 1 giáo viên đđăngkis lịch rảnh đó, rồi tý đến 12:50 giáo viên chưa vào thì màn hình vận hành hiện màu đỏ ô đó đố. để thử nghiệm áy"
-  const [testTimeMode, setTestTimeMode] = useState<'12:50' | '12:45' | '13:05' | 'REALTIME'>('REALTIME');
-  const [clockNow, setClockNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = window.setInterval(() => setClockNow(new Date()), 10_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  // Lấy mốc thời gian hiện thời để đối chiếu
-  const getCurrentEffectiveTime = () => {
-    if (testTimeMode === '12:45') return '12:45';
-    if (testTimeMode === '12:50') return '12:50';
-    if (testTimeMode === '13:05') return '13:05';
-    return `${String(clockNow.getHours()).padStart(2, '0')}:${String(clockNow.getMinutes()).padStart(2, '0')}`;
-  };
-
-  // Hàm kiểm tra ca học đã đến giờ nhưng giáo viên chưa vào phòng -> CHUYỂN TRẠNG THÁI ĐỎ LẬP TỨC
   const earlyEndMinutes = (session: MonitoringSession) => {
     const cls = classes.find(item => item.code === session.classCode);
     const normalize = (value: string) => value.replace(/\s/g, '');
@@ -657,10 +670,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   const isShiftOverdueAndMissing = (s: MonitoringSession) => {
-    if (s.status === 'NGHI_HOC' || s.status === 'DA_HOC') return false;
+    if (s.status === 'NGHI_HOC' || studyStatus(s) === 'DA_HOC') return false;
     if (s.attendance === 'ATTENDED' || s.checkinTime !== null) return false;
 
-    return hasSessionStartPassed(s.sessionDate, s.timeSlot, clockNow, getCurrentEffectiveTime());
+    return studyStatus(s) === 'DANG_HOC';
   };
 
   // Xác nhận nhanh giáo viên vào lớp cho 1 ca học cụ thể (Gỡ bỏ màu đỏ)
@@ -899,10 +912,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       >
                         <option value="ALL">Tất cả trạng thái</option>
                         <option value="CHUA_HOC">Chưa học</option>
+                        <option value="DANG_HOC">Đang học</option>
                         <option value="DA_HOC">Đã học</option>
                         <option value="NGHI_HOC">Nghỉ học</option>
-                        <option value="KHAI_GIANG">Khai giảng</option>
-                        <option value="DAY_THAY">Dạy thay</option>
                       </select>
                     </th>
                     <th className="py-2 px-3 text-center">
@@ -927,7 +939,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   ) : (
                     diaryFilteredSessions.map(s => {
                       const earlyMinutes = earlyEndMinutes(s);
-                      const isCompleted = s.status === 'DA_HOC';
+                      const isCompleted = studyStatus(s) === 'DA_HOC';
                       const isOverdue = isShiftOverdueAndMissing(s);
                       const highlightClass = earlyMinutes > 0
                         ? 'bg-violet-50 border-l-4 border-l-violet-600 border-b border-violet-200 hover:bg-violet-100'
@@ -1037,15 +1049,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Trạng thái ca */}
                           <td className="py-3.5 px-3 text-center">
-                            {isOverdue ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px] border border-rose-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Cảnh Báo Đỏ
-                              </span>
-                            ) : s.status === 'DA_HOC' ? (
+                            {studyStatus(s) === 'DANG_HOC' ? (
+<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200"><span className="w-2 h-2 rounded-full bg-blue-500" /> Đang học</span>
+) : studyStatus(s) === 'DA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
                                 <span className="w-2 h-2 rounded-full bg-slate-400" /> Đã học
                               </span>
-                            ) : s.status === 'CHUA_HOC' ? (
+                            ) : studyStatus(s) === 'CHUA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 font-bold text-[11px] border border-teal-200">
                                 <span className="w-2 h-2 rounded-full bg-teal-400" /> Chưa học
                               </span>
@@ -1294,7 +1304,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   ) : (
                     incidentFilteredSessions.map(s => {
                       const earlyMinutes = earlyEndMinutes(s);
-                      const isCompleted = s.status === 'DA_HOC';
+                      const isCompleted = studyStatus(s) === 'DA_HOC';
                       const highlightClass = earlyMinutes > 0
                         ? 'bg-violet-50 border-l-4 border-l-violet-600 border-b border-violet-200 hover:bg-violet-100'
                         : s.isJustUpdated
@@ -1466,253 +1476,21 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       )}
 
       {/* ================= MODAL 1: SỔ CA DẠY (READ-ONLY) ================= */}
-      {selectedClassViewSession && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 max-h-[94vh] overflow-y-auto text-xs">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-base text-slate-800">Sổ Ca Dạy &amp; Nhật Ký Giảng Dạy</h3>
-                  <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-                    Vận hành Giám sát (Read-Only)
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
-                  {selectedClassViewSession.classCode} - Môn {selectedClassViewSession.subject === 'TOAN' ? 'Toán' : 'Tiếng Anh'} - {selectedClassViewSession.modelText}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedClassViewSession(null)}
-                className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center cursor-pointer font-bold"
-              >
-                ✕
-              </button>
+      {selectedClassViewSession && (() => {
+        const cls = classes.find(item => item.code === selectedClassViewSession.classCode);
+        const entry = cls && teachingScheduleEntries(cls).find(item => item.time.replace(/\s/g, '') === selectedClassViewSession.timeSlot.replace(/\s/g, '') && item.dayIndex === (new Date(selectedClassViewSession.sessionDate + 'T00:00:00').getDay() + 6) % 7);
+        return <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5">
+          <div role="dialog" aria-modal="true" aria-label="Sổ ca dạy và Nhật ký giảng dạy" className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="h-14 px-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h2 className="text-base font-bold text-slate-800">Sổ ca dạy &amp; Nhật ký giảng dạy</h2>
+              <button type="button" aria-label="Đóng" onClick={() => setSelectedClassViewSession(null)} className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100">✕</button>
             </div>
-
-            {/* Main Layout 2 cột chuẩn */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4">
-              {/* CỘT TRÁI (4 cols): THÔNG TIN LỚP & TIẾN ĐỘ TUẦN */}
-              <div className="lg:col-span-4 space-y-4">
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">THÔNG TIN LỚP HỌC</div>
-                  <div className="font-bold text-slate-800 text-xs font-mono">
-                    {selectedClassViewSession.classCode}
-                  </div>
-                  <div className="text-[#FF5C00] font-bold text-xs">
-                    Môn {selectedClassViewSession.subject === 'TOAN' ? 'Toán' : 'Tiếng Anh'} &bull; {selectedClassViewSession.modelText}
-                  </div>
-                  <div className="text-slate-600 font-medium text-[11px] pt-1 border-t border-slate-200/60">
-                    Lớp {selectedClassViewSession.grade} ({selectedClassViewSession.levelText})
-                  </div>
-                  <div className="text-slate-600 font-medium text-[11px] font-mono">
-                    {selectedClassViewSession.timeSlot} | (Thứ 3, Chủ Nhật)
-                  </div>
-                </div>
-
-                {/* Lịch dạy trong tuần */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">LỊCH DẠY TRONG TUẦN</span>
-                    <span className="text-[10px] text-slate-400 font-mono">&lt; 05/10 - 11/10 &gt;</span>
-                  </div>
-
-                  {/* Buổi 1 */}
-                  <div className="p-3 rounded-2xl border border-[#FF5C00] bg-orange-50/40">
-                    <div className="text-[11px] font-mono font-bold text-slate-800 mb-1">
-                      {selectedClassViewSession.sessionDate} {selectedClassViewSession.timeSlot}
-                    </div>
-                    <div className="text-xs font-bold text-slate-800">
-                      {selectedClassViewSession.lessonDiary ? selectedClassViewSession.lessonDiary.slice(0, 45) + '...' : 'Bài giảng trọng tâm theo phân phối chương trình'}
-                    </div>
-                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-orange-100">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                        Buổi 1 (Hôm nay)
-                      </span>
-                      <span className="text-[10px] text-[#FF5C00] font-bold">Đang xem</span>
-                    </div>
-                  </div>
-
-                  {/* Buổi 2 */}
-                  <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50">
-                    <div className="text-[11px] font-mono text-slate-500 mb-1">
-                      2026-10-11 18:00 - 19:30
-                    </div>
-                    <div className="text-xs font-medium text-slate-700">
-                      Hình tròn, tâm, đường kính, bán kính
-                    </div>
-                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-200">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-600">
-                        Buổi 2
-                      </span>
-                      <span className="text-[10px] text-slate-400">Chưa bắt đầu</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CỘT PHẢI (8 cols): THÔNG TIN GIẢNG DẠY, NHẬT KÝ BÀI DẠY & NHẬN XÉT HỌC VIÊN */}
-              <div className="lg:col-span-8 space-y-4">
-                {/* 3 Thẻ ngang */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Thẻ 1: Giáo viên */}
-                  <div className="p-3 rounded-2xl border border-slate-200 bg-white space-y-1">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giáo viên phụ trách</div>
-                    <div className="text-xs font-bold text-slate-800 truncate">
-                      {selectedClassViewSession.coverTeacher ? `${selectedClassViewSession.coverTeacher} (GV dạy thay)` : selectedClassViewSession.primaryTeacher}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-mono">
-                      Mã: {selectedClassViewSession.primaryTeacher === 'Nguyễn Văn An' ? 'GV001' : 'GV002'}
-                    </div>
-                    <div className={`text-[10px] font-semibold ${selectedClassViewSession.attendance === 'ATTENDED' ? 'text-emerald-700' : selectedClassViewSession.attendance === 'LATE' ? 'text-amber-700' : 'text-rose-700'}`}>
-                      Check-in: {selectedClassViewSession.checkinTime || 'Chưa check-in'}
-                    </div>
-                  </div>
-
-                  {/* Thẻ 2: Phòng học & Bản ghi */}
-                  <div className="p-3 rounded-2xl border border-slate-200 bg-white space-y-1">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phòng học &amp; Bản ghi</div>
-                    <div className="text-[10px] text-slate-500 truncate">Phòng: {selectedClassViewSession.room}</div>
-                    {selectedClassViewSession.status === 'DA_HOC' ? (
-                      <a
-                        href={selectedClassViewSession.recordingUrl || undefined}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-flex items-center justify-center w-full py-1.5 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] transition-colors shadow-2xs"
-                      >
-                        XEM LẠI BẢN GHI
-                      </a>
-                    ) : (
-                      <a
-                        href={selectedClassViewSession.roomUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-flex items-center justify-center w-full py-1.5 px-3 rounded-xl bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold text-[11px] transition-colors shadow-2xs"
-                      >
-                        VÀO LỚP TRỰC TUYẾN
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Thẻ 3: Học liệu & BTVN */}
-                  <div className="p-3 rounded-2xl border border-slate-200 bg-white space-y-1">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Học liệu &amp; BTVN</div>
-                    <div className="space-y-0.5 text-[11px]">
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Slide GV:</span>
-                        <span className="text-orange-600 font-semibold underline cursor-pointer">Slide_Buoi_1.pdf</span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Bài tập:</span>
-                        <span className="text-orange-600 font-semibold underline cursor-pointer">LMS_BTVN_1</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Nhật ký bài dạy & dặn dò (Lesson Diary) */}
-                <div className="p-3.5 rounded-2xl border border-slate-200 bg-white space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Nhật ký Giảng dạy &amp; Dặn dò bài tập (Lesson Diary)
-                    </span>
-                    <span className="text-[10px] font-mono text-emerald-700 font-bold">
-                      {selectedClassViewSession.lessonDiary ? 'Đã ghi nhận' : 'Chưa có nhật ký'}
-                    </span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl text-slate-700 text-xs leading-relaxed border border-slate-100">
-                    {selectedClassViewSession.lessonDiary || '-- Giáo viên chưa nộp nhật ký bài dạy cho ca học này --'}
-                  </div>
-                </div>
-
-                {/* Danh sách học viên, điểm danh & Nhận xét AI */}
-                <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
-                  <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-xs text-slate-800 border-b-2 border-[#FF5C00] pb-0.5">Danh sách Học viên</span>
-                      <span className="text-[11px] text-slate-400">Điểm danh học sinh</span>
-                      <span className="text-[11px] text-[#FF5C00] font-bold">Nhận xét AI gửi Phụ huynh</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                      Trạng thái: {selectedClassViewSession.status}
-                    </span>
-                  </div>
-
-                  <PaginatedList className="p-4 space-y-3">
-                    {selectedClassViewSession.students.length === 0 ? (
-                      <div className="text-center py-4 text-slate-400">Không có dữ liệu học sinh trong ca.</div>
-                    ) : (
-                      selectedClassViewSession.students.map(stu => (
-                        <div key={stu.code} className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-2.5">
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                            <div>
-                              <div className="font-bold text-slate-800 text-xs">{stu.name}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">{stu.code} &bull; {stu.gradeText}</div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-[11px]">
-                                Điểm danh HS: <strong className="text-emerald-700">
-                                  {stu.attendance === 'present' ? 'Có mặt' : stu.attendance === 'late' ? 'Đi muộn' : stu.attendance === 'absent' ? 'Vắng mặt' : stu.attendance}
-                                </strong>
-                              </span>
-                              <span className="px-2.5 py-1 rounded-xl bg-orange-100 text-[#FF5C00] font-bold text-[11px]">
-                                Nhận xét AI đã lưu
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1">
-                            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                              Nội dung nhận xét gửi Phụ huynh:
-                            </div>
-                            <div className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 leading-relaxed text-[11px]">
-                              "{stu.aiComment}"
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                            <span className="text-[10px] text-slate-400 font-medium">Tiêu chí sư phạm đã tick:</span>
-                            {stu.criteria.map(c => (
-                              <span key={c} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 text-[10px] font-semibold">
-                                ✓ {c}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </PaginatedList>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  const s = selectedClassViewSession;
-                  setSelectedClassViewSession(null);
-                  setActiveTab('incidents');
-                  openIncidentModal(s);
-                }}
-                className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 transition-colors cursor-pointer"
-              >
-                Chuyển sang Tab 2: Xử lý Sự cố &amp; Cover ➔
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedClassViewSession(null)}
-                className="px-6 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors cursor-pointer"
-              >
-                Đóng cửa sổ
-              </button>
-            </div>
+            {cls ? <TeachingSessionDetails cls={cls} session={entry?.session || 1} date={selectedClassViewSession.sessionDate} time={selectedClassViewSession.timeSlot} readOnly
+              onSelect={(session, date, time) => setSelectedClassViewSession(previous => previous ? { ...previous, sessionCode: cls.code + '-' + date + '-' + session, sessionDate: date, timeSlot: time } : previous)}
+            /> : <div className="p-6 text-sm text-slate-500">Không còn thông tin lớp học.</div>}
           </div>
-        </div>
-      )}
+        </div>;
+      })()}
 
       {/* ================= MODAL 2: XỬ LÝ SỰ CỐ & ĐIỀU PHỐI COVER (TAB 2) ================= */}
       {selectedIncidentSession && (
@@ -1914,6 +1692,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={savingIncident || businessStatus.saving}
+                  aria-busy={savingIncident}
                   className="px-6 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold transition-all cursor-pointer shadow-xs"
                 >
                   Lưu Biên bản &amp; Tự động gán người xử lý

@@ -48,3 +48,9 @@ Các bài tests/databaseContract.test.ts, tests/timedWorkflow.test.ts và tests/
 ## Don cot tai khoan
 
 Sau ban mat khau text, chay `migrations/20261012_cleanup_user_columns.sql` de bo `NGUOI_DUNG.maxacthuc` (ma Supabase Auth cu khong con dung). Giu cac cot phien dang nhap, khoa tai khoan, thong tin ho so, nhom quyen va thoi gian. File schema.sql moi da bao gom buoc nay.
+
+## Dong bo he so su co vao doi soat cong
+
+Chay theo thu tu: `migrations/20261012_incident_credit.sql`, `migrations/20261013_negative_work_credit.sql`, `migrations/20261013_sync_incident_catalog_credit.sql`. Ban cuoi dong bo he so thay doi trong danh muc sang su co va bang cong thang chua khoa, gom he so am; sua cac snapshot cu khi nang cap. Ky da khoa giu nguyen. Tong cong = cong chuan + cong su co (vi du 5 + (-1) = 4). Viec sua ghi chu su co khong ghi de he so da doi soat.
+
+Kiem thu: `node tests/incidentCatalogCredit.test.mjs` voi `PGLITE_MODULE_PATH` tro den thu muc `@electric-sql/pglite`.

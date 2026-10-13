@@ -209,7 +209,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       };
       if (Object.entries(summaryRanges).some(([key, range]) => !matchesRange(summaryMetrics[key as SummaryRangeKey], range))) return false;
       if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase();
+        const term = searchTerm.trim().toLowerCase();
         const matchName = t.teacherName.toLowerCase().includes(term);
         const matchId = t.teacherId.toLowerCase().includes(term);
         return matchName || matchId;
@@ -263,8 +263,8 @@ export const Module7_WorkReconciliation: React.FC = () => {
       if (Object.entries(sessionRanges).some(([key, range]) => !matchesRange(sessionMetrics[key as SessionRangeKey], range))) return false;
       if (subjectFilter !== 'ALL' && item.subject !== subjectFilter) return false;
       if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase();
-        const matchStaff = item.teacherName.toLowerCase().includes(term);
+        const term = searchTerm.trim().toLowerCase();
+        const matchStaff = `${item.teacherName} ${item.teacherId}`.toLowerCase().includes(term);
         const matchClass = item.session.classCode.toLowerCase().includes(term);
         const matchStudent = getSessionStudentNames(item.session).toLowerCase().includes(term);
         const matchId = item.session.id.toLowerCase().includes(term);
@@ -282,6 +282,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const filteredDisputes = useMemo(() => (monthData.disputes || []).filter(dispute => {
     if (staffTypeFilter !== 'ALL' && dispute.staffRole !== staffTypeFilter) return false;
     if (subjectFilter !== 'ALL' && dispute.subject !== subjectFilter) return false;
+    if (searchTerm.trim() && ![dispute.id, dispute.teacherName, dispute.sessionId, dispute.classCode, dispute.incidentType, dispute.content, dispute.adminNote].filter(Boolean).join(' ').toLowerCase().includes(searchTerm.trim().toLowerCase())) return false;
     if (disputeIdFilter && !dispute.id.toLocaleLowerCase('vi').includes(disputeIdFilter.trim().toLocaleLowerCase('vi'))) return false;
     if (disputeStatusFilter !== 'ALL' && dispute.status !== disputeStatusFilter) return false;
     if (disputeTypeFilter && !dispute.incidentType.toLocaleLowerCase('vi').includes(disputeTypeFilter.trim().toLocaleLowerCase('vi'))) return false;
@@ -291,7 +292,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     return true;
   }).sort((left, right) => Number(right.status === 'CHO_DUYET') - Number(left.status === 'CHO_DUYET')), [
     monthData.disputes, staffTypeFilter, subjectFilter, disputeIdFilter, disputeStatusFilter,
-    disputeTypeFilter, disputeSessionFilter, disputeContentFilter, disputeAdminNoteFilter
+    disputeTypeFilter, disputeSessionFilter, disputeContentFilter, disputeAdminNoteFilter, searchTerm
   ]);
 
   const detailTeacher = monthData.teachers.find(teacher => teacher.teacherId === detailTeacherId);
@@ -313,7 +314,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
         ...Object.values(sessionRanges).flatMap(range => [range.min.length > 0, range.max.length > 0])
       ]
     : [
-        staffTypeFilter !== 'ALL', subjectFilter !== 'ALL', disputeIdFilter.trim().length > 0, disputeStatusFilter !== 'ALL',
+        staffTypeFilter !== 'ALL', subjectFilter !== 'ALL', searchTerm.trim().length > 0, disputeIdFilter.trim().length > 0, disputeStatusFilter !== 'ALL',
         disputeTypeFilter.trim().length > 0, disputeSessionFilter.trim().length > 0, disputeContentFilter.trim().length > 0,
         disputeAdminNoteFilter.trim().length > 0
       ]
@@ -724,7 +725,18 @@ export const Module7_WorkReconciliation: React.FC = () => {
         </div>
 
         {/* Thanh công cụ lọc */}
-        <div className="p-3 border-b border-slate-200 bg-white flex items-center justify-between gap-2">
+        <div className="p-3 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-2">
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              aria-label="Tìm kiếm đối soát công dạy"
+              value={searchTerm}
+              onChange={event => setSearchTerm(event.target.value)}
+              placeholder={activeTab === 'summary' ? 'Tìm tên, mã giáo viên / gia sư...' : activeTab === 'sessions' ? 'Tìm mã buổi, lớp, học sinh...' : 'Tìm đơn, nhân sự, lớp, nội dung...'}
+              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs text-slate-700 focus:border-[#FF5C00] focus:outline-none"
+            />
+          </div>
           <span className="text-xs text-slate-500">
             {activeTab === 'summary'
               ? `${filteredStaff.length} nhân sự`

@@ -111,4 +111,16 @@ export function useBusinessStatus(){return useSyncExternalStore(fn=>{listeners.a
 export function useBusinessValue<T>(key:string):[T,(action:SetStateAction<T>)=>void]{const snapshot=useBusinessStatus();const setter=useCallback((action:SetStateAction<T>)=>setBusinessValue(key,action),[key]);return [snapshot.data[key]??initial(key),setter];}
 export function getBusinessSnapshot(){return state;}
 export function businessSaving(){return state.saving;}
+export function waitForBusinessSave(): Promise<void> {
+ const version=generation;
+ return new Promise((resolve,reject)=>{
+  const check=()=>{
+   if(version!==generation){listeners.delete(check);reject(new Error('Phiên dữ liệu đã thay đổi. Hãy tải lại.'));return;}
+   if(state.saving)return;
+   listeners.delete(check);
+   if(state.error)reject(new Error(state.error));else resolve();
+  };
+  listeners.add(check);check();
+ });
+}
 if(typeof window!=='undefined')window.addEventListener('beforeunload',event=>{if(state.saving){event.preventDefault();event.returnValue='';}});
