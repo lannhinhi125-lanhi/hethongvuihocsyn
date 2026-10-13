@@ -453,7 +453,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // PH7 Actions
   const updateSessionCredit = (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => {
     if (!permit("Điều chỉnh hệ số công từng buổi kèm lý do")) return;
-    if (!Number.isFinite(newCoeff) || newCoeff < 0) { showToast('Hệ số công phải là số không âm.', 'error'); return; }
+    if (!Number.isFinite(newCoeff) || Math.abs(newCoeff) > 999.999) { showToast('Hệ số công phải là số từ -999.999 đến 999.999.', 'error'); return; }
     if (payrollStore[month]?.isLocked) {
       showToast('Không thể sửa công khi kỳ đã khóa. Hãy mở khóa kỳ trước khi điều chỉnh.', 'error');
       return;
@@ -582,7 +582,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const reviewDispute = (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => {
     if (!permit("Xử lý & phê duyệt đơn giải trình công dạy")) return;
     if (payrollStore[month]?.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'error'); return; }
-    if (!Number.isFinite(creditCoeff) || creditCoeff < 0) { showToast('Hệ số công phải là số không âm.', 'error'); return; }
+    if (!Number.isFinite(creditCoeff) || Math.abs(creditCoeff) > 999.999) { showToast('Hệ số công phải là số từ -999.999 đến 999.999.', 'error'); return; }
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;

@@ -1621,16 +1621,11 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">Hệ số công ghi nhận:</label>
-                <select
-                  value={newCoeff}
-                  onChange={e => setNewCoeff(parseFloat(e.target.value))}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-blue-500"
-                >
-                  <option value={1.0}>1.0 · Chuẩn / Dạy thay hoàn tất</option>
-                  <option value={0.5}>0.5 · Học sinh hủy sát giờ / Trực phòng chờ</option>
-                  <option value={1.5}>1.5 · Phụ đạo tăng cường / Ghép buổi</option>
-                  <option value={0.0}>0.0 · Vắng không phép / Lỗi giáo viên</option>
-                </select>
+                <input type="number" min="-999.999" max="999.999" step="0.001"
+                  value={Number.isFinite(newCoeff) ? newCoeff : ''}
+                  onChange={event => setNewCoeff(event.target.value === '' ? NaN : Number(event.target.value))}
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs"
+                />
               </div>
 
               <div>
@@ -1691,19 +1686,11 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">Hệ số công sau khi xử lý buổi này:</label>
-                <select
-                  value={disputeCreditCoeff}
-                  onChange={event => setDisputeCreditCoeff(Number(event.target.value))}
-                  className="mb-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs"
-                >
-                  {!([0, 0.5, 1, 1.5].includes(disputeCreditCoeff)) && (
-                    <option value={disputeCreditCoeff}>{disputeCreditCoeff} · Hệ số hiện tại</option>
-                  )}
-                  <option value={0}>0</option>
-                  <option value={0.5}>0.5</option>
-                  <option value={1}>1.0</option>
-                  <option value={1.5}>1.5</option>
-                </select>
+                <input type="number" min="-999.999" max="999.999" step="0.001"
+                  value={Number.isFinite(disputeCreditCoeff) ? disputeCreditCoeff : ''}
+                  onChange={event => setDisputeCreditCoeff(event.target.value === '' ? NaN : Number(event.target.value))}
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs"
+                />
                 <p className="mb-3 text-[11px] text-slate-500">Hệ số này sẽ cập nhật trực tiếp vào công của buổi học và tổng công đối soát.</p>
                 <label className="block text-slate-600 font-semibold mb-1">Kết quả xử lý gửi cho giáo viên:</label>
                 <select
