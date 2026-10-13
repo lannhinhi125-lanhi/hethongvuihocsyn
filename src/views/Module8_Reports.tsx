@@ -8,6 +8,7 @@ import { makeReportDatasets } from '../lib/reportDatasets';
 import { reportCreationDate } from '../lib/reportCreationDate';
 import { incidentReportPeriods, type ReportIncident, type ReportLesson } from '../lib/incidentReportPeriods';
 import { useBusinessValue } from '../lib/businessPersistence';
+import { inspectionDate, inspectionReportRows, type InspectionEvaluation } from '../lib/inspectionReport';
 import { FilterDrawer } from '../components/FilterDrawer';
 import {
   PieChart,
@@ -191,8 +192,9 @@ const isDateInRange = (date: string, range: { start: string; end: string }) =>
 export const Module8_Reports: React.FC = () => {
   const [reportLessons] = useBusinessValue<ReportLesson[]>('dated_lessons');
   const [reportIncidents] = useBusinessValue<ReportIncident[]>('lesson_incidents');
+  const [reportEvaluations] = useBusinessValue<InspectionEvaluation[]>('teacher_evaluations');
   const { can, requirePermission } = usePermissions();
-  const { showToast, classes: sourceClasses, students: sourceStudents, teachers: sourceTeachers, subjects: sourceSubjects, models: sourceModels, payrollStore } = useApp();
+  const { showToast, classes: sourceClasses, students: sourceStudents, teachers: sourceTeachers, subjects: sourceSubjects, models: sourceModels } = useApp();
 
   // 2 Tab chính của hệ thống Báo cáo - Dashboard là mặc định khi vào báo cáo theo yêu cầu
   const [currentMainTab, setCurrentMainTab] = useState<'dashboard' | 'fixed' | 'custom'>('dashboard');
@@ -316,19 +318,20 @@ export const Module8_Reports: React.FC = () => {
   })), [sourceTeachers, sourceSubjects]);
   const rawIncidents = useMemo(() => incidentReportPeriods(reportLessons, reportIncidents), [reportLessons, reportIncidents]);
   const rawMatrix = useMemo(() => sourceSubjects.map(subject => {
-    const assigned = sourceClasses.filter(c => c.subject === subject.code).flatMap(c => c.studentIds.map(id => sourceStudents.find(s => s.id === id))).filter((s): s is NonNullable<typeof s> => Boolean(s));
-    const countGrade = (from: number, to: number) => assigned.filter(s => { const grade = Number(s.grade.match(/\d+/)?.[0] || 0); return grade >= from && grade <= to; }).length;
-    const all = sourceClasses.reduce((sum, c) => sum + c.studentIds.length, 0);
-    return { subject: subject.name, code: subjectCode(subject.code), primary12: countGrade(1, 2), primary35: countGrade(3, 5), thcs: countGrade(6, 9), thpt: countGrade(10, 12), ielts: assigned.filter(s => !/\d+/.test(s.grade)).length, total: assigned.length, pct: all ? Math.round(assigned.length / all * 100) : 0, color: subject.code === 'SUB-MATH' ? '#FF5C00' : '#4F46E5' };
-  }), [sourceSubjects, sourceClasses, sourceStudents]);
-  const rawTeachersInspection = useMemo(() => sourceTeachers.filter(t => t.evaluationReports?.length).map(t => {
-    const records = t.evaluationReports || [];
-    const avg = Number((records.reduce((sum, r) => sum + r.overallScore, 0) / records.length).toFixed(2));
-    const rankCode = avg >= 9 ? 'A' : avg >= 8 ? 'B' : avg >= 7 ? 'C' : 'D';
-    const sessions = Object.values(payrollStore).flatMap(p => p.teachers.filter(item => item.teacherId === t.id).flatMap(item => item.sessions));
-    const punctualityPct = sessions.length ? Number((sessions.filter(s => s.type !== "LATE").length / sessions.length * 100).toFixed(1)) : 0;
-    return { id: t.id, name: t.name, subject: subjectLabel(t.subject), subjectCode: subjectCode(t.subject), avg, rank: 'Hạng ' + rankCode, rankCode, total: records.length, punctualityPct, punctuality: sessions.length ? punctualityPct + '%' : 'Chưa có dữ liệu', plan: records.at(-1)?.recommendations || '' };
-  }), [sourceTeachers, sourceSubjects, payrollStore]);
+    const completedLessons = reportLessons.filter(lesson => lesson.status === 'HOAN_THANH' &&
+      isDateInRange(lesson.date, { start: detailDateFrom, end: detailDateTo }));
+    const classesById = new Map(sourceClasses.map(cls => [cls.id, cls]));
+    const subjectLessons = completedLessons.filter(lesson => classesById.get(lesson.classId || '')?.subject === subject.code);
+    const countGrade = (from: number, to: number) => subjectLessons.filter(lesson => {
+      const grade = Number(classesById.get(lesson.classId || '')?.grade.match(/\d+/)?.[0] || 0);
+      return grade >= from && grade <= to;
+    }).length;
+    const all = completedLessons.length;
+    return { subject: subject.name, code: subjectCode(subject.code), primary12: countGrade(1, 2), primary35: countGrade(3, 5), thcs: countGrade(6, 9), thpt: countGrade(10, 12), ielts: subjectLessons.filter(lesson => !/\d+/.test(classesById.get(lesson.classId || '')?.grade || '')).length, total: subjectLessons.length, pct: all ? Math.round(subjectLessons.length / all * 100) : 0, color: subject.code === 'SUB-MATH' ? '#FF5C00' : '#4F46E5' };
+  }), [sourceSubjects, sourceClasses, reportLessons, detailDateFrom, detailDateTo]);
+  const rawTeachersInspection = useMemo(() => inspectionReportRows(sourceTeachers, reportEvaluations, reportLessons)
+    .map(row => ({ ...row, subject: subjectLabel(row.subjectCode), subjectCode: subjectCode(row.subjectCode) })),
+  [sourceTeachers, sourceSubjects, reportEvaluations, reportLessons]);
   const customDatasets = useMemo(() => makeReportDatasets({
     classes: rawClasses, students: rawStudents, teachers: rawTutors,
     incidents: rawIncidents, inspections: rawTeachersInspection
@@ -421,7 +424,8 @@ export const Module8_Reports: React.FC = () => {
 
   // 6. Dữ liệu lọc riêng cho Dự giờ GV
   const filteredInspection = useMemo(() => {
-    return rawTeachersInspection.filter(t => {
+    return inspectionReportRows(sourceTeachers, reportEvaluations, reportLessons, detailDateRange)
+      .map(row => ({ ...row, subject: subjectLabel(row.subjectCode), subjectCode: subjectCode(row.subjectCode) })).filter(t => {
       if (inspFilterCode && !t.id.toLowerCase().includes(inspFilterCode.toLowerCase())) return false;
       if (inspFilterName && !t.name.toLowerCase().includes(inspFilterName.toLowerCase())) return false;
       if (inspFilterSubject !== 'ALL' && t.subjectCode !== inspFilterSubject) return false;
@@ -433,18 +437,37 @@ export const Module8_Reports: React.FC = () => {
       }
       return true;
     });
-  }, [rawTeachersInspection, inspFilterCode, inspFilterName, inspFilterSubject, inspFilterRank, inspFilterScore]);
+  }, [sourceTeachers, reportEvaluations, reportLessons, detailDateRange, sourceSubjects, inspFilterCode, inspFilterName, inspFilterSubject, inspFilterRank, inspFilterScore]);
 
-  const dashboardIncidents = useMemo(() => incidentReportPeriods(reportLessons, reportIncidents, dashDateRange).filter(incident =>
-    (!dashSearchMetric || incident.period.toLocaleLowerCase('vi').includes(dashSearchMetric.trim().toLocaleLowerCase('vi')))
-  ), [reportLessons, reportIncidents, dashDateRange, dashSearchMetric]);
+  const dashboardIncidents = useMemo(() => {
+    const incidentsByMonth = new Map(incidentReportPeriods(reportLessons, reportIncidents, dashDateRange)
+      .map(period => [period.periodCode, period]));
+    const months = new Set([
+      ...incidentsByMonth.keys(),
+      ...rawClasses.filter(item => isDateInRange(item.date, dashDateRange)).map(item => item.date.slice(0, 7)),
+      ...rawStudents.filter(item => isDateInRange(item.date, dashDateRange)).map(item => item.date.slice(0, 7)),
+      ...reportEvaluations.map(item => inspectionDate(item.evaluationDate))
+        .filter(date => isDateInRange(date, dashDateRange)).map(date => date.slice(0, 7))
+    ]);
+    return [...months].sort().reverse().filter(month =>
+      !dashSearchMetric || month.toLocaleLowerCase('vi').includes(dashSearchMetric.trim().toLocaleLowerCase('vi'))
+    ).map(month => incidentsByMonth.get(month) || {
+      period: month, periodCode: month, dateFrom: month + '-01',
+      dateTo: month + '-' + new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate(),
+      total: 0, incidents: 0, urgent: 0, notice: 0, rate: 0, rateStr: '0%', main: 'Chưa ghi nhận sự cố'
+    });
+  }, [reportLessons, reportIncidents, reportEvaluations, rawClasses, rawStudents, dashDateRange, dashSearchMetric]);
 
   const dashboardRows = useMemo(() => dashboardIncidents.map(incident => {
     const periodClasses = rawClasses.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
     const periodStudents = rawStudents.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
     const fullClasses = periodClasses.filter(item => item.status.toLowerCase().includes('đủ trần')).length;
-    const avgInspectionScore = rawTeachersInspection.length
-      ? rawTeachersInspection.reduce((total, teacher) => total + teacher.avg, 0) / rawTeachersInspection.length
+    const periodInspection = inspectionReportRows(sourceTeachers, reportEvaluations, reportLessons, {
+      start: incident.dateFrom > dashDateRange.start ? incident.dateFrom : dashDateRange.start,
+      end: dashDateRange.end && dashDateRange.end < incident.dateTo ? dashDateRange.end : incident.dateTo
+    });
+    const avgInspectionScore = periodInspection.length
+      ? periodInspection.reduce((total, teacher) => total + teacher.avg, 0) / periodInspection.length
       : 0;
 
     return {
@@ -454,7 +477,7 @@ export const Module8_Reports: React.FC = () => {
       occupancyRate: periodClasses.length ? Math.round((fullClasses / periodClasses.length) * 100) : 0,
       avgInspectionScore
     };
-  }), [dashboardIncidents, rawClasses, rawStudents, rawTeachersInspection, dashDateRange.start, dashDateRange.end]);
+  }), [dashboardIncidents, rawClasses, rawStudents, sourceTeachers, reportEvaluations, reportLessons, dashDateRange.start, dashDateRange.end]);
 
   const dashboardIncidentStats = useMemo(() => {
     const totalSessions = dashboardIncidents.reduce((total, incident) => total + incident.total, 0);
@@ -667,7 +690,7 @@ export const Module8_Reports: React.FC = () => {
             ? formatDateRangeLabel(dashDateFrom, dashDateTo)
             : 'Chọn khoảng ngày';
 
-  const detailUsesDateRange = selectedFixedReport !== 'fixed_matrix' && selectedFixedReport !== 'fixed_inspection';
+  const detailUsesDateRange = true;
   const detailReportNames: Record<FixedReportId, string> = {
     fixed_new_classes: 'Lớp học mới',
     fixed_new_students: 'Học sinh mới',
@@ -818,7 +841,9 @@ export const Module8_Reports: React.FC = () => {
   }, [filteredMatrix]);
 
   const inspStats = useMemo(() => summarizeInspection(filteredInspection), [filteredInspection]);
-  const dashboardInspectionStats = useMemo(() => summarizeInspection(rawTeachersInspection), [rawTeachersInspection]);
+  const dashboardInspectionStats = useMemo(() => summarizeInspection(inspectionReportRows(
+    sourceTeachers, reportEvaluations, reportLessons, dashDateRange
+  )), [sourceTeachers, reportEvaluations, reportLessons, dashDateRange]);
 
   // Export CSV
   const downloadCsv = (csvContent: string, filename: string) => {
@@ -1221,7 +1246,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
             </div>
             <p className="text-[10px] text-slate-500">
-              Các biểu đồ lớp mới, học sinh và sự cố áp dụng khoảng ngày đã chọn; dữ liệu Ma trận ca dạy và Dự giờ là snapshot tổng hợp.
+              Các biểu đồ lớp mới, học sinh, sự cố, ca dạy và dự giờ đều áp dụng khoảng ngày đã chọn.
             </p>
             </>
           )}
@@ -1369,7 +1394,7 @@ export const Module8_Reports: React.FC = () => {
             ) : (
               <div className="flex items-start gap-2 text-[11px] text-amber-800">
                 <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>Đây là snapshot tổng hợp, chưa có ngày phát sinh để lọc chính xác theo khoảng thời gian.</span>
+                <span>Chọn khoảng ngày để lọc dữ liệu phát sinh trong kỳ.</span>
               </div>
             )}
             <button type="button" onClick={openDetailFilters}
@@ -2454,7 +2479,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               <p className="px-1 text-[11px] text-slate-500">
-                Snapshot tổng hợp: số liệu hiện không gắn ngày chi tiết, nên bộ lọc thời gian chưa áp dụng cho báo cáo này.
+                Ma trận đếm các ca đã hoàn thành theo ngày học trong khoảng thời gian đã chọn.
               </p>
 
               {/* Tỉ lệ trực quan Báo cáo Ma trận ca dạy */}
@@ -2559,11 +2584,11 @@ export const Module8_Reports: React.FC = () => {
                       <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-slate-900">
                         <tr>
                           <td className="py-3 px-3">Toàn trường</td>
-                          <td className="py-3 px-3 text-center">915</td>
-                          <td className="py-3 px-3 text-center">1,090</td>
-                          <td className="py-3 px-3 text-center">460</td>
-                          <td className="py-3 px-3 text-center">240</td>
-                          <td className="py-3 px-3 text-center">135</td>
+                          <td className="py-3 px-3 text-center">{filteredMatrix.reduce((total, item) => total + item.primary12, 0)}</td>
+                          <td className="py-3 px-3 text-center">{filteredMatrix.reduce((total, item) => total + item.primary35, 0)}</td>
+                          <td className="py-3 px-3 text-center">{filteredMatrix.reduce((total, item) => total + item.thcs, 0)}</td>
+                          <td className="py-3 px-3 text-center">{filteredMatrix.reduce((total, item) => total + item.thpt, 0)}</td>
+                          <td className="py-3 px-3 text-center">{filteredMatrix.reduce((total, item) => total + item.ielts, 0)}</td>
                           <td className="py-3 px-3 text-right text-indigo-600 font-bold">{matStats.totalSessions.toLocaleString()} ca</td>
                         </tr>
                       </tfoot>
@@ -2610,7 +2635,7 @@ export const Module8_Reports: React.FC = () => {
               </div>
 
               <p className="px-1 text-[11px] text-slate-500">
-                Snapshot tổng hợp: số liệu hiện không gắn ngày chi tiết, nên bộ lọc thời gian chưa áp dụng cho báo cáo này.
+                Biên bản dự giờ được lọc theo ngày đánh giá trong khoảng thời gian đã chọn.
               </p>
 
               {/* Tỉ lệ trực quan Báo cáo Dự giờ */}
@@ -2651,7 +2676,11 @@ export const Module8_Reports: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div className="text-3xl font-black text-indigo-600 font-mono">{inspStats.avgScore}</div>
                       <div className="text-xs text-slate-500">
-                        <div>Đúng giờ trung bình: <strong className="text-emerald-600 font-bold">96.5%</strong></div>
+                        <div>Đúng giờ trung bình: <strong className="text-emerald-600 font-bold">{filteredInspection.some(teacher => teacher.punctuality !== 'Chưa có dữ liệu')
+                          ? (filteredInspection.filter(teacher => teacher.punctuality !== 'Chưa có dữ liệu')
+                            .reduce((total, teacher) => total + teacher.punctualityPct, 0) /
+                            filteredInspection.filter(teacher => teacher.punctuality !== 'Chưa có dữ liệu').length).toFixed(1) + '%'
+                          : 'Chưa có dữ liệu'}</strong></div>
                         <div className="text-[11px] text-slate-400 mt-0.5">Dựa trên kết quả dự giờ thực tế</div>
                       </div>
                     </div>
@@ -2748,6 +2777,9 @@ export const Module8_Reports: React.FC = () => {
                       </thead>
 
                       <tbody className="divide-y divide-slate-100 font-medium">
+                        {filteredInspection.length === 0 && (
+                          <tr><td colSpan={9} className="px-4 py-3 text-center text-slate-500">Chưa có biên bản dự giờ trong khoảng ngày đã chọn.</td></tr>
+                        )}
                         {filteredInspection.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(t => (
                           <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3 px-3 font-bold font-mono text-slate-900">{t.id}</td>
@@ -2768,9 +2800,7 @@ export const Module8_Reports: React.FC = () => {
                             <td className="py-3 px-3 text-center font-bold text-emerald-600">{t.punctuality}</td>
                             <td className="py-3 px-3 text-xs text-slate-600 font-medium">{t.plan}</td>
                             <td className="py-3 px-3 text-center">
-                              <span className="text-[11px] text-indigo-600 font-semibold cursor-pointer hover:underline">
-                                Biên bản
-                              </span>
+                              <span className="text-[11px] text-slate-600 font-semibold">{t.total} biên bản</span>
                             </td>
                           </tr>
                         ))}
@@ -3089,7 +3119,7 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isMatFilterOpen}
         onClose={() => setIsMatFilterOpen(false)}
         title="Bộ lọc Ma trận Ca dạy"
-        subtitle="Dữ liệu ma trận là snapshot tổng hợp, hiện chỉ lọc được theo bộ môn"
+        subtitle="Lọc ca đã hoàn thành theo thời gian và bộ môn"
         activeCount={matFilterSubject !== 'ALL' ? 1 : 0}
         onReset={resetMatFilters}
         onApply={() => showToast('Đã áp dụng bộ lọc Ma trận!', 'success')}
@@ -3118,7 +3148,7 @@ export const Module8_Reports: React.FC = () => {
         isOpen={isInspFilterOpen}
         onClose={() => setIsInspFilterOpen(false)}
         title="Bộ lọc Đánh giá Dự giờ & Xếp hạng GV"
-        subtitle="Lọc theo phân hạng sư phạm và bộ môn; số liệu hiện là snapshot tổng hợp"
+        subtitle="Lọc biên bản dự giờ theo thời gian, phân hạng và bộ môn"
         activeCount={
           (inspFilterSubject !== 'ALL' ? 1 : 0) +
           (inspFilterRank !== 'ALL' ? 1 : 0) +

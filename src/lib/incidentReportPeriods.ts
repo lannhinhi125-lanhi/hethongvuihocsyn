@@ -3,6 +3,12 @@ import { reportCreationDate } from './reportCreationDate';
 export interface ReportLesson {
   id: string;
   date: string;
+  classId?: string;
+  status?: string;
+  primaryTeacherId?: string;
+  coverTeacherId?: string | null;
+  startsAt?: string;
+  checkinAt?: string | null;
 }
 
 export interface ReportIncident {

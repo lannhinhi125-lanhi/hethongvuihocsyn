@@ -1395,7 +1395,6 @@ export const Module7_WorkReconciliation: React.FC = () => {
                     <th className="py-2.5 px-3">Lớp học</th>
                     <th className="py-2.5 px-3">Sĩ số</th>
                     <th className="py-2.5 px-3 text-center">Hệ số công</th>
-                    <th className="py-2.5 px-3">Ghi chú đối soát</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1420,7 +1419,6 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       <td className="py-2 px-3 text-center font-bold text-emerald-600">
                         {session.creditCoeff}
                       </td>
-                      <td className="py-2 px-3 text-slate-500 text-[11px]">{session.hrPayNote}</td>
                     </tr>
                   ))}
                 </tbody>

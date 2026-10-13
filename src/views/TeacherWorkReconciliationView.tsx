@@ -398,7 +398,6 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                 <th className="py-3 px-4">Vào / Ra</th>
                 <th className="py-3 px-4">Trạng thái ca</th>
                 <th className="py-3 px-4 text-center">Hệ số công</th>
-                <th className="py-3 px-4">Ghi chú đối soát</th>
                 <th className="py-3 px-4 text-center">Khiếu nại</th>
               </tr>
             </thead>
@@ -442,7 +441,6 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                       {session.creditCoeff} công
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-[11px] text-slate-500 max-w-xs">{session.hrPayNote}</td>
                   <td className="py-3 px-4 text-center">
                     <button
                       disabled={!canDisputeSession(session) || myDisputes.some(dispute => dispute.sessionId === session.id && dispute.status === 'CHO_DUYET')}
