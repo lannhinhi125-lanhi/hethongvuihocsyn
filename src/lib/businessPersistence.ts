@@ -3,7 +3,7 @@ import { teacherSessionRequest } from './accountSession';
 import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset } from './supabaseMapper';
 type Row = Record<string, any>;
 type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number };
-const emptyRag = { welcomeGreeting:'',quickPrompts:[],personaTone:'',strictGroundingOnly:true,fallbackResponse:'',systemPrompt:'' };
+const emptyRag = { welcomeGreeting:'',personaTone:'',strictGroundingOnly:true,fallbackResponse:'',systemPrompt:'' };
 let state: Snapshot = {data:{},loading:false,saving:false,error:'',saved:0};
 let confirmed: Record<string,any> = {}, generation=0, flushing=false, scheduled=false, refreshing=false;
 let raw: Record<string,Row[]> = {};

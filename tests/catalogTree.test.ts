@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {catalogTree,parseCatalogTree} from '../src/lib/catalogTree';
+const items=parseCatalogTree('- Root\n-- Child\n--- Leaf\n- Other');
+assert.equal(items[1].parentId,items[0].id);
+assert.equal(items[2].parentId,items[1].id);
+assert.deepEqual(catalogTree(items).map(o=>o.treeLabel),['- Root','-- Child','--- Leaf','- Other']);
+assert.deepEqual(parseCatalogTree('- Root\n-- Child\n--- Leaf\n- Other',items),items);
+assert.throws(()=>parseCatalogTree('- Root\n--- Leaf'),/Cấp con/);
+assert.throws(()=>parseCatalogTree('- Root\n- Root'),/trùng/);
+assert.throws(()=>catalogTree([{id:'A',label:'A',parentId:'B'},{id:'B',label:'B',parentId:'A'}]),/vòng lặp/);
+console.log('Passed: arbitrary catalog depths, stable IDs and cycle validation.');

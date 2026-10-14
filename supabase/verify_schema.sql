@@ -1,5 +1,5 @@
--- Chạy sau schema.sql; chỉ đọc.
--- Kỳ vọng: 31 bảng và 31 bảng bật RLS.
+-- Chạy sau apply_relational_update.sql; chỉ đọc.
+-- Tất cả bảng dữ liệu nghiệp vụ phải bật RLS.
 SELECT count(*) AS so_bang, count(*) FILTER (WHERE c.relrowsecurity) AS so_bang_bat_rls
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 WHERE n.nspname='vuihoc' AND c.relkind='r';
@@ -13,8 +13,8 @@ FROM information_schema.columns WHERE table_schema='vuihoc'
 ORDER BY table_name, ordinal_position;
 
 SELECT madinhdanh, malophoc, chitietcahoc FROM vuihoc."LOP_HOC" LIMIT 5;
-SELECT madinhdanh, hoten, lichranh, baocaodanhgia FROM vuihoc."GIAO_VIEN" LIMIT 5;
-SELECT kycong, danhsachgiaovien, danhsachgiaitrinh FROM vuihoc."BANG_CONG_THANG" LIMIT 5;
+SELECT vuihoc.du_lieu_quan_he('GIAO_VIEN',to_jsonb(t)) AS giaovien FROM vuihoc."GIAO_VIEN" t LIMIT 5;
+SELECT vuihoc.bang_cong_truy_van(kycong) AS bangcong FROM vuihoc."BANG_CONG_THANG" LIMIT 5;
 
 -- Nhật ký nghiệp vụ: đối chiếu trước/sau, người thực hiện và thời gian.
 SELECT * FROM vuihoc."NHAT_KY_NGHIEP_VU" ORDER BY thoigian DESC LIMIT 50;

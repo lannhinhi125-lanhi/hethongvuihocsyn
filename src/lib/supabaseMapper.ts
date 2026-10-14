@@ -2,11 +2,8 @@ import { APP_DATABASE_FIELDS, DATABASE_NAMES } from './databaseNames';
 export type SupabaseDataset = keyof typeof APP_DATABASE_FIELDS;
 type DataRow = Record<string, unknown>;
 export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly string[]>> = {
-  "teachers": [
-    "subjectName",
-    "levelName",
-    "statusLabel"
-  ],
+  rag_bot_config: ['quickPrompts'],
+  teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions'],
   "classes": [
     "teacherName"
   ],
@@ -59,7 +56,16 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
     const foreignKey = ['roleGroupId','teacherId','parentId','user_id','auth_user_id','active_tone_key','currentClassCode','categoryId','coverTeacherId','updatedBy','checkinUserId','checkoutUserId','reportedBy','handledBy','submittedBy','reviewedBy','toneId','recipientUserId','evaluatorUserId','lessonId'].includes(field);
     const codes = STATUS_CODES[dataset as keyof typeof STATUS_CODES] as Record<string,string> | undefined;
     const normalized = field === 'status' && codes ? codes[String(content)] || content : content;
-    result[fields[field]] = normalized === undefined || (foreignKey && normalized === '') ? null : normalized;
+    let stored = normalized;
+    if (dataset === 'dated_lessons' && ['startsAt','endsAt'].includes(field) && typeof stored === 'string') {
+      stored = stored.includes('T')
+        ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(stored))
+        : stored;
+    }
+    if (dataset === 'lesson_incidents' && ['reportedAt','handledAt'].includes(field) && typeof stored === 'string' && stored) {
+      stored = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(stored));
+    }
+    result[fields[field]] = stored === undefined || (foreignKey && stored === '') ? null : stored;
   }
   if (typeof result.madinhdanh === 'string' && result.madinhdanh.startsWith('PREVIEW-')) throw new Error('Tài khoản mẫu chỉ dùng xem trước, không ghi vào database.');
   return result;
@@ -72,6 +78,14 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     if (Object.hasOwn(row,column)) result[field] = row[column];
   }
   if (dataset === 'users') result.passwordRaw = '';
+  // UI timing calculations use an instant; the database stores date and time separately.
+  if (dataset === 'dated_lessons') {
+    for (const field of ['startsAt','endsAt']) {
+      if (typeof result[field] === 'string' && /^\d{2}:\d{2}/.test(result[field] as string)) {
+        result[field] = `${result.date}T${result[field]}+07:00`;
+      }
+    }
+  }
   const codes = STATUS_CODES[dataset as keyof typeof STATUS_CODES];
   if (codes && result.status != null) result.status = Object.entries(codes).find(([,code])=>code===result.status)?.[0] || result.status;
   const find = (table: SupabaseDataset, key: string, value: unknown) => value == null ? undefined : references[table]?.find(item=>item[key]===value);

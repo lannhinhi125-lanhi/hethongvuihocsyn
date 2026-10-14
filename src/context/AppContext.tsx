@@ -130,7 +130,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 const EMPTY_USER: UserAccount = { id: '', name: '', username: '', passwordRaw: '', email: '', phone: '', role: 'Quản trị Toàn quyền', status: 'locked', avatarInitials: '' };
-const EMPTY_RAG_CONFIG: RAGBotConfig = { welcomeGreeting: '', quickPrompts: [], personaTone: '', strictGroundingOnly: true, fallbackResponse: '', systemPrompt: '' };
+const EMPTY_RAG_CONFIG: RAGBotConfig = { welcomeGreeting: '',  personaTone: '', strictGroundingOnly: true, fallbackResponse: '', systemPrompt: '' };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Không đọc cache hoặc tự sinh dữ liệu mẫu. Dữ liệu mẫu chỉ nằm trong SQL.

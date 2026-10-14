@@ -1,4 +1,5 @@
 import React from 'react';
+import { catalogTree } from '../lib/catalogTree';
 import type { TeacherProfile } from '../types';
 import type { CategoryGroup } from './CategoryMultiFilter';
 export const emptyTeacherFields = { id: '', name: '', phone: '', email: '', minFree: '', maxFree: '', minBusy: '', maxBusy: '' };
@@ -19,7 +20,7 @@ export const TeacherFieldInputs: React.FC<{ prefix: string; value: TeacherFields
   </fieldset>)}
 </>;
 export const TeacherCategoryFields: React.FC<{ prefix: string; categories: CategoryGroup[]; category: string; grades: string[]; onCategory: (value: string) => void; onGrades: (value: string[]) => void }> = ({ prefix, categories, category, grades, onCategory, onGrades }) => {
-  const options = Array.from(new Map(categories.filter(item => category === 'ALL' || item.id === category).flatMap(item => item.options).map(option => [option.id, option])).values());
+  const options = Array.from(new Map(categories.filter(item => category === 'ALL' || item.id === category).flatMap(item => catalogTree(item.options)).map(option => [option.id, option])).values());
   return <>
     <label className="block font-bold text-slate-700">Cấp học / Danh mục
       <select id={prefix + '-level'} value={category} onChange={e => { onCategory(e.target.value); onGrades([]); }} className="block w-full mt-1 p-2 rounded-xl border border-slate-200">
@@ -29,7 +30,7 @@ export const TeacherCategoryFields: React.FC<{ prefix: string; categories: Categ
     <details id={prefix + '-grades'} tabIndex={-1} className="border border-slate-200 rounded-xl p-3">
       <summary className="font-bold text-slate-700 cursor-pointer">Khối / Lớp dạy ({grades.length ? grades.length + ' đã chọn' : 'Tất cả'})</summary>
       <div className="flex justify-between mt-3 mb-2"><button type="button" onClick={() => onGrades(options.map(option => option.id))} className="text-orange-600">Chọn tất cả</button><button type="button" onClick={() => onGrades([])}>Bỏ chọn</button></div>
-      <div className="max-h-48 overflow-y-auto space-y-1">{options.map(option => <label key={option.id} className="flex items-center gap-2 p-1.5"><input type="checkbox" checked={grades.includes(option.id)} onChange={() => onGrades(grades.includes(option.id) ? grades.filter(id => id !== option.id) : [...grades, option.id])} className="accent-orange-600" />{option.label}</label>)}</div>
+      <div className="max-h-48 overflow-y-auto space-y-1">{options.map(option => <label key={option.id} className="flex items-center gap-2 p-1.5"><input type="checkbox" checked={grades.includes(option.id)} onChange={() => onGrades(grades.includes(option.id) ? grades.filter(id => id !== option.id) : [...grades, option.id])} className="accent-orange-600" />{option.treeLabel}</label>)}</div>
     </details>
   </>;
 };

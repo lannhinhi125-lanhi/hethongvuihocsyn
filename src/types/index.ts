@@ -247,7 +247,6 @@ export interface SOPDocument {
 
 export interface RAGBotConfig {
   welcomeGreeting: string;
-  quickPrompts: string[];
   personaTone: string;
   strictGroundingOnly: boolean;
   fallbackResponse: string;

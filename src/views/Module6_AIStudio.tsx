@@ -1,3 +1,4 @@
+import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { confirmAction } from '../components/ConfirmAction';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
@@ -888,53 +889,6 @@ export const Module6_AIStudio: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label className="block font-semibold text-slate-700">Câu hỏi gợi ý trong khung chat</label>
-                  <button
-                    type="button"
-                    onClick={() => setRagBotConfig(previous => ({ ...previous, quickPrompts: [...previous.quickPrompts, ''] }))}
-                    className="inline-flex shrink-0 items-center gap-1 font-bold text-[#E05200] hover:underline"
-                  >
-                    <PlusCircle className="h-3.5 w-3.5" />
-                    Thêm câu hỏi
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {ragBotConfig.quickPrompts.map((prompt, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={prompt}
-                        onChange={event => setRagBotConfig(previous => ({
-                          ...previous,
-                          quickPrompts: previous.quickPrompts.map((item, itemIndex) => itemIndex === index ? event.target.value : item)
-                        }))}
-                        placeholder="Ví dụ: Quy trình báo nghỉ ca dạy?"
-                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setRagBotConfig(previous => ({
-                          ...previous,
-                          quickPrompts: previous.quickPrompts.filter((_, itemIndex) => itemIndex !== index)
-                        }))}
-                        className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                        aria-label={`Xóa câu hỏi gợi ý ${index + 1}`}
-                        title="Xóa câu hỏi gợi ý"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                  {!ragBotConfig.quickPrompts.length && (
-                    <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
-                      Chưa có câu hỏi gợi ý. Giáo viên vẫn có thể tự nhập câu hỏi.
-                    </p>
-                  )}
-                </div>
-              </div>
-
               <div className="flex justify-end pt-2">
                 <button
                   onClick={() => showToast('Đã lưu cấu hình Bot chat AI!', 'success')}
@@ -1001,7 +955,7 @@ export const Module6_AIStudio: React.FC = () => {
 
               {/* Quick prompts */}
               <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-1.5 text-[10px]">
-                {ragBotConfig.quickPrompts.filter(prompt => prompt.trim()).map((p, idx) => (
+                {ASSISTANT_QUICK_PROMPTS.map((p, idx) => (
                   <button
                     key={idx}
                     onClick={() => {

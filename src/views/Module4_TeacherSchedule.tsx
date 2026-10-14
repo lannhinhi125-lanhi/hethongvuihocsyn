@@ -1,3 +1,4 @@
+import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingSessionDetails, teachingScheduleEntries, type TeachingLesson } from '../lib/teachingSessionDetails';
 import { useBusinessValue } from '../lib/businessPersistence';
@@ -72,7 +73,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   // Trạng thái buổi học: CHUA_DIEN_RA (chưa diễn ra), DANG_HOC (đang học), DA_HOAN_THANH (đã hoàn thành)
   const [classLiveStatus, setClassLiveStatus] = useState<'CHUA_DIEN_RA' | 'DANG_HOC' | 'DA_HOAN_THANH'>('CHUA_DIEN_RA');
 
-  const quickQuestions = ragBotConfig.quickPrompts.filter(prompt => prompt.trim());
+  const quickQuestions = ASSISTANT_QUICK_PROMPTS;
 
   const handleSendQuestion = (questionText?: string) => {
     if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;

@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { catalogTree } from '../lib/catalogTree';
 import { ChevronDown, Check, X, Search, Filter, Layers, CheckSquare, Square } from 'lucide-react';
 
 export interface CategoryOption {
   id: string;
   label: string;
+  parentId?: string;
   count?: number;
 }
 
@@ -57,7 +59,7 @@ export const CategoryMultiFilter: React.FC<CategoryMultiFilterProps> = ({
   const currentCategoryGroup = categories.find(c => c.id === selectedCategory);
 
   const filteredOptions = currentCategoryGroup
-    ? currentCategoryGroup.options.filter(o =>
+    ? catalogTree(currentCategoryGroup.options).filter(o =>
         o.label.toLowerCase().includes(searchSubText.toLowerCase())
       )
     : [];
@@ -101,7 +103,7 @@ export const CategoryMultiFilter: React.FC<CategoryMultiFilterProps> = ({
             <div className="flex justify-between"><button type="button" onClick={handleCheckAllCurrent} className="text-orange-600">Chọn tất cả</button><button type="button" onClick={onClearSubOptions}>Bỏ chọn</button></div>
             <div className="max-h-56 overflow-y-auto space-y-1">
               {filteredOptions.map(option => <label key={option.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-orange-50 cursor-pointer">
-                <input type="checkbox" checked={selectedSubOptions.includes(option.id)} onChange={() => onToggleSubOption(option.id)} className="accent-orange-600" />{option.label}
+                <input type="checkbox" checked={selectedSubOptions.includes(option.id)} onChange={() => onToggleSubOption(option.id)} className="accent-orange-600" />{option.treeLabel}
               </label>)}
               {filteredOptions.length === 0 && <p className="p-2 text-slate-500">Không tìm thấy danh mục con.</p>}
             </div>
@@ -283,7 +285,7 @@ export const CategoryMultiFilter: React.FC<CategoryMultiFilterProps> = ({
                         onChange={() => onToggleSubOption(opt.id)}
                         className="accent-[#FF5C00] w-4 h-4 rounded cursor-pointer"
                       />
-                      <span>{opt.label}</span>
+                      <span>{opt.treeLabel}</span>
                     </div>
                     {isChecked && <Check className="w-3.5 h-3.5 text-[#FF5C00]" />}
                   </label>

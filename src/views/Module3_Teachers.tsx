@@ -1,3 +1,4 @@
+import { catalogTree } from '../lib/catalogTree';
 import { SavedPasswordCell } from '../components/SavedPasswordCell';
 import { revealAccountPassword } from '../lib/accountSession';
 import { EmptyState } from '../components/EmptyState';
@@ -50,12 +51,12 @@ import {
 
 export const Module3_Teachers: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { teachers, setTeachers, timeSlots, createTeacherWithAccount, updateTeacher, showToast, users, currentUser, roleGroups, subjects, teachingCategories } = useApp();
+  const { teachers, setTeachers, timeSlots, createTeacherWithAccount, updateTeacher, showToast, users, currentUser, roleGroups, subjects, teachingCategories, models } = useApp();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
   const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
-  const [newTeacherModels, setNewTeacherModels] = useState<string[]>(['1-1', '1-n']);
+  const [newTeacherModels, setNewTeacherModels] = useState<string[]>([]);
   const canCreateProfiles = can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') || can('Tạo hồ sơ và cấp tài khoản giáo viên');
   const canManageProfiles = canManageTeacherProfiles(currentUser, roleGroups);
   const activeSubjects = subjects.filter(subject => subject.status);
@@ -76,7 +77,7 @@ export const Module3_Teachers: React.FC = () => {
   const [editTeacherSubject, setEditTeacherSubject] = useState('SUB-MATH');
   const [editTeacherLevel, setEditTeacherLevel] = useState('CAP-TH');
   const [editTeacherGrades, setEditTeacherGrades] = useState<string[]>([]);
-  const [editTeacherModels, setEditTeacherModels] = useState<string[]>(['1-1', '1-n']);
+  const [editTeacherModels, setEditTeacherModels] = useState<string[]>([]);
   const [editTeacherStatus, setEditTeacherStatus] = useState<'DANG_DAY' | 'CHO_LOP' | 'TAM_NGUNG'>('DANG_DAY');
   const [editTeacherDegree, setEditTeacherDegree] = useState('');
 
@@ -100,7 +101,7 @@ export const Module3_Teachers: React.FC = () => {
     const status = profile ? filterStatus : availStatus;
     const setStatus = profile ? setFilterStatus : setAvailStatus;
     const select = (value: string, onChange: (value: string) => void, options: { value: string; label: string }[]) => <select aria-label={label} value={value} onChange={e => onChange(e.target.value)} className="w-full p-2 rounded-lg border border-slate-200"><option value="ALL">Tất cả</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>;
-    const gradeOptions = Array.from(new Map(teachingCategories.flatMap(item => item.options).map(option => [option.id, option])).values());
+    const gradeOptions = Array.from(new Map(teachingCategories.flatMap(item => catalogTree(item.options)).map(option => [option.id, option])).values());
     const reset = () => {
       if (field === 'name') setValues(prev => ({ ...prev, id: '', name: '' }));
       if (field === 'subject') setSubject('ALL');
@@ -115,9 +116,9 @@ export const Module3_Teachers: React.FC = () => {
       {field === 'name' && (['id', 'name'] as const).map(key => <label key={key} className="block">{key === 'id' ? 'Mã giáo viên' : 'Họ và tên'}<input aria-label={key === 'id' ? 'Lọc mã giáo viên' : 'Lọc tên giáo viên'} value={values[key]} onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 w-full p-2 rounded-lg border border-slate-200" /></label>)}
       {field === 'subject' && select(subject, setSubject, subjects.map(item => ({ value: item.code, label: item.name })))}
       {field === 'level' && select(category, setCategory, teachingCategories.map(item => ({ value: item.id, label: item.name })))}
-      {field === 'model' && select(model, setModel, [{ value: '1-1', label: '1 - 1' }, { value: '1-n', label: '1 - n' }])}
+      {field === 'model' && select(model, setModel, models.filter(item => item.status).map(item => ({ value: item.code, label: item.name })))}
       {field === 'status' && select(status, setStatus, profile ? [{ value: 'DANG_DAY', label: 'Đang dạy' }, { value: 'CHO_LOP', label: 'Chờ lớp' }, { value: 'TAM_NGUNG', label: 'Tạm ngưng' }] : [{ value: 'FREE', label: 'Vẫn còn ca rảnh' }, { value: 'FULL', label: 'Đã kín lịch dạy' }])}
-      {field === 'grades' && <div className="max-h-52 overflow-y-auto space-y-1">{gradeOptions.map(option => <label key={option.id} className="flex items-center gap-2 p-1.5"><input type="checkbox" checked={grades.includes(option.id)} onChange={() => setGrades(prev => prev.includes(option.id) ? prev.filter(id => id !== option.id) : [...prev, option.id])} className="accent-orange-600" />{option.label}</label>)}</div>}
+      {field === 'grades' && <div className="max-h-52 overflow-y-auto space-y-1">{gradeOptions.map(option => <label key={option.id} className="flex items-center gap-2 p-1.5"><input type="checkbox" checked={grades.includes(option.id)} onChange={() => setGrades(prev => prev.includes(option.id) ? prev.filter(id => id !== option.id) : [...prev, option.id])} className="accent-orange-600" />{option.treeLabel}</label>)}</div>}
       {(field === 'free' || field === 'busy') && <div className="grid grid-cols-2 gap-2">{(['min', 'max'] as const).map(bound => {
         const key = (bound + (field === 'free' ? 'Free' : 'Busy')) as 'minFree' | 'maxFree' | 'minBusy' | 'maxBusy';
         return <label key={bound}>{bound === 'min' ? 'Tối thiểu' : 'Tối đa'}<input aria-label={label + (bound === 'min' ? ' tối thiểu' : ' tối đa')} type="number" min="0" step="1" value={values[key]} onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 w-full p-2 rounded-lg border border-slate-200" /></label>;
@@ -183,7 +184,7 @@ export const Module3_Teachers: React.FC = () => {
   const [newTeacherGrades, setNewTeacherGrades] = useState<string[]>([]);
   const [newTeacherDegree, setNewTeacherDegree] = useState('');
 
-  const gradeOptionsByLevel = Object.fromEntries(teachingCategories.map(category => [category.id, category.options.map(option => option.id)]));
+  const gradeOptionsByLevel = Object.fromEntries(teachingCategories.map(category => [category.id, catalogTree(category.options).map(option => option.id)]));
 
   // Bộ lọc Phân cấp theo Danh mục & Cấp độ (Tiểu học, THCS, THPT, IELTS...)
   const [catFilterCategory, setCatFilterCategory] = useState<string>('ALL');
@@ -199,7 +200,7 @@ export const Module3_Teachers: React.FC = () => {
     (availSubject === 'ALL' || t.subject === availSubject) &&
     (availStatus === 'ALL' || (availStatus === 'FULL' ? t.isFull : t.freeSlots > 0)) &&
     matchesCategory(t, availCategory, availSubOptions) &&
-    (availModel === 'ALL' || (t.models?.length ? t.models : ['1-1', '1-n']).includes(availModel)) && matchesPeriod(t, availFrom, availTo)
+    (availModel === 'ALL' || (t.models?.length ? t.models : []).includes(availModel)) && matchesPeriod(t, availFrom, availTo)
   );
   // Kết hợp tìm kiếm với các tiêu chí trong bảng lọc bên phải.
   const filteredTeachers = teachers.filter(t => {
@@ -213,7 +214,7 @@ export const Module3_Teachers: React.FC = () => {
 
     const matchSub = filterSubject === 'ALL' || t.subject === filterSubject;
 
-    const tModels = t.models && t.models.length > 0 ? t.models : ['1-1', '1-n'];
+    const tModels = t.models && t.models.length > 0 ? t.models : [];
     const matchModel = colFilterModel === 'ALL' || tModels.includes(colFilterModel);
 
     const matchSts = filterStatus === 'ALL' || t.status === filterStatus;
@@ -231,7 +232,7 @@ export const Module3_Teachers: React.FC = () => {
     setEditTeacherSubject(t.subject);
     setEditTeacherLevel(t.levelId);
     setEditTeacherGrades(t.grades || []);
-    setEditTeacherModels(t.models && t.models.length > 0 ? t.models : ['1-1', '1-n']);
+    setEditTeacherModels(t.models && t.models.length > 0 ? t.models : []);
     setEditTeacherStatus(t.status);
     setEditTeacherDegree(t.degree || '');
   };
@@ -250,7 +251,7 @@ export const Module3_Teachers: React.FC = () => {
       return;
     }
     if (editTeacherModels.length === 0) {
-      showToast('Vui lòng chọn ít nhất 1 hình thức giảng dạy (1-1 hoặc 1-n)!', 'error');
+      showToast('Vui lòng chọn ít nhất một mô hình trong danh mục.', 'error');
       return;
     }
 
@@ -295,6 +296,10 @@ export const Module3_Teachers: React.FC = () => {
 
     if (newTeacherGrades.length === 0) {
       showToast('Vui lòng chọn ít nhất 1 khối lớp tiếp nhận!', 'error');
+      return;
+    }
+    if (newTeacherModels.length === 0) {
+      showToast('Vui lòng chọn ít nhất một mô hình trong danh mục.', 'error');
       return;
     }
 
@@ -538,7 +543,7 @@ export const Module3_Teachers: React.FC = () => {
                     const badgeColor = isMath
                       ? 'bg-orange-50 text-[#FF5C00] border-orange-200'
                       : 'bg-blue-50 text-blue-700 border-blue-200';
-                    const tModels = t.models && t.models.length > 0 ? t.models : ['1-1', '1-n'];
+                    const tModels = t.models && t.models.length > 0 ? t.models : [];
 
                     return (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors">
@@ -566,16 +571,7 @@ export const Module3_Teachers: React.FC = () => {
                         <td className="py-3 px-3 text-slate-600 text-[11px]">{t.grades.join(', ')}</td>
                         <td className="py-3 px-3 text-center">
                           <div className="inline-flex items-center gap-1 justify-center flex-wrap">
-                            {tModels.includes('1-1') && (
-                              <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">
-                                1 - 1
-                              </span>
-                            )}
-                            {tModels.includes('1-n') && (
-                              <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[10px]">
-                                1 - n
-                              </span>
-                            )}
+                            {tModels.map(code => <span key={code} className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">{models.find(item => item.code === code)?.name || code}</span>)}
                           </div>
                         </td>
                         <td className="py-3 px-3 text-center">
@@ -1021,7 +1017,7 @@ export const Module3_Teachers: React.FC = () => {
                         onChange={() => handleGradeToggle(g)}
                         className="accent-[#FF5C00] w-4 h-4 mb-1"
                       />
-                      <span className="font-semibold text-slate-700 text-xs">{teachingCategories.find(c => c.id === newTeacherLevel)?.options.find(o => o.id === g)?.label || g}</span>
+                      <span className="font-semibold text-slate-700 text-xs">{catalogTree(teachingCategories.find(c => c.id === newTeacherLevel)?.options || []).find(o => o.id === g)?.treeLabel || g}</span>
                     </label>
                   ))}
                 </div>
@@ -1030,36 +1026,9 @@ export const Module3_Teachers: React.FC = () => {
               {/* Mô hình nhận lớp (1-1 và 1-n) */}
               <div className="p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-200 space-y-2">
                 <label className="block font-bold text-indigo-900 mb-1">
-                  Mô hình nhận lớp (Có thể tick chọn cả 2) <span className="text-rose-500">*</span>
+                  Mô hình nhận lớp (chọn từ danh mục) <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700 hover:border-indigo-600">
-                    <input
-                      type="checkbox"
-                      checked={newTeacherModels.includes('1-1')}
-                      onChange={() => {
-                        setNewTeacherModels(prev =>
-                          prev.includes('1-1') ? prev.filter(m => m !== '1-1') : [...prev, '1-1']
-                        );
-                      }}
-                      className="accent-indigo-600 w-4 h-4"
-                    />
-                    <span>Lớp 1 - 1 (1 Kèm 1 cá nhân)</span>
-                  </label>
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700 hover:border-indigo-600">
-                    <input
-                      type="checkbox"
-                      checked={newTeacherModels.includes('1-n')}
-                      onChange={() => {
-                        setNewTeacherModels(prev =>
-                          prev.includes('1-n') ? prev.filter(m => m !== '1-n') : [...prev, '1-n']
-                        );
-                      }}
-                      className="accent-indigo-600 w-4 h-4"
-                    />
-                    <span>Lớp 1 - n (Nhóm 1-3, 1-5, 1-10)</span>
-                  </label>
-                </div>
+                <div className="grid grid-cols-2 gap-3">{models.filter(item => item.status).map(item => <label key={item.id} className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700"><input type="checkbox" checked={newTeacherModels.includes(item.code)} onChange={() => setNewTeacherModels(previous => previous.includes(item.code) ? previous.filter(code => code !== item.code) : [...previous,item.code])} className="accent-indigo-600" /><span>- {item.name}</span></label>)}</div>
               </div>
 
               <div>
@@ -1741,7 +1710,7 @@ export const Module3_Teachers: React.FC = () => {
                         onChange={() => handleEditGradeToggle(g)}
                         className="accent-[#FF5C00] w-4 h-4"
                       />
-                      <span className="font-semibold text-slate-700 text-xs">{g}</span>
+                      <span className="font-semibold text-slate-700 text-xs">{catalogTree(teachingCategories.find(c => c.id === editTeacherLevel)?.options || []).find(o => o.id === g)?.treeLabel || g}</span>
                     </label>
                   ))}
                 </div>
@@ -1750,36 +1719,9 @@ export const Module3_Teachers: React.FC = () => {
               {/* Hình thức giảng dạy (1-1 hoặc 1-n, có thể tick cả 2) */}
               <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200 space-y-2">
                 <label className="block font-bold text-indigo-900">
-                  Hình thức giảng dạy nhận lớp (Có thể tick cả 2) <span className="text-rose-500">*</span>
+                  Mô hình nhận lớp (chọn từ danh mục) <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={editTeacherModels.includes('1-1')}
-                      onChange={() => {
-                        setEditTeacherModels(prev =>
-                          prev.includes('1-1') ? prev.filter(m => m !== '1-1') : [...prev, '1-1']
-                        );
-                      }}
-                      className="accent-indigo-600 w-4 h-4"
-                    />
-                    <span>Lớp 1 - 1 (Kèm 1-1)</span>
-                  </label>
-                  <label className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={editTeacherModels.includes('1-n')}
-                      onChange={() => {
-                        setEditTeacherModels(prev =>
-                          prev.includes('1-n') ? prev.filter(m => m !== '1-n') : [...prev, '1-n']
-                        );
-                      }}
-                      className="accent-indigo-600 w-4 h-4"
-                    />
-                    <span>Lớp 1 - n (Nhóm 1-5, 1-10)</span>
-                  </label>
-                </div>
+                <div className="grid grid-cols-2 gap-3">{models.filter(item => item.status).map(item => <label key={item.id} className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700"><input type="checkbox" checked={editTeacherModels.includes(item.code)} onChange={() => setEditTeacherModels(previous => previous.includes(item.code) ? previous.filter(code => code !== item.code) : [...previous,item.code])} className="accent-indigo-600" /><span>- {item.name}</span></label>)}</div>
               </div>
 
               <div>
@@ -1880,7 +1822,7 @@ export const Module3_Teachers: React.FC = () => {
                     <strong className="text-slate-700">{scheduleModalTeacher.levelName}</strong> • Khối:{' '}
                     <strong className="text-slate-700">{scheduleModalTeacher.grades.join(', ')}</strong> • Hình thức:{' '}
                     <strong className="text-slate-700">
-                      {(scheduleModalTeacher.models || ['1-1', '1-n']).join(', ')}
+                      {(scheduleModalTeacher.models || []).join(', ')}
                     </strong>
                   </p>
                 </div>
@@ -1958,8 +1900,7 @@ export const Module3_Teachers: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả hình thức</option>
-              <option value="1-1">Lớp 1 - 1 (Kèm 1-1)</option>
-              <option value="1-n">Lớp 1 - n (Nhóm 1-5, 1-10)</option>
+              {models.filter(item => item.status).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}
             </select>
           </div>
           <div>
@@ -2033,8 +1974,7 @@ export const Module3_Teachers: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả hình thức</option>
-              <option value="1-1">Lớp 1 - 1 (Kèm 1-1)</option>
-              <option value="1-n">Lớp 1 - n (Nhóm 1-5, 1-10)</option>
+              {models.filter(item => item.status).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}
             </select>
           </div>
           <div><label className="block font-bold text-slate-700 mb-1">Tình trạng lịch</label>

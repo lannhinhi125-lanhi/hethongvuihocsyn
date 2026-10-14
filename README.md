@@ -59,6 +59,8 @@ Hệ thống được phát triển bằng **React 19**, **Vite**, **TypeScript*
 
 Xem [hướng dẫn chọn file SQL](supabase/README.md), [bảng đối chiếu UI → database](supabase/DATA_DICTIONARY.md) và [SQL kiểm tra](supabase/verify_schema.sql).
 
+Đợt cập nhật danh mục, giáo viên, tiêu chí nhận xét, mẫu báo cáo và ngày/giờ: chạy một file [apply_relational_update.sql](supabase/apply_relational_update.sql). File gộp cả các sửa đổi chưa chạy trước đó; xem [chi tiết chuyển đổi](docs/relational-catalogs-dates.md). Chạy file gộp cuối cùng, không chạy lại schema hoặc migration cũ sau đó.
+
 Đăng nhập và đọc/lưu tài khoản, nhóm quyền đã nối Supabase bằng SQL RPC, không dùng Supabase Auth. Xem [hướng dẫn áp dụng](supabase/SIMPLE_ACCOUNTS.md). Các màn nghiệp vụ khác vẫn giữ dữ liệu trong bộ nhớ, chưa tự lưu vào Supabase; cần tích hợp CRUD theo mapper và kiểm tra quyền tại database.
 
 ---
