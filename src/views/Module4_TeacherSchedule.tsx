@@ -1,11 +1,12 @@
+import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingSessionDetails, teachingScheduleEntries, type TeachingLesson } from '../lib/teachingSessionDetails';
-import { useBusinessValue, waitForBusinessSave } from '../lib/businessPersistence';
+import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ClassItem } from '../types';
 import { findKnowledgeDocument } from '../lib/knowledgeSearch';
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 
 export const Module4_TeacherSchedule: React.FC = () => {
+  const businessStatus=useBusinessStatus();
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const initialWeek = teachingWeekForDate(new Date());
   const { can, requirePermission } = usePermissions();
@@ -151,7 +153,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     const activeSession = storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === dateStr
       ? storedSession
       : undefined;
-    if (activeSession?.status === 'Đã hoàn thành') {
+    if (activeSession?.checkoutAt || classroom.lesson?.checkoutAt || activeSession?.status === 'Đã hoàn thành') {
       window.open(classroom.actionUrl, '_blank', 'noopener,noreferrer');
       return;
     }
@@ -210,7 +212,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
       showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
       return;
     }
-    if (!window.confirm('Bạn có chắc muốn kết thúc buổi học này? Trạng thái chuyển thành Đã học; cần nhận xét đủ để tính công.')) return;
+    if (!window.confirm('Bạn có chắc muốn kết thúc buổi học này? Kết thúc sớm hơn 5 phút sẽ là Chưa hoàn tất và cảnh báo cam. Nhận xét mở sau khi lưu checkout.')) return;
     setClasses(prev =>
       prev.map(c => {
         if (c.id === selectedClass.id) {
@@ -235,15 +237,15 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   const handleOpenReview = (studentId: string, studentName: string) => {
     if (!requirePermission('Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy')) return;
-    if (classLiveStatus === 'CHUA_DIEN_RA') { showToast('Vui lòng vào lớp trước khi nhận xét.', 'warning'); return; }
+    if (!reviewUnlocked) { showToast('Cần kết thúc lớp hoặc chờ hệ thống ghi nhận checkout đúng giờ trước khi nhận xét.', 'warning'); return; }
     setReviewStudentName(studentName); setReviewStudentId(studentId);
     setReviewText(selectedClass?.activeSessions?.[selectedSessionNum]?.feedback?.[studentId] || '');
     setIsReviewModalOpen(true);
   };
   const handleSaveReview = async () => {
     if (!requirePermission('Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy')) return;
-    if (!selectedClass || classLiveStatus === 'CHUA_DIEN_RA' || !reviewText.trim()) {
-      showToast('Vui lòng nhập nhận xét sau khi đã vào lớp.', 'warning'); return;
+    if (!selectedClass || !reviewUnlocked || !reviewText.trim()) {
+      showToast('Chỉ nhập nhận xét sau khi buổi học đã ghi nhận checkout.', 'warning'); return;
     }
     setClasses(previous => previous.map(cls => {
       if (cls.id !== selectedClass.id) return cls;
@@ -318,6 +320,19 @@ export const Module4_TeacherSchedule: React.FC = () => {
     : undefined;
   const selectedDetail=selectedClass ? teachingSessionDetails(selectedClass,selectedSessionNum,selectedSessionDate,selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time || '',datedLessons,timeSlots,new Date()) : undefined;
   const selectedLesson=selectedDetail?.lesson;
+  const checkoutFacts={checkinAt:selectedLesson?.checkinAt || selectedDetail?.active?.checkinAt,checkoutAt:selectedLesson?.checkoutAt || selectedDetail?.active?.checkoutAt,status:selectedLesson?.status};
+  const reviewUnlocked=canReviewSession(checkoutFacts) && !businessStatus.saving;
+  const endedEarly=isEarlyCheckout(selectedSessionDate,selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time || '',checkoutFacts.checkoutAt);
+  useEffect(()=>{
+    if(!selectedClassId)return;
+    setClassLiveStatus(canReviewSession(checkoutFacts) ? 'DA_HOAN_THANH' : checkoutFacts.checkinAt ? 'DANG_HOC' : 'CHUA_DIEN_RA');
+  },[selectedClassId,selectedSessionDate,reviewUnlocked,checkoutFacts.checkinAt]);
+  useEffect(()=>{
+    const refresh=()=>{if(document.visibilityState==='visible')void refreshBusinessData();};
+    const timer=window.setInterval(refresh,15_000);
+    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
+    return ()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+  },[]);
   const selectedStudentIds=selectedLesson?.feedbackProgress?.studentIds ?? selectedClass?.studentIds ?? [];
   const selectedSubjectKey = selectedClass
     ? subjects.find(subject => subject.code === selectedClass.subject)?.code ||
@@ -539,6 +554,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                       <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedDetail?.lifecycleStatus==='CHUA_HOC' ? 'bg-red-100 text-red-800' : selectedDetail?.lifecycleStatus==='CHUA_HOAN_TAT' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'}`}>
                         Trạng thái: {selectedDetail && {CHUA_DIEN_RA:'Chưa diễn ra',CHUA_HOC:'Chưa học',DANG_HOC:'Đang học',CHUA_HOAN_TAT:'Chưa hoàn tất',DA_HOC:'Đã học',NGHI_HOC:'Nghỉ học'}[selectedDetail.lifecycleStatus]}
                       </span>
+                      {endedEarly && <span className="rounded-full px-2 py-1 text-xs font-bold bg-orange-100 text-orange-800">Chưa hoàn tất — kết thúc sớm hơn 5 phút</span>}
                       <span className="text-xs text-slate-500">Nhận xét: {selectedLesson?.feedbackProgress?.completed ?? selectedStudentIds.filter(id=>selectedClass.activeSessions?.[selectedSessionNum]?.feedback?.[id]?.trim()).length}/{selectedStudentIds.length}</span>
                     </div>
                   </div>
@@ -593,8 +609,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleOpenReview(sid, studentDisplayName)}
-                                    disabled={classLiveStatus === 'CHUA_DIEN_RA'}
-                                    title={classLiveStatus === 'CHUA_DIEN_RA' ? 'Chỉ tạo nhận xét sau khi đã vào lớp.' : undefined}
+                                    disabled={!reviewUnlocked}
+                                    title={!reviewUnlocked ? 'Nhận xét mở sau khi đã ghi nhận checkout.' : undefined}
                                     className="px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs border border-orange-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed"
                                   >
                                     <Sparkles className="w-3.5 h-3.5" />
@@ -611,7 +627,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
                   <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                     <div className="text-slate-400 italic">
-                      * Điểm danh và xác nhận hoàn tất để lưu kết quả giảng dạy và sĩ số ca học.
+                      * Đến giờ kết thúc, hệ thống tự ghi checkout và mở nhận xét. Muốn kết thúc sớm, bấm Kết thúc lớp.
                     </div>
                     <div className="flex items-center gap-2">
                       <select aria-label="Loại sự cố ca học" className="rounded-lg border border-amber-200 p-2 text-xs" value={reportedIncidentCode||reportableIncidents[0]?.code||''} onChange={event=>setReportedIncidentCode(event.target.value)}>
@@ -639,7 +655,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          <span>Kết thúc lớp học</span>
+                          <span>Kết thúc lớp</span>
                         </button>
                       ) : classLiveStatus === 'DA_HOAN_THANH' ? (
                         <button
@@ -664,7 +680,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
         <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-xl space-y-4">
             <h3 className="font-bold text-lg">Nhận xét buổi học — {reviewStudentName}</h3>
-            <p className="text-sm text-slate-500">Giáo viên nhập nhận xét. Có thể bổ sung sau khi kết thúc buổi; cần nhận xét đủ học sinh để tính công.</p>
+            <p className="text-sm text-slate-500">Giáo viên nhập nhận xét sau checkout; cần nhận xét đủ học sinh để tính công.</p>
             <textarea className="w-full border rounded-xl p-3 min-h-48" value={reviewText} onChange={e=>setReviewText(e.target.value)} placeholder="Nhập nhận xét cho học sinh..." />
             <div className="flex justify-end gap-3"><button onClick={()=>setIsReviewModalOpen(false)}>Đóng</button><button className="bg-orange-500 text-white rounded-lg px-4 py-2" onClick={handleSaveReview}>Lưu nhận xét</button></div>
           </div>

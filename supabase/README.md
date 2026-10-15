@@ -1,5 +1,11 @@
 # Bộ SQL Supabase Vuihoc
 
+**Checkout tự động và khóa nhận xét:** Sau bản 20261017, chạy
+[migrations/20261018_auto_checkout.sql](migrations/20261018_auto_checkout.sql).
+Ca đã check-in tự checkout đúng giờ kết thúc qua Cron. Nhận xét chỉ mở sau checkout.
+Kết thúc sớm hơn 5 phút là Chưa hoàn tất (cam); còn tối đa 5 phút là Đã học.
+
+
 **Luồng ca học và nhận xét:** Sau migration khóa ngoại, chạy
 [migrations/20261017_session_workflow.sql](migrations/20261017_session_workflow.sql).
 Dùng duy nhất BUOI_HOC.trangthai; hình thức dạy và tiến độ nhận xét được truy vấn từ các bảng liên quan.

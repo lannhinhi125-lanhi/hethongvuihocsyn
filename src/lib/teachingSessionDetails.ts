@@ -48,6 +48,7 @@ export const teachingSessionDetails = (cls: ClassItem, session: number, date: st
   const material = materialForSessionDate(cls.materials || [], session, date);
   const roomUrl = lesson?.roomUrl || cls.roomLink;
   const status = monitoringStudyStatus(date, time, now);
+  const ended=Boolean(lesson?.checkoutAt || active?.checkoutAt);
   return {
     active, lesson, status,
     lifecycleStatus: monitoringSessionStatus({sessionDate:date,timeSlot:time,status:lesson?.status === 'HOAN_THANH' ? 'DA_HOC' : lesson?.status,
@@ -57,7 +58,7 @@ export const teachingSessionDetails = (cls: ClassItem, session: number, date: st
     studentMaterial: lesson?.materials?.materialHs || active?.materialHs || '',
     exercise: material?.lms || lesson?.materials?.exerciseLms || lesson?.materials?.lms || active?.exerciseLms || '',
     roomUrl, recordingUrl: lesson?.recordingUrl || roomUrl,
-    actionLabel: status === 'DA_HOC' ? 'Xem lại bản ghi' : 'Vào học',
-    actionUrl: status === 'DA_HOC' ? lesson?.recordingUrl || roomUrl : roomUrl
+    actionLabel: ended || status === 'DA_HOC' ? 'Xem lại bản ghi' : 'Vào học',
+    actionUrl: ended || status === 'DA_HOC' ? lesson?.recordingUrl || roomUrl : roomUrl
   };
 };

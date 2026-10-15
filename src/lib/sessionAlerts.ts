@@ -24,13 +24,13 @@ export const monitoringSessionStatus = (session: {
   checkoutAt?: string | null;
 }, now: Date, effectiveTime?: string): MonitoringSessionState => {
   if (session.status === 'NGHI_HOC' || session.status === 'HUY') return 'NGHI_HOC';
-  if (session.status === 'DA_HOC') return 'DA_HOC';
+  if (session.status === 'DA_HOC' && !isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt)) return 'DA_HOC';
   const phase = monitoringStudyStatus(session.sessionDate, session.timeSlot, now, effectiveTime);
   if (phase === 'CHUA_HOC') return 'CHUA_DIEN_RA';
   const checkedIn = Boolean(session.checkinAt || session.checkinTime?.trim() ||
     session.attendance === 'ATTENDED' || session.attendance === 'LATE');
   if (!checkedIn) return 'CHUA_HOC';
-  if (session.checkoutAt) return 'DA_HOC';
+  if (session.checkoutAt) return isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt) ? 'CHUA_HOAN_TAT' : 'DA_HOC';
   return phase === 'DANG_HOC' ? 'DANG_HOC' : 'CHUA_HOAN_TAT';
 };
 
@@ -43,7 +43,7 @@ export const minutesEndedEarly = (date: string, time: string, checkoutAt?: strin
   if (eh * 60 + em < sh * 60 + sm) end.setUTCDate(end.getUTCDate() + 1);
   const checkout = new Date(checkoutAt);
   if (Number.isNaN(checkout.getTime())) return 0;
-  return Math.max(0, Math.ceil((end.getTime() - checkout.getTime()) / 60_000));
+  return Math.max(0, (end.getTime() - checkout.getTime()) / 60_000);
 };
 
 export const monitoringStudyStatus = (date: string, slot: string, now: Date, effectiveTime?: string): 'CHUA_HOC' | 'DANG_HOC' | 'DA_HOC' => {
@@ -59,3 +59,10 @@ export const monitoringStudyStatus = (date: string, slot: string, now: Date, eff
   if (Number.isNaN(start.getTime()) || current < start) return 'CHUA_HOC';
   return current < end ? 'DANG_HOC' : 'DA_HOC';
 };
+
+/** Only persisted checkout unlocks feedback; wall-clock time alone is insufficient. */
+export const canReviewSession = (session?: {checkinAt?:string|null;checkoutAt?:string|null;status?:string}) =>
+  Boolean(session?.checkinAt && session.checkoutAt && !['HUY','NGHI_HOC'].includes(session.status || '') &&
+    Number.isFinite(Date.parse(session.checkinAt)) && Number.isFinite(Date.parse(session.checkoutAt)) &&
+    Date.parse(session.checkoutAt)>=Date.parse(session.checkinAt));
+export const isEarlyCheckout = (date:string,time:string,checkoutAt?:string|null) => minutesEndedEarly(date,time,checkoutAt)>5;

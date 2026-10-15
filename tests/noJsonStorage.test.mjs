@@ -37,6 +37,7 @@ try {
  await db.exec(migration);
  if(process.env.TEST_FOREIGN_KEYS)await db.exec(file('supabase/migrations/20261016_complete_foreign_keys.sql'));
  if(process.env.TEST_MONITORING_STATE)await db.exec(file('supabase/migrations/20261017_session_workflow.sql'));
+ if(process.env.TEST_AUTO_CHECKOUT)await db.exec(file('supabase/migrations/20261018_auto_checkout.sql'));
  assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,creditsBefore,'Conversion must not change locked payroll');
  assert.ok((await db.query('SELECT bool_and(dakhoa) yes FROM vuihoc."BANG_CONG_THANG"')).rows[0].yes);
  await db.exec('UPDATE vuihoc."BANG_CONG_THANG" SET dakhoa=false');

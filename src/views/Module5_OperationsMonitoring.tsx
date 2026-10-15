@@ -3,7 +3,7 @@ import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
 import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
-import { monitoringSessionStatus, type MonitoringSessionState } from '../lib/sessionAlerts';
+import { monitoringSessionStatus, isEarlyCheckout, minutesEndedEarly, type MonitoringSessionState } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -403,7 +403,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const warningRowClass = (session: MonitoringSession) => {
     const status = studyStatus(session);
     if (status === 'CHUA_HOC') return 'bg-rose-100/80 border-l-4 border-l-rose-600 border-b border-rose-200 text-rose-950 hover:bg-rose-100 ring-1 ring-inset ring-rose-300 font-medium';
-    if (status === 'CHUA_HOAN_TAT') return 'bg-orange-100/80 border-l-4 border-l-orange-500 border-b border-orange-200 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-300 font-medium';
+    if (status === 'CHUA_HOAN_TAT' || (status === 'DA_HOC' && isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt))) return 'bg-orange-100/80 border-l-4 border-l-orange-500 border-b border-orange-200 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-300 font-medium';
     return 'hover:bg-slate-50/80 border-b border-slate-100';
   };
 
@@ -1048,12 +1048,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                             {studyStatus(s) === 'CHUA_DIEN_RA' ? (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold text-[11px]">Chưa diễn ra</span>
                             ) : studyStatus(s) === 'CHUA_HOAN_TAT' ? (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 font-bold text-[11px] border border-orange-200">Chưa hoàn tất</span>
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 font-bold text-[11px] border border-orange-200">Chưa hoàn tất{isEarlyCheckout(s.sessionDate,s.timeSlot,s.checkoutAt) && <span> · Kết thúc sớm {Math.ceil(minutesEndedEarly(s.sessionDate,s.timeSlot,s.checkoutAt))} phút</span>}</span>
                             ) : studyStatus(s) === 'DANG_HOC' ? (
 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200"><span className="w-2 h-2 rounded-full bg-blue-500" /> Đang học</span>
 ) : studyStatus(s) === 'DA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
                                 <span className="w-2 h-2 rounded-full bg-slate-400" /> Đã học
+                                {isEarlyCheckout(s.sessionDate,s.timeSlot,s.checkoutAt) && <span className="text-orange-800"> · Kết thúc sớm {Math.ceil(minutesEndedEarly(s.sessionDate,s.timeSlot,s.checkoutAt))} phút</span>}
                               </span>
                             ) : studyStatus(s) === 'CHUA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px] border border-rose-200">
