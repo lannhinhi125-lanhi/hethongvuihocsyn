@@ -41,7 +41,8 @@ WITH columns AS (
  FROM columns WHERE (table_name='NHOM_QUYEN' AND column_name='soluongnguoidung')
   OR (table_name='GIAO_VIEN' AND column_name IN
    ('socaranh','socadaxep','dakinlich','trangthaidanhgia','diemdanhgia','nhanxetdanhgia','diemtieuchi'))
-  OR (table_name='HOC_SINH' AND column_name='malophientai')
+  OR (table_name='HOC_SINH' AND column_name='malophientai' AND EXISTS(
+   SELECT 1 FROM columns old_class WHERE old_class.table_name='LOP_HOC' AND old_class.column_name='danhsachmahocsinh'))
  UNION ALL
  SELECT 'TEXT_DATE',table_name,column_name,data_type,
   'Date stored as text: verify format and migrate to date if semantically a date.'

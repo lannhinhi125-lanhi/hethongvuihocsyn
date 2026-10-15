@@ -1,5 +1,11 @@
 # Bộ SQL Supabase Vuihoc
 
+**Liên kết khóa ngoại:** Sau bản bỏ JSONB, chạy
+[migrations/20261016_complete_foreign_keys.sql](migrations/20261016_complete_foreign_keys.sql).
+Danh sách học sinh lớp được truy vấn từ FK lớp trên HOC_SINH; lịch, quyền,
+khối, loại sự cố và phân công/chi tiết buổi có liên kết đầy đủ cho các quan hệ
+đã rà soát. Xem [FOREIGN_KEY_LINKS.md](FOREIGN_KEY_LINKS.md) và SQL kiểm tra.
+
 **Cập nhật 15/10/2026 — bỏ JSONB:** Database đã chạy `apply_relational_update.sql`
 chạy tiếp [migrations/20261015_remove_remaining_json.sql](migrations/20261015_remove_remaining_json.sql).
 Bản này chuyển sáu cột JSONB còn lại sang cột/bảng con và bỏ các cột cũ trong

@@ -1,5 +1,9 @@
 # Cập nhật tinh gọn
 
+**Liên kết khóa ngoại sau bản bỏ JSONB:** xem [FOREIGN_KEY_LINKS.md](FOREIGN_KEY_LINKS.md).
+Danh sách học sinh lớp lấy từ HOC_SINH.malophientai; lịch và quyền được truy vấn
+từ bảng chi tiết, khối dùng mã danh mục thay cho chữ lưu riêng.
+
 **Cấu trúc sau migration bỏ JSONB:** xem [NO_JSON_STORAGE.md](NO_JSON_STORAGE.md).
 Các cột JSONB trong bảng đối chiếu cũ bên dưới đã được chuyển hoặc thay thế
 bằng chuỗi migration; không dùng các dòng đó làm cấu trúc cuối của database.
