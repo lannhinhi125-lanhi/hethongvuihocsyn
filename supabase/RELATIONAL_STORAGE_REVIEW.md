@@ -1,5 +1,9 @@
 # Rà soát lưu trữ theo phân màn — 15/10/2026
 
+**Báo cáo này ghi nhận trước khi bỏ sáu cột JSONB cuối.** Bản chuyển đổi nằm ở
+[NO_JSON_STORAGE.md](NO_JSON_STORAGE.md) và migration `20261015_remove_remaining_json.sql`.
+Kết quả trên Supabase chỉ thay đổi sau khi chạy migration đó.
+
 Phạm vi: đối chiếu mã giao diện, mapper, RPC, `schema.sql` và
 `apply_relational_update.sql` (đã sửa lỗi JSON null). Chưa kết nối Supabase thật.
 Các kết luận về cấu trúc bên dưới giả định đã chạy đầy đủ bản cập nhật quan hệ.

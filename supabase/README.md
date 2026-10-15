@@ -1,5 +1,12 @@
 # Bộ SQL Supabase Vuihoc
 
+**Cập nhật 15/10/2026 — bỏ JSONB:** Database đã chạy `apply_relational_update.sql`
+chạy tiếp [migrations/20261015_remove_remaining_json.sql](migrations/20261015_remove_remaining_json.sql).
+Bản này chuyển sáu cột JSONB còn lại sang cột/bảng con và bỏ các cột cũ trong
+cùng giao dịch. Xem [NO_JSON_STORAGE.md](NO_JSON_STORAGE.md) về cấu trúc mới,
+kiểm tra và thứ tự cài đặt. Không chạy lại schema/seed/migration cũ sau bước này.
+Các mô tả và số bảng ở các phần cũ bên dưới thuộc các giai đoạn trước.
+
 **Mật khẩu hiện tại:** dùng một cột `NGUOI_DUNG.matkhau` dạng text, 6–8 chữ số. Database đang có chạy `migrations/20261012_plaintext_passwords.sql` sau các bản cũ. Xem [PLAINTEXT_PASSWORDS.md](PLAINTEXT_PASSWORDS.md). Không chạy lại các migration mã hóa/xóa tài khoản cũ sau bản này; `schema.sql` mới đã chứa đầy đủ.
 
 **Bản tinh gọn:** xem [NORMALIZATION.md](NORMALIZATION.md). Database hiện có 32 bảng cần chạy migration normalize_database sau các migration cũ.

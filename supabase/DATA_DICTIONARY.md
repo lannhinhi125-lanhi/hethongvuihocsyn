@@ -1,5 +1,9 @@
 # Cập nhật tinh gọn
 
+**Cấu trúc sau migration bỏ JSONB:** xem [NO_JSON_STORAGE.md](NO_JSON_STORAGE.md).
+Các cột JSONB trong bảng đối chiếu cũ bên dưới đã được chuyển hoặc thay thế
+bằng chuỗi migration; không dùng các dòng đó làm cấu trúc cuối của database.
+
 Xem [NORMALIZATION.md](NORMALIZATION.md) để nâng cấp. Tên hiển thị lấy qua khóa ngoại; trạng thái học sinh/lớp lưu code không dấu. Các ví dụ JSONB dưới đây mô tả luồng cũ chưa nối CRUD, không phải nguồn ca học chuẩn.
 
 # Bảng đối chiếu giao diện và Supabase

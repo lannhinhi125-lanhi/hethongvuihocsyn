@@ -12,7 +12,9 @@ SELECT table_name, column_name, data_type, is_nullable, column_default
 FROM information_schema.columns WHERE table_schema='vuihoc'
 ORDER BY table_name, ordinal_position;
 
-SELECT madinhdanh, malophoc, chitietcahoc FROM vuihoc."LOP_HOC" LIMIT 5;
+SELECT t.madinhdanh, t.malophoc,
+ vuihoc.du_lieu_quan_he('LOP_HOC',to_jsonb(t))->'chitietcahoc' AS chitietcahoc
+FROM vuihoc."LOP_HOC" t LIMIT 5;
 SELECT vuihoc.du_lieu_quan_he('GIAO_VIEN',to_jsonb(t)) AS giaovien FROM vuihoc."GIAO_VIEN" t LIMIT 5;
 SELECT vuihoc.bang_cong_truy_van(kycong) AS bangcong FROM vuihoc."BANG_CONG_THANG" LIMIT 5;
 

@@ -28,7 +28,7 @@ WITH columns AS (
  SELECT 'JSON_STORAGE' AS category,c.table_name,c.column_name,c.data_type,
   CASE WHEN e.table_name IS NULL
    THEN 'Unexpected JSON column: check migration state or additional schema.'
-   ELSE 'Known remaining JSON column: relational conversion still needed.' END AS detail
+   ELSE 'Legacy JSON column: run 20261015_remove_remaining_json.sql after the relational update.' END AS detail
  FROM columns c LEFT JOIN expected e USING(table_name,column_name)
  WHERE c.data_type IN ('json','jsonb') OR c.udt_name IN ('json','jsonb','_json','_jsonb')
  UNION ALL

@@ -2,6 +2,7 @@
 -- JSON remains an RPC transport format only. No business JSON columns remain.
 BEGIN;
 LOCK TABLE vuihoc."LOP_HOC",vuihoc."BUOI_HOC",vuihoc."GIAO_VIEN",vuihoc."BIEN_BAN_DU_GIO" IN SHARE ROW EXCLUSIVE MODE;
+LOCK TABLE vuihoc."DIEM_DANH_BUOI_HOC",vuihoc."NHAN_XET_BUOI_HOC",vuihoc."TIEU_CHI_NHAN_XET" IN SHARE ROW EXCLUSIVE MODE;
 
 CREATE TABLE IF NOT EXISTS vuihoc."HOC_LIEU_LOP" (
  malop text NOT NULL REFERENCES vuihoc."LOP_HOC"(madinhdanh) ON DELETE CASCADE,
@@ -93,8 +94,13 @@ $$;
 CREATE OR REPLACE FUNCTION vuihoc.ghi_cac_truong_con(p_table text,p_row jsonb,p_backfill boolean DEFAULT false)
 RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog AS $write$
 DECLARE id text:=p_row->>'madinhdanh'; x record; a record; s jsonb; cls vuihoc."LOP_HOC";
- d date; slot text; hours text[]; lesson text; changed jsonb:='{}'; old_sessions jsonb; points jsonb;
+ d date; slot text; hours text[]; lesson text; changed jsonb:='{}'; old_sessions jsonb; points jsonb; ev jsonb;
 BEGIN
+ IF p_table='GIAO_VIEN' AND p_row ? 'baocaodanhgia' THEN
+  FOR ev IN SELECT value FROM jsonb_array_elements(coalesce(nullif(p_row->'baocaodanhgia','null'),'[]')) LOOP
+   PERFORM vuihoc.kiem_tra_truong_json(ev->'criteriaScores',ARRAY['tc1','tc2','tc3']);
+  END LOOP;
+ END IF;
  IF p_table IN ('GIAO_VIEN','BIEN_BAN_DU_GIO') AND p_row ? 'diemtieuchi' THEN
   points:=p_row->'diemtieuchi'; PERFORM vuihoc.kiem_tra_truong_json(points,ARRAY['tc1','tc2','tc3']);
   EXECUTE format('UPDATE vuihoc.%I SET diemtc1=$1,diemtc2=$2,diemtc3=$3 WHERE madinhdanh=$4',p_table)
@@ -140,6 +146,22 @@ BEGIN
    INSERT INTO vuihoc."BUOI_HOC"(malop,ngayhoc,makhunggio,batdau,ketthuc,magiaovienchinh,lienketphonghoc)
     VALUES(id,d,slot,hours[1]::time,hours[2]::time,cls.magiaovien,cls.lienketphonghoc) RETURNING madinhdanh INTO lesson;
   END IF;
+  -- The pre-conversion values from BOTH sources are archived below in the
+  -- existing scalar audit tables. Preserve the visible class data in the API.
+  IF p_backfill THEN
+   UPDATE vuihoc."BUOI_HOC" SET
+    vaolopluc=coalesce(nullif(s->>'checkinAt','')::timestamptz,vaolopluc),
+    ketthucluc=coalesce(nullif(s->>'checkoutAt','')::timestamptz,ketthucluc),
+    manguoivaolop=coalesce(nullif(s->>'checkinUserId',''),manguoivaolop),
+    manguoiketthuc=coalesce(nullif(s->>'checkoutUserId',''),manguoiketthuc),
+    chuyencan=coalesce(s->>'teacherAttendance',chuyencan)
+   WHERE madinhdanh=lesson AND (
+    (nullif(s->>'checkinAt','') IS NOT NULL AND vaolopluc IS DISTINCT FROM (s->>'checkinAt')::timestamptz)
+    OR (nullif(s->>'checkoutAt','') IS NOT NULL AND ketthucluc IS DISTINCT FROM (s->>'checkoutAt')::timestamptz)
+    OR (nullif(s->>'checkinUserId','') IS NOT NULL AND manguoivaolop IS DISTINCT FROM s->>'checkinUserId')
+    OR (nullif(s->>'checkoutUserId','') IS NOT NULL AND manguoiketthuc IS DISTINCT FROM s->>'checkoutUserId')
+    OR (s->>'teacherAttendance' IS NOT NULL AND chuyencan IS DISTINCT FROM s->>'teacherAttendance'));
+  END IF;
   INSERT INTO vuihoc."CHI_TIET_CA_LOP"(malop,khoaca,mabuoi,sobuoi,ngaygio,tieude,trangthaihienthi,giovaohienthi,hotennguoivao,
    hoclieugiaovien,hoclieuhocsinh,baitaplms,magiaoviendaythay,codiemdanh,conhanxet)
   VALUES(id,x.key,lesson,(s->>'sessionNum')::integer,s->>'dateStr',s->>'title',s->>'status',s->>'checkinTime',s->>'checkinBy',
@@ -154,7 +176,7 @@ BEGIN
     INSERT INTO vuihoc."DIEM_DANH_BUOI_HOC"(mabuoi,mahocsinh,trangthai) VALUES(lesson,a.key,a.value)
      ON CONFLICT(mabuoi,mahocsinh) DO UPDATE SET trangthai=excluded.trangthai;
    END LOOP;
-   DELETE FROM vuihoc."DIEM_DANH_BUOI_HOC" WHERE mabuoi=lesson AND NOT(s->'attendance' ? mahocsinh);
+   IF NOT p_backfill THEN DELETE FROM vuihoc."DIEM_DANH_BUOI_HOC" WHERE mabuoi=lesson AND NOT(s->'attendance' ? mahocsinh); END IF;
   END IF;
   IF s ? 'feedback' OR s ? 'feedbackCriteria' THEN
    FOR a IN SELECT key FROM jsonb_each(coalesce(s->'feedback','{}')||coalesce(s->'feedbackCriteria','{}')) LOOP
@@ -163,6 +185,12 @@ BEGIN
      ON CONFLICT(mabuoi,mahocsinh) DO UPDATE SET noidung=CASE WHEN s->'feedback' ? a.key THEN excluded.noidung ELSE vuihoc."NHAN_XET_BUOI_HOC".noidung END;
     IF s->'feedbackCriteria' ? a.key THEN PERFORM vuihoc.luu_tieu_chi_nhan_xet(lesson,a.key,s->'feedbackCriteria'->a.key); END IF;
    END LOOP;
+   IF NOT p_backfill AND s ? 'feedback' THEN
+    UPDATE vuihoc."NHAN_XET_BUOI_HOC" SET noidung='' WHERE mabuoi=lesson AND NOT(s->'feedback' ? mahocsinh) AND noidung<>'';
+   END IF;
+   IF NOT p_backfill AND s ? 'feedbackCriteria' THEN
+    DELETE FROM vuihoc."TIEU_CHI_NHAN_XET" WHERE mabuoi=lesson AND NOT(s->'feedbackCriteria' ? mahocsinh);
+   END IF;
   END IF;
   IF NOT p_backfill THEN
    UPDATE vuihoc."BUOI_HOC" SET tieude=coalesce(s->>'title',tieude),
@@ -225,15 +253,31 @@ END $$;
 CREATE OR REPLACE FUNCTION vuihoc.ghi_du_lieu_quan_he(p_table text,p_row jsonb,p_backfill boolean DEFAULT false)
 RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog AS $$
 BEGIN
- PERFORM vuihoc.ghi_du_lieu_quan_he_truoc_bo_json(p_table,p_row,p_backfill);
  PERFORM vuihoc.ghi_cac_truong_con(p_table,p_row,p_backfill);
+ PERFORM vuihoc.ghi_du_lieu_quan_he_truoc_bo_json(p_table,p_row,p_backfill);
 END $$;
 
 -- Backfill with the old columns still present. Unknown keys abort the entire
 -- transaction rather than silently losing fields when columns are dropped.
 DO $backfill$
-DECLARE t text; r jsonb; f text;
+DECLARE t text; r jsonb; f text; event_id uuid;
 BEGIN
+ -- Conversion changes storage, not locked payroll amounts. Keep period locks
+ -- and payroll rows intact; suspend only these triggers inside this transaction.
+ ALTER TABLE vuihoc."BUOI_HOC" DISABLE TRIGGER kiem_tra_ky_cong;
+ ALTER TABLE vuihoc."BUOI_HOC" DISABLE TRIGGER sinh_cong;
+ ALTER TABLE vuihoc."DIEM_DANH_BUOI_HOC" DISABLE TRIGGER kiem_tra_ky_cong;
+ ALTER TABLE vuihoc."NHAN_XET_BUOI_HOC" DISABLE TRIGGER kiem_tra_ky_cong;
+ IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='LOP_HOC' AND column_name='chitietcahoc') THEN
+  FOREACH t IN ARRAY ARRAY['LOP_HOC','BUOI_HOC','GIAO_VIEN','BIEN_BAN_DU_GIO','DIEM_DANH_BUOI_HOC','NHAN_XET_BUOI_HOC','TIEU_CHI_NHAN_XET'] LOOP
+   FOR r IN EXECUTE format('SELECT to_jsonb(t) FROM vuihoc.%I t',t) LOOP
+    INSERT INTO vuihoc."SU_KIEN_NGHIEP_VU"(tenbang,thaotac,truongthaydoi)
+     VALUES(t,'UPDATE',ARRAY['CHUYEN_SANG_COT_20261015']) RETURNING madinhdanh INTO event_id;
+    PERFORM vuihoc.ghi_chi_tiet_nhat_ky(event_id,'KHOA',jsonb_build_object('madinhdanh',r->'madinhdanh','mabuoi',r->'mabuoi','mahocsinh',r->'mahocsinh'));
+    PERFORM vuihoc.ghi_chi_tiet_nhat_ky(event_id,'TRUOC',r);
+   END LOOP;
+  END LOOP;
+ END IF;
  FOREACH t IN ARRAY ARRAY['GIAO_VIEN','BIEN_BAN_DU_GIO','BUOI_HOC','LOP_HOC'] LOOP
   IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name=t AND data_type='jsonb') THEN
    FOR r IN EXECUTE format('SELECT to_jsonb(t) FROM vuihoc.%I t',t) LOOP
@@ -241,6 +285,10 @@ BEGIN
    END LOOP;
   END IF;
  END LOOP;
+ ALTER TABLE vuihoc."BUOI_HOC" ENABLE TRIGGER kiem_tra_ky_cong;
+ ALTER TABLE vuihoc."BUOI_HOC" ENABLE TRIGGER sinh_cong;
+ ALTER TABLE vuihoc."DIEM_DANH_BUOI_HOC" ENABLE TRIGGER kiem_tra_ky_cong;
+ ALTER TABLE vuihoc."NHAN_XET_BUOI_HOC" ENABLE TRIGGER kiem_tra_ky_cong;
  f:=pg_get_functiondef('public.vuihoc_save_business(text,jsonb)'::regprocedure);
  IF position('vuihoc.lop_truong_truy_van' IN f)=0 THEN
   -- Mark the patch and remove virtual fields from the actual SQL column list.
