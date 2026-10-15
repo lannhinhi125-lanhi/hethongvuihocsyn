@@ -94,7 +94,7 @@ BEGIN
     WHERE coalesce(b.magiaoviendaythay,b.magiaovienchinh)=id AND b.trangthai IN ('HOAN_THANH','DA_HOC_CU','DAY_THAY_CU')));
  ELSIF p_table='LOP_HOC' THEN
   SELECT coalesce(jsonb_object_agg(s.key,s.value||CASE WHEN chosen.items IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('feedbackCriteria',chosen.items) END),'{}') INTO cfg
-  FROM jsonb_each(coalesce(r->'chitietcahoc','{}')) s
+  FROM jsonb_each(coalesce(nullif(r->'chitietcahoc','null'::jsonb),'{}'::jsonb)) s
   LEFT JOIN LATERAL (
    SELECT jsonb_object_agg(student.mahocsinh,student.items) items FROM (
     SELECT c.mahocsinh,jsonb_object_agg(c.matieuchi,c.maluachon) items
