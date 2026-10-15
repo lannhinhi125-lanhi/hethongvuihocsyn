@@ -29,6 +29,9 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, onS
   const teacherName = cover?.teacherName || detail.active?.coverTeacherName || teachers.find(item => item.id === teacherId)?.name || cls.teacherName;
   const statusLabel = {CHUA_DIEN_RA:'Chưa diễn ra', CHUA_HOC:'Chưa học', DANG_HOC:'Đang học', CHUA_HOAN_TAT:'Chưa hoàn tất', DA_HOC:'Đã học', NGHI_HOC:'Nghỉ học'}[detail.lifecycleStatus];
   const studentIds=detail.lesson?.feedbackProgress?.studentIds ?? cls.studentIds;
+  const feedbackTotal=detail.lesson?.feedbackProgress?.total ?? studentIds.length;
+  const feedbackCompleted=detail.lesson?.feedbackProgress?.completed ?? studentIds.filter(id=>detail.active?.feedback?.[id]?.trim()).length;
+  const feedbackDone=feedbackTotal>0 && feedbackCompleted===feedbackTotal;
   const materialLink = (label: string, url: string) => <div className="flex items-center justify-between gap-2"><span>{label}:</span>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-[#FF5C00] hover:underline">Mở tài liệu <ExternalLink className="h-3 w-3" /></a> : <span className="text-slate-400">Chưa có link</span>}</div>;
   return <div className="flex-1 overflow-y-auto flex flex-col md:flex-row">
     <aside className="w-full md:w-80 bg-slate-50/70 p-5 border-r border-slate-200 shrink-0 space-y-6">
@@ -61,6 +64,7 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, onS
           <div className="font-bold text-slate-800">Phòng học &amp; Bản ghi</div>
           <div className="text-slate-500">{date} · {time}</div>
           <div className="font-semibold text-sky-700">{statusLabel}</div>
+          <div className={feedbackDone ? 'font-semibold text-emerald-700' : 'font-semibold text-amber-700'}>Nhận xét: {feedbackDone ? 'Đã nhận xét' : feedbackCompleted>0 ? 'Chưa nhận xét đủ' : 'Chưa nhận xét'} ({feedbackCompleted}/{feedbackTotal} học sinh)</div>
           {!detail.actionUrl ? <div className="text-slate-400">Chưa có link do vận hành gán</div> : onEnter && detail.status !== 'DA_HOC' ?
             <button type="button" onClick={onEnter} disabled={enterDisabled} className="mt-3 w-full rounded-xl bg-[#FF5C00] px-4 py-2.5 font-bold text-white hover:bg-[#E05200] disabled:cursor-not-allowed disabled:bg-slate-300">{detail.actionLabel}</button> :
             <a href={detail.actionUrl} target="_blank" rel="noreferrer" className={`mt-3 flex w-full items-center justify-center gap-1 rounded-xl px-4 py-2.5 font-bold text-white ${detail.status === 'DA_HOC' ? 'bg-purple-700 hover:bg-purple-800' : 'bg-[#FF5C00] hover:bg-[#E05200]'}`}>{detail.actionLabel}<ExternalLink className="h-3 w-3" /></a>}

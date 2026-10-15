@@ -5,17 +5,14 @@ import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { CriteriaCategory, SOPDocument, RAGBotConfig } from '../types';
+import { SOPDocument, RAGBotConfig } from '../types';
 import { findKnowledgeDocument } from '../lib/knowledgeSearch';
 import { extractDocumentText } from '../lib/documentExtraction';
 import {
   Sparkles,
-  TreePine,
   BookOpen,
   Sliders,
-  FolderPlus,
   PlusCircle,
-  Copy,
   Pencil,
   Trash2,
   X,
@@ -23,7 +20,6 @@ import {
   RotateCcw,
   CheckCircle,
   Brain,
-  Cpu,
   Search,
   FileText,
   Eye,
@@ -35,47 +31,15 @@ import {
 export const Module6_AIStudio: React.FC = () => {
   const { can, requirePermission } = usePermissions();
   const {
-    criteriaCategories,
-    setCriteriaCategories,
     sopDocuments,
     setSopDocuments,
     ragBotConfig,
     setRagBotConfig,
-    activeToneKey,
-    setActiveToneKey,
-    toneDirectives,
-    setToneDirectives,
-    subjects,
     showToast
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'criteria' | 'knowledge' | 'rag-config'>('criteria');
-  const activeSubjects = subjects.filter(subject => subject.status);
+  const [activeTab, setActiveTab] = useState<'knowledge' | 'rag-config'>('knowledge');
   const enabledKnowledgeDocuments = sopDocuments.filter(document => document.isEnabled !== false);
-  const [currentSubject, setCurrentSubject] = useState('SUB-MATH');
-  const [criterionSubjectKeys, setCriterionSubjectKeys] = useState<string[]>(['SUB-MATH']);
-
-  // Simulator state
-  const [simUsageCount, setSimUsageCount] = useState(0);
-  const [simCustomNote, setSimCustomNote] = useState('Con nhớ làm nốt phiếu bài tập số 3 về nhà trước thứ 6 nhé!');
-  const [simResultText, setSimResultText] = useState(
-    'Đoạn văn nhận xét hoàn chỉnh sẽ tự động được viết tại đây khi bạn tích chọn các tiêu chí và bấm nút Sinh nhận xét...'
-  );
-
-  // Category & Criterion Modals state
-  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
-  const [editingCatId, setEditingCatId] = useState<string | null>(null);
-  const [catNameInput, setCatNameInput] = useState('');
-
-  const [isCriModalOpen, setIsCriModalOpen] = useState(false);
-  const [editingCriId, setEditingCriId] = useState<string | null>(null);
-  const [selectedParentCatId, setSelectedParentCatId] = useState('');
-  const [criNameInput, setCriNameInput] = useState('');
-  const [criOptionsInput, setCriOptionsInput] = useState<string[]>([
-    'Rất tích cực, làm bài nhanh và chính xác',
-    'Khá tập trung, còn đôi chỗ cần hướng dẫn thêm'
-  ]);
-
   // Document Modal state
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
@@ -100,189 +64,12 @@ export const Module6_AIStudio: React.FC = () => {
   const [sandboxInput, setSandboxInput] = useState('');
 
   // Filtered categories
-  const filteredCategories = criteriaCategories.filter(c => c.subject === currentSubject);
   const filteredDocuments = sopDocuments.filter(document => {
     const query = documentSearch.trim().toLocaleLowerCase('vi');
     const matchesSearch = !query || `${document.title} ${document.sourceFileName || ''} ${document.summary}`.toLocaleLowerCase('vi').includes(query);
     return matchesSearch && (documentCategoryFilter === 'ALL' || document.category === documentCategoryFilter);
   });
 
-  // Handlers for Category
-  const openAddCategory = () => {
-    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    setEditingCatId(null);
-    setCatNameInput('');
-    setIsCatModalOpen(true);
-  };
-
-  const openEditCategory = (cat: CriteriaCategory) => {
-    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    setEditingCatId(cat.id);
-    setCatNameInput(cat.name);
-    setIsCatModalOpen(true);
-  };
-
-  const handleSaveCategory = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    e.preventDefault();
-    if (!catNameInput.trim()) return;
-
-    if (editingCatId) {
-      setCriteriaCategories(prev =>
-        prev.map(c => (c.id === editingCatId ? { ...c, name: catNameInput.trim() } : c))
-      );
-      showToast('Đã cập nhật danh mục tiêu chí!', 'success');
-    } else {
-      const newCat: CriteriaCategory = {
-        id: `CAT_${currentSubject}_${Date.now()}`,
-        subject: currentSubject,
-        name: catNameInput.trim(),
-        criteria: []
-      };
-      setCriteriaCategories(prev => [...prev, newCat]);
-      showToast('Đã thêm danh mục tiêu chí mới!', 'success');
-    }
-    setIsCatModalOpen(false);
-  };
-
-  const handleDeleteCategory = async (catId: string, name: string) => {
-    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    if (await confirmAction(`Xóa danh mục "${name}"?`)) {
-      setCriteriaCategories(prev => prev.filter(c => c.id !== catId));
-      showToast(`Đã xóa danh mục "${name}"!`, 'info');
-    }
-  };
-
-  // Handlers for Criterion
-  const openAddCriterion = (preCatId?: string) => {
-    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    setEditingCriId(null);
-    const targetCategory = filteredCategories.find(category => category.id === preCatId) || filteredCategories[0];
-    setSelectedParentCatId(targetCategory?.id || '');
-    setCriterionSubjectKeys([targetCategory?.subject || currentSubject]);
-    setCriNameInput('');
-    setCriOptionsInput([
-      'Rất tích cực, làm bài nhanh và chính xác',
-      'Khá tập trung, còn đôi chỗ cần hướng dẫn thêm'
-    ]);
-    setIsCriModalOpen(true);
-  };
-
-  const openEditCriterion = (catId: string, criId: string) => {
-    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    const cat = criteriaCategories.find(c => c.id === catId);
-    const cri = cat?.criteria.find(cr => cr.id === criId);
-    if (!cat || !cri) return;
-
-    setEditingCriId(criId);
-    setSelectedParentCatId(catId);
-    setCriterionSubjectKeys([cat.subject]);
-    setCriNameInput(cri.name);
-    setCriOptionsInput(cri.options.map(o => o.label));
-    setIsCriModalOpen(true);
-  };
-
-  const handleSaveCriterion = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!requirePermission("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")) return;
-    e.preventDefault();
-    if (!criNameInput.trim()) return;
-
-    const validOptions = criOptionsInput
-      .map(o => o.trim())
-      .filter(o => o.length > 0)
-      .map((label, idx) => ({
-        id: `OPT_${Date.now()}_${idx}`,
-        label,
-        isDefault: idx === 0
-      }));
-
-    if (validOptions.length === 0) {
-      showToast('Vui lòng nhập ít nhất 1 đáp án lựa chọn!', 'error');
-      return;
-    }
-
-    const sourceCategory = criteriaCategories.find(category => category.id === selectedParentCatId);
-    if (!sourceCategory || criterionSubjectKeys.length === 0) {
-      showToast('Vui lòng chọn ít nhất một môn và danh mục tiêu chí.', 'error');
-      return;
-    }
-
-    const sourceCriterion = editingCriId
-      ? sourceCategory.criteria.find(criterion => criterion.id === editingCriId)
-      : undefined;
-    const targetCategoryName = sourceCategory.name;
-    const previousCriterionName = sourceCriterion?.name;
-    const nextCriterionName = criNameInput.trim();
-    const timestamp = Date.now();
-
-    setCriteriaCategories(previous => {
-      let next = [...previous];
-      criterionSubjectKeys.forEach((subjectKey, subjectIndex) => {
-        let categoryIndex = next.findIndex(category =>
-          category.subject === subjectKey && category.name === targetCategoryName
-        );
-        if (categoryIndex < 0) {
-          next.push({
-            id: `CAT_${subjectKey}_${timestamp}_${subjectIndex}`,
-            subject: subjectKey,
-            name: targetCategoryName,
-            criteria: []
-          });
-          categoryIndex = next.length - 1;
-        }
-
-        const category = next[categoryIndex];
-        if (!category) return;
-        const criterionIndex = subjectKey === sourceCategory.subject && sourceCriterion
-          ? category.criteria.findIndex(criterion => criterion.id === sourceCriterion.id)
-          : category.criteria.findIndex(criterion => criterion.name === previousCriterionName || criterion.name === nextCriterionName);
-        const criterion = { id: `CRI_${timestamp}_${subjectIndex}`, name: nextCriterionName, options: validOptions };
-        const criteria = [...category.criteria];
-        if (criterionIndex >= 0) criteria[criterionIndex] = { ...criteria[criterionIndex], ...criterion, id: criteria[criterionIndex].id };
-        else criteria.push(criterion);
-        next[categoryIndex] = { ...category, criteria };
-      });
-      return next;
-    });
-
-    showToast(`Đã lưu tiêu chí cho ${criterionSubjectKeys.length} môn học!`, 'success');
-    setIsCriModalOpen(false);
-  };
-
-  // Simulator generate
-  const handleSimulateAiGeneration = () => {
-    if (!requirePermission("Sử dụng AI sinh & tinh chỉnh nhận xét học sinh")) return;
-    if (simUsageCount >= 2) {
-      showToast('Bạn đã sử dụng hết hạn mức tạo nhận xét AI (2 lần/buổi). Vui lòng tự tinh chỉnh câu chữ!', 'warning');
-      return;
-    }
-
-    setSimUsageCount(prev => prev + 1);
-    setSimResultText('AI Gemini đang đọc các tiêu chí bạn đã tick và tự động hành văn nhận xét...');
-
-    setTimeout(() => {
-      const studentName = 'Nguyễn Minh Khang';
-      const subjectText = activeSubjects.find(subject => subject.code === currentSubject)?.name || currentSubject;
-      let generated = '';
-
-      if (activeToneKey === 'khich-le') {
-        generated = `Kính gửi phụ huynh, buổi học môn ${subjectText} hôm nay bạn ${studentName} học tập rất cố gắng! Về nề nếp và thái độ, con rất tập trung, hăng hái tương tác. Trong quá trình tiếp thu bài học, con nắm rất chắc lý thuyết và bản chất các phép tính phân số. Thầy/Cô rất khen ngợi tinh thần tự giác của con. ${simCustomNote || 'Thầy/Cô tin rằng con sẽ tiếp tục phát huy ở buổi học sau!'}`;
-      } else if (activeToneKey === 'chuan-muc') {
-        generated = `Đánh giá buổi học môn ${subjectText} của học sinh ${studentName}: Về ý thức kỷ luật, con đảm bảo giờ giấc và tập trung tốt. Về tiếp thu kiến thức, con nắm chắc các dạng bài tập phân số. Đề nghị gia đình phối hợp nhắc nhở con: ${simCustomNote || 'hoàn thành bài tập đúng hạn.'}`;
-      } else if (activeToneKey === 'ngan-gon') {
-        generated = `Nhận xét ca học ${studentName} (${subjectText}): Thái độ: Rất tốt; Kiến thức: Nắm chắc lý thuyết phân số. Dặn dò: ${simCustomNote || 'Ôn bài kỹ trước ca sau.'}`;
-      } else {
-        generated = `Nhận xét ca học môn ${subjectText} của bạn ${studentName}: Hôm nay con có tiến bộ, tính toán nhanh và hăng hái. Thầy/Cô dặn con: ${simCustomNote || 'cần kiểm tra lại bài trước khi nộp.'}`;
-      }
-
-      setSimResultText(`"${generated}"`);
-      showToast('AI đã tự động viết đoạn nhận xét hoàn chỉnh từ các tiêu chí đã tick!', 'success');
-    }, 500);
-  };
-
-  // SOP Document CRUD
   const openEditDocument = (doc: SOPDocument) => {
     if (!requirePermission("Quản lý kho tài liệu tri thức SOP")) return;
     setEditingDocId(doc.id);
@@ -409,17 +196,8 @@ export const Module6_AIStudio: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <h1 className="text-lg font-bold text-slate-800">Trợ lý AI</h1>
 
-        {/* 3 Tabs */}
+        {/* Knowledge and chatbot tabs */}
         <div className="flex items-center bg-slate-100 p-1 rounded-xl overflow-x-auto border border-slate-200/80 self-start lg:self-auto text-xs">
-          <button
-            onClick={() => setActiveTab('criteria')}
-            className={`px-3.5 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'criteria' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <TreePine className="w-4 h-4" />
-            <span>Tiêu chí Nhận xét &amp; Chỉ đạo AI</span>
-          </button>
           <button
             onClick={() => setActiveTab('knowledge')}
             className={`px-3.5 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
@@ -441,251 +219,6 @@ export const Module6_AIStudio: React.FC = () => {
         </div>
       </div>
 
-      {activeTab === 'criteria' && (
-        <div className="space-y-6">
-          {/* Bộ lọc môn & Buttons */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                Môn đang xem:
-                <select
-                  value={currentSubject}
-                  onChange={event => setCurrentSubject(event.target.value)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-800"
-                >
-                  {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
-                </select>
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <button
-                disabled={!can("Cấu hình Prompt văn phong & Tiêu chí nhận xét môn")} onClick={openAddCategory}
-                className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1.5 border border-slate-300 transition-all cursor-pointer"
-              >
-                <FolderPlus className="w-4 h-4 text-[#FF5C00]" />
-                <span>+ Thêm Danh mục</span>
-              </button>
-              <button
-                onClick={() => openAddCriterion()}
-                className="px-4 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Tạo Tiêu chí &amp; Đáp án</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Bố cục 2 Cột */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Cột trái (7/12): Cây danh mục tiêu chí & đáp án tick */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">
-                    Cấu trúc tiêu chí nhận xét · {activeSubjects.find(subject => subject.code === currentSubject)?.name || currentSubject}
-                  </h3>
-                  <span className="text-[11px] text-slate-400">Gia sư tick chọn sau ca học</span>
-                </div>
-
-                <PaginatedList className="space-y-4">
-                  {!filteredCategories.length && (
-                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
-                      <div className="font-semibold text-slate-700">Môn học này chưa có bộ tiêu chí</div>
-                      <p className="mt-1 text-[11px] text-slate-500">Tạo danh mục trước, sau đó thêm tiêu chí và đáp án để giáo viên sử dụng.</p>
-                    </div>
-                  )}
-                  {filteredCategories.map((cat, cIdx) => (
-                    <div key={cat.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-                      <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-6 h-6 rounded-md bg-orange-100 text-[#FF5C00] font-bold flex items-center justify-center text-xs">
-                            {cIdx + 1}
-                          </span>
-                          <span className="font-bold text-xs text-slate-800">{cat.name}</span>
-                          <span className="text-[10px] text-slate-400">({cat.criteria.length} tiêu chí con)</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => openAddCriterion(cat.id)}
-                            className="px-2 py-1 bg-white hover:bg-orange-50 text-[#FF5C00] font-bold text-[11px] rounded border border-slate-200"
-                          >
-                            + Tiêu chí
-                          </button>
-                          <button onClick={() => openEditCategory(cat)} className="p-1 hover:text-[#FF5C00] text-slate-400">
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => handleDeleteCategory(cat.id, cat.name)} className="p-1 hover:text-rose-600 text-slate-400">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="p-3.5 space-y-3">
-                        {cat.criteria.map(cri => (
-                          <div key={cri.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50/60 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-xs text-slate-800">{cri.name}</span>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => openEditCriterion(cat.id, cri.id)}
-                                  className="p-1 text-slate-400 hover:text-[#FF5C00]"
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    if (await confirmAction(`Xóa tiêu chí "${cri.name}"?`)) {
-                                      setCriteriaCategories(prev =>
-                                        prev.map(c =>
-                                          c.id === cat.id
-                                            ? { ...c, criteria: c.criteria.filter(cr => cr.id !== cri.id) }
-                                            : c
-                                        )
-                                      );
-                                    }
-                                  }}
-                                  className="p-1 text-slate-400 hover:text-rose-600"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {cri.options.map(opt => (
-                                <div key={opt.id} className="p-2 rounded-md bg-white border border-slate-200 text-[11px] flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF5C00]" />
-                                  <span className="text-slate-700">{opt.label}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </PaginatedList>
-              </div>
-            </div>
-
-            {/* Cột phải (5/12): Chỉ đạo phong cách & Mô phỏng gia sư */}
-            <div className="lg:col-span-5 space-y-5">
-              {/* Card 1: Tone of voice & System instruction */}
-              <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-[#FF5C00]" />
-                    <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Chỉ đạo Phong cách &amp; Giọng văn AI</h3>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-[#FF5C00]">System Instruction</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Phong cách giọng văn (Tone of Voice):</label>
-                  <select
-                    value={activeToneKey}
-                    onChange={e => setActiveToneKey(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 font-medium text-slate-800 bg-white"
-                  >
-                    <option value="khich-le">Khích lệ, ân cần &amp; Khen ngợi (Khuyến nghị cho Tiểu học)</option>
-                    <option value="chuan-muc">Sư phạm chuẩn mực &amp; Khách quan</option>
-                    <option value="nghiem-can">Nhắc nhở nhẹ nhàng, rèn nếp cẩn thận</option>
-                    <option value="ngan-gon">Ngắn gọn, súc tích (Tối ưu Zalo/SMS)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Chỉ đạo Sư phạm cốt lõi cho Gemini:</label>
-                  <textarea
-                    rows={4}
-                    value={toneDirectives[activeToneKey]?.directive || ''}
-                    onChange={e => {
-                      const text = e.target.value;
-                      setToneDirectives(prev => ({
-                        ...prev,
-                        [activeToneKey]: { ...prev[activeToneKey], directive: text }
-                      }));
-                    }}
-                    className="w-full p-2.5 text-xs rounded-lg border border-slate-200 text-slate-700 leading-relaxed"
-                  />
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => showToast('Đã lưu chỉ đạo phong cách sư phạm cho AI nhận xét thành công!', 'success')}
-                    className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer"
-                  >
-                    Lưu chỉ đạo AI nhận xét
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 2: Tutor Simulator */}
-              <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#FF5C00]" />
-                    <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Mô phỏng Giao diện Gia sư sau ca dạy</h3>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">Tutor View Simulator</span>
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-slate-800">Học sinh: Nguyễn Minh Khang</div>
-                    <div className="text-[11px] text-slate-500">Lớp: TOAN-3A1 &bull; Ca Tối 1</div>
-                  </div>
-                  <span className="text-[10px] font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold">Buổi 12/24</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Lời dặn dò riêng của Thầy/Cô:</label>
-                  <input
-                    type="text"
-                    value={simCustomNote}
-                    onChange={e => setSimCustomNote(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Hạn mức AI: <span className="font-bold text-emerald-600">Đã dùng {simUsageCount}/2 lần</span>
-                  </span>
-                  <button
-                    disabled={!can("Sử dụng AI sinh & tinh chỉnh nhận xét học sinh")} onClick={handleSimulateAiGeneration}
-                    className="px-3.5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Sinh nhận xét bằng AI</span>
-                  </button>
-                </div>
-
-                <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                    <span>Kết quả nhận xét AI tự động sinh:</span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(simResultText);
-                        showToast('Đã sao chép nhận xét vào bộ nhớ đệm!', 'success');
-                      }}
-                      className="text-[11px] text-[#FF5C00] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Copy className="w-3 h-3" /> Sao chép
-                    </button>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-700 leading-relaxed italic">
-                    {simResultText}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= TAB 2: TÀI LIỆU TRI THỨC SOP ================= */}
       {activeTab === 'knowledge' && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -990,180 +523,6 @@ export const Module6_AIStudio: React.FC = () => {
       )}
 
       {/* MODAL: Thêm/Sửa Danh mục */}
-      {isCatModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-slate-800">
-                {editingCatId ? 'Chỉnh sửa Danh mục Tiêu chí' : 'Thêm Danh mục Tiêu chí mới'}
-              </h3>
-              <button onClick={() => setIsCatModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveCategory} className="mt-4 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tên Danh mục tiêu chí</label>
-                <input
-                  type="text"
-                  required
-                  value={catNameInput}
-                  onChange={e => setCatNameInput(e.target.value)}
-                  placeholder="Ví dụ: 1. Mức độ tập trung & Kỷ luật giờ giấc"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#FF5C00]"
-                />
-              </div>
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCatModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white font-bold cursor-pointer"
-                >
-                  Lưu Danh mục
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Thêm/Sửa Tiêu chí & Đáp án */}
-      {isCriModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-sm text-slate-800">
-                {editingCriId ? 'Chỉnh sửa Tiêu chí & Đáp án' : 'Tạo Tiêu chí & Đáp án Lựa chọn'}
-              </h3>
-              <button onClick={() => setIsCriModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveCriterion} className="mt-4 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Áp dụng cho môn học:</label>
-                <details className="group relative">
-                  <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700">
-                    <span>{criterionSubjectKeys.length ? `${criterionSubjectKeys.length} môn được chọn` : 'Chọn môn học'}</span>
-                    <span className="text-slate-400">▾</span>
-                  </summary>
-                  <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-                    {activeSubjects.map(subject => (
-                      <label key={subject.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50">
-                        <input
-                          type="checkbox"
-                          checked={criterionSubjectKeys.includes(subject.code)}
-                          onChange={event => {
-                            setCriterionSubjectKeys(previous => event.target.checked
-                              ? [...previous, subject.code]
-                              : previous.filter(key => key !== subject.code));
-                          }}
-                          className="accent-[#FF5C00]"
-                        />
-                        <span>{subject.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </details>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Chọn nhiều môn để thêm hoặc đồng bộ cùng tiêu chí và đáp án vào từng môn.
-                </p>
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Danh mục mẫu của môn {activeSubjects.find(subject => subject.code === currentSubject)?.name || currentSubject}:
-                </label>
-                <select
-                  value={selectedParentCatId}
-                  onChange={e => {
-                    setSelectedParentCatId(e.target.value);
-                    if (!editingCriId) setCriterionSubjectKeys(previous => [...new Set([...previous, currentSubject])]);
-                  }}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
-                >
-                  {!filteredCategories.length && <option value="">Chưa có danh mục cho môn này</option>}
-                  {filteredCategories.map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tên tiêu chí:</label>
-                <input
-                  type="text"
-                  required
-                  value={criNameInput}
-                  onChange={e => setCriNameInput(e.target.value)}
-                  placeholder="Ví dụ: Mức độ tập trung trong ca học"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-slate-700">Các đáp án cho Gia sư tick:</label>
-                  <button
-                    type="button"
-                    onClick={() => setCriOptionsInput(prev => [...prev, 'Đáp án mới'])}
-                    className="text-[#FF5C00] font-bold hover:underline cursor-pointer"
-                  >
-                    + Thêm đáp án
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {criOptionsInput.map((opt, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={opt}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setCriOptionsInput(prev => prev.map((item, i) => (i === idx ? val : item)));
-                        }}
-                        className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setCriOptionsInput(prev => prev.filter((_, i) => i !== idx))}
-                        className="text-slate-400 hover:text-rose-600 p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCriModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white font-bold cursor-pointer"
-                >
-                  Lưu Tiêu chí
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Thêm/Sửa Tài liệu SOP */}
       {isDocModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">

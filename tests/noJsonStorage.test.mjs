@@ -40,6 +40,7 @@ try {
  if(process.env.TEST_AUTO_CHECKOUT)await db.exec(file('supabase/migrations/20261018_auto_checkout.sql'));
  if(process.env.TEST_CLASS_TRACE)await db.exec(file('supabase/migrations/20261019_student_class_trace.sql'));
  if(process.env.TEST_REMOVE_AUDIT)await db.exec(file('supabase/migrations/20261020_remove_general_audit.sql'));
+ if(process.env.TEST_MANUAL_FEEDBACK)await db.exec(file('supabase/migrations/20261021_manual_student_feedback.sql'));
  assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,creditsBefore,'Conversion must not change locked payroll');
  assert.ok((await db.query('SELECT bool_and(dakhoa) yes FROM vuihoc."BANG_CONG_THANG"')).rows[0].yes);
  await db.exec('UPDATE vuihoc."BANG_CONG_THANG" SET dakhoa=false');
@@ -52,7 +53,7 @@ try {
    const saved=next.chitietcahoc[key];
    for(const [field,value] of Object.entries(s)) {
     if(['checkinAt','checkoutAt'].includes(field)) assert.equal(new Date(saved[field]).getTime(),new Date(value).getTime());
-    else if(field!=='coverTeacherName' && !(process.env.TEST_MONITORING_STATE && ['status','feedback'].includes(field))) assert.deepEqual(saved[field],value,`${cls.madinhdanh}.${key}.${field}`);
+    else if(!(process.env.TEST_MANUAL_FEEDBACK && field==='feedbackCriteria') && field!=='coverTeacherName' && !(process.env.TEST_MONITORING_STATE && ['status','feedback'].includes(field))) assert.deepEqual(saved[field],value,`${cls.madinhdanh}.${key}.${field}`);
    }
   }
  }
@@ -113,6 +114,10 @@ try {
   await rpc('vuihoc_save_business',[teacherLogin.token,[{dataset:'classes',before:ownClass,after:changed}]]);
   const savedTeacher=await rpc('vuihoc_business_data',[teacherLogin.token]);
   ownClass=clean(savedTeacher.classes.find(c=>c.madinhdanh===cls.madinhdanh));
+  if(process.env.TEST_MANUAL_FEEDBACK) {
+   const author=(await db.query('SELECT manguoicapnhat FROM vuihoc."NHAN_XET_BUOI_HOC" WHERE mabuoi=$1 AND mahocsinh=$2',[completed.madinhdanh,student])).rows[0];
+   assert.equal(author.manguoicapnhat,ownTeacher.manguoidung);
+  }
   assert.equal(savedTeacher.classes.find(c=>c.madinhdanh===cls.madinhdanh).chitietcahoc[12].feedback[student],'Giáo viên sửa sau checkout');
   fresh=await rpc('vuihoc_business_data',[admin.token]);cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
  }

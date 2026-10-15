@@ -1,5 +1,11 @@
 # Bộ SQL Supabase Vuihoc
 
+**Nhận xét học sinh nhập tay:** Sau bản 20261020, chạy
+[migrations/20261021_manual_student_feedback.sql](migrations/20261021_manual_student_feedback.sql).
+Dùng NHAN_XET_BUOI_HOC.noidung theo khóa buổi/học sinh, bỏ bảng tiêu chí nhận xét học sinh và cấu hình tiêu chí sinh nhận xét.
+Trạng thái đã/chưa nhận xét được SELECT từ tiến độ của buổi, không lưu thêm cột trạng thái.
+
+
 **Truy vết lớp độc lập, bỏ nhật ký chung:** Chạy
 [migrations/20261020_remove_general_audit.sql](migrations/20261020_remove_general_audit.sql)
 sau bản 20261018; hỗ trợ cả trường hợp đã chạy 20261019.

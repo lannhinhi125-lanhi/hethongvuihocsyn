@@ -236,14 +236,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleOpenReview = (studentId: string, studentName: string) => {
-    if (!requirePermission('Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy')) return;
+    if (!requirePermission('Giáo viên Check-in / Check-out vào ca dạy')) return;
     if (!reviewUnlocked) { showToast('Cần kết thúc lớp hoặc chờ hệ thống ghi nhận checkout đúng giờ trước khi nhận xét.', 'warning'); return; }
     setReviewStudentName(studentName); setReviewStudentId(studentId);
     setReviewText(selectedClass?.activeSessions?.[selectedSessionNum]?.feedback?.[studentId] || '');
     setIsReviewModalOpen(true);
   };
   const handleSaveReview = async () => {
-    if (!requirePermission('Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy')) return;
+    if (!requirePermission('Giáo viên Check-in / Check-out vào ca dạy')) return;
     if (!selectedClass || !reviewUnlocked || !reviewText.trim()) {
       showToast('Chỉ nhập nhận xét sau khi buổi học đã ghi nhận checkout.', 'warning'); return;
     }

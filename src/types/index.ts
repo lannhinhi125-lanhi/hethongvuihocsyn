@@ -185,7 +185,6 @@ export interface ClassRoomSession {
   exerciseLms: string;
   attendance?: Record<string, 'present' | 'late' | 'absent'>;
   feedback?: Record<string, string>;
-  feedbackCriteria?: Record<string, Record<string, string>>;
 }
 
 export interface ClassCoverAssignment {
