@@ -38,6 +38,8 @@ try {
  if(process.env.TEST_FOREIGN_KEYS)await db.exec(file('supabase/migrations/20261016_complete_foreign_keys.sql'));
  if(process.env.TEST_MONITORING_STATE)await db.exec(file('supabase/migrations/20261017_session_workflow.sql'));
  if(process.env.TEST_AUTO_CHECKOUT)await db.exec(file('supabase/migrations/20261018_auto_checkout.sql'));
+ if(process.env.TEST_CLASS_TRACE)await db.exec(file('supabase/migrations/20261019_student_class_trace.sql'));
+ if(process.env.TEST_REMOVE_AUDIT)await db.exec(file('supabase/migrations/20261020_remove_general_audit.sql'));
  assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,creditsBefore,'Conversion must not change locked payroll');
  assert.ok((await db.query('SELECT bool_and(dakhoa) yes FROM vuihoc."BANG_CONG_THANG"')).rows[0].yes);
  await db.exec('UPDATE vuihoc."BANG_CONG_THANG" SET dakhoa=false');
@@ -55,7 +57,7 @@ try {
   }
  }
  for(const teacher of before.teachers)assert.deepEqual(after.teachers.find(t=>t.madinhdanh===teacher.madinhdanh).diemtieuchi,teacher.diemtieuchi);
- const clean=row=>Object.fromEntries(Object.entries(row).filter(([k])=>!['ngaytao','tiendonhanxet'].includes(k)));
+ const clean=row=>Object.fromEntries(Object.entries(row).filter(([k])=>!['ngaytao','tiendonhanxet','lichsulophoc'].includes(k)));
  let cls=clean(after.classes.find(c=>c.madinhdanh==='CLS-001'));
  const material={month:'11/2026',week:'Week 1',session:1,title:'Column storage',slide:'https://example.com/slide',lms:'https://example.com/lms'};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'classes',before:cls,after:{...cls,hoclieu:[material]}}]]);

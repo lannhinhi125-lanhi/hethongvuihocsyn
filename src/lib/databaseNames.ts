@@ -588,6 +588,7 @@ export const APP_DATABASE_FIELDS = {
     "updated_at": "ngaycapnhat"
   },
   "students": {
+    "classHistory": "lichsulophoc",
     "id": "madinhdanh",
     "name": "hoten",
     "grade": "khoi",

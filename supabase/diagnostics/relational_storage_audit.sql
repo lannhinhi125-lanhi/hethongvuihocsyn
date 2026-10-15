@@ -23,7 +23,7 @@ WITH columns AS (
  ('CAU_HINH_HE_THONG'),('LUOT_NHAN_XET_AI'),('BANG_CONG_THANG'),
  ('CONG_DAY_BUOI_HOC'),('DOI_SOAT_CONG_GIAO_VIEN'),('GIAI_TRINH_CONG_DAY'),
  ('LINK_MINH_CHUNG_CONG'),('MAU_BAO_CAO'),('CHI_SO_MAU_BAO_CAO'),
- ('BO_LOC_MAU_BAO_CAO'),('SU_KIEN_NGHIEP_VU'),('CHI_TIET_NHAT_KY')
+ ('BO_LOC_MAU_BAO_CAO'),('TRUY_VET_XEP_LOP')
 ), findings AS (
  SELECT 'JSON_STORAGE' AS category,c.table_name,c.column_name,c.data_type,
   CASE WHEN e.table_name IS NULL

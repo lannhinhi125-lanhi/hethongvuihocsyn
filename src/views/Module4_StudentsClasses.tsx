@@ -1667,6 +1667,18 @@ export const Module4_StudentsClasses: React.FC = () => {
               </div>
 
               {studentClassInfo(viewingDetailStudent)}
+              <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                <h4 className="font-bold text-slate-800">Lịch sử lớp học</h4>
+                <p className="text-xs text-slate-500">Tự ghi nhận khi ghép, rời hoặc chuyển lớp. Dòng hiện trạng ban đầu không xác nhận ngày ghép lịch sử.</p>
+                <div className="space-y-2">{(() => {
+                  const history=(students.find(student=>student.id===viewingDetailStudent.id) || viewingDetailStudent).classHistory;
+                  return history?.length ? [...history].reverse().map(event=><div key={event.traceId} className="rounded-lg border border-slate-100 p-3 text-xs">
+                    <div className="font-semibold">#{event.traceId} · {event.isBaseline ? 'Ghi nhận hiện trạng ban đầu' : !event.toClassId ? 'Rời lớp' : event.isInitial ? 'Ghép lớp lần đầu' : 'Chuyển / ghép lại lớp'}</div>
+                    <div className="mt-1">{event.fromClassCode || 'Chưa xếp lớp'} → {event.toClassCode || 'Chưa xếp lớp'}</div>
+                    <div className="mt-1 text-slate-500">{new Date(event.occurredAt).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})} · {event.actorName || 'Hệ thống'}</div>
+                  </div>) : <p className="text-sm text-slate-500">Chưa có dữ liệu truy vết ghép/chuyển lớp.</p>;
+                })()}</div>
+              </section>
 
               {/* Actions */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">

@@ -300,7 +300,7 @@ export const Module8_Reports: React.FC = () => {
   const subjectLabel = (code: string) => sourceSubjects.find(item => item.code === code)?.name || code;
   const subjectCode = (code: string) => code === 'SUB-MATH' ? 'TOAN' : code === 'SUB-ENG' ? 'ENG' : code;
   const rawClasses = useMemo(() => sourceClasses.map(c => ({
-    studentIds:c.studentIds, code: c.code, name: c.name, date: creationDate(c), grade: c.grade, gradeNum: Number(c.grade.match(/\d+/)?.[0] || 0),
+    classId:c.id, studentIds:c.studentIds, code: c.code, name: c.name, date: creationDate(c), grade: c.grade, gradeNum: Number(c.grade.match(/\d+/)?.[0] || 0),
     subject: subjectLabel(c.subject), subjectCode: subjectCode(c.subject),
     model: sourceModels.find(item => item.code === c.model)?.name || c.model, modelCode: c.model,
     students: c.studentIds.length + ' / ' + c.maxStudents + ' HS',
@@ -356,7 +356,7 @@ export const Module8_Reports: React.FC = () => {
   // =========================================================================
 
   const growthStudents=useMemo(()=>new Map(sourceStudents.map(student=>[student.id,student])),[sourceStudents]);
-  const classifyGrowth=(item:typeof rawClasses[number],range:{start:string;end:string})=>classifyClassGrowth(item.studentIds,growthStudents,range);
+  const classifyGrowth=(item:typeof rawClasses[number],range:{start:string;end:string})=>classifyClassGrowth(item.studentIds,growthStudents,range,item.classId);
   const classifiedClasses=rawClasses.map(item=>({...item,...classifyGrowth(item,clsDateRange)}));
   const dashboardGrowthClasses=rawClasses.filter(item=>classifyGrowth(item,dashDateRange).kind==='NEW');
 
@@ -1023,7 +1023,7 @@ export const Module8_Reports: React.FC = () => {
             Sự cố và tổng ca được tính theo ngày thực tế trong khoảng đã chọn.
           </p>
 
-          <p className="text-xs text-slate-500">Lớp mới tăng trưởng chỉ gồm lớp tạo trong kỳ có toàn bộ học sinh mới trong kỳ. Lớp có học sinh cũ không được cộng. {!dashDateRange.start && 'Chọn ngày bắt đầu hoặc tháng báo cáo để xác định học sinh mới/cũ.'}</p>
+          <p className="text-xs text-slate-500">Lớp mới tăng trưởng chỉ gồm lớp tạo trong kỳ có toàn bộ học sinh mới và ghép lớp lần đầu, theo truy vết đến cuối kỳ. Lớp có học sinh cũ không được cộng. {!dashDateRange.start && 'Chọn ngày bắt đầu hoặc tháng báo cáo để xác định học sinh mới/cũ.'}</p>
           {/* Biểu đồ đường cong tăng trưởng (khi ở chế độ visual hoặc both) */}
           {dashViewMode === 'visual' && (
             <>
@@ -1647,7 +1647,7 @@ export const Module8_Reports: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-xs text-slate-500">Chỉ lớp tạo trong kỳ và toàn bộ học sinh có mã được tiếp nhận trong kỳ mới tính lớp mới. Có học sinh cũ, lớp trống hoặc thiếu ngày tiếp nhận không cộng tăng trưởng. Đối chiếu theo danh sách học sinh hiện tại. {!clsDateRange.start && 'Chọn ngày bắt đầu kỳ báo cáo để phân loại.'}</p>
+              <p className="text-xs text-slate-500">Chỉ lớp tạo trong kỳ và toàn bộ học sinh có mã được tiếp nhận trong kỳ mới tính lớp mới. Có học sinh cũ, lớp trống hoặc thiếu ngày tiếp nhận không cộng tăng trưởng. Đối chiếu theo truy vết ghép/chuyển lớp đến cuối kỳ; chuyển lớp sau kỳ không làm mất số liệu cũ. {!clsDateRange.start && 'Chọn ngày bắt đầu kỳ báo cáo để phân loại.'}</p>
               {/* Tỉ lệ trực quan */}
               {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

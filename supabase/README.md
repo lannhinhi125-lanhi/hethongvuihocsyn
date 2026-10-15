@@ -1,5 +1,12 @@
 # Bộ SQL Supabase Vuihoc
 
+**Truy vết lớp độc lập, bỏ nhật ký chung:** Chạy
+[migrations/20261020_remove_general_audit.sql](migrations/20261020_remove_general_audit.sql)
+sau bản 20261018; hỗ trợ cả trường hợp đã chạy 20261019.
+Bản này chuyển lịch sử lớp rồi xóa bảng/trigger nhật ký chung, dùng mã số tự tăng và thời gian ngày–giờ trực tiếp.
+Xem [STUDENT_CLASS_TRACE.md](STUDENT_CLASS_TRACE.md). Không chạy lại migration cũ sau bản này.
+
+
 **Checkout tự động và khóa nhận xét:** Sau bản 20261017, chạy
 [migrations/20261018_auto_checkout.sql](migrations/20261018_auto_checkout.sql).
 Ca đã check-in tự checkout đúng giờ kết thúc qua Cron. Nhận xét chỉ mở sau checkout.

@@ -19,7 +19,11 @@ SELECT vuihoc.du_lieu_quan_he('GIAO_VIEN',to_jsonb(t)) AS giaovien FROM vuihoc."
 SELECT vuihoc.bang_cong_truy_van(kycong) AS bangcong FROM vuihoc."BANG_CONG_THANG" LIMIT 5;
 
 -- Nhật ký nghiệp vụ: đối chiếu trước/sau, người thực hiện và thời gian.
-SELECT * FROM vuihoc."NHAT_KY_NGHIEP_VU" ORDER BY thoigian DESC LIMIT 50;
+-- After 20261020 these three relations must be NULL.
+SELECT to_regclass('vuihoc."SU_KIEN_NGHIEP_VU"') AS nhat_ky_chung,
+       to_regclass('vuihoc."CHI_TIET_NHAT_KY"') AS chi_tiet_nhat_ky,
+       to_regclass('vuihoc."NHAT_KY_NGHIEP_VU"') AS view_nhat_ky,
+       to_regclass('vuihoc."TRUY_VET_XEP_LOP"') AS truy_vet_lop;
 
 -- Lịch rảnh theo tuần; ca theo ngày; công nối nhận xét/sự cố.
 SELECT * FROM vuihoc."LICH_RANH_TUAN" ORDER BY ngaydautuan,magiaovien;

@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import {readFileSync,mkdtempSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {resolve,join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const root=process.env.PGLITE_MODULE_PATH;
+const {PGlite}=await import(pathToFileURL(resolve(root,'dist/index.js')));
+const {pgcrypto}=await import(pathToFileURL(resolve(root,'dist/contrib/pgcrypto.js')));
+const db=new PGlite(mkdtempSync(join(tmpdir(),'vuihoc-fk-')),{extensions:{pgcrypto},initialMemory:128*1024*1024,postgresqlconf:'shared_buffers=8MB'});
+const file=p=>readFileSync(p,'utf8');
+const rpc=async(name,args)=>(await db.query('SELECT public.'+name+'('+args.map((_,i)=>'$'+(i+1)).join(',')+') result',args)).rows[0].result;
+try {
+ await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS 'SELECT null::uuid';");
+ await db.exec(file('supabase/schema.sql').replace("to_jsonb(t)->>'ngaytao','') DESC","to_jsonb(t)->>''ngaytao'','''') DESC"));
+ await db.exec(file('supabase/seed_test_data.sql'));
+ await db.exec(file('supabase/upgrade_incident_payroll.sql'));
+ await db.exec(file('supabase/migrations/20261013_teacher_live_payroll.sql'));
+ await db.exec(file('supabase/migrations/20261014_report_creation_dates.sql'));
+ await db.exec(file('supabase/setup_admin.sql').replace(/matkhau text:='[^']*'/,"matkhau text:='234567'"));
+ await db.exec(file('supabase/apply_relational_update.sql'));
+ await db.exec(file('supabase/migrations/20261015_remove_remaining_json.sql'));
+ const admin=await rpc('vuihoc_login',['admin.tong','234567']);
+ await db.exec(file('supabase/migrations/20261016_complete_foreign_keys.sql'));
+
+ await db.exec(file('supabase/migrations/20261017_session_workflow.sql'));
+
+ await db.exec(file('supabase/migrations/20261018_auto_checkout.sql'));
+ if(!process.env.SKIP_OLD_TRACE)await db.exec(file('supabase/migrations/20261019_student_class_trace.sql'));
+ await db.query(`INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh','PRE-A','malophoc','PRE-A','sisotoida',100))).* FROM vuihoc."LOP_HOC" l LIMIT 1`);
+ await db.query(`INSERT INTO vuihoc."HOC_SINH" SELECT (jsonb_populate_record(NULL::vuihoc."HOC_SINH",to_jsonb(h)||jsonb_build_object('madinhdanh','PRE-STUDENT','malophientai',NULL))).* FROM vuihoc."HOC_SINH" h LIMIT 1`);
+ await db.query('UPDATE vuihoc."HOC_SINH" SET malophientai=$1 WHERE madinhdanh=$2',['PRE-A','PRE-STUDENT']);
+ const originalHistories=(await rpc('vuihoc_business_data',[admin.token])).students.map(student=>({id:student.madinhdanh,history:student.lichsulophoc}));
+ const migration=file('supabase/migrations/20261020_remove_general_audit.sql');
+ await db.exec(migration);
+ for(const original of originalHistories)if(original.history){
+  const saved=(await db.query('SELECT vuihoc.lich_su_lop_hoc($1) h',[original.id])).rows[0].h;
+  assert.deepEqual(saved.map(({traceId,...values})=>values),original.history.map(({eventId,...values})=>values));
+ }
+ for(const table of ['SU_KIEN_NGHIEP_VU','CHI_TIET_NHAT_KY','NHAT_KY_NGHIEP_VU'])assert.equal((await db.query('SELECT to_regclass($1) r',['vuihoc."'+table+'"'])).rows[0].r,null);
+ assert.equal((await db.query("SELECT count(*)::int n FROM pg_trigger WHERE NOT tgisinternal AND tgname='audit_business_change'")).rows[0].n,0);
+ const recovered=(await db.query('SELECT vuihoc.lich_su_lop_hoc($1) h',['PRE-STUDENT'])).rows[0].h;
+ assert.equal(recovered.length,1);assert.equal(recovered[0].isBaseline,false);assert.equal(recovered[0].toClassCode,'PRE-A');
+ const initial=(await db.query('SELECT count(*)::int n FROM vuihoc."TRUY_VET_XEP_LOP"')).rows[0].n;
+ await db.exec(migration);assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."TRUY_VET_XEP_LOP"')).rows[0].n,initial);
+ for(const id of ['TRACE-A','TRACE-B'])await db.query(`INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh',$1::text,'malophoc',$1::text,'sisotoida',100))).* FROM vuihoc."LOP_HOC" l LIMIT 1`,[id]);
+ await db.query(`INSERT INTO vuihoc."HOC_SINH" SELECT (jsonb_populate_record(NULL::vuihoc."HOC_SINH",to_jsonb(h)||jsonb_build_object('madinhdanh','TRACE-STUDENT','malophientai',NULL))).* FROM vuihoc."HOC_SINH" h LIMIT 1`);
+ const history=async()=>(await db.query('SELECT vuihoc.lich_su_lop_hoc($1) h',['TRACE-STUDENT'])).rows[0].h;
+ assert.deepEqual(await history(),[]);
+ await db.query('UPDATE vuihoc."HOC_SINH" SET malophientai=$1 WHERE madinhdanh=$2',['TRACE-A','TRACE-STUDENT']);
+ const first=await history();assert.equal(first.length,1);assert.equal(first[0].isInitial,true);assert.equal(first[0].toClassId,'TRACE-A');
+ await db.query('UPDATE vuihoc."HOC_SINH" SET hoten=$1 WHERE madinhdanh=$2',['Rename only','TRACE-STUDENT']);assert.equal((await history()).length,1);
+ await db.query('UPDATE vuihoc."HOC_SINH" SET malophientai=$1 WHERE madinhdanh=$2',['TRACE-B','TRACE-STUDENT']);
+ assert.equal((await history())[1].fromClassId,'TRACE-A');assert.equal((await history())[1].toClassId,'TRACE-B');assert.equal((await history())[1].isInitial,false);
+ assert.deepEqual((await history())[0],first[0],'Moving never changes the earlier enrollment');
+ await db.query('UPDATE vuihoc."HOC_SINH" SET malophientai=NULL WHERE madinhdanh=$1',['TRACE-STUDENT']);
+ await db.query('UPDATE vuihoc."HOC_SINH" SET malophientai=$1 WHERE madinhdanh=$2',['TRACE-A','TRACE-STUDENT']);
+ assert.equal((await history())[3].isInitial,false,'Detach then rejoin is not a new student');
+ const before=(await history()).length;
+ await db.exec('BEGIN');await db.query('UPDATE vuihoc."HOC_SINH" SET malophientai=$1 WHERE madinhdanh=$2',['TRACE-B','TRACE-STUDENT']);await db.exec('ROLLBACK');
+ assert.equal((await history()).length,before,'History rolls back with failed assignment');
+ const data=await rpc('vuihoc_business_data',[admin.token]);const student=data.students.find(s=>s.madinhdanh==='TRACE-STUDENT');assert.equal(student.lichsulophoc.length,before);
+ const {lichsulophoc,ngaytao,...clean}=student;
+ await rpc('vuihoc_save_business',[admin.token,[{dataset:'students',before:clean,after:{...clean,malophientai:'TRACE-B'}}]]);
+ const last=(await history()).at(-1);assert.ok(last.actorId);assert.ok(last.actorName);
+ await assert.rejects(rpc('vuihoc_save_business',[admin.token,[{dataset:'students',before:student,after:student}]]),/truy/);
+ await assert.rejects(db.query('DELETE FROM vuihoc."HOC_SINH" WHERE madinhdanh=$1',['TRACE-STUDENT']),/foreign key/);
+ assert.equal((await db.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='vuihoc' AND data_type IN ('json','jsonb')")).rows[0].n,0);
+ assert.equal((await db.query("SELECT has_table_privilege('anon','vuihoc.\"TRUY_VET_XEP_LOP\"','SELECT') allowed")).rows[0].allowed,false);
+ assert.match(last.traceId,/^[0-9]+$/);
+ console.log('PASS: audit removed; standalone numeric trace; preserved history/date/actor; FK links; CRUD/API/rollback; no JSON; rerun');
+} catch(error){console.error(error.message,error.detail||'',error.where||'');process.exitCode=1;} finally {await db.close();}

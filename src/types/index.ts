@@ -135,7 +135,12 @@ export interface TeacherProfile {
 }
 
 // Phân hệ 4 & 5: Lớp học & Học sinh
+export interface StudentClassTrace {
+  traceId:string; fromClassId:string|null; toClassId:string|null; fromClassCode:string|null; toClassCode:string|null;
+  occurredAt:string; actorId:string|null; actorName:string|null; isBaseline:boolean; isInitial:boolean;
+}
 export interface StudentRecord {
+  classHistory?:StudentClassTrace[];
   created_at?: string;
   id: string;
   name: string;

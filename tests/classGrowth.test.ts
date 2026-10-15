@@ -15,3 +15,15 @@ assert.equal(classifyClassGrowth(['new','new'],students,range).newStudents,1);
 const classes=[['new'],['old'],['old','new'],[],['missing']];
 assert.equal(classes.filter(roster=>classifyClassGrowth(roster,students,range).kind==='NEW').length,1);
 console.log('PASS: new-only classes count; transfers, mixed, empty and unknown excluded; Bangkok dates; no duplicate students');
+
+const trace=(classId:string,occurredAt:string,isInitial:boolean)=>({traceId:occurredAt,fromClassId:null,toClassId:classId,fromClassCode:null,toClassCode:classId,occurredAt,actorId:null,actorName:null,isBaseline:false,isInitial});
+const historical=new Map([['s',{created_at:'2026-10-02',classHistory:[trace('A','2026-10-02T10:00:00+07:00',true),trace('B','2026-11-03T10:00:00+07:00',false)]}]]);
+assert.equal(classifyClassGrowth([],historical,range,'A').kind,'NEW','Moving away cannot erase original growth');
+assert.equal(classifyClassGrowth(['s'],historical,{start:'2026-11-01',end:'2026-11-30'},'B').kind,'TRANSFER');
+historical.get('s')!.classHistory.push(trace('A','2026-11-04T10:00:00+07:00',false));
+assert.equal(classifyClassGrowth([],historical,range,'A').kind,'NEW','Future rejoin cannot alter October');
+const samePeriod=new Map([['s',{created_at:'2026-10-02',classHistory:[trace('B','2026-10-03T10:00:00+07:00',false)]}]]);
+assert.equal(classifyClassGrowth(['s'],samePeriod,range,'B').kind,'TRANSFER','Transfer within same month remains old');
+const baseline=new Map([['s',{created_at:'2026-10-02',classHistory:[{...trace('A','2026-10-02T10:00:00+07:00',true),isBaseline:true}]}]]);
+assert.equal(classifyClassGrowth(['s'],baseline,range,'A').kind,'UNKNOWN','Baseline is not invented growth');
+console.log('PASS: historical growth survives moving, rejoining and same-period transfers; legacy baseline excluded');
