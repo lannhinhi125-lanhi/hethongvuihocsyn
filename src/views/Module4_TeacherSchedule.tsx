@@ -1,8 +1,7 @@
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingSessionDetails, teachingScheduleEntries, type TeachingLesson } from '../lib/teachingSessionDetails';
-import { useBusinessValue } from '../lib/businessPersistence';
-import { teacherSessionRequest } from '../lib/accountSession';
+import { useBusinessValue, waitForBusinessSave } from '../lib/businessPersistence';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
@@ -29,7 +28,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const { can, requirePermission } = usePermissions();
   const {
     incidents, classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
-    timeSlots, subjects, criteriaCategories, activeToneKey, toneDirectives, sopDocuments, ragBotConfig, users
+    timeSlots, subjects, sopDocuments, ragBotConfig, users
   } = useApp();
 
   const [reportedIncidentCode,setReportedIncidentCode]=useState('');
@@ -97,14 +96,11 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [selectedSessionNum, setSelectedSessionNum] = useState<number>(1);
   const [selectedSessionDate, setSelectedSessionDate] = useState('');
 
-  // AI Review modal state
-  const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
-  const [aiReviewStudentName, setAiReviewStudentName] = useState('');
-  const [aiReviewStudentId, setAiReviewStudentId] = useState('');
-  const [aiGeneratedText, setAiGeneratedText] = useState('');
-  const [selectedCriterionOptions, setSelectedCriterionOptions] = useState<Record<string, string>>({});
-  const [aiGenerationCount, setAiGenerationCount] = useState(0);
-  const [isCriteriaSaved, setIsCriteriaSaved] = useState(false);
+  // Nhận xét do giáo viên nhập
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewStudentName, setReviewStudentName] = useState('');
+  const [reviewStudentId, setReviewStudentId] = useState('');
+  const [reviewText, setReviewText] = useState('');
 
   const handleOpenClassModal = (cls: ClassItem, sessionNum: number = 1, sessionDate = fromDate) => {
     if (!requirePermission('Vào phòng học và xem học liệu lớp được giao')) return;
@@ -195,7 +191,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     window.open(classroom.roomUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const handleConfirmCompleteSession = () => {
+  const handleConfirmCompleteSession = async () => {
     if (!requirePermission("Giáo viên Check-in / Check-out vào ca dạy")) return;
     if (!selectedClass) return;
     if (classLiveStatus !== 'DANG_HOC') {
@@ -214,14 +210,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
       showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
       return;
     }
-    const studentsWithoutFeedback = selectedClass.studentIds.filter(
-      studentId => !activeSession.feedback?.[studentId]?.trim()
-    );
-    if (studentsWithoutFeedback.length > 0) {
-      showToast(`Cần lưu nhận xét cho đủ ${selectedClass.studentIds.length} học sinh trước khi hoàn thành ca.`, 'warning');
-      return;
-    }
-    if (!window.confirm('Bạn có chắc muốn kết thúc buổi học này? Trạng thái buổi học sẽ chuyển thành Đã hoàn thành.')) return;
+    if (!window.confirm('Bạn có chắc muốn kết thúc buổi học này? Trạng thái chuyển thành Đã học; cần nhận xét đủ để tính công.')) return;
     setClasses(prev =>
       prev.map(c => {
         if (c.id === selectedClass.id) {
@@ -239,167 +228,31 @@ export const Module4_TeacherSchedule: React.FC = () => {
         return c;
       })
     );
-    setClassLiveStatus('DA_HOAN_THANH');
-    showToast('Xác nhận hoàn tất ca dạy thành công! Nhật ký ca học đã được lưu vào hệ thống.', 'success');
+    try { await waitForBusinessSave(); setClassLiveStatus('DA_HOAN_THANH');
+      showToast('Đã kết thúc buổi học. Ca chỉ được tính công khi đã nhận xét đủ học sinh.', 'success');
+    } catch(error) { showToast(error instanceof Error ? error.message : 'Chưa lưu được giờ kết thúc.', 'error'); }
   };
 
-  const handleOpenAiReview = async (studentId: string, studentName: string) => {
-    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
-    if (classLiveStatus !== 'DANG_HOC') {
-      showToast('Chưa thể tạo nhận xét khi ca học chưa bắt đầu. Vui lòng vào lớp trước.', 'warning');
-      return;
-    }
-    setAiReviewStudentName(studentName);
-    setAiReviewStudentId(studentId);
-    const savedCriteria = selectedClass?.activeSessions?.[selectedSessionNum]?.feedbackCriteria?.[studentId];
-    setSelectedCriterionOptions(savedCriteria || {});
-    setAiGeneratedText('');
-    setIsCriteriaSaved(Boolean(savedCriteria));
-    try {
-      const result=await teacherSessionRequest('vuihoc_ai_usage',{p_teacher_id:selectedTeacherId,p_student_id:studentId,p_increment:false});
-      setAiGenerationCount(result.count);
-    } catch {
-      showToast('Không thể đọc số lượt tạo nhận xét AI đã sử dụng.', 'error');
-      setAiGenerationCount(2);
-    }
-    setIsAiReviewModalOpen(true);
+  const handleOpenReview = (studentId: string, studentName: string) => {
+    if (!requirePermission('Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy')) return;
+    if (classLiveStatus === 'CHUA_DIEN_RA') { showToast('Vui lòng vào lớp trước khi nhận xét.', 'warning'); return; }
+    setReviewStudentName(studentName); setReviewStudentId(studentId);
+    setReviewText(selectedClass?.activeSessions?.[selectedSessionNum]?.feedback?.[studentId] || '');
+    setIsReviewModalOpen(true);
   };
-
-  const handleSaveReviewCriteria = () => {
-    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
-    if (classLiveStatus !== 'DANG_HOC') {
-      showToast('Chỉ có thể lưu tiêu chí khi ca học đang diễn ra.', 'warning');
-      return;
+  const handleSaveReview = async () => {
+    if (!requirePermission('Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy')) return;
+    if (!selectedClass || classLiveStatus === 'CHUA_DIEN_RA' || !reviewText.trim()) {
+      showToast('Vui lòng nhập nhận xét sau khi đã vào lớp.', 'warning'); return;
     }
-    const allCriteria = reviewCriteria.flatMap(category => category.criteria);
-    if (!allCriteria.length || allCriteria.some(criterion => !selectedCriterionOptions[criterion.id])) {
-      showToast('Vui lòng chọn đáp án cho tất cả tiêu chí trước khi tiếp tục.', 'warning');
-      return;
-    }
-    if (!selectedClass) return;
-    const dateStr = selectedSessionDate || fromDate;
     setClasses(previous => previous.map(cls => {
       if (cls.id !== selectedClass.id) return cls;
-      const activeSession = cls.activeSessions?.[selectedSessionNum];
-      const keepSession = activeSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === dateStr;
-      return {
-        ...cls,
-        activeSessions: {
-          ...(cls.activeSessions || {}),
-          [selectedSessionNum]: {
-            ...(keepSession ? activeSession : {
-              sessionNum: selectedSessionNum,
-              dateStr,
-              title: selectedClassMaterial?.title || `Buổi ${selectedSessionNum}`,
-              status: 'Đang học' as const,
-              materialGv: selectedClassMaterial?.slide || '',
-              materialHs: '',
-              exerciseLms: selectedClassMaterial?.lms || ''
-            }),
-            feedbackCriteria: {
-              ...(keepSession ? activeSession?.feedbackCriteria : {}),
-              [aiReviewStudentId]: { ...selectedCriterionOptions }
-            }
-          }
-        }
-      };
+      const session=cls.activeSessions?.[selectedSessionNum];
+      if (!session || session.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] !== selectedSessionDate) return cls;
+      return {...cls,activeSessions:{...cls.activeSessions,[selectedSessionNum]:{...session,feedback:{...session.feedback,[reviewStudentId]:reviewText.trim()}}}};
     }));
-    setIsCriteriaSaved(true);
-    showToast('Đã lưu các tiêu chí nhận xét cho học sinh.', 'success');
-  };
-
-  const handleRegenerateAi = async () => {
-    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
-    if (classLiveStatus !== 'DANG_HOC') {
-      showToast('Chỉ có thể tạo nhận xét khi ca học đang diễn ra.', 'warning');
-      return;
-    }
-    if (!isCriteriaSaved) {
-      showToast('Vui lòng lưu đầy đủ tiêu chí trước khi dùng AI tạo nhận xét.', 'warning');
-      return;
-    }
-    if (aiGenerationCount >= 2) {
-      showToast('Bạn đã sử dụng hết 2 lượt tạo nhận xét AI cho học sinh này.', 'warning');
-      return;
-    }
-    const selectedFeedback = reviewCriteria.flatMap(category => category.criteria.map(criterion => {
-      const selectedOptionId = selectedCriterionOptions[criterion.id];
-      return criterion.options.find(option => option.id === selectedOptionId)?.label;
-    }));
-    if (!selectedFeedback.length || selectedFeedback.some(option => !option)) {
-      showToast('Vui lòng hoàn tất tất cả tiêu chí trước khi dùng AI.', 'warning');
-      return;
-    }
-
-    const subjectName = selectedClass
-      ? subjects.find(subject => subject.code === selectedClass.subject)?.name || selectedClass.subject
-      : 'buổi học';
-    const detail = selectedFeedback.join('; ');
-    const toneName = toneDirectives[activeToneKey]?.name || 'Khích lệ';
-    const generatedText = activeToneKey === 'chuan-muc'
-      ? `Nhận xét buổi học môn ${subjectName} của ${aiReviewStudentName}: ${detail}.`
-      : activeToneKey === 'ngan-gon'
-        ? `${aiReviewStudentName} (${subjectName}): ${detail}.`
-        : `Hôm nay ${aiReviewStudentName} học môn ${subjectName}: ${detail}. Thầy/Cô ghi nhận nỗ lực của con và sẽ tiếp tục đồng hành ở buổi học sau.`;
-    try {
-      const result=await teacherSessionRequest('vuihoc_ai_usage',{p_teacher_id:selectedTeacherId,p_student_id:aiReviewStudentId,p_increment:true});
-      const nextCount=result.count;
-      setAiGenerationCount(nextCount);
-    } catch {
-      showToast('Không thể lưu số lượt sử dụng AI. Nhận xét chưa được tạo.', 'error');
-      return;
-    }
-    setAiGeneratedText(generatedText);
-    showToast(`Đã tạo bản nhận xét xem trước theo giọng văn ${toneName}.`, 'info');
-  };
-
-  const handleSaveAiReview = () => {
-    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
-    if (classLiveStatus !== 'DANG_HOC') {
-      showToast('Chỉ có thể lưu nhận xét khi ca học đang diễn ra.', 'warning');
-      return;
-    }
-    if (!isCriteriaSaved) {
-      showToast('Vui lòng lưu đầy đủ tiêu chí trước khi tạo nhận xét.', 'warning');
-      return;
-    }
-    if (!selectedClass || !aiGeneratedText.trim()) {
-      showToast('Vui lòng nhập nhận xét hoặc dùng AI tạo nội dung trước khi lưu.', 'warning');
-      return;
-    }
-    const dateStr = selectedSessionDate || fromDate;
-    setClasses(previous => previous.map(cls => {
-      if (cls.id !== selectedClass.id) return cls;
-      const activeSession = cls.activeSessions?.[selectedSessionNum];
-      const keepSession = activeSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === dateStr;
-      return {
-        ...cls,
-        activeSessions: {
-          ...(cls.activeSessions || {}),
-          [selectedSessionNum]: {
-            ...(keepSession ? activeSession : {
-              sessionNum: selectedSessionNum,
-              dateStr,
-              title: selectedClassMaterial?.title || `Buổi ${selectedSessionNum}`,
-              status: 'Chưa diễn ra' as const,
-              materialGv: selectedClassMaterial?.slide || '',
-              materialHs: '',
-              exerciseLms: selectedClassMaterial?.lms || ''
-            }),
-            feedback: {
-              ...(keepSession ? activeSession?.feedback : {}),
-              [aiReviewStudentId]: aiGeneratedText.trim()
-            },
-            feedbackCriteria: {
-              ...(keepSession ? activeSession?.feedbackCriteria : {}),
-              [aiReviewStudentId]: { ...selectedCriterionOptions }
-            }
-          }
-        }
-      };
-    }));
-    setIsAiReviewModalOpen(false);
-    showToast(`Đã lưu tiêu chí và nhận xét cho học sinh [${aiReviewStudentName}]!`, 'success');
+    try { await waitForBusinessSave(); setIsReviewModalOpen(false); showToast('Đã lưu nhận xét.', 'success'); }
+    catch(error) { showToast(error instanceof Error ? error.message : 'Chưa lưu được nhận xét.', 'error'); }
   };
 
   const isTeacherAccount = currentUser.role === 'Giáo viên Giảng dạy';
@@ -463,11 +316,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const selectedClassMaterial = selectedClass
     ? selectedWeekMaterial(selectedClass, selectedSessionNum, selectedSessionDate || fromDate)
     : undefined;
+  const selectedDetail=selectedClass ? teachingSessionDetails(selectedClass,selectedSessionNum,selectedSessionDate,selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time || '',datedLessons,timeSlots,new Date()) : undefined;
+  const selectedLesson=selectedDetail?.lesson;
+  const selectedStudentIds=selectedLesson?.feedbackProgress?.studentIds ?? selectedClass?.studentIds ?? [];
   const selectedSubjectKey = selectedClass
     ? subjects.find(subject => subject.code === selectedClass.subject)?.code ||
       (selectedClass.subject === 'SUB-ENG' ? 'ENG' : 'TOAN')
     : '';
-  const reviewCriteria = criteriaCategories.filter(category => category.subject === selectedSubjectKey);
+
   const selectedClassCoverAssignment = selectedClass?.coverAssignments?.find(assignment =>
     assignment.sessionNum === selectedSessionNum && assignment.dateStr === selectedSessionDate
   );
@@ -680,23 +536,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {classLiveStatus === 'CHUA_DIEN_RA' && (
-                        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold">
-                          Trạng thái: Chưa diễn ra
-                        </span>
-                      )}
-                      {classLiveStatus === 'DANG_HOC' && (
-                        <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold flex items-center gap-1.5 animate-pulse">
-                          <span className="w-2 h-2 rounded-full bg-amber-600" />
-                          <span>Trạng thái: Đang học</span>
-                        </span>
-                      )}
-                      {classLiveStatus === 'DA_HOAN_THANH' && (
-                        <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold flex items-center gap-1.5">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Trạng thái: Đã hoàn thành</span>
-                        </span>
-                      )}
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedDetail?.lifecycleStatus==='CHUA_HOC' ? 'bg-red-100 text-red-800' : selectedDetail?.lifecycleStatus==='CHUA_HOAN_TAT' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'}`}>
+                        Trạng thái: {selectedDetail && {CHUA_DIEN_RA:'Chưa diễn ra',CHUA_HOC:'Chưa học',DANG_HOC:'Đang học',CHUA_HOAN_TAT:'Chưa hoàn tất',DA_HOC:'Đã học',NGHI_HOC:'Nghỉ học'}[selectedDetail.lifecycleStatus]}
+                      </span>
+                      <span className="text-xs text-slate-500">Nhận xét: {selectedLesson?.feedbackProgress?.completed ?? selectedStudentIds.filter(id=>selectedClass.activeSessions?.[selectedSessionNum]?.feedback?.[id]?.trim()).length}/{selectedStudentIds.length}</span>
                     </div>
                   </div>
 
@@ -711,14 +554,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         </tr>
                       </thead>
                       <PaginatedTableBody className="divide-y divide-slate-100">
-                        {selectedClass.studentIds.length === 0 ? (
+                        {selectedStudentIds.length === 0 ? (
                           <tr>
                             <td colSpan={4} className="py-4 text-center text-slate-400">
                               Lớp chưa được ghép học sinh nào.
                             </td>
                           </tr>
                         ) : (
-                          selectedClass.studentIds.map(sid => {
+                          selectedStudentIds.map(sid => {
                             const studentItem = students.find(s => s.id === sid);
                             const studentDisplayName = studentItem ? studentItem.name : sid;
                             const studentGradeLevel = studentItem ? `${studentItem.grade} - Trình độ ${studentItem.level}` : 'Khối Tiểu học';
@@ -733,7 +576,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
                                 </td>
                                 <td className="py-3 font-mono text-slate-600 font-medium">{sid}</td>
                                 <td className="py-3 text-center">
-                                  <select className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-700 text-xs font-medium focus:border-[#FF5C00]">
+                                  <select disabled={classLiveStatus === 'CHUA_DIEN_RA'} value={selectedClass.activeSessions?.[selectedSessionNum]?.attendance?.[sid] || ''}
+                                    onChange={event => { const value=event.target.value as 'present'|'late'|'absent';
+                                      if (!requirePermission('Giáo viên Check-in / Check-out vào ca dạy')) return;
+                                      setClasses(previous=>previous.map(cls=>{const active=cls.activeSessions?.[selectedSessionNum];
+                                        return cls.id===selectedClass.id && active ? {...cls,activeSessions:{...cls.activeSessions,[selectedSessionNum]:{...active,attendance:{...active.attendance,[sid]:value}}}} : cls;
+                                      }));
+                                    }} className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-700 text-xs font-medium focus:border-[#FF5C00]">
+                                    <option value="" disabled>Chưa điểm danh</option>
                                     <option value="present">Có mặt</option>
                                     <option value="late">Đi muộn</option>
                                     <option value="absent">Vắng mặt</option>
@@ -742,13 +592,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
                                 <td className="py-3 text-right">
                                   <button
                                     type="button"
-                                    onClick={() => handleOpenAiReview(sid, studentDisplayName)}
-                                    disabled={classLiveStatus !== 'DANG_HOC'}
-                                    title={classLiveStatus !== 'DANG_HOC' ? 'Chỉ tạo nhận xét sau khi đã vào lớp.' : undefined}
+                                    onClick={() => handleOpenReview(sid, studentDisplayName)}
+                                    disabled={classLiveStatus === 'CHUA_DIEN_RA'}
+                                    title={classLiveStatus === 'CHUA_DIEN_RA' ? 'Chỉ tạo nhận xét sau khi đã vào lớp.' : undefined}
                                     className="px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-xs border border-orange-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed"
                                   >
                                     <Sparkles className="w-3.5 h-3.5" />
-                                    <span>Tạo nhận xét</span>
+                                    <span>{selectedClass.activeSessions?.[selectedSessionNum]?.feedback?.[sid]?.trim() ? 'Sửa nhận xét' : 'Nhận xét'}</span>
                                   </button>
                                 </td>
                               </tr>
@@ -809,140 +659,18 @@ export const Module4_TeacherSchedule: React.FC = () => {
         </div>
       )}
 
-      {/* ================= MODAL: TRỢ LÝ AI SINH NHẬN XÉT HỌC SINH ================= */}
-      {isAiReviewModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#FF5C00] text-white flex items-center justify-center">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-800">Trợ lý AI - Nhận xét buổi học</h3>
-                  <p className="text-[11px] text-slate-400">Học sinh: {aiReviewStudentName}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAiReviewModalOpen(false);
-                  setAiGeneratedText('');
-                }}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                title="Đóng và xóa dữ liệu"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1 text-xs">
-              <section className="space-y-2">
-                <label className="block font-semibold text-slate-700">
-                  Tiêu chí bắt buộc · {subjects.find(subject => subject.code === selectedSubjectKey)?.name || selectedSubjectKey}
-                </label>
-                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  {reviewCriteria.length ? reviewCriteria.map(category => (
-                    <section key={category.id} className="space-y-2">
-                      <h4 className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{category.name}</h4>
-                      {category.criteria.map(criterion => (
-                        <fieldset key={criterion.id} className="rounded-lg border border-slate-200 bg-white p-2.5">
-                          <legend className="px-1 font-semibold text-slate-800">{criterion.name} <span className="text-rose-500">*</span></legend>
-                          <div className="mt-1 space-y-1.5">
-                            {criterion.options.map(option => (
-                              <label key={option.id} className="flex cursor-pointer items-start gap-2 text-slate-600">
-                                <input
-                                  type="radio"
-                                  name={`review-${criterion.id}`}
-                                  value={option.id}
-                                  checked={selectedCriterionOptions[criterion.id] === option.id}
-                                  onChange={() => {
-                                    setSelectedCriterionOptions(previous => ({ ...previous, [criterion.id]: option.id }));
-                                    setIsCriteriaSaved(false);
-                                    setAiGeneratedText('');
-                                  }}
-                                  className="mt-0.5 accent-[#FF5C00]"
-                                />
-                                <span>{option.label}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </fieldset>
-                      ))}
-                    </section>
-                  )) : (
-                    <p className="py-3 text-center text-slate-500">
-                      Chưa có tiêu chí cho môn này. Quản trị viên cần cấu hình trong AI Studio.
-                    </p>
-                  )}
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  Bắt buộc chọn một đáp án cho từng tiêu chí. Lưu tiêu chí trước khi tạo nhận xét.
-                </p>
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`text-[10px] font-semibold ${isCriteriaSaved ? 'text-emerald-700' : 'text-amber-700'}`}>
-                    {isCriteriaSaved ? 'Đã lưu tiêu chí' : 'Tiêu chí chưa được lưu'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleSaveReviewCriteria}
-                    disabled={!reviewCriteria.some(category => category.criteria.length > 0)}
-                    className="rounded-lg bg-slate-800 px-3 py-2 text-[11px] font-bold text-white hover:bg-slate-700 disabled:bg-slate-300 cursor-pointer disabled:cursor-not-allowed"
-                  >
-                    Lưu tiêu chí
-                  </button>
-                </div>
-              </section>
-
-              <section className="space-y-2 border-t border-slate-100 pt-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <label className="font-semibold text-slate-700">Nội dung nhận xét</label>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      Giọng văn: {toneDirectives[activeToneKey]?.name || 'Mặc định'} · Còn {Math.max(0, 2 - aiGenerationCount)}/2 lượt AI cho học sinh này.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRegenerateAi}
-                    disabled={!isCriteriaSaved || aiGenerationCount >= 2}
-                    className="shrink-0 rounded-lg bg-orange-50 px-3 py-2 text-[11px] font-bold text-[#FF5C00] hover:bg-orange-100 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer disabled:cursor-not-allowed"
-                  >
-                    <Sparkles className="mr-1 inline h-3.5 w-3.5" />
-                    Dùng AI
-                  </button>
-                </div>
-                <textarea
-                  rows={5}
-                  value={aiGeneratedText}
-                  onChange={e => setAiGeneratedText(e.target.value)}
-                  placeholder="Viết nhận xét cho học sinh hoặc lưu tiêu chí rồi dùng AI tạo bản nháp..."
-                  className="w-full rounded-xl border border-slate-200 p-3 text-xs leading-relaxed text-slate-700 focus:border-[#FF5C00] focus:outline-none"
-                />
-                <p className="text-[10px] text-slate-500">Có thể tự viết hoặc chỉnh sửa nội dung AI trước khi lưu.</p>
-              </section>
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
-              <button
-                type="button"
-                onClick={() => setIsAiReviewModalOpen(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2 font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAiReview}
-                disabled={!isCriteriaSaved}
-                className="rounded-xl bg-[#FF5C00] px-4 py-2 font-bold text-white shadow-xs hover:bg-[#E05200] disabled:bg-slate-300 cursor-pointer disabled:cursor-not-allowed"
-              >
-                Tạo nhận xét
-              </button>
-            </div>
+      {/* ================= MODAL: NHẬN XÉT HỌC SINH ================= */}
+      {isReviewModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-xl space-y-4">
+            <h3 className="font-bold text-lg">Nhận xét buổi học — {reviewStudentName}</h3>
+            <p className="text-sm text-slate-500">Giáo viên nhập nhận xét. Có thể bổ sung sau khi kết thúc buổi; cần nhận xét đủ học sinh để tính công.</p>
+            <textarea className="w-full border rounded-xl p-3 min-h-48" value={reviewText} onChange={e=>setReviewText(e.target.value)} placeholder="Nhập nhận xét cho học sinh..." />
+            <div className="flex justify-end gap-3"><button onClick={()=>setIsReviewModalOpen(false)}>Đóng</button><button className="bg-orange-500 text-white rounded-lg px-4 py-2" onClick={handleSaveReview}>Lưu nhận xét</button></div>
           </div>
         </div>
       )}
+
       {/* ================= CHATBOT TRÒN TRÒN Ở PHÍA BÊN PHẢI (MÀU CAM, THIẾT KẾ ĐẸP, KHÔNG NHẤP NHÁY) ================= */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
         {/* Nút tròn nổi phía bên phải */}

@@ -1,9 +1,9 @@
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
-import { useBusinessValue, useBusinessStatus, waitForBusinessSave } from '../lib/businessPersistence';
+import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
-import { monitoringStudyStatus, minutesEndedEarly } from '../lib/sessionAlerts';
+import { monitoringSessionStatus, type MonitoringSessionState } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -43,7 +43,11 @@ export interface MonitoringSession {
   coverTeacher: string | null;
   attendance: 'ATTENDED' | 'LATE' | 'ABSENT';
   checkinTime: string | null;
-  status: 'DA_HOC' | 'CHUA_HOC' | 'NGHI_HOC' | 'KHAI_GIANG' | 'DAY_THAY' | 'CO_SU_CO';
+  checkinAt?: string | null;
+  checkoutAt?: string | null;
+  hasPersistedStatus?: boolean;
+  feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
+  status: MonitoringSessionState;
   hasIncident: boolean;
   incidentParent: 'GRP-TCH' | 'GRP-STU' | 'GRP-SYS' | null;
   incidentChild: string | null;
@@ -193,15 +197,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             roomUrl: cls.roomLink,
             attendance: teacherAttendance || 'ABSENT',
             checkinTime: activeSession?.checkinTime || existing?.checkinTime || null,
-            status: activeSession?.status === 'Đã hoàn thành'
-              ? 'DA_HOC'
-              : coverAssignment || activeSession?.coverTeacherId
-                ? 'DAY_THAY'
-              : existing?.status === 'DA_HOC'
-                ? 'DA_HOC'
-                : cls.status === 'Chờ khai giảng' && sessionNum === 1
-                  ? 'KHAI_GIANG'
-                  : existing?.status || 'CHUA_HOC',
+            checkinAt: activeSession?.checkinAt || existing?.checkinAt || null,
+            checkoutAt: activeSession?.checkoutAt || existing?.checkoutAt || null,
+            status: activeSession?.checkoutAt ? 'DA_HOC' : existing?.status || 'CHUA_DIEN_RA',
             coverTeacher: coverAssignment
               ? coverAssignment.teacherName
               : activeSession
@@ -212,7 +210,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               code: student.id,
               gradeText: `${student.grade} - ${levels.find(level => level.code === student.level)?.name || student.level}`,
               attendance: activeSession?.attendance?.[student.id] || 'Chưa điểm danh',
-              aiComment: '',
+              aiComment: activeSession?.feedback?.[student.id] || '',
               criteria: []
             }))
           },persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents,users));
@@ -384,6 +382,12 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     const timer = window.setInterval(() => setClockNow(new Date()), 10_000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === 'visible') void refreshBusinessData(); };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, []);
 
   // Lấy mốc thời gian hiện thời để đối chiếu
   const getCurrentEffectiveTime = () => {
@@ -394,7 +398,14 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   // Hàm kiểm tra ca học đã đến giờ nhưng giáo viên chưa vào phòng -> CHUYỂN TRẠNG THÁI ĐỎ LẬP TỨC
-  const studyStatus = (session: MonitoringSession) => session.status === 'NGHI_HOC' ? 'NGHI_HOC' : monitoringStudyStatus(session.sessionDate, session.timeSlot, clockNow, getCurrentEffectiveTime());
+  const studyStatus = (session: MonitoringSession) => testTimeMode === 'REALTIME' && session.hasPersistedStatus
+    ? session.status : monitoringSessionStatus(session, clockNow, getCurrentEffectiveTime());
+  const warningRowClass = (session: MonitoringSession) => {
+    const status = studyStatus(session);
+    if (status === 'CHUA_HOC') return 'bg-rose-100/80 border-l-4 border-l-rose-600 border-b border-rose-200 text-rose-950 hover:bg-rose-100 ring-1 ring-inset ring-rose-300 font-medium';
+    if (status === 'CHUA_HOAN_TAT') return 'bg-orange-100/80 border-l-4 border-l-orange-500 border-b border-orange-200 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-300 font-medium';
+    return 'hover:bg-slate-50/80 border-b border-slate-100';
+  };
 
   const dateFilteredSessions = sessions.filter(s => {
     if (!s.sessionDate) return true;
@@ -454,7 +465,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Lọc Tab 2
   const incidentFilteredSessions = dateFilteredSessions.filter(s => {
     if (!matchesCatalogFilters(s)) return false;
-    if (!s.hasIncident && s.status !== 'CO_SU_CO') return false;
+    if (!s.hasIncident) return false;
     if (incColFilterCode && !s.sessionCode.toLowerCase().includes(incColFilterCode.toLowerCase())) return false;
     if (incColFilterClass && !(s.className.toLowerCase().includes(incColFilterClass.toLowerCase()) || s.classCode.toLowerCase().includes(incColFilterClass.toLowerCase()))) return false;
     if (incColFilterTarget !== 'ALL' && s.incidentParent !== incColFilterTarget) return false;
@@ -483,11 +494,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Thống kê KPI Tab 1
   const kpiTotal = dateFilteredSessions.length;
   const kpiCompleted = dateFilteredSessions.filter(s => studyStatus(s) === 'DA_HOC').length;
-  const kpiIncidents = dateFilteredSessions.filter(s => s.hasIncident || s.status === 'CO_SU_CO' || s.status === 'NGHI_HOC').length;
-  const kpiCover = dateFilteredSessions.filter(s => s.coverTeacher || s.status === 'DAY_THAY').length;
+  const kpiIncidents = dateFilteredSessions.filter(s => s.hasIncident || s.status === 'NGHI_HOC').length;
+  const kpiCover = dateFilteredSessions.filter(s => s.coverTeacher).length;
 
   // Thống kê KPI Tab 2
-  const kpiIncTotal = dateFilteredSessions.filter(s => s.hasIncident || s.status === 'CO_SU_CO').length;
+  const kpiIncTotal = dateFilteredSessions.filter(s => s.hasIncident).length;
   const kpiIncEmergency = dateFilteredSessions.filter(s => s.incidentUrgency === 'EMERGENCY').length;
   const kpiIncTeacher = dateFilteredSessions.filter(s => s.incidentParent === 'GRP-TCH').length;
   const kpiIncStudent = dateFilteredSessions.filter(s => s.incidentParent === 'GRP-STU').length;
@@ -598,15 +609,15 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             if (incParent === 'GRP-TCH') {
               if (incHasCover && incCoverTeacher) {
                 nextCover = coverTeacher?.name || null;
-                nextStatus = 'DAY_THAY';
+
               } else {
                 nextCover = null;
-                nextStatus = incStatus === 'HUY_CA' ? 'NGHI_HOC' : s.status === 'DAY_THAY' ? 'CHUA_HOC' : s.status;
+                nextStatus = incStatus === 'HUY_CA' ? 'NGHI_HOC' : s.status;
               }
             } else {
               nextCover = null;
               if (incStatus === 'HUY_CA' || incChild === 'INC-STU-01') nextStatus = 'NGHI_HOC';
-              else if (s.status === 'DAY_THAY') nextStatus = 'CHUA_HOC';
+
             }
           }
 
@@ -663,22 +674,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Chế độ mô phỏng thời gian phục vụ kiểm thử theo yêu cầu:
   // "ở trong danh mục tạo 1 cca cchotoi từ 12:50 - 13:50 đi, rồi cho 1 giáo viên đđăngkis lịch rảnh đó, rồi tý đến 12:50 giáo viên chưa vào thì màn hình vận hành hiện màu đỏ ô đó đố. để thử nghiệm áy"
-  const earlyEndMinutes = (session: MonitoringSession) => {
-    const cls = classes.find(item => item.code === session.classCode);
-    const normalize = (value: string) => value.replace(/\s/g, '');
-    const active = Object.values(cls?.activeSessions || {}).find(item =>
-      item.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === session.sessionDate &&
-      normalize(item.dateStr.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/)?.[0] || '') === normalize(session.timeSlot));
-    const lesson = persistedLessons.find(item => item.classId === cls?.id && item.date === session.sessionDate &&
-      normalize(timeSlots.find(slot => slot.id === item.timeSlotId)?.timeRange || '') === normalize(session.timeSlot));
-    return minutesEndedEarly(session.sessionDate, session.timeSlot, active?.checkoutAt || lesson?.checkoutAt);
-  };
-
   const isShiftOverdueAndMissing = (s: MonitoringSession) => {
-    if (s.status === 'NGHI_HOC' || studyStatus(s) === 'DA_HOC') return false;
-    if (s.attendance === 'ATTENDED' || s.checkinTime !== null) return false;
-
-    return studyStatus(s) === 'DANG_HOC';
+    return studyStatus(s) === 'CHUA_HOC';
   };
 
   // Xác nhận nhanh giáo viên vào lớp cho 1 ca học cụ thể (Gỡ bỏ màu đỏ)
@@ -854,6 +851,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     <th className="py-3 px-3 min-w-[150px]">THỜI GIAN &amp; NGÀY</th>
                     <th className="py-3 px-3 text-center min-w-[140px]">CHUYÊN CẦN GV</th>
                     <th className="py-3 px-3 text-center min-w-[145px]">TRẠNG THÁI CA</th>
+                    <th className="py-3 px-3 text-center">HÌNH THỨC DẠY</th>
+                    <th className="py-3 px-3 text-center">NHẬN XÉT</th>
                     <th className="py-3 px-3 text-center min-w-[130px]">HÀNH ĐỘNG</th>
                   </tr>
                   {/* Hàng 2: Bộ lọc trực tiếp tại từng cột */}
@@ -917,11 +916,14 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       >
                         <option value="ALL">Tất cả trạng thái</option>
                         <option value="CHUA_HOC">Chưa học</option>
+                        <option value="CHUA_DIEN_RA">Chưa diễn ra</option>
                         <option value="DANG_HOC">Đang học</option>
+                        <option value="CHUA_HOAN_TAT">Chưa hoàn tất</option>
                         <option value="DA_HOC">Đã học</option>
                         <option value="NGHI_HOC">Nghỉ học</option>
                       </select>
                     </th>
+                    <th /><th />
                     <th className="py-2 px-3 text-center">
                       <button
                         type="button"
@@ -937,22 +939,15 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {diaryFilteredSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-2 text-center">
+                      <td colSpan={9} className="px-4 py-2 text-center">
                         <EmptyState title="Không có buổi học nào phù hợp với bộ lọc." />
                       </td>
                     </tr>
                   ) : (
                     diaryFilteredSessions.map(s => {
-                      const earlyMinutes = earlyEndMinutes(s);
                       const isCompleted = studyStatus(s) === 'DA_HOC';
                       const isOverdue = isShiftOverdueAndMissing(s);
-                      const highlightClass = earlyMinutes > 0
-                        ? 'bg-violet-50 border-l-4 border-l-violet-600 border-b border-violet-200 hover:bg-violet-100'
-                        : isOverdue
-                        ? 'bg-rose-100/80 border-l-4 border-l-rose-600 border-b border-rose-200 text-rose-950 hover:bg-rose-100 ring-1 ring-inset ring-rose-300 transition-colors shadow-2xs font-medium'
-                        : s.isJustUpdated
-                        ? 'bg-orange-50/50 border-l-4 border-l-[#FF5C00]'
-                        : 'hover:bg-slate-50/80 border-b border-slate-100';
+                      const highlightClass = warningRowClass(s);
 
                       return (
                         <tr key={s.sessionCode} className={`transition-colors ${highlightClass}`}>
@@ -994,11 +989,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Thời gian & Ngày */}
                           <td className="py-3.5 px-3 text-xs">
-                            {earlyMinutes > 0 ? (
-                              <span title={`K?t th?c tr??c gi? quy ??nh ${earlyMinutes} ph?t`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-100 text-violet-800 font-bold text-[11px] border border-violet-200">
-                                <span className="w-2 h-2 rounded-full bg-violet-500" /> K?t th?c s?m {earlyMinutes} ph?t
-                              </span>
-                            ) : isOverdue ? (
+                            {isOverdue ? (
                               <div className="space-y-1">
                                 <div className="inline-block px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold font-mono text-xs border border-rose-200">
                                   {s.timeSlot}
@@ -1054,35 +1045,33 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Trạng thái ca */}
                           <td className="py-3.5 px-3 text-center">
-                            {studyStatus(s) === 'DANG_HOC' ? (
+                            {studyStatus(s) === 'CHUA_DIEN_RA' ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold text-[11px]">Chưa diễn ra</span>
+                            ) : studyStatus(s) === 'CHUA_HOAN_TAT' ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 font-bold text-[11px] border border-orange-200">Chưa hoàn tất</span>
+                            ) : studyStatus(s) === 'DANG_HOC' ? (
 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200"><span className="w-2 h-2 rounded-full bg-blue-500" /> Đang học</span>
 ) : studyStatus(s) === 'DA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
                                 <span className="w-2 h-2 rounded-full bg-slate-400" /> Đã học
                               </span>
                             ) : studyStatus(s) === 'CHUA_HOC' ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 font-bold text-[11px] border border-teal-200">
-                                <span className="w-2 h-2 rounded-full bg-teal-400" /> Chưa học
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px] border border-rose-200">
+                                <span className="w-2 h-2 rounded-full bg-rose-500" /> Chưa học
                               </span>
                             ) : s.status === 'NGHI_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200">
                                 <span className="w-2 h-2 rounded-full bg-amber-500" /> Nghỉ học
                               </span>
-                            ) : s.status === 'KHAI_GIANG' ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200">
-                                <span className="w-2 h-2 rounded-full bg-rose-500" /> Khai giảng
-                              </span>
-                            ) : s.status === 'DAY_THAY' ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 font-bold text-[11px] border border-purple-200">
-                                <span className="w-2 h-2 rounded-full bg-purple-600" /> Dạy thay
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200">
-                                <span className="w-2 h-2 rounded-full bg-rose-500" /> Có sự cố
-                              </span>
-                            )}
+                            ) : null}
                           </td>
 
+                          <td className="py-3.5 px-3 text-center text-xs font-semibold">{s.coverTeacher ? 'Dạy thay' : 'Chính'}</td>
+                          <td className="py-3.5 px-3 text-center text-xs">{(() => {
+                            const total=s.feedbackProgress?.total ?? s.students.length;
+                            const completed=s.feedbackProgress?.completed ?? s.students.filter(student=>student.aiComment?.trim()).length;
+                            return completed===0 ? 'Chưa nhận xét' : completed===total ? 'Đã đủ '+completed+'/'+total : 'Chưa đủ '+completed+'/'+total;
+                          })()}</td>
                           {/* Hành động */}
                           <td className="py-3.5 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
@@ -1297,13 +1286,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     </tr>
                   ) : (
                     incidentFilteredSessions.map(s => {
-                      const earlyMinutes = earlyEndMinutes(s);
                       const isCompleted = studyStatus(s) === 'DA_HOC';
-                      const highlightClass = earlyMinutes > 0
-                        ? 'bg-violet-50 border-l-4 border-l-violet-600 border-b border-violet-200 hover:bg-violet-100'
-                        : s.isJustUpdated
-                        ? 'bg-orange-50/50 border-l-4 border-l-[#FF5C00]'
-                        : 'hover:bg-slate-50/80 border-b border-slate-100';
+                      const highlightClass = warningRowClass(s);
 
                       const parentItems = INCIDENT_MASTER_DATA[s.incidentParent || ''] || [];
                       const childObj = parentItems.find(c => c.code === s.incidentChild);

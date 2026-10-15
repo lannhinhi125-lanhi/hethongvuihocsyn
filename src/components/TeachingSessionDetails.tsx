@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function TeachingSessionDetails({ cls, session, date, time, readOnly, onSelect, onEnter, enterDisabled, children }: Props) {
-  const { students, teachers, timeSlots, subjects, levels, criteriaCategories } = useApp();
+  const { students, teachers, timeSlots, subjects, levels } = useApp();
   const [lessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 10_000); return () => window.clearInterval(timer); }, []);
@@ -27,7 +27,8 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, onS
   const cover = cls.coverAssignments?.find(item => item.sessionNum === session && item.dateStr === date);
   const teacherId = detail.lesson?.coverTeacherId || cover?.teacherId || detail.active?.coverTeacherId || detail.lesson?.primaryTeacherId || cls.teacherId;
   const teacherName = cover?.teacherName || detail.active?.coverTeacherName || teachers.find(item => item.id === teacherId)?.name || cls.teacherName;
-  const statusLabel = { CHUA_HOC: 'Chưa học', DANG_HOC: 'Đang học', DA_HOC: 'Đã học' }[detail.status];
+  const statusLabel = {CHUA_DIEN_RA:'Chưa diễn ra', CHUA_HOC:'Chưa học', DANG_HOC:'Đang học', CHUA_HOAN_TAT:'Chưa hoàn tất', DA_HOC:'Đã học', NGHI_HOC:'Nghỉ học'}[detail.lifecycleStatus];
+  const studentIds=detail.lesson?.feedbackProgress?.studentIds ?? cls.studentIds;
   const materialLink = (label: string, url: string) => <div className="flex items-center justify-between gap-2"><span>{label}:</span>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-[#FF5C00] hover:underline">Mở tài liệu <ExternalLink className="h-3 w-3" /></a> : <span className="text-slate-400">Chưa có link</span>}</div>;
   return <div className="flex-1 overflow-y-auto flex flex-col md:flex-row">
     <aside className="w-full md:w-80 bg-slate-50/70 p-5 border-r border-slate-200 shrink-0 space-y-6">
@@ -53,7 +54,7 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, onS
           <div className="font-bold text-slate-800">Thông tin giáo viên</div>
           <div className="text-slate-600">Giáo viên: <strong>{teacherName}</strong></div>
           <div className="text-slate-500">Mã: {teacherId || 'Chưa phân công'}</div>
-          {(detail.lesson?.coverTeacherId || cover || detail.active?.coverTeacherId) && <div className="text-purple-700">Giáo viên dạy thay</div>}
+          <div className="text-slate-600">Hình thức dạy: {detail.lesson?.coverTeacherId || cover || detail.active?.coverTeacherId ? 'Dạy thay' : 'Chính'}</div>
           <div className="text-slate-500">Check-in: {detail.lesson?.checkinAt ? new Date(detail.lesson.checkinAt).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Bangkok' }) : detail.active?.checkinTime || 'Chưa vào lớp'}</div>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-2 text-xs">
@@ -77,14 +78,9 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, onS
       {children || <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs">
         <div className="mb-3 flex justify-between font-bold text-slate-800"><span>Danh sách học viên</span><span>{statusLabel}</span></div>
         <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b text-slate-400"><th className="pb-2">Học viên</th><th className="pb-2">Mã học sinh</th><th className="pb-2">Điểm danh</th><th className="pb-2">Nhận xét buổi học</th></tr></thead>
-          <tbody>{cls.studentIds.map(id => { const student = students.find(item => item.id === id); const attendance = detail.active?.attendance?.[id];
-            const selectedCriteria = detail.active?.feedbackCriteria?.[id] || {};
-            const criteria = criteriaCategories.flatMap(group => group.criteria).flatMap(criterion => {
-              const option = criterion.options.find(item => item.id === selectedCriteria[criterion.id]);
-              return option ? [`${criterion.name}: ${option.label}`] : [];
-            });
-            return <tr key={id} className="border-b border-slate-100 align-top"><td className="py-3 font-semibold">{student?.name || id}</td><td className="py-3">{id}</td><td className="py-3">{attendance ? { present: 'Có mặt', late: 'Đi muộn', absent: 'Vắng mặt' }[attendance] : 'Chưa điểm danh'}</td><td className="py-3 whitespace-pre-wrap">{detail.active?.feedback?.[id] || 'Chưa có nhận xét'}{criteria.length > 0 && <div className="mt-2 text-slate-500">{criteria.join(' · ')}</div>}</td></tr>;
-          })}{!cls.studentIds.length && <tr><td colSpan={4} className="py-4 text-center text-slate-400">Lớp chưa có học sinh.</td></tr>}</tbody>
+          <tbody>{studentIds.map(id => { const student = students.find(item => item.id === id); const attendance = detail.active?.attendance?.[id];
+            return <tr key={id} className="border-b border-slate-100 align-top"><td className="py-3 font-semibold">{student?.name || id}</td><td className="py-3">{id}</td><td className="py-3">{attendance ? { present: 'Có mặt', late: 'Đi muộn', absent: 'Vắng mặt' }[attendance] : 'Chưa điểm danh'}</td><td className="py-3 whitespace-pre-wrap">{detail.active?.feedback?.[id] || 'Chưa có nhận xét'}</td></tr>;
+          })}{!studentIds.length && <tr><td colSpan={4} className="py-4 text-center text-slate-400">Lớp chưa có học sinh.</td></tr>}</tbody>
         </table></div>
       </div>}
     </div>

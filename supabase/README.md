@@ -1,5 +1,10 @@
 # Bộ SQL Supabase Vuihoc
 
+**Luồng ca học và nhận xét:** Sau migration khóa ngoại, chạy
+[migrations/20261017_session_workflow.sql](migrations/20261017_session_workflow.sql).
+Dùng duy nhất BUOI_HOC.trangthai; hình thức dạy và tiến độ nhận xét được truy vấn từ các bảng liên quan.
+Xem [SESSION_WORKFLOW.md](SESSION_WORKFLOW.md).
+
 **Liên kết khóa ngoại:** Sau bản bỏ JSONB, chạy
 [migrations/20261016_complete_foreign_keys.sql](migrations/20261016_complete_foreign_keys.sql).
 Danh sách học sinh lớp được truy vấn từ FK lớp trên HOC_SINH; lịch, quyền,

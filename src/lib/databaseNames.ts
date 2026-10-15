@@ -748,6 +748,7 @@ export const APP_DATABASE_FIELDS = {
     "roomUrl": "lienketphonghoc",
     "materials": "hoclieu",
     "status": "trangthai",
+    "feedbackProgress": "tiendonhanxet",
     "checkinAt": "vaolopluc",
     "checkoutAt": "ketthucluc",
     "checkinUserId": "manguoivaolop",

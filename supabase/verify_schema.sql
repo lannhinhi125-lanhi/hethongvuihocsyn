@@ -24,4 +24,6 @@ SELECT * FROM vuihoc."NHAT_KY_NGHIEP_VU" ORDER BY thoigian DESC LIMIT 50;
 -- Lịch rảnh theo tuần; ca theo ngày; công nối nhận xét/sự cố.
 SELECT * FROM vuihoc."LICH_RANH_TUAN" ORDER BY ngaydautuan,magiaovien;
 SELECT * FROM vuihoc."BUOI_HOC" ORDER BY ngayhoc,batdau;
+-- After 20261017_session_workflow.sql:
+-- SELECT madinhdanh,trangthai,vuihoc.tien_do_nhan_xet_ca(madinhdanh) FROM vuihoc."BUOI_HOC" ORDER BY ngayhoc,batdau;
 SELECT * FROM vuihoc."V_CONG_DAY_THEO_CA" ORDER BY kycong,ngayhoc;

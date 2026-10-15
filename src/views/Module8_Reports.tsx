@@ -318,7 +318,7 @@ export const Module8_Reports: React.FC = () => {
   })), [sourceTeachers, sourceSubjects]);
   const rawIncidents = useMemo(() => incidentReportPeriods(reportLessons, reportIncidents), [reportLessons, reportIncidents]);
   const rawMatrix = useMemo(() => sourceSubjects.map(subject => {
-    const completedLessons = reportLessons.filter(lesson => lesson.status === 'HOAN_THANH' &&
+    const completedLessons = reportLessons.filter(lesson => ['DA_HOC','HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status || '') &&
       isDateInRange(lesson.date, { start: detailDateFrom, end: detailDateTo }));
     const classesById = new Map(sourceClasses.map(cls => [cls.id, cls]));
     const subjectLessons = completedLessons.filter(lesson => classesById.get(lesson.classId || '')?.subject === subject.code);

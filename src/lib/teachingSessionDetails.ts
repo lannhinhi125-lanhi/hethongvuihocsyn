@@ -1,6 +1,6 @@
 import type { ClassItem } from '../types';
 import { materialForSessionDate, teachingWeekForDate } from './teacherScheduleMaterials';
-import { monitoringStudyStatus } from './sessionAlerts';
+import { monitoringStudyStatus, monitoringSessionStatus } from './sessionAlerts';
 
 export const teachingScheduleEntries = (cls: ClassItem) => Array.from(
   cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
@@ -29,6 +29,8 @@ export interface TeachingLesson {
   primaryTeacherId?: string;
   coverTeacherId?: string | null;
   checkinAt?: string | null;
+  checkoutAt?: string | null;
+  feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
   title?: string;
   diary?: string;
   materials?: { materialGv?: string; materialHs?: string; exerciseLms?: string; slide?: string; lms?: string };
@@ -48,6 +50,8 @@ export const teachingSessionDetails = (cls: ClassItem, session: number, date: st
   const status = monitoringStudyStatus(date, time, now);
   return {
     active, lesson, status,
+    lifecycleStatus: monitoringSessionStatus({sessionDate:date,timeSlot:time,status:lesson?.status === 'HOAN_THANH' ? 'DA_HOC' : lesson?.status,
+      checkinAt:lesson?.checkinAt || active?.checkinAt,checkinTime:active?.checkinTime,checkoutAt:lesson?.checkoutAt || active?.checkoutAt},now),
     title: material?.title || lesson?.title || active?.title || `Buổi ${session}`,
     slide: material?.slide || lesson?.materials?.materialGv || lesson?.materials?.slide || active?.materialGv || '',
     studentMaterial: lesson?.materials?.materialHs || active?.materialHs || '',

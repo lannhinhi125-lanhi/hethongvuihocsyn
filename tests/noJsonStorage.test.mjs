@@ -36,6 +36,7 @@ try {
  await db.exec(migration);
  await db.exec(migration);
  if(process.env.TEST_FOREIGN_KEYS)await db.exec(file('supabase/migrations/20261016_complete_foreign_keys.sql'));
+ if(process.env.TEST_MONITORING_STATE)await db.exec(file('supabase/migrations/20261017_session_workflow.sql'));
  assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,creditsBefore,'Conversion must not change locked payroll');
  assert.ok((await db.query('SELECT bool_and(dakhoa) yes FROM vuihoc."BANG_CONG_THANG"')).rows[0].yes);
  await db.exec('UPDATE vuihoc."BANG_CONG_THANG" SET dakhoa=false');
@@ -48,12 +49,12 @@ try {
    const saved=next.chitietcahoc[key];
    for(const [field,value] of Object.entries(s)) {
     if(['checkinAt','checkoutAt'].includes(field)) assert.equal(new Date(saved[field]).getTime(),new Date(value).getTime());
-    else if(field!=='coverTeacherName') assert.deepEqual(saved[field],value,`${cls.madinhdanh}.${key}.${field}`);
+    else if(field!=='coverTeacherName' && !(process.env.TEST_MONITORING_STATE && ['status','feedback'].includes(field))) assert.deepEqual(saved[field],value,`${cls.madinhdanh}.${key}.${field}`);
    }
   }
  }
  for(const teacher of before.teachers)assert.deepEqual(after.teachers.find(t=>t.madinhdanh===teacher.madinhdanh).diemtieuchi,teacher.diemtieuchi);
- const clean=row=>Object.fromEntries(Object.entries(row).filter(([k])=>k!=='ngaytao'));
+ const clean=row=>Object.fromEntries(Object.entries(row).filter(([k])=>!['ngaytao','tiendonhanxet'].includes(k)));
  let cls=clean(after.classes.find(c=>c.madinhdanh==='CLS-001'));
  const material={month:'11/2026',week:'Week 1',session:1,title:'Column storage',slide:'https://example.com/slide',lms:'https://example.com/lms'};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'classes',before:cls,after:{...cls,hoclieu:[material]}}]]);
@@ -69,18 +70,26 @@ try {
  fresh=await rpc('vuihoc_business_data',[admin.token]);
  cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
  assert.deepEqual(cls.hoclieu,[]);
- const session={sessionNum:12,dateStr:'2026-11-02 18:00 - 19:30',title:'Saved session',status:'Đang học',
-  materialGv:'slide',materialHs:'student',exerciseLms:'lms',checkinAt:'2026-11-02T18:00:00+07:00',attendance:{},feedback:{}};
+ const session={sessionNum:12,dateStr:'2002-11-02 18:00 - 19:30',title:'Saved session',status:'Đang học',
+  materialGv:'slide',materialHs:'student',exerciseLms:'lms',checkinAt:'2002-11-02T18:00:00+07:00',attendance:{},feedback:{}};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'classes',before:cls,after:{...cls,chitietcahoc:{...cls.chitietcahoc,12:session}}}]]);
  fresh=await rpc('vuihoc_business_data',[admin.token]);
  cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
  assert.equal(cls.chitietcahoc[12].title,session.title);
  assert.equal((await db.query('SELECT tieude FROM vuihoc."CHI_TIET_CA_LOP" WHERE malop=$1 AND khoaca=$2',[cls.madinhdanh,'12'])).rows[0].tieude,session.title);
- const complete={...cls.chitietcahoc[12],status:'Đã hoàn thành',checkoutAt:'2026-11-02T19:30:00+07:00',
+ const complete={...cls.chitietcahoc[12],status:'Đã hoàn thành',checkoutAt:'2002-11-02T19:30:00+07:00',
   feedback:Object.fromEntries(cls.danhsachmahocsinh.map(id=>[id,'Saved comment'])),attendance:Object.fromEntries(cls.danhsachmahocsinh.map(id=>[id,'present']))};
+ if(process.env.TEST_MONITORING_STATE) {
+  await rpc('vuihoc_save_business',[admin.token,[{dataset:'classes',before:cls,after:{...cls,chitietcahoc:{...cls.chitietcahoc,12:{...complete,feedback:{}}}}}]]);
+  fresh=await rpc('vuihoc_business_data',[admin.token]);cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
+  assert.equal(cls.chitietcahoc[12].status,'Đã hoàn thành');
+  const emptyLesson=fresh.dated_lessons.find(l=>l.malop===cls.madinhdanh && l.ngayhoc==='2002-11-02');
+  assert.equal(emptyLesson.tiendonhanxet.completed,0);
+  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=$1',[emptyLesson.madinhdanh])).rows[0].n,0);
+ }
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'classes',before:cls,after:{...cls,chitietcahoc:{...cls.chitietcahoc,12:complete}}}]]);
  const completed=(await db.query('SELECT b.madinhdanh,b.trangthai FROM vuihoc."CHI_TIET_CA_LOP" c JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi WHERE c.malop=$1 AND c.khoaca=$2',[cls.madinhdanh,'12'])).rows[0];
- assert.equal(completed.trangthai,'HOAN_THANH');
+ assert.equal(completed.trangthai,process.env.TEST_MONITORING_STATE?'DA_HOC':'HOAN_THANH');
  assert.ok((await db.query('SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=$1',[completed.madinhdanh])).rows[0].n>0);
  fresh=await rpc('vuihoc_business_data',[admin.token]);cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
  const previous=fresh.teacher_evaluations[0];
@@ -93,15 +102,25 @@ try {
  const teacherLogin=await rpc('vuihoc_login',[account.tendangnhap,account.matkhau]);
  assert.ok(teacherLogin.token);
  const teacherData=await rpc('vuihoc_business_data',[teacherLogin.token]);
- const ownClass=clean(teacherData.classes.find(c=>c.madinhdanh===cls.madinhdanh));
+ let ownClass=clean(teacherData.classes.find(c=>c.madinhdanh===cls.madinhdanh));
  assert.ok(ownClass.chitietcahoc[12]);
+ if(process.env.TEST_MONITORING_STATE) {
+  const student=Object.keys(ownClass.chitietcahoc[12].feedback)[0];
+  const changed={...ownClass,chitietcahoc:{...ownClass.chitietcahoc,12:{...ownClass.chitietcahoc[12],feedback:{...ownClass.chitietcahoc[12].feedback,[student]:'Giáo viên sửa sau checkout'}}}};
+  await rpc('vuihoc_save_business',[teacherLogin.token,[{dataset:'classes',before:ownClass,after:changed}]]);
+  const savedTeacher=await rpc('vuihoc_business_data',[teacherLogin.token]);
+  ownClass=clean(savedTeacher.classes.find(c=>c.madinhdanh===cls.madinhdanh));
+  assert.equal(savedTeacher.classes.find(c=>c.madinhdanh===cls.madinhdanh).chitietcahoc[12].feedback[student],'Giáo viên sửa sau checkout');
+  fresh=await rpc('vuihoc_business_data',[admin.token]);cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
+ }
+
  await assert.rejects(rpc('vuihoc_save_business',[teacherLogin.token,[{dataset:'classes',before:ownClass,after:{...ownClass,hoclieu:[material]}}]]),/quyền/);
  const substitute=before.teachers.find(t=>t.madinhdanh!==ownTeacher.madinhdanh&&t.mamonhoc===ownTeacher.mamonhoc);
- const cover={sessionNum:13,dateStr:'2026-11-03 18:00 - 19:30',teacherId:substitute.madinhdanh,teacherName:substitute.hoten};
+ const cover={sessionNum:13,dateStr:'2002-11-03 18:00 - 19:30',teacherId:substitute.madinhdanh,teacherName:substitute.hoten};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'classes',before:cls,after:{...cls,phancongdaythay:[cover]}}]]);
  fresh=await rpc('vuihoc_business_data',[admin.token]);cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
  assert.deepEqual(cls.phancongdaythay,[cover]);
- await rpc('vuihoc_report_lesson_incident',[admin.token,cls.malophoc,'2026-11-03','18:00 - 19:30','INC-TCH-03','No JSON incident test']);
+ await rpc('vuihoc_report_lesson_incident',[admin.token,cls.malophoc,'2002-11-03','18:00 - 19:30','INC-TCH-03','No JSON incident test']);
  const lesson=clean((await rpc('vuihoc_business_data',[admin.token])).dated_lessons.find(l=>l.madinhdanh===completed.madinhdanh));
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'dated_lessons',before:lesson,after:{...lesson,hoclieu:{slide:'slide-url',materialHs:'student-url',lms:'exercise-url'}}}]]);
  const lessonAfter=(await rpc('vuihoc_business_data',[admin.token])).dated_lessons.find(l=>l.madinhdanh===lesson.madinhdanh);
@@ -109,8 +128,8 @@ try {
  const refreshedTeacher=await rpc('vuihoc_business_data',[teacherLogin.token]);
  const teacherClass=clean(refreshedTeacher.classes.find(c=>c.madinhdanh===cls.madinhdanh));
  await rpc('vuihoc_save_business',[teacherLogin.token,[{dataset:'classes',before:teacherClass,after:{...teacherClass,
-  chitietcahoc:{...teacherClass.chitietcahoc,14:{sessionNum:14,dateStr:'2026-11-04 18:00 - 19:30',title:'Teacher check-in',
-   status:'Đang học',checkinAt:'2026-11-04T18:00:00+07:00',checkinUserId:ownTeacher.manguoidung,
+  chitietcahoc:{...teacherClass.chitietcahoc,14:{sessionNum:14,dateStr:'2002-11-04 18:00 - 19:30',title:'Teacher check-in',
+   status:'Đang học',checkinAt:'2002-11-04T18:00:00+07:00',checkinUserId:ownTeacher.manguoidung,
    materialGv:'',materialHs:'',exerciseLms:''}}}}]]);
  assert.equal((await rpc('vuihoc_business_data',[teacherLogin.token])).classes.find(c=>c.madinhdanh===cls.madinhdanh).chitietcahoc[14].title,'Teacher check-in');
  const newTeacher=await rpc('vuihoc_create_teacher',[admin.token,{

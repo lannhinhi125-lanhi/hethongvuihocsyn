@@ -11,6 +11,29 @@ export const hasSessionStartPassed = (sessionDate: string, timeSlot: string, now
   return Number.isFinite(hour) && Number.isFinite(minute) && hour * 60 + minute >= startHour * 60 + startMinute;
 };
 
+export type MonitoringSessionState = 'CHUA_DIEN_RA' | 'CHUA_HOC' | 'DANG_HOC' | 'CHUA_HOAN_TAT' | 'DA_HOC' | 'NGHI_HOC';
+
+/** Scheduled time alone never proves that a teacher taught or completed a lesson. */
+export const monitoringSessionStatus = (session: {
+  sessionDate: string;
+  timeSlot: string;
+  status?: string;
+  attendance?: string;
+  checkinTime?: string | null;
+  checkinAt?: string | null;
+  checkoutAt?: string | null;
+}, now: Date, effectiveTime?: string): MonitoringSessionState => {
+  if (session.status === 'NGHI_HOC' || session.status === 'HUY') return 'NGHI_HOC';
+  if (session.status === 'DA_HOC') return 'DA_HOC';
+  const phase = monitoringStudyStatus(session.sessionDate, session.timeSlot, now, effectiveTime);
+  if (phase === 'CHUA_HOC') return 'CHUA_DIEN_RA';
+  const checkedIn = Boolean(session.checkinAt || session.checkinTime?.trim() ||
+    session.attendance === 'ATTENDED' || session.attendance === 'LATE');
+  if (!checkedIn) return 'CHUA_HOC';
+  if (session.checkoutAt) return 'DA_HOC';
+  return phase === 'DANG_HOC' ? 'DANG_HOC' : 'CHUA_HOAN_TAT';
+};
+
 export const minutesEndedEarly = (date: string, time: string, checkoutAt?: string | null): number => {
   const match = time.match(/^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$/);
   if (!checkoutAt || !match || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return 0;

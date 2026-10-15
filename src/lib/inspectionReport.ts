@@ -44,7 +44,7 @@ export function inspectionReportRows(
     const avg = Number((records.reduce((sum, record) => sum + Number(record.overallScore), 0) / records.length).toFixed(2));
     const rankCode = avg >= 9 ? 'A' : avg >= 8 ? 'B' : avg >= 7 ? 'C' : 'D';
     const taught = lessons.filter(lesson =>
-      (lesson.coverTeacherId || lesson.primaryTeacherId) === teacher.id && lesson.status === 'HOAN_THANH' &&
+      (lesson.coverTeacherId || lesson.primaryTeacherId) === teacher.id && ['DA_HOC','HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status || '') &&
       (!range.start || reportCreationDate(lesson.startsAt) >= range.start) &&
       (!range.end || reportCreationDate(lesson.startsAt) <= range.end)
     );
