@@ -40,28 +40,28 @@ export interface TeachingLesson {
 }
 
 export const teachingSessionDetails = (cls: ClassItem, session: number, date: string, time: string,
-  lessons: TeachingLesson[], slots: { id: string; timeRange: string }[], now: Date) => {
+  lessons: TeachingLesson[], slots: { id: string; timeRange: string }[], now: Date, lessonId?: string) => {
   const normalize = (value: string) => value.replace(/\s/g, '');
-  const lesson = lessons.find(item => item.classId === cls.id && item.date === date &&
+  const lesson = lessonId ? lessons.find(item => item.id === lessonId && item.classId === cls.id) : lessons.find(item => item.classId === cls.id && item.date === date &&
     normalize(slots.find(slot => slot.id === item.timeSlotId)?.timeRange || '') === normalize(time));
-  const stored = cls.activeSessions?.[session];
+  const stored = lessonId ? undefined : cls.activeSessions?.[session];
   const active = stored?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === date &&
     (!stored.dateStr.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/) ||
       normalize(stored.dateStr.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/)![0]) === normalize(time)) ? stored : undefined;
-  const material = materialForSessionDate(cls.materials || [], session, date);
-  const roomUrl = lesson?.roomUrl || cls.roomLink;
+  const material = lessonId ? undefined : materialForSessionDate(cls.materials || [], session, date);
+  const roomUrl = lessonId ? lesson?.roomUrl || '' : lesson?.roomUrl || cls.roomLink;
   const status = monitoringStudyStatus(date, time, now);
   const ended=Boolean(lesson?.checkoutAt || active?.checkoutAt);
   return {
     active, lesson, status,
     lifecycleStatus: monitoringSessionStatus({sessionDate:date,timeSlot:time,status:lesson?.status === 'HOAN_THANH' ? 'DA_HOC' : lesson?.status,
       checkinAt:lesson?.checkinAt || active?.checkinAt,checkinTime:active?.checkinTime,checkoutAt:lesson?.checkoutAt || active?.checkoutAt},now),
-    title: material?.title || lesson?.title || active?.title || `Buổi ${session}`,
-    slide: material?.slide || lesson?.materials?.materialGv || lesson?.materials?.slide || active?.materialGv || '',
+    title: lesson?.title || lesson?.inspectionData?.title || active?.title || material?.title || `Buổi ${session}`,
+    slide: lesson?.materials?.materialGv || lesson?.materials?.slide || active?.materialGv || material?.slide || '',
     studentMaterial: lesson?.materials?.materialHs || active?.materialHs || '',
-    exercise: material?.lms || lesson?.materials?.exerciseLms || lesson?.materials?.lms || active?.exerciseLms || '',
-    roomUrl, recordingUrl: lesson?.recordingUrl || roomUrl,
+    exercise: lesson?.materials?.exerciseLms || lesson?.materials?.lms || active?.exerciseLms || material?.lms || '',
+    roomUrl, recordingUrl: lesson?.recordingUrl || '',
     actionLabel: ended || status === 'DA_HOC' ? 'Xem lại bản ghi' : 'Vào học',
-    actionUrl: ended || status === 'DA_HOC' ? lesson?.recordingUrl || roomUrl : roomUrl
+    actionUrl: ended || status === 'DA_HOC' ? lesson?.recordingUrl || '' : roomUrl
   };
 };

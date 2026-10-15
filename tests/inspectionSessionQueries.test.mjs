@@ -46,4 +46,40 @@ try {
  const lesson=data.dated_lessons[0];
  await assert.rejects(rpc('vuihoc_save_business',[admin.token,[{dataset:'dated_lessons',before:lesson,after:lesson}]]),/chỉ được truy vấn/);
  console.log('PASS: exact lesson FK joins for attendance, feedback and roster; read-only API; idempotent migration; no stored JSON.');
-} finally {await db.close();}
+ if(process.env.TEST_REMOVE_SAMPLE_LESSONS){
+  const cleanup=file('supabase/migrations/20261024_remove_sample_lessons.sql');
+  assert.ok(cleanup.includes('DO $cleanup$'));
+  assert.ok(!cleanup.includes('CREATE TEMP TABLE'),'Cleanup must run in one SQL statement without temporary tables');
+  const reports=(await db.query('SELECT madinhdanh FROM vuihoc."BIEN_BAN_DU_GIO" ORDER BY madinhdanh')).rows;
+  const classesBefore=(await db.query('SELECT madinhdanh FROM vuihoc."LOP_HOC" ORDER BY madinhdanh')).rows;
+  const studentsBefore=(await db.query('SELECT * FROM vuihoc."HOC_SINH" ORDER BY madinhdanh')).rows;
+  // An actual lesson in an originally seeded class must survive cleanup.
+  const base=(await db.query('SELECT * FROM vuihoc."BUOI_HOC" WHERE malop=$1 LIMIT 1',['CLS-002'])).rows[0];
+  await db.query('INSERT INTO vuihoc."BUOI_HOC"(madinhdanh,malop,ngayhoc,makhunggio,batdau,ketthuc,magiaovienchinh,lienketphonghoc) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+   ['REAL-LESSON',base.malop,'2026-11-02',base.makhunggio,base.batdau,base.ketthuc,base.magiaovienchinh,'https://zoom.us/j/real']);
+  await db.exec("UPDATE vuihoc.\"BANG_CONG_THANG\" SET dakhoa=true WHERE kycong='2026-10'");
+  await assert.rejects(db.exec(cleanup),/đã khóa/);await db.exec('ROLLBACK');
+  await db.exec("UPDATE vuihoc.\"BANG_CONG_THANG\" SET dakhoa=false WHERE kycong='2026-10'");
+  await db.exec(cleanup);await db.exec(cleanup);
+  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."BUOI_HOC" WHERE madinhdanh=$1',['REAL-LESSON'])).rows[0].n,1);
+  assert.equal((await db.query("SELECT count(*)::int n FROM vuihoc.\"BUOI_HOC\" WHERE lienketphonghoc LIKE 'https://example.com/%'")).rows[0].n,0);
+  assert.deepEqual((await db.query('SELECT madinhdanh FROM vuihoc."BIEN_BAN_DU_GIO" ORDER BY madinhdanh')).rows,reports);
+  assert.deepEqual((await db.query('SELECT madinhdanh FROM vuihoc."LOP_HOC" ORDER BY madinhdanh')).rows,classesBefore);
+  assert.deepEqual((await db.query('SELECT * FROM vuihoc."HOC_SINH" ORDER BY madinhdanh')).rows,studentsBefore);
+  console.log('PASS: sample lesson cleanup; real lesson and reports preserved; locked payroll rollback; safe rerun.');
+  await db.exec(`INSERT INTO vuihoc."BIEN_BAN_DU_GIO"
+   SELECT (jsonb_populate_record(NULL::vuihoc."BIEN_BAN_DU_GIO",to_jsonb(e)||jsonb_build_object(
+    'madinhdanh','REAL-EVALUATION','mabienban','REAL-EVALUATION','nhanxetchung','Actual evaluation'))).*
+   FROM vuihoc."BIEN_BAN_DU_GIO" e WHERE e.magiaovien='GV-001' LIMIT 1`);
+  const realEvaluation=(await db.query('SELECT * FROM vuihoc."BIEN_BAN_DU_GIO" WHERE madinhdanh=$1',['REAL-EVALUATION'])).rows;
+  assert.equal(realEvaluation.length,1);
+  const cleanupEvaluations=file('supabase/migrations/20261025_remove_sample_evaluations.sql');
+  await db.exec(cleanupEvaluations);await db.exec(cleanupEvaluations);
+  assert.deepEqual((await db.query('SELECT * FROM vuihoc."BIEN_BAN_DU_GIO" WHERE madinhdanh=$1',['REAL-EVALUATION'])).rows,realEvaluation);
+  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."BIEN_BAN_DU_GIO" WHERE madinhdanh IN ($1,$2)',['EVAL-GV-001','EVAL-GV-002'])).rows[0].n,0);
+  const summary=(await db.query('SELECT trangthaidanhgia,diemdanhgia,nhanxetdanhgia,diemtc1 FROM vuihoc."GIAO_VIEN" WHERE madinhdanh=$1',['GV-002'])).rows[0];
+  assert.deepEqual(summary,{trangthaidanhgia:'UNSCORED',diemdanhgia:null,nhanxetdanhgia:'',diemtc1:null});
+  console.log('PASS: sample evaluations removed; real evaluation preserved; stale status/score cleared; safe rerun.');
+ }
+} catch(error) { console.error(error.message, error.detail || '', error.where || ''); process.exitCode=1; }
+finally {await db.close();}

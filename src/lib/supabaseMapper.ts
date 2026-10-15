@@ -97,6 +97,10 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     result.levelName = find('teaching_categories','madinhdanh',row.macaphoc)?.tencaphoc ?? '';
     result.statusLabel = ({DANG_DAY:'Đang dạy',CHO_LOP:'Chờ lớp',TAM_NGUNG:'Tạm ngưng'} as Record<string,string>)[String(result.status)] ?? '';
     // Inspection summaries come from the queried reports; saving a report does not edit the teacher.
+    result.evalStatus = 'UNSCORED';
+    result.evalScore = null;
+    result.evalComment = '';
+    result.evalCriteriaScores = undefined;
     if (Array.isArray(result.evaluationReports) && result.evaluationReports.length) {
       const latest = result.evaluationReports[0];
       result.evalStatus = 'SCORED';

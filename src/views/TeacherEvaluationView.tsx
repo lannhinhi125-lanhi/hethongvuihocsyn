@@ -1,3 +1,4 @@
+import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { PaginatedList } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
@@ -28,7 +29,7 @@ import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
 export const TeacherEvaluationView: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { currentUser, teachers, classes, showToast, users, students, timeSlots } = useApp();
+  const { currentUser, teachers, classes, showToast, users, timeSlots } = useApp();
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const [, setEvaluations] = useBusinessValue<EvaluationRecord[]>('teacher_evaluations');
   const [savingEvaluation, setSavingEvaluation] = useState(false);
@@ -47,12 +48,6 @@ export const TeacherEvaluationView: React.FC = () => {
   const [viewingRecord, setViewingRecord] = useState<EvaluationRecord | null>(null);
 
   const viewingSource = inspectionSession(viewingRecord?.lessonId || viewingRecord?.sessionCode || '', classes, datedLessons, timeSlots);
-  const viewingDetail = viewingSource?.lesson.materials;
-  const viewingSession = viewingSource?.lesson.inspectionData;
-  const viewingStudentIds = viewingSession?.studentIds || viewingSource?.lesson.feedbackProgress?.studentIds || [];
-  const viewingStudents = students.filter(s => viewingStudentIds.includes(s.id));
-  const viewingRoomLink = viewingSource?.session.roomLink || '';
-  const viewingRecordingLink = viewingSource?.session.recordLink || '';
 
   // Modal lập biên bản đánh giá buổi học mới
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -378,94 +373,14 @@ export const TeacherEvaluationView: React.FC = () => {
             </div>
 
             {/* Nội dung 2 CỘT */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+            <div className="flex flex-col flex-1 overflow-y-auto divide-y divide-slate-200">
               {/* ================= CỘT TRÁI (7/12 CỘT): CHI TIẾT CA DẠY CỦA GIA SƯ ================= */}
-              <div className="lg:col-span-7 p-5 space-y-4 overflow-y-auto bg-slate-50/60">
-                {/* Thanh tiêu đề nhỏ cột trái */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <Video className="w-4 h-4 text-indigo-600" />
-                    <span>Chi tiết Ca Dạy &amp; Màn Hình Buổi Học của Gia Sư</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={viewingRoomLink || undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold border border-indigo-200 flex items-center gap-1 transition-colors"
-                      title="Mở phòng học Zoom trực tiếp"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      <span>Vào phòng học</span>
-                    </a>
-                    <a
-                      href={viewingRecordingLink || undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#FF5C00] text-[11px] font-bold border border-orange-200 flex items-center gap-1 transition-colors"
-                      title="Mở link video gốc"
-                    >
-                      <PlayCircle className="w-3 h-3" />
-                      <span>Video gốc</span>
-                    </a>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                  {viewingRecordingLink ? <a href={viewingRecordingLink} target="_blank" rel="noreferrer" className="text-indigo-600 underline">Mở bản ghi buổi học</a> : "Chưa có bản ghi buổi học."}
-                </div>
-                {/* 3 Thẻ Thông tin Ca học chuẩn Tutor Screen */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1 text-xs">
-                    <span className="font-bold text-slate-800 block">Thời gian ca dạy</span>
-                    <div className="text-slate-600 font-medium">{viewingSource?.lesson.date || viewingRecord.sessionDate || 'Chưa có ngày ca dạy'}</div>
-                    <div className="text-[11px] font-mono text-indigo-700 font-semibold">{viewingSource?.session.slot || viewingRecord.timeSlot}</div>
-                    <div className="text-[10px] text-slate-500 font-medium">Check-in: {viewingSource?.session.checkin || 'Chưa có dữ liệu'}</div>
-                  </div>
-
-                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-slate-800 block">Phòng học Zoom/ClassIn</span>
-                      <div className="text-[11px] text-slate-500 mt-0.5 break-all">{viewingRoomLink || 'Chưa có link phòng học'}</div>
-                    </div>
-                    <a
-                      href={viewingRoomLink || undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 py-1.5 px-3 bg-[#FF5C00] hover:bg-[#E05200] text-white text-[11px] font-extrabold rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
-                    >
-                      <span>VÀO LỚP</span>
-                      <ChevronRight className="w-3.5 h-3.5 font-bold" />
-                    </a>
-                  </div>
-
-                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1 text-xs">
-                    <span className="font-bold text-slate-800 block">Tài liệu / LMS</span>
-                    <div className="text-[11px] flex items-center justify-between">
-                      <span className="text-slate-500">Slide GV:</span>
-                      <span className="text-indigo-600 font-medium break-all">{viewingDetail?.materialGv || viewingDetail?.slide || 'Chưa có tài liệu'}</span>
-                    </div>
-                    <div className="text-[11px] flex items-center justify-between">
-                      <span className="text-slate-500">Bài tập HS:</span>
-                      <span className="text-indigo-600 font-medium break-all">{viewingDetail?.materialHs || 'Chưa có tài liệu'}</span>
-                    </div>
-                    <div className="text-[11px] flex items-center justify-between">
-                      <span className="text-slate-500">LMS:</span>
-                      <span className="text-emerald-600 font-medium break-all">{viewingDetail?.exerciseLms || viewingDetail?.lms || 'Chưa có dữ liệu'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-                  <h5 className="font-bold text-sm">Học sinh và điểm danh</h5>
-                  {!viewingStudents.length && <p className="text-xs text-slate-500">Chưa có dữ liệu học sinh cho ca dạy.</p>}
-                  {viewingStudents.map(student => <div key={student.id} className="rounded-lg border border-slate-100 p-3 text-xs">
-                    <p className="font-semibold">{student.name} <span className="font-normal text-slate-400">{student.id}</span></p>
-                    <p className="mt-1 text-slate-600">{({ present: "Có mặt", late: "Đi muộn", absent: "Vắng mặt" } as Record<string, string>)[viewingSession?.attendance?.[student.id] || ""] || "Chưa điểm danh"}</p>
-                    <p className="mt-1 text-slate-500">{viewingSession?.feedback?.[student.id] || "Chưa có nhận xét."}</p>
-                  </div>)}
-                </div>
-              </div>
+              {viewingSource ? <TeachingSessionDetails
+                cls={viewingSource.cls} session={viewingSource.sessionNum || 0}
+                date={viewingSource.lesson.date} time={viewingSource.session.slot}
+                lessonId={viewingSource.lesson.id} readOnly hideFeedback hideWeekNavigation
+                onSelect={() => {}}
+              /> : <div className="p-5 text-sm text-slate-500">Chưa có dữ liệu buổi học gốc.</div>}
               {/* ================= CỘT PHẢI (5/12 CỘT): BIÊN BẢN & PHIẾU CHẤM DỰ GIỜ ================= */}
               <div className="lg:col-span-5 p-5 bg-white overflow-y-auto space-y-4 flex flex-col justify-between">
                 <div className="space-y-4">

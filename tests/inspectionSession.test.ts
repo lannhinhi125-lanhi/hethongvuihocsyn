@@ -38,6 +38,10 @@ assert.deepEqual({classes,lessons,slots},before,'Viewing must never mutate lesso
 const teacher = fromSupabaseRow('teachers', {madinhdanh:'T2',trangthaidanhgia:'UNSCORED',baocaodanhgia:[{overallScore:9,generalComment:'Good',criteriaScores:{tc1:9,tc2:9,tc3:9}}]});
 assert.equal(teacher.evalStatus,'SCORED');
 assert.equal(teacher.evalScore,'9.0');
+const unscored = fromSupabaseRow('teachers',{madinhdanh:'T2',trangthaidanhgia:'SCORED',diemdanhgia:'9.0',nhanxetdanhgia:'Stale seed',baocaodanhgia:[]});
+assert.equal(unscored.evalStatus,'UNSCORED');
+assert.equal(unscored.evalScore,null);
+assert.equal(unscored.evalComment,'');
 const saved = toSupabaseRow('teacher_evaluations', {id:'E1',lessonId:result.lesson.id,teacherId:'T2',classCode:result.cls.code,
   className:result.cls.name,sessionNum:result.sessionNum,timeSlot:result.session.slot,sessionDate:result.lesson.date});
 assert.equal(saved.mabuoi,'MATH-2026-10-15-2');
