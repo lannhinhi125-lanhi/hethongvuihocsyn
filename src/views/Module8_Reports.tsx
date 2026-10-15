@@ -1,3 +1,4 @@
+import { classifyClassGrowth,classGrowthLabels, type ClassGrowthKind } from '../lib/classGrowth';
 import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -257,6 +258,7 @@ export const Module8_Reports: React.FC = () => {
   const [clsFilterSubject, setClsFilterSubject] = useState('ALL');
   const [clsFilterModel, setClsFilterModel] = useState('ALL');
   const [clsFilterStatus, setClsFilterStatus] = useState('ALL');
+  const [clsGrowthFilter,setClsGrowthFilter]=useState<ClassGrowthKind|'ALL'>('NEW');
 
   // 2. Bộ lọc riêng cho Báo cáo Học sinh mới
   const [stuFilterCode, setStuFilterCode] = useState('');
@@ -298,7 +300,7 @@ export const Module8_Reports: React.FC = () => {
   const subjectLabel = (code: string) => sourceSubjects.find(item => item.code === code)?.name || code;
   const subjectCode = (code: string) => code === 'SUB-MATH' ? 'TOAN' : code === 'SUB-ENG' ? 'ENG' : code;
   const rawClasses = useMemo(() => sourceClasses.map(c => ({
-    code: c.code, name: c.name, date: creationDate(c), grade: c.grade, gradeNum: Number(c.grade.match(/\d+/)?.[0] || 0),
+    studentIds:c.studentIds, code: c.code, name: c.name, date: creationDate(c), grade: c.grade, gradeNum: Number(c.grade.match(/\d+/)?.[0] || 0),
     subject: subjectLabel(c.subject), subjectCode: subjectCode(c.subject),
     model: sourceModels.find(item => item.code === c.model)?.name || c.model, modelCode: c.model,
     students: c.studentIds.length + ' / ' + c.maxStudents + ' HS',
@@ -353,9 +355,15 @@ export const Module8_Reports: React.FC = () => {
   // DỮ LIỆU ĐÃ QUA BỘ LỌC TỪNG PHẦN (INDEPENDENT DATA FILTERING)
   // =========================================================================
 
+  const growthStudents=useMemo(()=>new Map(sourceStudents.map(student=>[student.id,student])),[sourceStudents]);
+  const classifyGrowth=(item:typeof rawClasses[number],range:{start:string;end:string})=>classifyClassGrowth(item.studentIds,growthStudents,range);
+  const classifiedClasses=rawClasses.map(item=>({...item,...classifyGrowth(item,clsDateRange)}));
+  const dashboardGrowthClasses=rawClasses.filter(item=>classifyGrowth(item,dashDateRange).kind==='NEW');
+
   // 1. Dữ liệu lọc riêng cho Lớp học mới
   const filteredClasses = useMemo(() => {
-    return rawClasses.filter(c => {
+    return classifiedClasses.filter(c => {
+      if(clsGrowthFilter!=='ALL' && c.kind!==clsGrowthFilter)return false;
       if (!isDateInRange(c.date, clsDateRange)) return false;
 
       if (clsFilterCode && !c.code.toLowerCase().includes(clsFilterCode.toLowerCase())) return false;
@@ -369,7 +377,7 @@ export const Module8_Reports: React.FC = () => {
       }
       return true;
     });
-  }, [rawClasses, clsDateRange, clsFilterCode, clsFilterName, clsFilterGrade, clsFilterSubject, clsFilterModel, clsFilterStatus]);
+  }, [rawClasses, sourceStudents, clsDateRange, clsFilterCode, clsFilterName, clsFilterGrade, clsFilterSubject, clsFilterModel, clsFilterStatus,clsGrowthFilter]);
 
   // 2. Dữ liệu lọc riêng cho Học sinh mới
   const filteredStudents = useMemo(() => {
@@ -459,7 +467,7 @@ export const Module8_Reports: React.FC = () => {
   }, [reportLessons, reportIncidents, reportEvaluations, rawClasses, rawStudents, dashDateRange, dashSearchMetric]);
 
   const dashboardRows = useMemo(() => dashboardIncidents.map(incident => {
-    const periodClasses = rawClasses.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
+    const periodClasses = dashboardGrowthClasses.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
     const periodStudents = rawStudents.filter(item => item.date >= incident.dateFrom && item.date <= incident.dateTo && isDateInRange(item.date, dashDateRange));
     const fullClasses = periodClasses.filter(item => item.status.toLowerCase().includes('đủ trần')).length;
     const periodInspection = inspectionReportRows(sourceTeachers, reportEvaluations, reportLessons, {
@@ -477,7 +485,7 @@ export const Module8_Reports: React.FC = () => {
       occupancyRate: periodClasses.length ? Math.round((fullClasses / periodClasses.length) * 100) : 0,
       avgInspectionScore
     };
-  }), [dashboardIncidents, rawClasses, rawStudents, sourceTeachers, reportEvaluations, reportLessons, dashDateRange.start, dashDateRange.end]);
+  }), [dashboardIncidents, rawClasses, sourceStudents, rawStudents, sourceTeachers, reportEvaluations, reportLessons, dashDateRange.start, dashDateRange.end]);
 
   const dashboardIncidentStats = useMemo(() => {
     const totalSessions = dashboardIncidents.reduce((total, incident) => total + incident.total, 0);
@@ -497,7 +505,7 @@ export const Module8_Reports: React.FC = () => {
     };
   }, [dashboardIncidents]);
 
-  const dashboardClasses = rawClasses.filter(item => isDateInRange(item.date, dashDateRange));
+  const dashboardClasses = dashboardGrowthClasses.filter(item => isDateInRange(item.date, dashDateRange));
   const dashboardStudents = rawStudents.filter(item => isDateInRange(item.date, dashDateRange));
   const dashboardAvailableClasses = dashboardClasses.filter(item => item.status.toLowerCase().includes('trống'));
   const dashboardWaitingStudents = dashboardStudents.filter(item => item.status.toLowerCase().includes('ghép'));
@@ -514,7 +522,7 @@ export const Module8_Reports: React.FC = () => {
       }
     : null;
   const previousDashboardClasses = previousDashboardRange
-    ? rawClasses.filter(item => isDateInRange(item.date, previousDashboardRange))
+    ? rawClasses.filter(item => isDateInRange(item.date, previousDashboardRange) && classifyGrowth(item,previousDashboardRange).kind==='NEW')
     : [];
   const previousDashboardStudents = previousDashboardRange
     ? rawStudents.filter(item => isDateInRange(item.date, previousDashboardRange))
@@ -571,7 +579,7 @@ export const Module8_Reports: React.FC = () => {
     setClsFilterGrade('ALL');
     setClsFilterSubject('ALL');
     setClsFilterModel('ALL');
-    setClsFilterStatus(report === 'fixed_new_classes' ? status || 'ALL' : 'ALL');
+    setClsFilterStatus(report === 'fixed_new_classes' ? status || 'ALL' : 'ALL');setClsGrowthFilter('NEW');
     setStuFilterCode('');
     setStuFilterName('');
     setStuFilterGrade('ALL');
@@ -611,7 +619,7 @@ export const Module8_Reports: React.FC = () => {
         start: bucketStart,
         end: bucketEnd,
         students: rawStudents.filter(item => item.date >= bucketStart && item.date <= bucketEnd).length,
-        classes: rawClasses.filter(item => item.date >= bucketStart && item.date <= bucketEnd).length,
+        classes: dashboardGrowthClasses.filter(item => item.date >= bucketStart && item.date <= bucketEnd).length,
         x: 30,
         studentY: 160,
         classY: 160
@@ -626,7 +634,7 @@ export const Module8_Reports: React.FC = () => {
       studentY: 160 - (point.students / maximum) * 125,
       classY: 160 - (point.classes / maximum) * 125
     }));
-  }, [rawClasses, rawStudents, dashDateRange]);
+  }, [rawClasses, sourceStudents, rawStudents, dashDateRange]);
 
   const dashboardStudentTotal = dashboardTrendPoints.reduce((total, point) => total + point.students, 0);
   const dashboardClassTotal = dashboardTrendPoints.reduce((total, point) => total + point.classes, 0);
@@ -740,7 +748,7 @@ export const Module8_Reports: React.FC = () => {
     setClsFilterGrade('ALL');
     setClsFilterSubject('ALL');
     setClsFilterModel('ALL');
-    setClsFilterStatus('ALL');
+    setClsFilterStatus('ALL');setClsGrowthFilter('NEW');
     showToast('Đã đặt lại bộ lọc Lớp học!', 'info');
   };
 
@@ -1015,6 +1023,7 @@ export const Module8_Reports: React.FC = () => {
             Sự cố và tổng ca được tính theo ngày thực tế trong khoảng đã chọn.
           </p>
 
+          <p className="text-xs text-slate-500">Lớp mới tăng trưởng chỉ gồm lớp tạo trong kỳ có toàn bộ học sinh mới trong kỳ. Lớp có học sinh cũ không được cộng. {!dashDateRange.start && 'Chọn ngày bắt đầu hoặc tháng báo cáo để xác định học sinh mới/cũ.'}</p>
           {/* Biểu đồ đường cong tăng trưởng (khi ở chế độ visual hoặc both) */}
           {dashViewMode === 'visual' && (
             <>
@@ -1610,15 +1619,16 @@ export const Module8_Reports: React.FC = () => {
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
+                  <label className="flex items-center gap-2">Phân loại<select aria-label="Lọc phân loại lớp mới" className="rounded-lg border p-1.5" value={clsGrowthFilter} onChange={e=>{setClsGrowthFilter(e.target.value as ClassGrowthKind|'ALL');setDetailPage(0);}}><option value="ALL">Tất cả lớp được tạo</option>{Object.entries(classGrowthLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
                   <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredClasses.length} lớp</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      let csv = 'Ma_Lop,Ten_Lop,Thoi_Gian_Tao_Ma,Khoi_Lop,Mon_Hoc,Mo_Hinh,Si_So,Trang_Thai\n';
+                      let csv = 'Ma_Lop,Ten_Lop,Thoi_Gian_Tao_Ma,Khoi_Lop,Mon_Hoc,Mo_Hinh,Si_So,Trang_Thai,Phan_Loai,Hoc_Sinh_Moi,Hoc_Sinh_Cu\n';
                       filteredClasses.forEach(c => {
-                        csv += `"${c.code}","${c.name}","${c.date}","${c.grade}","${c.subject}","${c.model}","${c.students}","${c.status}"\n`;
+                        csv += `"${c.code}","${c.name}","${c.date}","${c.grade}","${c.subject}","${c.model}","${c.students}","${c.status}","${c.label}",${c.newStudents},${c.oldStudents}\n`;
                       });
                       downloadCsv(csv, 'Bao_Cao_Lop_Hoc_Moi_Tao.csv');
                     }}
@@ -1637,6 +1647,7 @@ export const Module8_Reports: React.FC = () => {
                 </div>
               </div>
 
+              <p className="text-xs text-slate-500">Chỉ lớp tạo trong kỳ và toàn bộ học sinh có mã được tiếp nhận trong kỳ mới tính lớp mới. Có học sinh cũ, lớp trống hoặc thiếu ngày tiếp nhận không cộng tăng trưởng. Đối chiếu theo danh sách học sinh hiện tại. {!clsDateRange.start && 'Chọn ngày bắt đầu kỳ báo cáo để phân loại.'}</p>
               {/* Tỉ lệ trực quan */}
               {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1701,7 +1712,7 @@ export const Module8_Reports: React.FC = () => {
                           <th className="py-3 px-3 min-w-[110px]">MÔ HÌNH</th>
                           <th className="py-3 px-3 text-center min-w-[110px]">SĨ SỐ / TRẦN</th>
                           <th className="py-3 px-3 text-center min-w-[140px]">TÌNH TRẠNG</th>
-                          <th className="py-3 px-3 text-center w-20">HÀNH ĐỘNG</th>
+                          <th className="py-3 px-3 text-center">PHÂN LOẠI</th><th className="py-3 px-3 text-center w-20">HÀNH ĐỘNG</th>
                         </tr>
                         {/* Hàng lọc trực tiếp tại từng cột */}
                         <tr className="bg-slate-100/70 border-t border-slate-200 normal-case font-normal text-slate-600">
@@ -1777,6 +1788,7 @@ export const Module8_Reports: React.FC = () => {
                               <option value="AVAILABLE">Còn trống</option>
                             </select>
                           </th>
+                          <th />
                           <th className="py-2 px-3 text-center">
                             <button
                               type="button"
@@ -1792,7 +1804,7 @@ export const Module8_Reports: React.FC = () => {
                       <tbody className="divide-y divide-slate-100 font-medium">
                         {filteredClasses.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="px-4 py-2 text-center">
+                            <td colSpan={10} className="px-4 py-2 text-center">
                               <EmptyState title="Không có lớp học nào phù hợp với bộ lọc." />
                             </td>
                           </tr>
@@ -1819,6 +1831,7 @@ export const Module8_Reports: React.FC = () => {
                                   {c.status}
                                 </span>
                               </td>
+                              <td className="py-3 px-3 text-center text-xs">{c.label}<div>{c.newStudents} mới / {c.oldStudents} cũ</div></td>
                               <td className="py-3 px-3 text-center">
                                 <span className="text-[11px] text-indigo-600 font-semibold cursor-pointer hover:underline">
                                   Chi tiết

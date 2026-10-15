@@ -1,3 +1,5 @@
+import { TeacherModelPicker,TeacherModelBadges } from '../components/TeacherModelPicker';
+import { teachingModelFilterOptions, matchesTeachingModelFilter, isTeachingModelParent } from '../lib/teachingModelGroups';
 import { catalogTree } from '../lib/catalogTree';
 import { SavedPasswordCell } from '../components/SavedPasswordCell';
 import { revealAccountPassword } from '../lib/accountSession';
@@ -59,6 +61,7 @@ export const Module3_Teachers: React.FC = () => {
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>([]);
   const canCreateProfiles = can('Thêm/sửa hồ sơ và cấp tài khoản giáo viên') || can('Tạo hồ sơ và cấp tài khoản giáo viên');
   const canManageProfiles = canManageTeacherProfiles(currentUser, roleGroups);
+  const modelFilterOptions=teachingModelFilterOptions([...models.map(item=>item.code),...teachers.flatMap(teacher=>teacher.models || [])]);
   const activeSubjects = subjects.filter(subject => subject.status);
   const activeCategories = teachingCategories.filter(category => category.status !== false);
 
@@ -116,7 +119,7 @@ export const Module3_Teachers: React.FC = () => {
       {field === 'name' && (['id', 'name'] as const).map(key => <label key={key} className="block">{key === 'id' ? 'Mã giáo viên' : 'Họ và tên'}<input aria-label={key === 'id' ? 'Lọc mã giáo viên' : 'Lọc tên giáo viên'} value={values[key]} onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 w-full p-2 rounded-lg border border-slate-200" /></label>)}
       {field === 'subject' && select(subject, setSubject, subjects.map(item => ({ value: item.code, label: item.name })))}
       {field === 'level' && select(category, setCategory, teachingCategories.map(item => ({ value: item.id, label: item.name })))}
-      {field === 'model' && select(model, setModel, models.filter(item => item.status).map(item => ({ value: item.code, label: item.name })))}
+      {field === 'model' && select(model, setModel, modelFilterOptions)}
       {field === 'status' && select(status, setStatus, profile ? [{ value: 'DANG_DAY', label: 'Đang dạy' }, { value: 'CHO_LOP', label: 'Chờ lớp' }, { value: 'TAM_NGUNG', label: 'Tạm ngưng' }] : [{ value: 'FREE', label: 'Vẫn còn ca rảnh' }, { value: 'FULL', label: 'Đã kín lịch dạy' }])}
       {field === 'grades' && <div className="max-h-52 overflow-y-auto space-y-1">{gradeOptions.map(option => <label key={option.id} className="flex items-center gap-2 p-1.5"><input type="checkbox" checked={grades.includes(option.id)} onChange={() => setGrades(prev => prev.includes(option.id) ? prev.filter(id => id !== option.id) : [...prev, option.id])} className="accent-orange-600" />{option.treeLabel}</label>)}</div>}
       {(field === 'free' || field === 'busy') && <div className="grid grid-cols-2 gap-2">{(['min', 'max'] as const).map(bound => {
@@ -200,7 +203,7 @@ export const Module3_Teachers: React.FC = () => {
     (availSubject === 'ALL' || t.subject === availSubject) &&
     (availStatus === 'ALL' || (availStatus === 'FULL' ? t.isFull : t.freeSlots > 0)) &&
     matchesCategory(t, availCategory, availSubOptions) &&
-    (availModel === 'ALL' || (t.models?.length ? t.models : []).includes(availModel)) && matchesPeriod(t, availFrom, availTo)
+    (availModel === 'ALL' || matchesTeachingModelFilter(t.models || [],availModel)) && matchesPeriod(t, availFrom, availTo)
   );
   // Kết hợp tìm kiếm với các tiêu chí trong bảng lọc bên phải.
   const filteredTeachers = teachers.filter(t => {
@@ -214,8 +217,7 @@ export const Module3_Teachers: React.FC = () => {
 
     const matchSub = filterSubject === 'ALL' || t.subject === filterSubject;
 
-    const tModels = t.models && t.models.length > 0 ? t.models : [];
-    const matchModel = colFilterModel === 'ALL' || tModels.includes(colFilterModel);
+    const matchModel = colFilterModel === 'ALL' || matchesTeachingModelFilter(t.models || [],colFilterModel);
 
     const matchSts = filterStatus === 'ALL' || t.status === filterStatus;
 
@@ -232,7 +234,7 @@ export const Module3_Teachers: React.FC = () => {
     setEditTeacherSubject(t.subject);
     setEditTeacherLevel(t.levelId);
     setEditTeacherGrades(t.grades || []);
-    setEditTeacherModels(t.models && t.models.length > 0 ? t.models : []);
+    setEditTeacherModels((t.models || []).filter(code=>!isTeachingModelParent(code)));
     setEditTeacherStatus(t.status);
     setEditTeacherDegree(t.degree || '');
   };
@@ -250,7 +252,7 @@ export const Module3_Teachers: React.FC = () => {
       showToast('Vui lòng chọn ít nhất 1 khối lớp phụ trách!', 'error');
       return;
     }
-    if (editTeacherModels.length === 0) {
+    if (editTeacherModels.filter(code=>!isTeachingModelParent(code)).length === 0) {
       showToast('Vui lòng chọn ít nhất một mô hình trong danh mục.', 'error');
       return;
     }
@@ -298,7 +300,7 @@ export const Module3_Teachers: React.FC = () => {
       showToast('Vui lòng chọn ít nhất 1 khối lớp tiếp nhận!', 'error');
       return;
     }
-    if (newTeacherModels.length === 0) {
+    if (newTeacherModels.filter(code=>!isTeachingModelParent(code)).length === 0) {
       showToast('Vui lòng chọn ít nhất một mô hình trong danh mục.', 'error');
       return;
     }
@@ -543,7 +545,6 @@ export const Module3_Teachers: React.FC = () => {
                     const badgeColor = isMath
                       ? 'bg-orange-50 text-[#FF5C00] border-orange-200'
                       : 'bg-blue-50 text-blue-700 border-blue-200';
-                    const tModels = t.models && t.models.length > 0 ? t.models : [];
 
                     return (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors">
@@ -571,7 +572,7 @@ export const Module3_Teachers: React.FC = () => {
                         <td className="py-3 px-3 text-slate-600 text-[11px]">{t.grades.join(', ')}</td>
                         <td className="py-3 px-3 text-center">
                           <div className="inline-flex items-center gap-1 justify-center flex-wrap">
-                            {tModels.map(code => <span key={code} className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">{models.find(item => item.code === code)?.name || code}</span>)}
+                            <TeacherModelBadges codes={t.models || []} />
                           </div>
                         </td>
                         <td className="py-3 px-3 text-center">
@@ -1028,7 +1029,7 @@ export const Module3_Teachers: React.FC = () => {
                 <label className="block font-bold text-indigo-900 mb-1">
                   Mô hình nhận lớp (chọn từ danh mục) <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">{models.filter(item => item.status).map(item => <label key={item.id} className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700"><input type="checkbox" checked={newTeacherModels.includes(item.code)} onChange={() => setNewTeacherModels(previous => previous.includes(item.code) ? previous.filter(code => code !== item.code) : [...previous,item.code])} className="accent-indigo-600" /><span>- {item.name}</span></label>)}</div>
+                <TeacherModelPicker models={models} selected={newTeacherModels} onChange={setNewTeacherModels} />
               </div>
 
               <div>
@@ -1721,7 +1722,7 @@ export const Module3_Teachers: React.FC = () => {
                 <label className="block font-bold text-indigo-900">
                   Mô hình nhận lớp (chọn từ danh mục) <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">{models.filter(item => item.status).map(item => <label key={item.id} className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-slate-200 cursor-pointer font-semibold text-slate-700"><input type="checkbox" checked={editTeacherModels.includes(item.code)} onChange={() => setEditTeacherModels(previous => previous.includes(item.code) ? previous.filter(code => code !== item.code) : [...previous,item.code])} className="accent-indigo-600" /><span>- {item.name}</span></label>)}</div>
+                <TeacherModelPicker models={models} selected={editTeacherModels} onChange={setEditTeacherModels} />
               </div>
 
               <div>
@@ -1822,7 +1823,7 @@ export const Module3_Teachers: React.FC = () => {
                     <strong className="text-slate-700">{scheduleModalTeacher.levelName}</strong> • Khối:{' '}
                     <strong className="text-slate-700">{scheduleModalTeacher.grades.join(', ')}</strong> • Hình thức:{' '}
                     <strong className="text-slate-700">
-                      {(scheduleModalTeacher.models || []).join(', ')}
+                      <TeacherModelBadges codes={scheduleModalTeacher.models || []} />
                     </strong>
                   </p>
                 </div>
@@ -1900,7 +1901,7 @@ export const Module3_Teachers: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả hình thức</option>
-              {models.filter(item => item.status).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}
+              {modelFilterOptions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </div>
           <div>
@@ -1974,7 +1975,7 @@ export const Module3_Teachers: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả hình thức</option>
-              {models.filter(item => item.status).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}
+              {modelFilterOptions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </div>
           <div><label className="block font-bold text-slate-700 mb-1">Tình trạng lịch</label>

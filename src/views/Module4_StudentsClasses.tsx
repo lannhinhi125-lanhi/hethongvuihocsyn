@@ -1,3 +1,4 @@
+import { canTeachClassModel, isTeachingModelParent } from '../lib/teachingModelGroups';
 import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -128,7 +129,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const activeSubjects = subjects.filter(item => item.status);
   const activeLevels = levels.filter(item => item.status);
-  const activeModels = models.filter(item => item.status);
+  const activeModels = models.filter(item => item.status && !isTeachingModelParent(item.code));
   const gradeOptions = Array.from(new Map(teachingCategories.filter(item => item.status !== false).flatMap(item => item.options).map(option => [option.id, option])).values());
   const subjectName = (code: string) => subjects.find(item => item.code === code)?.name || code;
   const levelName = (code: string) => levels.find(item => item.code === code)?.name || code;
@@ -279,8 +280,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       if (t.status === 'TAM_NGUNG') return false;
 
       // 3.5. Kiểm tra mô hình lớp (1-1 hoặc 1-n)
-      const targetModelGroup = clsModel === '1-1' ? '1-1' : '1-n';
-      if (t.models && t.models.length > 0 && !t.models.includes(targetModelGroup)) {
+      if (!canTeachClassModel(t.models,clsModel)) {
         return false;
       }
 
@@ -1757,7 +1757,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <label className="font-semibold text-slate-700">Loại lớp<select required value={clsCategory} onChange={event => { const category = teachingCategories.find(item => item.id === event.target.value); setClsCategory(event.target.value); setClsGrade(category?.options[0]?.id || ''); }} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn loại lớp</option>{teachingCategories.filter(item => item.status !== false || item.id === clsCategory).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 <label className="font-semibold text-slate-700">Khối lớp<select required value={clsGrade} onChange={event => setClsGrade(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn khối lớp</option>{teachingCategories.find(item => item.id === clsCategory)?.options.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
                 <label className="font-semibold text-slate-700">Môn học<select required value={clsSubject} onChange={event => setClsSubject(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{subjects.filter(item => item.status || item.code === clsSubject).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</select></label>
-                <label className="font-semibold text-slate-700">Mô hình lớp<select required value={clsModel} onChange={event => setClsModel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{models.filter(item => item.status || item.code === clsModel).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</select></label>
+                <label className="font-semibold text-slate-700">Mô hình lớp<select required value={clsModel} onChange={event => setClsModel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{models.filter(item => !isTeachingModelParent(item.code) && (item.status || item.code === clsModel)).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</select></label>
                 <label className="font-semibold text-slate-700">Trình độ<select required value={clsLevel} onChange={event => setClsLevel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{levels.filter(item => item.status || item.code === clsLevel).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</select></label>
                 <label className="font-semibold text-slate-700">Trạng thái<select value={clsStatus} onChange={event => setClsStatus(event.target.value as NonNullable<ClassItem['status']>)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{classStatuses.map(value => <option key={value}>{value}</option>)}</select></label>
               </div>

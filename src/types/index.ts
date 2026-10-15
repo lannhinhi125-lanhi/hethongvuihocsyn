@@ -114,7 +114,7 @@ export interface TeacherProfile {
   levelId: string; // CAP-TH | CAP-THCS | CAP-THPT
   levelName: string;
   grades: string[]; // ['Lớp 3', 'Lớp 4']
-  models?: string[]; // ['1-1', '1-n'] (e.g. 1-1, 1-3, 1-5)
+  models?: string[]; // Concrete class model codes, e.g. 1-1, 1-3, 1-5; 1-N is only a display group.
   phone: string;
   email: string;
   degree: string;

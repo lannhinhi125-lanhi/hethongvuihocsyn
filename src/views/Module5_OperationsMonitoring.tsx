@@ -1,3 +1,4 @@
+import { canTeachClassModel } from '../lib/teachingModelGroups';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
@@ -323,7 +324,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     return teachers.filter(teacher => {
       const subjectMatches = teacher.subject === (session.subject === 'ANH' ? 'SUB-ENG' : 'SUB-MATH');
       const availability = teacher.schedule?.[slot.code] || teacher.schedule?.[slot.id];
-      return subjectMatches && availability?.[weekday] === 'free' &&
+      return subjectMatches && canTeachClassModel(teacher.models,targetClass.model) && availability?.[weekday] === 'free' &&
         teacher.id !== targetClass.teacherId &&
         normalizeTeacherName(teacher.name) !== normalizeTeacherName(targetClass.teacherName) &&
         normalizeTeacherName(teacher.name) !== normalizeTeacherName(session.primaryTeacher) &&

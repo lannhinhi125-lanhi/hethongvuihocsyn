@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {classifyClassGrowth} from '../src/lib/classGrowth';
+const students=new Map([['new',{created_at:'2026-10-02'}],['old',{created_at:'2026-09-30'}],['missing',{}],['future',{created_at:'2026-11-01'}],['boundary',{created_at:'2026-09-30T17:01:00Z'}]]);
+const range={start:'2026-10-01',end:'2026-10-31'};
+assert.equal(classifyClassGrowth(['new'],students,range).kind,'NEW');
+assert.equal(classifyClassGrowth(['old'],students,range).kind,'TRANSFER');
+assert.equal(classifyClassGrowth(['new','old'],students,range).kind,'MIXED');
+assert.equal(classifyClassGrowth([],students,range).kind,'EMPTY');
+assert.equal(classifyClassGrowth(['missing'],students,range).kind,'UNKNOWN');
+assert.equal(classifyClassGrowth(['not-found'],students,range).kind,'UNKNOWN');
+assert.equal(classifyClassGrowth(['future'],students,range).kind,'UNKNOWN');
+assert.equal(classifyClassGrowth(['boundary'],students,range).kind,'NEW');
+assert.equal(classifyClassGrowth(['new'],students,{start:'',end:''}).kind,'UNKNOWN');
+assert.equal(classifyClassGrowth(['new','new'],students,range).newStudents,1);
+const classes=[['new'],['old'],['old','new'],[],['missing']];
+assert.equal(classes.filter(roster=>classifyClassGrowth(roster,students,range).kind==='NEW').length,1);
+console.log('PASS: new-only classes count; transfers, mixed, empty and unknown excluded; Bangkok dates; no duplicate students');

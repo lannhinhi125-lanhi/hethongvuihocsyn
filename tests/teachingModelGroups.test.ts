@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {canTeachClassModel,teachingModelGroups,isTeachingModelParent,matchesTeachingModelFilter,teachingModelFilterOptions} from '../src/lib/teachingModelGroups';
+assert.deepEqual(teachingModelGroups(['1-1','1-3','1-5','1-10']),['1-1','1-N']);
+assert.equal(canTeachClassModel(['1-3'],'1-3'),true);
+assert.equal(canTeachClassModel(['1-3'],'1-5'),false);
+assert.equal(canTeachClassModel(['1-5'],'1-10'),false);
+assert.equal(canTeachClassModel(['1-N'],'1-5'),false);
+assert.equal(canTeachClassModel(['1-n'],'1-3'),false);
+assert.equal(canTeachClassModel(['1-3','1-5'],'1-5'),true);
+assert.equal(canTeachClassModel(['1-1'],'1-1'),true);
+assert.equal(canTeachClassModel(undefined,'1-5'),false);
+assert.equal(canTeachClassModel([],'1-1'),false);
+assert.equal(canTeachClassModel(['1-n'],'1-n'),false);
+assert.equal(isTeachingModelParent('1-n'),true);
+assert.equal(isTeachingModelParent('1-10'),false);
+console.log('PASS: compact groups preserve exact teacher/class model matching; parent never grants child models');
+
+assert.equal(matchesTeachingModelFilter(['1-3','1-5'],'1-5'),true);
+assert.equal(matchesTeachingModelFilter(['1-3'],'1-5'),false);
+assert.equal(matchesTeachingModelFilter(['1-3'],'1-N'),true);
+assert.equal(matchesTeachingModelFilter(['1-1'],'1-N'),false);
+assert.equal(matchesTeachingModelFilter(['1-n'],'1-5'),false);
+assert.deepEqual(teachingModelFilterOptions(['1-1','1-n','1-10','1-5','1-3','1-5']).map(option=>option.value),['1-1','1-N','1-3','1-5','1-10']);
+console.log('PASS: model filters support both parent group and exact children');
