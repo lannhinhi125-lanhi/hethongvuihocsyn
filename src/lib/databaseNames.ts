@@ -754,6 +754,7 @@ export const APP_DATABASE_FIELDS = {
     "materials": "hoclieu",
     "status": "trangthai",
     "feedbackProgress": "tiendonhanxet",
+    "inspectionData": "thongtindugio",
     "checkinAt": "vaolopluc",
     "checkoutAt": "ketthucluc",
     "checkinUserId": "manguoivaolop",

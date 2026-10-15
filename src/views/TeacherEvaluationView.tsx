@@ -22,10 +22,16 @@ import {
 
 import { EvaluationRecord } from '../types';
 import { resolveTeacherAccount, sessionDateISO } from '../lib/evaluation';
+import { inspectionSession, isCompletedInspectionLesson } from '../lib/inspectionSession';
+import { useBusinessValue, waitForBusinessSave } from '../lib/businessPersistence';
+import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
 export const TeacherEvaluationView: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { currentUser, teachers, classes, showToast, users, setTeachers, students } = useApp();
+  const { currentUser, teachers, classes, showToast, users, students, timeSlots } = useApp();
+  const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
+  const [, setEvaluations] = useBusinessValue<EvaluationRecord[]>('teacher_evaluations');
+  const [savingEvaluation, setSavingEvaluation] = useState(false);
 
   // Tìm hồ sơ giáo viên đang đăng nhập hoặc mặc định
   const isTeacherAccount = currentUser.role === 'Giáo viên Giảng dạy';
@@ -40,15 +46,21 @@ export const TeacherEvaluationView: React.FC = () => {
   // Modal xem toàn văn biên bản
   const [viewingRecord, setViewingRecord] = useState<EvaluationRecord | null>(null);
 
-  const viewingClass = classes.find(c => c.code === viewingRecord?.classCode);
-  const viewingSession = Object.values(viewingClass?.activeSessions || {}).find(s => s.sessionNum === viewingRecord?.sessionNum);
-  const viewingStudents = students.filter(s => viewingClass?.studentIds.includes(s.id));
+  const viewingSource = inspectionSession(viewingRecord?.lessonId || viewingRecord?.sessionCode || '', classes, datedLessons, timeSlots);
+  const viewingDetail = viewingSource?.lesson.materials;
+  const viewingSession = viewingSource?.lesson.inspectionData;
+  const viewingStudentIds = viewingSession?.studentIds || viewingSource?.lesson.feedbackProgress?.studentIds || [];
+  const viewingStudents = students.filter(s => viewingStudentIds.includes(s.id));
+  const viewingRoomLink = viewingSource?.session.roomLink || '';
+  const viewingRecordingLink = viewingSource?.session.recordLink || '';
 
   // Modal lập biên bản đánh giá buổi học mới
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newClassCode, setNewClassCode] = useState('');
-  const [newSessionName, setNewSessionName] = useState('');
-  const [newSessionNum, setNewSessionNum] = useState(1);
+  const [newSessionCode, setNewSessionCode] = useState('');
+  const availableSessions = datedLessons.map(lesson => inspectionSession(lesson.id || '', classes, datedLessons, timeSlots)).filter(source => source &&
+    isCompletedInspectionLesson(source.lesson) &&
+    (source.lesson.coverTeacherId || source.lesson.primaryTeacherId) === currentTeacher?.id);
+  const newSession = availableSessions.find(source => source?.session.code === newSessionCode);
   const [newEvalDate, setNewEvalDate] = useState(() => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));
   const [newEvaluatorName, setNewEvaluatorName] = useState(currentUser.name);
   const [newEvaluatorRole, setNewEvaluatorRole] = useState<string>(currentUser.role);
@@ -74,29 +86,36 @@ export const TeacherEvaluationView: React.FC = () => {
     ? (currentRecords.reduce((acc, r) => acc + r.overallScore, 0) / currentRecords.length).toFixed(1)
     : '—';
 
-  const handleCreateReportSubmit = (e: React.FormEvent) => {
+  const handleCreateReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requirePermission("Chấm điểm và cập nhật báo cáo dự giờ")) return;
     e.preventDefault();
-    if (isTeacherAccount || !currentTeacher) return;
+    if (isTeacherAccount || !currentTeacher || savingEvaluation) return;
+    if (!newSession?.sessionNum) { showToast('Vui lòng chọn ca dạy có số buổi từ ca gốc. Nếu thiếu, hãy cập nhật truy vấn dự giờ.', 'error'); return; }
     const finalScore = Number(((newTc1 * 0.25) + (newTc2 * 0.5) + (newTc3 * 0.25)).toFixed(1));
-    const targetClass = classes.find(c => c.code === newClassCode);
+    const targetClass = newSession.cls;
 
     const newRecord: EvaluationRecord = {
       id: crypto.randomUUID(),
       teacherId: currentTeacher.id,
+      lessonId: newSession.lesson.id,
+      sessionCode: newSession.session.code,
+      sessionDate: newSession.lesson.date,
+      sentAt: new Date().toISOString(),
       recipientUserId: resolveTeacherAccount(currentTeacher, users)?.id,
       evaluatorUserId: currentUser.id,
       reportCode: `BBDG/${new Date().getFullYear()}/${crypto.randomUUID()}`,
       evaluationDate: newEvalDate,
       evaluatorName: newEvaluatorName,
       evaluatorRole: newEvaluatorRole,
-      classCode: newClassCode,
-      className: targetClass ? targetClass.name : 'Lớp học Vuihoc Tutor',
-      sessionNum: Number(newSessionNum),
-      sessionName: newSessionName,
-      timeSlot: '18:00 - 19:30',
-      model: targetClass?.model || '1-3',
+      classCode: targetClass.code,
+      className: targetClass.name,
+      sessionNum: newSession.sessionNum,
+      sessionName: newSession.session.name,
+      timeSlot: newSession.session.slot,
+      model: targetClass.model,
+      roomLink: newSession.session.roomLink,
+      recordLink: newSession.session.recordLink,
       overallScore: finalScore,
       rank: finalScore >= 9.0 ? 'Xuất sắc' : finalScore >= 8.0 ? 'Tốt' : 'Khá',
       criteriaScores: {
@@ -111,12 +130,14 @@ export const TeacherEvaluationView: React.FC = () => {
       status: 'DA_DUYET'
     };
 
-    setTeachers(prev => prev.map(t => t.id === currentTeacher.id ? {
-      ...t, evaluationReports: [newRecord, ...(t.evaluationReports || [])]
-    } : t));
-
-    setIsCreateModalOpen(false);
-    showToast(`Đã lập thành công Biên bản đánh giá dự giờ [${newRecord.reportCode}] cho ${currentTeacher.name}!`, 'success');
+    setSavingEvaluation(true);
+    try {
+      setEvaluations(prev => [newRecord, ...prev]);
+      await waitForBusinessSave();
+      setIsCreateModalOpen(false);
+      showToast(`Đã lập thành công Biên bản đánh giá dự giờ [${newRecord.reportCode}] cho ${currentTeacher.name}!`, 'success');
+    } catch (error) { showToast((error as Error).message, 'error'); }
+    finally { setSavingEvaluation(false); }
   };
 
   if (!currentTeacher) return <div className="p-6 bg-white rounded-xl">Chưa có hồ sơ giáo viên liên kết với tài khoản này.</div>;
@@ -332,7 +353,7 @@ export const TeacherEvaluationView: React.FC = () => {
                       Biên Bản Đánh Giá Dự Giờ: {viewingRecord.reportCode}
                     </h3>
                     <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold font-mono">
-                      {viewingRecord.classCode}
+                      {viewingSource?.cls.code || viewingRecord.classCode}
                     </span>
                     <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold inline-flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Đã thẩm định chính thức
@@ -368,7 +389,7 @@ export const TeacherEvaluationView: React.FC = () => {
                   </span>
                   <div className="flex items-center gap-2">
                     <a
-                      href={viewingRecord.roomLink || undefined}
+                      href={viewingRoomLink || undefined}
                       target="_blank"
                       rel="noreferrer"
                       className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold border border-indigo-200 flex items-center gap-1 transition-colors"
@@ -378,7 +399,7 @@ export const TeacherEvaluationView: React.FC = () => {
                       <span>Vào phòng học</span>
                     </a>
                     <a
-                      href={viewingRecord.recordLink || undefined}
+                      href={viewingRecordingLink || undefined}
                       target="_blank"
                       rel="noreferrer"
                       className="px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-orange-100 text-[#FF5C00] text-[11px] font-bold border border-orange-200 flex items-center gap-1 transition-colors"
@@ -391,25 +412,24 @@ export const TeacherEvaluationView: React.FC = () => {
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                  {viewingRecord.recordLink ? <a href={viewingRecord.recordLink} target="_blank" rel="noreferrer" className="text-indigo-600 underline">Mở bản ghi buổi học</a> : "Chưa có bản ghi buổi học."}
+                  {viewingRecordingLink ? <a href={viewingRecordingLink} target="_blank" rel="noreferrer" className="text-indigo-600 underline">Mở bản ghi buổi học</a> : "Chưa có bản ghi buổi học."}
                 </div>
                 {/* 3 Thẻ Thông tin Ca học chuẩn Tutor Screen */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1 text-xs">
                     <span className="font-bold text-slate-800 block">Thời gian ca dạy</span>
-                    <div className="text-slate-600 font-medium">{viewingRecord.evaluationDate}</div>
-                    <div className="text-[11px] font-mono text-indigo-700 font-semibold">{viewingRecord.timeSlot}</div>
-                    <div className="text-[10px] text-emerald-600 font-medium">Check-in: Đúng giờ quy định</div>
+                    <div className="text-slate-600 font-medium">{viewingSource?.lesson.date || viewingRecord.sessionDate || 'Chưa có ngày ca dạy'}</div>
+                    <div className="text-[11px] font-mono text-indigo-700 font-semibold">{viewingSource?.session.slot || viewingRecord.timeSlot}</div>
+                    <div className="text-[10px] text-slate-500 font-medium">Check-in: {viewingSource?.session.checkin || 'Chưa có dữ liệu'}</div>
                   </div>
 
                   <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between text-xs">
                     <div>
                       <span className="font-bold text-slate-800 block">Phòng học Zoom/ClassIn</span>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Phòng: Vuihoc Room 01</div>
-                      <div className="text-[11px] font-mono text-slate-600">ID: 988 776 655 (Pass: 2026)</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 break-all">{viewingRoomLink || 'Chưa có link phòng học'}</div>
                     </div>
                     <a
-                      href={viewingRecord.roomLink || undefined}
+                      href={viewingRoomLink || undefined}
                       target="_blank"
                       rel="noreferrer"
                       className="mt-2 py-1.5 px-3 bg-[#FF5C00] hover:bg-[#E05200] text-white text-[11px] font-extrabold rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
@@ -423,15 +443,15 @@ export const TeacherEvaluationView: React.FC = () => {
                     <span className="font-bold text-slate-800 block">Tài liệu / LMS</span>
                     <div className="text-[11px] flex items-center justify-between">
                       <span className="text-slate-500">Slide GV:</span>
-                      <span className="text-indigo-600 font-medium">Slide_Tiet_{viewingRecord.sessionNum}.pdf</span>
+                      <span className="text-indigo-600 font-medium break-all">{viewingDetail?.materialGv || viewingDetail?.slide || 'Chưa có tài liệu'}</span>
                     </div>
                     <div className="text-[11px] flex items-center justify-between">
                       <span className="text-slate-500">Bài tập HS:</span>
-                      <span className="text-indigo-600 font-medium">BTVN_Pack_{viewingRecord.sessionNum}.docx</span>
+                      <span className="text-indigo-600 font-medium break-all">{viewingDetail?.materialHs || 'Chưa có tài liệu'}</span>
                     </div>
                     <div className="text-[11px] flex items-center justify-between">
                       <span className="text-slate-500">LMS:</span>
-                      <span className="text-emerald-600 font-medium">Chưa có dữ liệu tiến độ</span>
+                      <span className="text-emerald-600 font-medium break-all">{viewingDetail?.exerciseLms || viewingDetail?.lms || 'Chưa có dữ liệu'}</span>
                     </div>
                   </div>
                 </div>
@@ -607,15 +627,17 @@ export const TeacherEvaluationView: React.FC = () => {
               {/* Chọn lớp học & Buổi học */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Chọn lớp học dự giờ:</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Chọn ca dạy dự giờ:</label>
                   <select
-                    value={newClassCode}
-                    onChange={e => setNewClassCode(e.target.value)}
+                    required
+                    value={newSessionCode}
+                    onChange={e => setNewSessionCode(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
                   >
-                    {classes.map(c => (
-                      <option key={c.id} value={c.code}>
-                        {c.code} - {c.name}
+                    <option value="">Chọn ca dạy đã có</option>
+                    {availableSessions.map(source => source && (
+                      <option key={source.session.code} value={source.session.code}>
+                        {source.cls.code} · {source.lesson.date} · {source.session.slot}
                       </option>
                     ))}
                   </select>
@@ -626,8 +648,8 @@ export const TeacherEvaluationView: React.FC = () => {
                     type="number"
                     min={1}
                     max={30}
-                    value={newSessionNum}
-                    onChange={e => setNewSessionNum(Number(e.target.value))}
+                    value={newSession?.sessionNum || ''}
+                    readOnly
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
                   />
                 </div>
@@ -638,8 +660,8 @@ export const TeacherEvaluationView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  value={newSessionName}
-                  onChange={e => setNewSessionName(e.target.value)}
+                  value={newSession?.session.name || ''}
+                  readOnly
                   placeholder="Ví dụ: Tiết 3: Ôn tập phép tính phân số"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
                 />
@@ -762,6 +784,7 @@ export const TeacherEvaluationView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={savingEvaluation || !newSession}
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer shadow-xs"
                 >
                   Lưu &amp; Ký Biên Bản Dự Giờ

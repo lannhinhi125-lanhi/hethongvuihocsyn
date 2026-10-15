@@ -2,7 +2,7 @@ import { APP_DATABASE_FIELDS, DATABASE_NAMES } from './databaseNames';
 export type SupabaseDataset = keyof typeof APP_DATABASE_FIELDS;
 type DataRow = Record<string, unknown>;
 export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly string[]>> = {
-  dated_lessons: ['feedbackProgress'],
+  dated_lessons: ['feedbackProgress', 'inspectionData'],
   students: ['classHistory'],
   sop_documents: ['category'],
   rag_bot_config: ['quickPrompts'],
@@ -96,6 +96,14 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     result.subjectName = find('subjects','mamonhoc',row.mamonhoc)?.tenmonhoc ?? '';
     result.levelName = find('teaching_categories','madinhdanh',row.macaphoc)?.tencaphoc ?? '';
     result.statusLabel = ({DANG_DAY:'Đang dạy',CHO_LOP:'Chờ lớp',TAM_NGUNG:'Tạm ngưng'} as Record<string,string>)[String(result.status)] ?? '';
+    // Inspection summaries come from the queried reports; saving a report does not edit the teacher.
+    if (Array.isArray(result.evaluationReports) && result.evaluationReports.length) {
+      const latest = result.evaluationReports[0];
+      result.evalStatus = 'SCORED';
+      result.evalScore = Number(latest.overallScore).toFixed(1);
+      result.evalComment = latest.generalComment || '';
+      result.evalCriteriaScores = latest.criteriaScores;
+    }
   }
   if (dataset === 'classes') result.teacherName = find('teachers','madinhdanh',row.magiaovien)?.hoten ?? '';
   if (dataset === 'teacher_evaluations') {

@@ -97,8 +97,12 @@ try {
  assert.ok((await db.query('SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=$1',[completed.madinhdanh])).rows[0].n>0);
  fresh=await rpc('vuihoc_business_data',[admin.token]);cls=clean(fresh.classes.find(c=>c.madinhdanh==='CLS-001'));
  const previous=fresh.teacher_evaluations[0];
+ const teachingBefore=(await db.query('SELECT * FROM vuihoc."BUOI_HOC" ORDER BY madinhdanh')).rows;
+ const teachersBefore=(await db.query('SELECT * FROM vuihoc."GIAO_VIEN" ORDER BY madinhdanh')).rows;
  const evaluation={...clean(previous),madinhdanh:'NO-JSON-EVAL',mabienban:'NO-JSON-EVAL',diemtieuchi:{tc1:7,tc2:8,tc3:9}};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'teacher_evaluations',before:null,after:evaluation}]]);
+ assert.deepEqual((await db.query('SELECT * FROM vuihoc."BUOI_HOC" ORDER BY madinhdanh')).rows,teachingBefore,'Saving an inspection must not update teaching sessions');
+ assert.deepEqual((await db.query('SELECT * FROM vuihoc."GIAO_VIEN" ORDER BY madinhdanh')).rows,teachersBefore,'Saving an inspection must not update teacher profiles');
  assert.deepEqual((await db.query('SELECT diemtc1,diemtc2,diemtc3 FROM vuihoc."BIEN_BAN_DU_GIO" WHERE madinhdanh=$1',[evaluation.madinhdanh])).rows[0],{diemtc1:'7',diemtc2:'8',diemtc3:'9'});
  await assert.rejects(rpc('vuihoc_save_business',[admin.token,[{dataset:'teacher_evaluations',before:evaluation,after:{...evaluation,diemtieuchi:{tc1:11,tc2:8,tc3:9}}}]]),/check constraint/);
  const ownTeacher=before.teachers.find(t=>t.madinhdanh===cls.magiaovien);

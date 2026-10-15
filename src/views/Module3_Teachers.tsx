@@ -15,6 +15,9 @@ import { FilterDrawer } from '../components/FilterDrawer';
 import { TeacherFieldInputs, TeacherCategoryFields, emptyTeacherFields, matchesTeacherFields } from '../components/TeacherFieldFilters';
 import { TeacherAvailabilityView } from './TeacherAvailabilityView';
 import { resolveTeacherAccount, sessionDateISO, sessionsInRange } from '../lib/evaluation';
+import { inspectionSession, isCompletedInspectionLesson } from '../lib/inspectionSession';
+import { useBusinessValue, waitForBusinessSave } from '../lib/businessPersistence';
+import type { TeachingLesson } from '../lib/teachingSessionDetails';
 import { TeacherProfile, SuccessfulSession, EvaluationRecord } from '../types';
 import {
   Contact,
@@ -53,7 +56,10 @@ import {
 
 export const Module3_Teachers: React.FC = () => {
   const { can, requirePermission } = usePermissions();
-  const { teachers, setTeachers, timeSlots, createTeacherWithAccount, updateTeacher, showToast, users, currentUser, roleGroups, subjects, teachingCategories, models } = useApp();
+  const { teachers, setTeachers, classes, timeSlots, createTeacherWithAccount, updateTeacher, showToast, users, currentUser, roleGroups, subjects, teachingCategories, models } = useApp();
+  const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
+  const [, setEvaluations] = useBusinessValue<EvaluationRecord[]>('teacher_evaluations');
+  const [savingEvaluation, setSavingEvaluation] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
@@ -337,10 +343,21 @@ export const Module3_Teachers: React.FC = () => {
   };
 
   // Evaluation Flow
+  const gradingSource = inspectionSession(selectedSessionForGrading?.code || '', classes, datedLessons, timeSlots);
+  const eligibleSessions = (teacher: TeacherProfile) => sessionsInRange({ ...teacher,
+    successfulSessions: datedLessons.filter(lesson => isCompletedInspectionLesson(lesson) &&
+      (lesson.coverTeacherId || lesson.primaryTeacherId) === teacher.id).flatMap(lesson => {
+        const source = inspectionSession(lesson.id || '', classes, datedLessons, timeSlots);
+        return source ? [source.session] : [];
+      })
+  }, evalDateFrom, evalDateTo);
   const startGradingSession = (session: SuccessfulSession) => {
-    setSelectedSessionForGrading(session);
+    const source = inspectionSession(session.code, classes, datedLessons, timeSlots);
+    if (!source) { showToast('Chưa truy vấn được ca dạy gốc. Vui lòng tải lại dữ liệu.', 'error'); return; }
+    if (!isCompletedInspectionLesson(source.lesson)) { showToast('Chỉ được đánh giá dự giờ các buổi đã học.', 'error'); return; }
+    setSelectedSessionForGrading(source.session);
     setIsSelectSessionModalOpen(false);
-    const existing = gradingTeacher?.evaluationReports?.find(r => r.sessionCode === session.code && r.sessionDate === sessionDateISO(session));
+    const existing = gradingTeacher?.evaluationReports?.find(r => (r.lessonId || r.sessionCode) === session.code && r.sessionDate === sessionDateISO(session));
     setTc1Score(existing?.criteriaScores.tc1 ?? 8.5);
     setTc2Score(existing?.criteriaScores.tc2 ?? 8);
     setTc3Score(existing?.criteriaScores.tc3 ?? 9);
@@ -350,11 +367,11 @@ export const Module3_Teachers: React.FC = () => {
     setIsGradingModalOpen(true);
   };
 
-  const handleSubmitGrading = (e: React.FormEvent) => {
+  const handleSubmitGrading = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requirePermission("Chấm điểm và cập nhật báo cáo dự giờ")) return;
     e.preventDefault();
-    if (!gradingTeacher || !selectedSessionForGrading) return;
+    if (!gradingTeacher || !selectedSessionForGrading || savingEvaluation) return;
     const recipient = resolveTeacherAccount(gradingTeacher, users);
     if (!recipient || recipient.status !== 'active') {
       showToast('Chưa có tài khoản giáo viên hoạt động được liên kết duy nhất với hồ sơ này. Vui lòng kiểm tra tài khoản trước khi gửi.', 'error');
@@ -365,38 +382,33 @@ export const Module3_Teachers: React.FC = () => {
     }
     if (!gradingComment.trim()) { showToast('Vui lòng nhập nhận xét trước khi gửi.', 'error'); return; }
     const session = selectedSessionForGrading;
-    const existing = gradingTeacher.evaluationReports?.find(r => r.sessionCode === session.code && r.sessionDate === sessionDateISO(session));
+    const source = inspectionSession(session.code, classes, datedLessons, timeSlots);
+    if (!source || !isCompletedInspectionLesson(source.lesson) || (source.lesson.coverTeacherId || source.lesson.primaryTeacherId) !== gradingTeacher.id) {
+      showToast('Ca dạy không còn khớp giáo viên được đánh giá. Vui lòng chọn lại.', 'error'); return;
+    }
+    if (!source.sessionNum) { showToast('Chưa có số buổi từ ca gốc. Hãy chạy cập nhật truy vấn dự giờ và tải lại.', 'error'); return; }
+    const existing = gradingTeacher.evaluationReports?.find(r => (r.lessonId || r.sessionCode) === session.code && r.sessionDate === sessionDateISO(session));
     const score = Number(finalWeightedScore);
     const report: EvaluationRecord = {
       id: existing?.id || crypto.randomUUID(), reportCode: existing?.reportCode || `BBDG/${new Date().getFullYear()}/${Date.now()}`,
       teacherId: gradingTeacher.id, evaluatorUserId: currentUser.id, recipientUserId: recipient.id, sessionCode: session.code,
       sessionDate: sessionDateISO(session), sentAt: new Date().toISOString(),
       evaluationDate: new Date().toLocaleDateString('vi-VN'), evaluatorName: currentUser.name, evaluatorRole: currentUser.role,
-      classCode: session.code, className: session.name, sessionName: session.name, sessionNum: 1,
-      timeSlot: session.slot, model: session.model || '', roomLink: session.roomLink, recordLink: session.recordLink,
+      lessonId: source.lesson.id, classCode: source.cls.code, className: source.cls.name, sessionName: source.session.name, sessionNum: source.sessionNum,
+      timeSlot: source.session.slot, model: source.session.model || '', roomLink: source.session.roomLink, recordLink: source.session.recordLink,
       overallScore: score, rank: score >= 9 ? 'Xuất sắc' : score >= 8 ? 'Tốt' : score >= 6.5 ? 'Khá' : 'Cần bồi dưỡng',
       criteriaScores: { tc1: tc1Score, tc2: tc2Score, tc3: tc3Score }, generalComment: gradingComment.trim(),
       strengths: '', improvements: '', recommendations: '', status: 'DA_DUYET'
     };
 
-    setTeachers(prev =>
-      prev.map(t => {
-        if (t.id === gradingTeacher.id) {
-          return {
-            ...t,
-            evalStatus: 'SCORED',
-            evalScore: finalWeightedScore,
-            evalComment: gradingComment.trim() || 'Giảng dạy chuẩn mực, tương tác tốt với học sinh.',
-            evalCriteriaScores: { tc1: tc1Score, tc2: tc2Score, tc3: tc3Score },
-            evaluationReports: [report, ...(t.evaluationReports || []).filter(r => r.id !== report.id)]
-          };
-        }
-        return t;
-      })
-    );
-
-    setIsGradingModalOpen(false);
-    showToast(`Đã gửi phiếu chấm (${finalWeightedScore}/10) tới tài khoản ${recipient.username}!`, 'success');
+    setSavingEvaluation(true);
+    try {
+      setEvaluations(prev => [report, ...prev.filter(item => item.id !== report.id)]);
+      await waitForBusinessSave();
+      setIsGradingModalOpen(false);
+      showToast(`Đã gửi phiếu chấm (${finalWeightedScore}/10) tới tài khoản ${recipient.username}!`, 'success');
+    } catch (error) { showToast((error as Error).message, 'error'); }
+    finally { setSavingEvaluation(false); }
   };
 
   return (
@@ -851,7 +863,7 @@ export const Module3_Teachers: React.FC = () => {
                       if (evalColFilterSubject !== 'ALL' && t.subject !== evalColFilterSubject) return false;
                       if (evalColFilterLevel !== 'ALL' && t.levelId !== evalColFilterLevel) return false;
                       if (evalColFilterStatus !== 'ALL' && t.evalStatus !== evalColFilterStatus) return false;
-                      return (!evalDateFrom && !evalDateTo) || sessionsInRange(t, evalDateFrom, evalDateTo).length > 0;
+                      return (!evalDateFrom && !evalDateTo) || eligibleSessions(t).length > 0;
                     })
                     .map(t => {
                       const isScored = t.evalStatus === 'SCORED';
@@ -872,7 +884,7 @@ export const Module3_Teachers: React.FC = () => {
                             <div className="text-slate-500 text-[11px]">{t.grades.join(', ')}</div>
                           </td>
                           <td className="py-3 px-4 text-center font-bold text-slate-700 font-mono">
-                            {sessionsInRange(t, evalDateFrom, evalDateTo).length} ca hợp lệ
+                            {eligibleSessions(t).length} ca hợp lệ
                           </td>
                           <td className="py-3 px-4 text-center">
                             {isScored ? (
@@ -1167,15 +1179,15 @@ export const Module3_Teachers: React.FC = () => {
               <div className="flex flex-wrap gap-3 items-center bg-slate-50 rounded-xl p-3">
                 <label>Từ ngày <input type="date" value={evalDateFrom} onChange={e => setEvalDateFrom(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
                 <label>Đến ngày <input type="date" value={evalDateTo} min={evalDateFrom || undefined} onChange={e => setEvalDateTo(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
-                <span>{sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).length} ca thành công</span>
+                <span>{eligibleSessions(gradingTeacher).length} ca đã học</span>
               </div>
               <PaginatedList className="space-y-2.5">
-                {sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).length === 0 ? (
+                {eligibleSessions(gradingTeacher).length === 0 ? (
                   <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-xl">
                     Chưa có ca dạy thành công nào của giáo viên trong kỳ này.
                   </div>
                 ) : (
-                  sessionsInRange(gradingTeacher, evalDateFrom, evalDateTo).map((ss, idx) => (
+                  eligibleSessions(gradingTeacher).map((ss, idx) => (
                     <div
                       key={idx}
                       className="p-3.5 rounded-xl border border-slate-200 hover:border-[#FF5C00] bg-white hover:bg-orange-50/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs"
@@ -1263,18 +1275,18 @@ export const Module3_Teachers: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 {/* Nếu giáo viên có nhiều ca thành công, cho phép đổi ca trực tiếp */}
-                {gradingTeacher.successfulSessions && gradingTeacher.successfulSessions.length > 1 && (
+                {eligibleSessions(gradingTeacher).length > 1 && (
                   <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 text-xs">
                     <span className="text-slate-500 font-medium">Đổi ca:</span>
                     <select
                       value={selectedSessionForGrading.code}
                       onChange={e => {
-                        const target = gradingTeacher.successfulSessions.find(s => s.code === e.target.value);
-                        if (target) setSelectedSessionForGrading(target);
+                        const target = eligibleSessions(gradingTeacher).find(s => s.code === e.target.value);
+                        if (target) startGradingSession(target);
                       }}
                       className="bg-transparent font-bold text-slate-700 focus:outline-none cursor-pointer"
                     >
-                      {gradingTeacher.successfulSessions.map(s => (
+                      {eligibleSessions(gradingTeacher).map(s => (
                         <option key={s.code} value={s.code}>
                           {s.code} - {s.name.slice(0, 30)}...
                         </option>
@@ -1300,12 +1312,14 @@ export const Module3_Teachers: React.FC = () => {
                 <h4 className="text-sm font-bold text-slate-800">Thông tin lớp học</h4>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 text-xs">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-slate-800">{selectedSessionForGrading.code}</span>
-                    <span className="text-orange-600">{gradingTeacher.subjectName}</span>
+                    <span className="font-bold text-slate-800">{gradingSource?.cls.code}</span>
+                    <span className="text-orange-600">Buổi {gradingSource?.sessionNum || 'chưa có số'}</span>
                     {selectedSessionForGrading.model && <span className="rounded bg-orange-50 px-2 py-0.5 font-semibold text-orange-600">{selectedSessionForGrading.model}</span>}
                   </div>
-                  <p className="font-semibold text-sm text-slate-800">{selectedSessionForGrading.name}</p>
-                  <p className="text-slate-500">{selectedSessionForGrading.gradeLevel || gradingTeacher.grades.join(', ')}</p>
+                  <p className="font-semibold text-sm text-slate-800">{gradingSource?.cls.name}</p>
+                  <p className="text-slate-700">{selectedSessionForGrading.name || 'Chưa có tên bài học'}</p>
+                  <p className="text-slate-400 break-all">Mã buổi: {selectedSessionForGrading.code}</p>
+                  <p className="text-slate-500">{selectedSessionForGrading.gradeLevel || 'Chưa có khối lớp'}</p>
                   <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center gap-3 text-slate-600">
                     <span className="inline-flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{selectedSessionForGrading.date}</span>
                     <span>{selectedSessionForGrading.slot}</span>
@@ -1564,6 +1578,7 @@ export const Module3_Teachers: React.FC = () => {
                   <button
                     type="submit"
                     form="gradingForm"
+                    disabled={savingEvaluation}
                     className="px-5 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
                   >
                     <Send className="w-3.5 h-3.5" />

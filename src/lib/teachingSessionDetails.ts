@@ -24,6 +24,8 @@ export interface TeachingLesson {
   date: string;
   status?: string;
   timeSlotId: string;
+  startsAt?: string;
+  endsAt?: string;
   roomUrl?: string;
   recordingUrl?: string | null;
   primaryTeacherId?: string;
@@ -31,6 +33,7 @@ export interface TeachingLesson {
   checkinAt?: string | null;
   checkoutAt?: string | null;
   feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
+  inspectionData?: {sessionNum?:number | null;title?:string | null;studentIds:string[];attendance:Record<string,string>;feedback:Record<string,string>};
   title?: string;
   diary?: string;
   materials?: { materialGv?: string; materialHs?: string; exerciseLms?: string; slide?: string; lms?: string };
