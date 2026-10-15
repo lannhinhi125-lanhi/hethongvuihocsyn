@@ -1,3 +1,5 @@
+import { DocumentCategoryManager } from '../components/DocumentCategoryManager';
+import { useBusinessValue,waitForBusinessSave } from '../lib/businessPersistence';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { confirmAction } from '../components/ConfirmAction';
 import { PaginatedList } from '../components/Pagination';
@@ -5,7 +7,7 @@ import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { SOPDocument, RAGBotConfig } from '../types';
+import { SOPDocument, RAGBotConfig, DocumentCategory } from '../types';
 import { findKnowledgeDocument } from '../lib/knowledgeSearch';
 import { extractDocumentText } from '../lib/documentExtraction';
 import {
@@ -38,13 +40,16 @@ export const Module6_AIStudio: React.FC = () => {
     showToast
   } = useApp();
 
+  const [documentCategories]=useBusinessValue<DocumentCategory[]>('document_categories');
+  const [isCategoryManagerOpen,setIsCategoryManagerOpen]=useState(false);
+  const [savingDocument,setSavingDocument]=useState(false);
   const [activeTab, setActiveTab] = useState<'knowledge' | 'rag-config'>('knowledge');
   const enabledKnowledgeDocuments = sopDocuments.filter(document => document.isEnabled !== false);
   // Document Modal state
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [docTitle, setDocTitle] = useState('');
-  const [docCategory, setDocCategory] = useState('Sự cố & Báo nghỉ');
+  const [docCategory, setDocCategory] = useState('');
   const [docSummary, setDocSummary] = useState('');
   const [docContent, setDocContent] = useState('');
   const [docSourceFileName, setDocSourceFileName] = useState('');
@@ -67,14 +72,14 @@ export const Module6_AIStudio: React.FC = () => {
   const filteredDocuments = sopDocuments.filter(document => {
     const query = documentSearch.trim().toLocaleLowerCase('vi');
     const matchesSearch = !query || `${document.title} ${document.sourceFileName || ''} ${document.summary}`.toLocaleLowerCase('vi').includes(query);
-    return matchesSearch && (documentCategoryFilter === 'ALL' || document.category === documentCategoryFilter);
+    return matchesSearch && (documentCategoryFilter === 'ALL' || document.categoryId === documentCategoryFilter);
   });
 
   const openEditDocument = (doc: SOPDocument) => {
     if (!requirePermission("Quản lý kho tài liệu tri thức SOP")) return;
     setEditingDocId(doc.id);
     setDocTitle(doc.title);
-    setDocCategory(doc.category);
+    setDocCategory(doc.categoryId || '');
     setDocSummary(doc.summary);
     setDocContent(doc.content);
     setDocSourceFileName(doc.sourceFileName || '');
@@ -112,7 +117,7 @@ export const Module6_AIStudio: React.FC = () => {
     }
   };
 
-  const handleSaveDocument = (e: React.FormEvent) => {
+  const handleSaveDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requirePermission("Quản lý kho tài liệu tri thức SOP")) return;
     e.preventDefault();
@@ -120,7 +125,12 @@ export const Module6_AIStudio: React.FC = () => {
       showToast('Vui lòng đợi đọc xong tệp trước khi lưu.', 'warning');
       return;
     }
+    if(savingDocument)return;
     if (!docTitle.trim() || !docContent.trim()) return;
+    const selectedCategory=documentCategories.find(category=>category.id===docCategory);
+    const existing=sopDocuments.find(doc=>doc.id===editingDocId);
+    if(!selectedCategory || (!selectedCategory.isActive && existing?.categoryId!==selectedCategory.id)) {showToast('Chọn loại tài liệu đang hoạt động trong danh mục.','warning');return;}
+    setSavingDocument(true);
 
     if (editingDocId) {
       setSopDocuments(prev =>
@@ -129,7 +139,7 @@ export const Module6_AIStudio: React.FC = () => {
             ? {
                 ...d,
                 title: docTitle.trim(),
-                category: docCategory,
+                categoryId:docCategory, category:selectedCategory.name,
                 summary: docSummary.trim() || 'Quy chuẩn vận hành đã cập nhật',
                 content: docContent.trim(),
                 sourceFileName: docSourceFileName || d.sourceFileName,
@@ -139,12 +149,12 @@ export const Module6_AIStudio: React.FC = () => {
             : d
         )
       );
-      showToast('Đã cập nhật tài liệu trong phạm vi tra cứu bot.', 'success');
+
     } else {
       const newDoc: SOPDocument = {
         id: `DOC-${Date.now()}`,
         title: docTitle.trim(),
-        category: docCategory,
+        categoryId:docCategory, category:selectedCategory.name,
         summary: docSummary.trim() || 'Quy chuẩn vận hành mới',
         content: docContent.trim(),
         sourceFileName: docSourceFileName,
@@ -153,9 +163,11 @@ export const Module6_AIStudio: React.FC = () => {
         updatedAt: new Date().toLocaleDateString('vi-VN')
       };
       setSopDocuments(prev => [...prev, newDoc]);
-      showToast('Đã thêm tài liệu vào phạm vi tra cứu bot.', 'success');
+
     }
-    setIsDocModalOpen(false);
+    try {await waitForBusinessSave();setIsDocModalOpen(false);showToast('Đã lưu tài liệu.','success');}
+    catch(error){showToast(error instanceof Error ? error.message : 'Chưa lưu được tài liệu.','error');}
+    finally{setSavingDocument(false);}
   };
 
   const toggleDocumentScope = (document: SOPDocument) => {
@@ -193,8 +205,9 @@ export const Module6_AIStudio: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {isCategoryManagerOpen && <DocumentCategoryManager onClose={()=>setIsCategoryManagerOpen(false)} onCreated={setDocCategory} />}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <h1 className="text-lg font-bold text-slate-800">Trợ lý AI</h1>
+        <h1 className="text-lg font-bold text-slate-800">Quản lý tri thức và cấu hình AI</h1>
 
         {/* Knowledge and chatbot tabs */}
         <div className="flex items-center bg-slate-100 p-1 rounded-xl overflow-x-auto border border-slate-200/80 self-start lg:self-auto text-xs">
@@ -226,11 +239,12 @@ export const Module6_AIStudio: React.FC = () => {
               <h3 className="font-bold text-sm text-slate-800">Thư viện tài liệu tri thức</h3>
               <p className="text-xs text-slate-500 mt-0.5">Tải PDF/DOCX để làm nguồn tham khảo cho Bot chat AI.</p>
             </div>
+            <button type="button" onClick={()=>setIsCategoryManagerOpen(true)} className="rounded-lg border px-3 py-2 text-xs font-semibold">Quản lý loại tài liệu</button>
             <button
               onClick={() => {
                 setEditingDocId(null);
                 setDocTitle('');
-                setDocCategory('Sự cố & Báo nghỉ');
+                setDocCategory(documentCategories.find(category=>category.isActive)?.id || '');
                 setDocSummary('');
                 setDocContent('');
                 setDocSourceFileName('');
@@ -261,9 +275,7 @@ export const Module6_AIStudio: React.FC = () => {
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
             >
               <option value="ALL">Tất cả phân loại</option>
-              {[...new Set(sopDocuments.map(document => document.category))].map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
+              {documentCategories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}
             </select>
           </div>
 
@@ -548,14 +560,14 @@ export const Module6_AIStudio: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Phân loại nghiệp vụ</label>
+                  <button type="button" onClick={()=>setIsCategoryManagerOpen(true)} className="mb-2 text-xs font-semibold text-orange-600">+ Quản lý / thêm loại tài liệu</button>
                   <select
-                    value={docCategory}
+                    required value={docCategory}
                     onChange={e => setDocCategory(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
                   >
-                    <option value="Sự cố & Báo nghỉ">Sự cố &amp; Báo nghỉ ca dạy</option>
-                    <option value="Chốt công & Đối soát">Chốt công &amp; Đối soát</option>
-                    <option value="Quy chuẩn sư phạm">Quy chuẩn ứng xử sư phạm</option>
+                    <option value="" disabled>Chọn loại tài liệu</option>
+                    {documentCategories.filter(category=>category.isActive || category.id===docCategory).map(category=><option key={category.id} value={category.id}>{category.name}{!category.isActive?' (ngừng sử dụng)':''}</option>)}
                   </select>
                 </div>
               </div>
@@ -610,10 +622,10 @@ export const Module6_AIStudio: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isExtractingDocument || !docContent.trim()}
+                  disabled={savingDocument || isExtractingDocument || !docContent.trim() || !docCategory}
                   className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white font-bold cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
-                  Lưu tài liệu
+                  {savingDocument ? 'Đang lưu...' : 'Lưu tài liệu'}
                 </button>
               </div>
             </form>

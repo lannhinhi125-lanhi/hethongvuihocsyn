@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
     3: { cat: 'Chuyên môn', title: 'Hồ sơ & chuyên môn' },
     4: { cat: 'Vận hành', title: 'Học sinh & ghép lớp' },
     5: { cat: 'Vận hành', title: 'Giám sát ca & sự cố' },
-    6: { cat: 'Vận hành', title: 'Trợ lý AI giảng dạy' },
+    6: { cat: 'Vận hành', title: 'Quản lý tri thức và cấu hình AI' },
     7: { cat: 'Vận hành & Đối soát', title: 'Đối soát công ca dạy' },
     8: { cat: 'Thống kê', title: 'Báo cáo & thống kê' }
   };

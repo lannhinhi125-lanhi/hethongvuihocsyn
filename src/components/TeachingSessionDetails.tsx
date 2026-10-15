@@ -14,10 +14,11 @@ interface Props {
   onSelect: (session: number, date: string, time: string) => void;
   onEnter?: () => void;
   enterDisabled?: boolean;
+  endControl?: React.ReactNode;
   children?: React.ReactNode;
 }
 
-export function TeachingSessionDetails({ cls, session, date, time, readOnly, onSelect, onEnter, enterDisabled, children }: Props) {
+export function TeachingSessionDetails({ cls, session, date, time, readOnly, onSelect, onEnter, enterDisabled, endControl, children }: Props) {
   const { students, teachers, timeSlots, subjects, levels } = useApp();
   const [lessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const [now, setNow] = useState(() => new Date());
@@ -68,6 +69,7 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, onS
           {!detail.actionUrl ? <div className="text-slate-400">Chưa có link do vận hành gán</div> : onEnter && detail.status !== 'DA_HOC' ?
             <button type="button" onClick={onEnter} disabled={enterDisabled} className="mt-3 w-full rounded-xl bg-[#FF5C00] px-4 py-2.5 font-bold text-white hover:bg-[#E05200] disabled:cursor-not-allowed disabled:bg-slate-300">{detail.actionLabel}</button> :
             <a href={detail.actionUrl} target="_blank" rel="noreferrer" className={`mt-3 flex w-full items-center justify-center gap-1 rounded-xl px-4 py-2.5 font-bold text-white ${detail.status === 'DA_HOC' ? 'bg-purple-700 hover:bg-purple-800' : 'bg-[#FF5C00] hover:bg-[#E05200]'}`}>{detail.actionLabel}<ExternalLink className="h-3 w-3" /></a>}
+          {endControl}
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-2 text-xs">
           <div className="font-bold text-slate-800">Học liệu buổi {session}</div>

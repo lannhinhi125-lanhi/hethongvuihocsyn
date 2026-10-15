@@ -194,45 +194,25 @@ export const Module4_TeacherSchedule: React.FC = () => {
   };
 
   const handleConfirmCompleteSession = async () => {
-    if (!requirePermission("Giáo viên Check-in / Check-out vào ca dạy")) return;
-    if (!selectedClass) return;
-    if (classLiveStatus !== 'DANG_HOC') {
-      showToast('Lớp học chưa diễn ra! Chỉ khi ca học ở trạng thái "Đang học" mới có thể xác nhận hoàn tất.', 'warning');
-      return;
+    if (!requirePermission('Giáo viên Check-in / Check-out vào ca dạy') || !selectedClass || businessStatus.saving) return;
+    if (selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id) return;
+    if (!checkoutFacts.checkinAt || checkoutFacts.checkoutAt || ['HUY','NGHI_HOC'].includes(checkoutFacts.status || '')) {
+      showToast('Chỉ kết thúc buổi đã check-in và chưa checkout.', 'warning'); return;
     }
-    const activeSession = selectedClass.activeSessions?.[selectedSessionNum];
-    if (!activeSession || activeSession.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] !== selectedSessionDate) {
-      showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
-      return;
-    }
-    const checkinAt = activeSession.checkinAt
-      ? new Date(activeSession.checkinAt)
-      : activeSession.checkinTime ? new Date(`${selectedSessionDate}T${activeSession.checkinTime}`) : null;
-    if (!checkinAt || Number.isNaN(checkinAt.getTime())) {
-      showToast('Chưa có giờ vào lớp được ghi nhận cho buổi học này.', 'warning');
-      return;
-    }
-    if (!window.confirm('Bạn có chắc muốn kết thúc buổi học này? Kết thúc sớm hơn 5 phút sẽ là Chưa hoàn tất và cảnh báo cam. Nhận xét mở sau khi lưu checkout.')) return;
-    setClasses(prev =>
-      prev.map(c => {
-        if (c.id === selectedClass.id) {
-          const sessions = { ...(c.activeSessions || {}) };
-          if (sessions[selectedSessionNum]) {
-            sessions[selectedSessionNum] = {
-              ...sessions[selectedSessionNum],
-              status: 'Đã hoàn thành',
-              checkoutAt: new Date().toISOString(),
-              checkoutUserId: currentUser.id
-            };
-          }
-          return { ...c, activeSessions: sessions };
-        }
-        return c;
-      })
-    );
-    try { await waitForBusinessSave(); setClassLiveStatus('DA_HOAN_THANH');
-      showToast('Đã kết thúc buổi học. Ca chỉ được tính công khi đã nhận xét đủ học sinh.', 'success');
-    } catch(error) { showToast(error instanceof Error ? error.message : 'Chưa lưu được giờ kết thúc.', 'error'); }
+    if (!window.confirm('Kết thúc lớp và ghi nhận checkout? Kết thúc sớm hơn 5 phút sẽ cảnh báo Chưa hoàn tất.')) return;
+    const checkoutAt=new Date().toISOString();
+    const time=selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time;
+    if(!time){showToast('Chưa xác định được khung giờ buổi học.', 'error');return;}
+    setClasses(previous=>previous.map(cls=>{
+      if(cls.id!==selectedClass.id)return cls;
+      const active=selectedDetail?.active;
+      return {...cls,activeSessions:{...cls.activeSessions,[selectedSessionNum]:{
+        ...(active || {sessionNum:selectedSessionNum,dateStr:selectedSessionDate+' '+time,title:selectedDetail?.title || '',materialGv:selectedDetail?.slide || '',materialHs:selectedDetail?.studentMaterial || '',exerciseLms:selectedDetail?.exercise || ''}),
+        status:'Đã hoàn thành',checkinAt:checkoutFacts.checkinAt!,checkoutAt,checkoutUserId:currentUser.id
+      }}};
+    }));
+    try {await waitForBusinessSave();setClassLiveStatus('DA_HOAN_THANH');showToast('Đã lưu checkout. Có thể nhập nhận xét học sinh.', 'success');}
+    catch(error){showToast(error instanceof Error ? error.message : 'Chưa lưu được giờ kết thúc.', 'error');}
   };
 
   const handleOpenReview = (studentId: string, studentName: string) => {
@@ -512,6 +492,15 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         <div className="mt-1 text-[10px] text-slate-600">{cls.name}</div>
                         {coverAssignment && <div className="mt-1 text-[10px] font-semibold text-purple-800">{coverAssignment.teacherName}</div>}
                         <div className="mt-1.5 line-clamp-2 text-[11px] font-medium text-slate-800">{material?.title || 'Chưa có học liệu được gắn'}</div>
+                        {(() => {
+                          const detail=teachingSessionDetails(cls,session,sessionDate,row.time,datedLessons,timeSlots,new Date());
+                          const ids=detail.lesson?.feedbackProgress?.studentIds ?? cls.studentIds;
+                          const total=detail.lesson?.feedbackProgress?.total ?? ids.length;
+                          const completed=detail.lesson?.feedbackProgress?.completed ?? ids.filter(id=>detail.active?.feedback?.[id]?.trim()).length;
+                          const done=total>0 && completed===total;
+                          return <span title={completed+'/'+total+' học sinh đã được nhận xét'} className={`mt-1.5 inline-flex rounded px-1.5 py-0.5 text-[9px] font-medium ${done ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}>{done ? 'Đã nhận xét' : 'Chưa nhận xét'}</span>;
+                        })()}
+
                       </button>)}
                     </div>
                   </td>)}
@@ -541,7 +530,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
             <TeachingSessionDetails cls={selectedClass} session={selectedSessionNum} date={selectedSessionDate || fromDate} time={selectedClassSchedule.find(entry => entry.session === selectedSessionNum)?.time || ''}
               onSelect={(session, date) => handleOpenClassModal(selectedClass, session, date)}
               onEnter={handleEnterClassroom}
-              enterDisabled={Boolean(selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id)}>
+              enterDisabled={Boolean(selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id)}
+              endControl={<button type="button" onClick={handleConfirmCompleteSession}
+                disabled={!checkoutFacts.checkinAt || Boolean(checkoutFacts.checkoutAt) || businessStatus.saving || ['HUY','NGHI_HOC'].includes(checkoutFacts.status || '') || !can('Giáo viên Check-in / Check-out vào ca dạy') || Boolean(selectedClassCoverAssignment && selectedClassCoverAssignment.teacherId !== currentTeacher?.id)}
+                title={checkoutFacts.checkoutAt ? 'Buổi học đã ghi nhận checkout' : !checkoutFacts.checkinAt ? 'Vào lớp để ghi nhận check-in trước khi kết thúc' : 'Ghi nhận checkout và mở nhận xét học sinh'}
+                className="w-full mt-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 inline-flex justify-center items-center gap-2">
+                <CheckCircle className="h-4 w-4" />{checkoutFacts.checkoutAt ? 'Đã kết thúc lớp' : businessStatus.saving ? 'Đang lưu...' : 'Kết thúc lớp'}
+              </button>}>
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-8 text-xs font-bold">
@@ -648,25 +643,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         <AlertTriangle className="w-3.5 h-3.5" />
                         <span>Báo Sự Cố Ca Học</span>
                       </button>
-                      {classLiveStatus === 'DANG_HOC' ? (
-                        <button
-                          type="button"
-                          disabled={!can("Giáo viên Check-in / Check-out vào ca dạy")} onClick={handleConfirmCompleteSession}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Kết thúc lớp</span>
-                        </button>
-                      ) : classLiveStatus === 'DA_HOAN_THANH' ? (
-                        <button
-                          type="button"
-                          disabled
-                          className="px-4 py-2 bg-emerald-50 text-emerald-700 font-bold rounded-xl border border-emerald-200 text-xs flex items-center gap-1.5 cursor-default"
-                        >
-                          <CheckCircle className="w-4 h-4 text-emerald-600" />
-                          <span>Đã kết thúc lớp học</span>
-                        </button>
-                      ) : null}
+
                     </div>
                   </div>
                 </div>

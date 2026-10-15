@@ -4,6 +4,7 @@ type DataRow = Record<string, unknown>;
 export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly string[]>> = {
   dated_lessons: ['feedbackProgress'],
   students: ['classHistory'],
+  sop_documents: ['category'],
   rag_bot_config: ['quickPrompts'],
   teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions'],
   "classes": [

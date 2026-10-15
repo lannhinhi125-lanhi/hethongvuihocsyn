@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     { id: 3, label: 'Hồ sơ & chuyên môn', icon: UserCheck },
     { id: 4, label: 'Học sinh & ghép lớp', icon: Users },
     { id: 5, label: 'Giám sát ca & sự cố', icon: CalendarCheck },
-    { id: 6, label: 'Trợ lý AI giảng dạy', icon: Sparkles },
+    { id: 6, label: 'Tri thức & Cấu hình AI', icon: Sparkles },
     { id: 7, label: 'Đối soát công ca dạy', icon: ClipboardCheck },
     { id: 8, label: 'Báo cáo & thống kê', icon: PieChart }
   ];

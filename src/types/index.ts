@@ -237,7 +237,9 @@ export interface CriteriaCategory {
   criteria: CriterionItem[];
 }
 
+export interface DocumentCategory { id:string; name:string; description:string; isActive:boolean; }
 export interface SOPDocument {
+  categoryId?: string;
   id: string;
   title: string;
   category: string;

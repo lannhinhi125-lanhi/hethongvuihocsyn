@@ -1,5 +1,11 @@
 # Bộ SQL Supabase Vuihoc
 
+**Danh mục loại tài liệu:** Sau bản 20261021, chạy
+[migrations/20261022_document_categories.sql](migrations/20261022_document_categories.sql).
+Loại tài liệu được quản lý trong CSDL; tài liệu liên kết khóa ngoại, tên hiển thị được SELECT.
+Xem [DOCUMENT_CATEGORIES.md](DOCUMENT_CATEGORIES.md).
+
+
 **Nhận xét học sinh nhập tay:** Sau bản 20261020, chạy
 [migrations/20261021_manual_student_feedback.sql](migrations/20261021_manual_student_feedback.sql).
 Dùng NHAN_XET_BUOI_HOC.noidung theo khóa buổi/học sinh, bỏ bảng tiêu chí nhận xét học sinh và cấu hình tiêu chí sinh nhận xét.

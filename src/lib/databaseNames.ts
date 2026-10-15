@@ -1,6 +1,7 @@
 /** Ánh xạ bảng/cột Supabase. Key trong JSONB không đổi tên. */
 export const DATABASE_SCHEMA = 'vuihoc';
 export const DATABASE_NAMES = {
+  document_categories:{table:'LOAI_TAI_LIEU',columns:{id:'madinhdanh',name:'tenloai',description:'mota',is_active:'danghoatdong'}},
   "role_groups": {
     "table": "NHOM_QUYEN",
     "columns": {
@@ -201,7 +202,8 @@ export const DATABASE_NAMES = {
     "columns": {
       "id": "madinhdanh",
       "title": "tieude",
-      "category": "phanloai",
+      "category": "tenloaitailieu",
+      "category_id": "maloaitailieu",
       "summary": "tomtat",
       "updated_at": "ngaycapnhat",
       "content": "noidung",
@@ -475,6 +477,7 @@ export const DATABASE_NAMES = {
   }
 } as const;
 export const APP_DATABASE_FIELDS = {
+  document_categories:{id:'madinhdanh',name:'tenloai',description:'mota',isActive:'danghoatdong'},
   "role_groups": {
     "portal": "congtruycap",
     "id": "madinhdanh",
@@ -638,7 +641,8 @@ export const APP_DATABASE_FIELDS = {
   "sop_documents": {
     "id": "madinhdanh",
     "title": "tieude",
-    "category": "phanloai",
+    "category": "tenloaitailieu",
+    "categoryId": "maloaitailieu",
     "summary": "tomtat",
     "updatedAt": "ngaycapnhat",
     "content": "noidung",
