@@ -1,4 +1,5 @@
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
+import {canKeepAssignedTeacher,studentsNeedingClassValidation,studentsNeedingScheduleValidation,nextClassTeacherSelection} from '../lib/classEditing';
 import { studentRegistrations, studentRegistrationRows, studentForSubject, studentHistoryForSubject, studentScheduleConflict } from '../lib/studentRegistrations';
 import { waitForBusinessSave } from '../lib/businessPersistence';
 import { canTeachClassModel, isTeachingModelParent } from '../lib/teachingModelGroups';
@@ -281,6 +282,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       match => `${match[3] ? 6 : Number(match[1]) - 2}|${(match[2] || match[4] || '').replace(/\s/g, '')}`
     )) : new Set<string>();
     return teachers.filter(t => {
+      if(canKeepAssignedTeacher(editingClass,{subject:clsSubject,grade:clsGrade,model:clsModel,schedule:clsSchedule},t.id))return true;
       // 1. Phải dạy đúng môn học của lớp
       if (t.subject !== clsSubject) return false;
 
@@ -331,13 +333,9 @@ export const Module4_StudentsClasses: React.FC = () => {
     if (!isClassModalOpen) return;
     const isCurrentValid = eligibleTeachersForClass.some(t => t.id === clsTeacher);
     if (!isCurrentValid) {
-      if (eligibleTeachersForClass.length > 0) {
-        setClsTeacher(eligibleTeachersForClass[0].id);
-      } else {
-        setClsTeacher('');
-      }
+      setClsTeacher(nextClassTeacherSelection(clsTeacher,eligibleTeachersForClass.map(teacher=>teacher.id),Boolean(editingClassId)));
     }
-  }, [eligibleTeachersForClass, isClassModalOpen]);
+  }, [eligibleTeachersForClass, isClassModalOpen, clsTeacher, editingClassId]);
 
   // Material Batch Modal state
   const [isBatchMaterialModalOpen, setIsBatchMaterialModalOpen] = useState(false);
@@ -586,6 +584,9 @@ export const Module4_StudentsClasses: React.FC = () => {
     setStdSlots([]);
   };
   const editingProfile = studentProfiles.find(item=>item.id===editingStudentId);
+  const editingSubjectProfile=editingProfile && studentForSubject(editingProfile,stdSubject);
+  const studentStudyFieldsLocked=Boolean(editingSubjectProfile && (editingSubjectProfile.status!=='Chờ xếp lớp'||editingSubjectProfile.currentClassCode));
+  const studentGradeLocked=Boolean(editingProfile && studentRegistrations(editingProfile).some(row=>row.status!=='Chờ xếp lớp'||row.currentClassCode));
   const formSubjectOptions = isAddingSubject && editingProfile ? availableAdditionalSubjects(editingProfile) : activeSubjects;
 
   const selectStudentSubject = (subject: string) => {
@@ -603,13 +604,14 @@ export const Module4_StudentsClasses: React.FC = () => {
     const current = { subject: stdSubject, registeredAt: stdDrafts.find(item=>item.subject===stdSubject)?.registeredAt,
       model: stdModel, level: stdLevel, scheduleSlots: stdSlots,
       status: targetClass ? 'Đang học' as const : stdStatus,
-      currentClassCode: targetClass?.code || (stdStatus === 'Đang học' ? assignedClass(students.find(item => item.id === editingStudentId && item.subject === stdSubject))?.code : undefined) };
-    return [...stdDrafts.filter(item => item.subject !== stdSubject), current];
+      currentClassCode: targetClass?.code || (stdStatus === 'Đang học' ? stdDrafts.find(item=>item.subject===stdSubject)?.currentClassCode || editingSubjectProfile?.currentClassCode : undefined) };
+    return stdDrafts.some(item=>item.subject===stdSubject) ? stdDrafts.map(item=>item.subject===stdSubject?current:item) : [...stdDrafts,current];
   };
 
   const validateStudentForm = () => {
-    const existing = students.find(item => item.id === editingStudentId && item.subject === stdSubject);
-    if (!stdName.trim() || (!stdFatherPhone.trim() && !stdMotherPhone.trim())) { showToast('Nhập họ tên học sinh và ít nhất một số điện thoại phụ huynh.', 'error'); return false; }
+    const existing = editingSubjectProfile;
+    const requiresContact=!editingProfile || Boolean(editingProfile.fatherPhone || editingProfile.motherPhone);
+    if (!stdName.trim() || (requiresContact && !stdFatherPhone.trim() && !stdMotherPhone.trim())) { showToast('Nhập họ tên học sinh và ít nhất một số điện thoại phụ huynh.', 'error'); return false; }
     const valid = (activeSubjects.some(item => item.code === stdSubject) || existing?.subject === stdSubject) &&
       (activeLevels.some(item => item.code === stdLevel) || existing?.level === stdLevel) &&
       (activeModels.some(item => item.code === stdModel) || existing?.model === stdModel) &&
@@ -632,7 +634,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     e.preventDefault();
     if (!validateStudentForm()) return;
 
-    if (!stdFatherPhone.trim() && !stdMotherPhone.trim()) {
+    if ((!editingProfile || editingProfile.fatherPhone || editingProfile.motherPhone) && !stdFatherPhone.trim() && !stdMotherPhone.trim()) {
       showToast('Vui lòng nhập số điện thoại của ít nhất Bố hoặc Mẹ để liên hệ!', 'error');
       return;
     }
@@ -716,7 +718,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
 
     const studentIdToUse: string = editingStudentId || nextStudentId();
-    const previousClass = assignedClass(students.find(item => item.id === editingStudentId && item.subject === stdSubject));
+    const previousClass = assignedClass(editingSubjectProfile);
     if (editingStudentId) {
       classes.filter(item => item.id !== targetClass.id && item.subject === stdSubject && item.studentIds.includes(editingStudentId)).forEach(item => {
         updateClass(item.id, { studentIds: item.studentIds.filter(id => id !== editingStudentId) });
@@ -907,19 +909,22 @@ export const Module4_StudentsClasses: React.FC = () => {
     e.preventDefault();
     if (savingClass) return;
     if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
-    e.preventDefault();
     if (!clsName.trim()) return;
+    const existingClass=classes.find(item=>item.id===editingClassId);
+    if(editingClassId && !existingClass){setClassSaveError('Lớp học không còn tồn tại. Hãy tải lại dữ liệu.');return;}
+    const draft={subject:clsSubject,grade:clsGrade,model:clsModel,level:clsLevel,schedule:clsSchedule,studentIds:clsSelectedStudentIds};
     if (!editingClassId && !clsStartDate) { showToast('Chọn ngày bắt đầu lớp học.', 'error'); return; }
     const category = teachingCategories.find(item => item.id === clsCategory);
     if (!category || !category.options.some(option => option.id === clsGrade)) { showToast('Chọn loại lớp và khối con tương ứng từ danh mục.', 'error'); return; }
     if (!subjects.some(item => item.code === clsSubject) || !levels.some(item => item.code === clsLevel)) { showToast('Chọn môn học và trình độ từ danh mục.', 'error'); return; }
-    const originalIds = classes.find(item => item.id === editingClassId)?.studentIds || [];
-    if (clsSelectedStudentIds.some(id => {
-      const student = students.find(item => item.id === id && item.subject === clsSubject);
+    const originalIds = existingClass?.studentIds || [];
+    if (studentsNeedingClassValidation(existingClass,draft).some(id => {
+      const profile=students.find(item=>item.id===id);
+      const student = profile && studentForSubject(profile,clsSubject);
       return !student || student.grade !== clsGrade || student.subject !== clsSubject || student.level !== clsLevel || student.model !== clsModel || (!originalIds.includes(id) && (student.status !== 'Chờ xếp lớp' || Boolean(assignedClass(student))));
     })) { showToast('Danh sách đã chọn có học sinh không còn chờ lớp hoặc không khớp thông tin lớp. Vui lòng kiểm tra lại.', 'error'); return; }
     const targetSchedule = { id: editingClassId || '', subject: clsSubject, schedule: clsSchedule } as ClassItem;
-    if (clsSelectedStudentIds.some(id => studentScheduleConflict(id, targetSchedule, classes))) { showToast('Lịch lớp trùng với lớp môn khác của học sinh đã chọn.', 'error'); return; }
+    if (studentsNeedingScheduleValidation(existingClass,draft).some(id => studentScheduleConflict(id, targetSchedule, classes))) { showToast('Lịch lớp trùng với lớp môn khác của học sinh đã chọn.', 'error'); return; }
     const savedCode = editingClassId ? clsCode : generateClassCode(clsSubject, clsLevel);
     if (classes.some(item => item.id !== editingClassId && item.code === savedCode)) { showToast('Mã lớp bị trùng. Vui lòng kiểm tra lại.', 'error'); return; }
 
@@ -931,7 +936,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
     const assignedTeacher = eligibleTeachersForClass.find(t => t.id === clsTeacher);
 
-    const max = models.find(item => item.code === clsModel)?.maxStudents || classes.find(item => item.id === editingClassId)?.maxStudents;
+    const max = existingClass?.model===clsModel ? existingClass.maxStudents : models.find(item => item.code === clsModel)?.maxStudents;
     if (!max) { showToast('Chọn mô hình lớp hợp lệ từ danh mục.', 'error'); return; }
 
     if (clsSelectedStudentIds.length > max) {
@@ -943,17 +948,10 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClassSaveError('');
     try {
       if (editingClassId) {
-        const existingClass = classes.find(item => item.id === editingClassId);
-        const rosterChanged = Boolean(existingClass && (
-          existingClass.teacherId !== assignedTeacher?.id ||
-          existingClass.teacherName !== assignedTeacher?.name ||
-          existingClass.studentIds.length !== clsSelectedStudentIds.length ||
-          existingClass.studentIds.some(id => !clsSelectedStudentIds.includes(id))
-        ));
         const accepted = updateClass(editingClassId, {
           code: savedCode,
           categoryId: clsCategory,
-          status: rosterChanged ? 'Chờ khai giảng' : clsStatus,
+          status: clsStatus,
           name: clsName.trim(),
           grade: clsGrade,
           subject: clsSubject,
@@ -1360,7 +1358,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <td className="px-3 py-3 min-w-44 text-[11px]">{item.schedule || 'Chưa có lịch'}{item.startDate && <div className="mt-1 text-slate-500">Bắt đầu: {new Date(`${item.startDate}T00:00:00`).toLocaleDateString('vi-VN')}</div>}</td><td className="px-3 py-3 whitespace-nowrap"><span className={item.studentIds.length >= item.maxStudents ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-700'}>{item.studentIds.length}/{item.maxStudents}</span></td>
                 <td className="px-3 py-3 whitespace-nowrap"><span className={'px-2 py-1 rounded text-[10px] font-semibold ' + ((item.status || 'Đang học') === 'Đang học' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Tạm dừng' ? 'bg-amber-50 text-amber-700' : item.status === 'Đã kết thúc' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700')}>{item.status || 'Đang học'}</span></td>
                 <td className="px-3 py-3 min-w-32">{item.teacherName || 'Chưa phân công'}</td>
-                <td className="px-3 py-3"><div className="flex justify-center gap-2"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>{!['Tạm dừng', 'Đã kết thúc'].includes(item.status || '') && <button type="button" title="Tạm dừng lớp và đưa học sinh về chờ xếp lớp của môn này" disabled={!can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onClick={() => updateClass(item.id, {status:'Tạm dừng'}, 'Đã tạm dừng lớp. Học sinh chờ xếp lớp mới cho môn này.')} className="rounded border border-amber-200 px-2 py-1 text-amber-700">Dừng lớp</button>}<button type="button" title="Xóa lớp" onClick={() => setPendingDelete({type:'class',id:item.id,name:item.name})} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
+                <td className="px-3 py-3"><div className="flex justify-center gap-2"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>{!['Tạm dừng', 'Đã kết thúc'].includes(item.status || '') && <button type="button" title="Dừng hoạt động lớp, giải phóng ca giáo viên và học sinh của môn này" disabled={!can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onClick={() => updateClass(item.id, {status:'Tạm dừng'}, 'Đã dừng lớp và giải phóng ca giáo viên, học sinh. Học sinh về Chờ xếp lớp của môn này.')} className="rounded border border-amber-200 px-2 py-1 text-amber-700">Dừng lớp</button>}<button type="button" title="Xóa lớp" onClick={() => setPendingDelete({type:'class',id:item.id,name:item.name})} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
               </tr>)}
             </PaginatedTableBody></table></div></div>
         </div>
@@ -1566,11 +1564,11 @@ export const Module4_StudentsClasses: React.FC = () => {
               <fieldset className="space-y-3"><legend className="font-semibold text-[#FF5C00] mb-2">Thông tin học tập</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="block text-slate-600">Họ và tên học sinh *<input type="text" required value={stdName} onChange={e => setStdName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label>
-                  <label className="block text-slate-600">Khối<select required value={stdGrade} onChange={e => setStdGrade(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn khối</option>{gradeOptions.map(item => ({value:item.id,label:item.label})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdGrade && !gradeOptions.map(item => ({value:item.id,label:item.label})).some(item => item.value === stdGrade) && <option value={stdGrade}>{stdGrade} (đã lưu)</option>}</select></label>
+                  <label className="block text-slate-600">Khối<select required disabled={studentGradeLocked} value={stdGrade} onChange={e => setStdGrade(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn khối</option>{gradeOptions.map(item => ({value:item.id,label:item.label})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdGrade && !gradeOptions.map(item => ({value:item.id,label:item.label})).some(item => item.value === stdGrade) && <option value={stdGrade}>{stdGrade} (đã lưu)</option>}</select></label>
                   <label className="block text-slate-600">Môn học<select required value={stdSubject} onChange={e => selectStudentSubject(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn môn học</option>{formSubjectOptions.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdSubject && !activeSubjects.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdSubject) && <option value={stdSubject}>{stdSubject} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Trình độ<select required value={stdLevel} onChange={e => setStdLevel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn trình độ</option>{activeLevels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdLevel && !activeLevels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdLevel) && <option value={stdLevel}>{stdLevel} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Mô hình lớp<select required value={stdModel} onChange={e => setStdModel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn mô hình lớp</option>{activeModels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdModel && !activeModels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdModel) && <option value={stdModel}>{stdModel} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Trạng thái<select value={stdStatus} onChange={e => setStdStatus(e.target.value as StudentRecord['status'])} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg">{['Chờ xếp lớp','Đang học','Bảo lưu','Đã thôi học'].map(status => <option key={status}>{status}</option>)}</select></label>
+                  <label className="block text-slate-600">Trình độ<select required disabled={studentStudyFieldsLocked} value={stdLevel} onChange={e => setStdLevel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn trình độ</option>{activeLevels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdLevel && !activeLevels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdLevel) && <option value={stdLevel}>{stdLevel} (đã lưu)</option>}</select></label>
+                  <label className="block text-slate-600">Mô hình lớp<select required disabled={studentStudyFieldsLocked} value={stdModel} onChange={e => setStdModel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn mô hình lớp</option>{activeModels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdModel && !activeModels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdModel) && <option value={stdModel}>{stdModel} (đã lưu)</option>}</select></label>
+                  <label className="block text-slate-600">Trạng thái<select disabled={Boolean(assignedClass(editingSubjectProfile))} value={stdStatus} onChange={e => setStdStatus(e.target.value as StudentRecord['status'])} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg">{['Chờ xếp lớp','Đang học','Bảo lưu','Đã thôi học'].map(status => <option key={status}>{status}</option>)}</select></label>
                 </div>
               </fieldset>
               <fieldset className="border-t border-slate-100 pt-3 space-y-2"><legend className="font-semibold text-slate-800">Liên hệ phụ huynh</legend>
@@ -1578,16 +1576,11 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><label className="block text-slate-600">Họ tên bố<input type="text"  value={stdFatherName} onChange={e => setStdFatherName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Số điện thoại bố<input type="tel"  value={stdFatherPhone} onChange={e => setStdFatherPhone(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Họ tên mẹ<input type="text"  value={stdMotherName} onChange={e => setStdMotherName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Số điện thoại mẹ<input type="tel"  value={stdMotherPhone} onChange={e => setStdMotherPhone(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label></div>
               </fieldset>
               <div className="flex flex-wrap gap-2">{Array.from(new Set([...stdDrafts.map(item => item.subject), stdSubject])).filter(subject=>Boolean(subject) && (!isAddingSubject || formSubjectOptions.some(item=>item.code===subject))).map(subject => <button type="button" key={subject} onClick={() => selectStudentSubject(subject)} className="rounded-lg border border-orange-200 px-3 py-1 text-orange-700">{subjectName(subject)}</button>)}</div>
-              <StudentSchedulePicker slots={activeTimeSlots} selected={stdSlots} onToggle={handleToggleSingleSlot} onRemove={handleRemoveSlotChip} onClear={handleClearAllSlots} />
-              {editingStudentId && studentClassInfo(students.find(item => item.id === editingStudentId && item.subject === stdSubject))}
-              <ClassSuggestions model={stdModel} schedule={stdSlots} isChanging={Boolean(assignedClass(students.find(item => item.id === editingStudentId && item.subject === stdSubject)))} items={findMatchingClassesForStudent(stdSubject, stdGrade, stdLevel, stdModel).filter(item => item.id !== assignedClass(students.find(student => student.id === editingStudentId && student.subject === stdSubject))?.id && (!editingStudentId || !item.studentIds.includes(editingStudentId)))} onAssign={handleSaveAndAssignToClass} />
+              {studentStudyFieldsLocked && <p className="text-xs text-amber-700">Thông tin cá nhân và liên hệ vẫn sửa được. Lớp đang hoạt động giữ nguyên ca đã xếp. Dừng lớp để đưa đăng ký môn về Chờ xếp lớp trước khi đổi trình độ, mô hình hoặc lịch học.</p>}
+              <StudentSchedulePicker disabled={studentStudyFieldsLocked} slots={activeTimeSlots} selected={stdSlots} onToggle={handleToggleSingleSlot} onRemove={handleRemoveSlotChip} onClear={handleClearAllSlots} />
+              {editingStudentId && studentClassInfo(editingSubjectProfile)}
+              {!studentStudyFieldsLocked && <ClassSuggestions model={stdModel} schedule={stdSlots} isChanging={Boolean(assignedClass(editingSubjectProfile))} items={findMatchingClassesForStudent(stdSubject, stdGrade, stdLevel, stdModel).filter(item => item.id !== assignedClass(editingSubjectProfile)?.id && (!editingStudentId || !item.studentIds.includes(editingStudentId)))} onAssign={handleSaveAndAssignToClass} />}
               <p className="text-xs text-slate-500">Mỗi môn có lịch và trạng thái riêng. Chọn lần lượt các môn để nhập đăng ký, sau đó lưu chung trên một mã học sinh.</p>
-              {editingStudentId && assignedClass(students.find(item => item.id === editingStudentId && item.subject === stdSubject)) && <button type="button" className="rounded-lg border border-amber-300 px-3 py-2 text-amber-700" onClick={() => {
-                const cls = assignedClass(students.find(item => item.id === editingStudentId && item.subject === stdSubject));
-                if (!cls || !requirePermission('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) return;
-                updateClass(cls.id, { studentIds: cls.studentIds.filter(id => id !== editingStudentId) });
-                setStdStatus('Chờ xếp lớp');
-              }}>Rút khỏi lớp môn này · Chờ xếp lớp</button>}
               {/* Nút hành động Footer */}
               <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
                 <button
@@ -1604,7 +1597,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 >
                   Lưu hồ sơ
                 </button>
-                {(!editingStudentId || !assignedClass(students.find(item => item.id === editingStudentId && item.subject === stdSubject))) && <button
+                {(!editingStudentId || !assignedClass(editingSubjectProfile)) && <button
                   type="button"
                   disabled={!can("Tạo, sửa, xóa lớp và cập nhật link phòng học")} onClick={handleSaveAndCreateClass}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
@@ -1935,7 +1928,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         </option>
                         {eligibleTeachersForClass.map(t => (
                           <option key={t.id} value={t.id}>
-                            {t.name} ({t.grades.join(', ')}) - Còn {t.freeSlots} ca rảnh{t.id === eligibleTeachersForClass[0].id ? ' · Đề xuất' : ''}
+                            {t.name} ({t.grades.join(', ')}){editingClassId && classes.find(item=>item.id===editingClassId)?.teacherId===t.id ? ' · Đang phụ trách' : ` - Còn ${t.freeSlots} ca rảnh${t.id===eligibleTeachersForClass[0].id?' · Đề xuất':''}`}
                           </option>
                         ))}
                       </>
@@ -1975,7 +1968,9 @@ export const Module4_StudentsClasses: React.FC = () => {
                   type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
                 >
-                  {savingClass ? 'Đang lưu...' : 'Lưu lớp học'}
+                  {savingClass
+                    ? (editingClassId ? 'Đang cập nhật...' : 'Đang lưu...')
+                    : (editingClassId ? 'Cập nhật lớp học' : 'Lưu lớp học')}
                 </button>
               </div>
               </fieldset>

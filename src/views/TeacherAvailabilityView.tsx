@@ -1,8 +1,10 @@
 import { usePermissions } from '../hooks/usePermissions';
+import {useSaveConfirmation} from '../hooks/useSaveConfirmation';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import type { ClassItem } from '../types';
 import { canEditTeacherAvailability } from '../lib/teacherAvailability';
+import { schedulesOverlap } from '../lib/workflow';
 
 const RegisteredClassSummary: React.FC<{ item: Pick<ClassItem, 'code' | 'name' | 'model'> }> = ({ item }) => (
   <div className="min-w-0 space-y-1 text-left">
@@ -15,6 +17,7 @@ const RegisteredClassSummary: React.FC<{ item: Pick<ClassItem, 'code' | 'name' |
 );
 
 export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; readOnly?: boolean }> = ({ initialTeacherId, readOnly = false }) => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation();
   const { can, requirePermission } = usePermissions();
   const { currentUser, teachers, classes, timeSlots, updateTeacher, showToast } = useApp();
 
@@ -85,34 +88,28 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
   }, [activeTeacher?.id, activeTeacher?.schedule]);
 
   // Helper tìm lớp học được gán cho giáo viên/gia sư tại thứ và khung giờ này
-  const getAssignedClassForSlot = (dayKey: number, slotCode: string, slotTimeRange: string) => {
+  const getAssignedClassForSlot = (dayKey: number, _slotCode: string, slotTimeRange: string) => {
     const dayShortMap: Record<number, string> = {
       0: 'T2', 1: 'T3', 2: 'T4', 3: 'T5', 4: 'T6', 5: 'T7', 6: 'CN'
     };
     const targetDay = dayShortMap[dayKey];
     if (!activeTeacher) return undefined;
+    const targetDate = new Date(`${fromDate}T00:00:00`);
+    targetDate.setDate(targetDate.getDate()+dayKey);
+    const targetDateString=`${targetDate.getFullYear()}-${String(targetDate.getMonth()+1).padStart(2,'0')}-${String(targetDate.getDate()).padStart(2,'0')}`;
 
     return classes.find(cls => {
-      const targetDate = new Date(`${fromDate}T00:00:00`);
-      targetDate.setDate(targetDate.getDate() + dayKey);
-      const targetDateString = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
-      if (cls.startDate && targetDateString < cls.startDate) return false;
+      if(['Tạm dừng','Đã kết thúc'].includes(cls.status||''))return false;
       const isTeacherMatch =
         cls.teacherId === activeTeacher.id ||
-        (cls.teacherName && activeTeacher.name && (
+        (!cls.teacherId && cls.teacherName && activeTeacher.name && (
           cls.teacherName.includes(activeTeacher.name) ||
           activeTeacher.name.includes(cls.teacherName)
         ));
       if (!cls.schedule) return false;
 
       // Ví dụ: cls.schedule = 'T3 (18:00 - 19:30), T5 (18:00 - 19:30)'
-      const parts = cls.schedule.split(',').map(p => p.trim());
-      const hasScheduledSlot = parts.some(part => {
-        const hasDay = part.startsWith(targetDay) || part.includes(targetDay);
-        const startTime = slotTimeRange ? slotTimeRange.split(' - ')[0] : '';
-        const hasTime = (startTime && part.includes(startTime)) || (slotCode && part.includes(slotCode));
-        return hasDay && hasTime;
-      });
+      const hasScheduledSlot = schedulesOverlap(cls.schedule,`${targetDay} (${slotTimeRange})`);
       if (!hasScheduledSlot) return false;
       if (isTeacherMatch) return true;
 
@@ -120,13 +117,12 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
         cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
         match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, time: (match[2] || match[4] || '').trim() })
       ).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).slice(0, 2);
-      const startTime = slotTimeRange.split(' - ')[0];
       return cls.coverAssignments?.some(assignment => {
         const scheduledEntry = scheduledEntries[assignment.sessionNum - 1];
         return assignment.teacherId === activeTeacher.id &&
           assignment.dateStr === targetDateString &&
           scheduledEntry?.dayIndex === dayKey &&
-          scheduledEntry.time.includes(startTime);
+          schedulesOverlap(`${targetDay} (${scheduledEntry.time})`,`${targetDay} (${slotTimeRange})`);
       }) || false;
     });
   };
@@ -178,7 +174,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
         updated[slot.code] = days.map(day => {
           const current = prev[slot.code]?.[day.key] || 'none';
           const assigned = getAssignedClassForSlot(day.key, slot.code, slot.timeRange);
-          return current === 'busy' || assigned ? 'busy' : 'free';
+          return current === 'busy' || assigned ? current : 'free';
         });
       });
       return updated;
@@ -186,6 +182,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     showToast('Đã bật rảnh tất cả ca từ Thứ Hai đến Chủ Nhật. Nhấn Lưu Lịch Rảnh để lưu đăng ký.', 'info');
   };
   const handleSaveAvailability = () => {
+    if(isSavingChanges)return;
     if (!requirePermission("Giáo viên đăng ký lịch rảnh theo tuần")) return;
     if (!canEdit || !activeTeacher) return;
     let freeCount = 0;
@@ -201,15 +198,15 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     });
     if (!saved) return;
 
-    showToast(`Đã lưu lịch rảnh (Hiệu lực: ${fromDate} đến ${toDate}, Năm học ${selectedSchoolYear}) cho ${activeTeacher.name}!`, 'success');
+    void confirmSave(()=>showToast(`Đã lưu lịch rảnh (Hiệu lực: ${fromDate} đến ${toDate}, Năm học ${selectedSchoolYear}) cho ${activeTeacher.name}!`, 'success'));
   };
 
   const currentSelectedDay = days.find(d => d.key === selectedDayKey) || days[0];
 
   // Đếm tổng số ca rảnh toàn tuần
-  const totalFreeSlots = Object.values(scheduleState).reduce((acc, arr) => {
-    return acc + arr.filter(v => v === 'free').length;
-  }, 0);
+  const totalFreeSlots = activeSlots.reduce((count,slot)=>count+days.filter(day=>
+    scheduleState[slot.code]?.[day.key]==='free'&&!getAssignedClassForSlot(day.key,slot.code,slot.timeRange)
+  ).length,0);
 
   // Đếm số ca rảnh theo thứ
   const getFreeCountForDay = (dayIndex: number) => {
@@ -284,7 +281,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
           </button>}
           {/* Nút lưu */}
           {canEdit && <button
-            disabled={!can("Giáo viên đăng ký lịch rảnh theo tuần")} onClick={handleSaveAvailability}
+            disabled={isSavingChanges || !can("Giáo viên đăng ký lịch rảnh theo tuần")} onClick={handleSaveAvailability}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
           >
             Lưu Lịch Rảnh ({totalFreeSlots} ca)

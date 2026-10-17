@@ -1,0 +1,38 @@
+import type {ClassItem} from '../types';
+
+type TeachingContext=Pick<ClassItem,'subject'|'grade'|'model'|'schedule'>;
+type StudentContext=TeachingContext & Pick<ClassItem,'level'|'studentIds'>;
+const normalizedSchedule=(value:string)=>value.replace(/\s/g,'').toLocaleLowerCase('vi');
+
+export function classBindingEditIssue(before:ClassItem,after:ClassItem):string|undefined {
+ if(['Tạm dừng','Đã kết thúc'].includes(before.status||'') || ['Tạm dừng','Đã kết thúc'].includes(after.status||''))return;
+ if((before.teacherId && before.teacherId!==after.teacherId) ||
+  before.studentIds.some(id=>!after.studentIds.includes(id)) ||
+  ((before.teacherId || before.studentIds.length) && normalizedSchedule(before.schedule)!==normalizedSchedule(after.schedule))) {
+  return 'Dừng hoạt động lớp trước khi đổi giáo viên, đổi lịch hoặc rút học sinh để giải phóng ca.';
+ }
+}
+
+/** Existing assignments do not need to be newly recruited for a metadata edit. */
+export function canKeepAssignedTeacher(existing:ClassItem|undefined,draft:TeachingContext,teacherId:string) {
+ return Boolean(existing && teacherId && existing.teacherId===teacherId &&
+  existing.subject===draft.subject && existing.grade===draft.grade && existing.model===draft.model &&
+  normalizedSchedule(existing.schedule)===normalizedSchedule(draft.schedule));
+}
+
+export function studentsNeedingClassValidation(existing:ClassItem|undefined,draft:StudentContext):string[] {
+ if(!existing || existing.subject!==draft.subject || existing.grade!==draft.grade ||
+  existing.model!==draft.model || existing.level!==draft.level)return draft.studentIds;
+ return draft.studentIds.filter(id=>!existing.studentIds.includes(id));
+}
+
+export function studentsNeedingScheduleValidation(existing:ClassItem|undefined,draft:Pick<ClassItem,'subject'|'schedule'|'studentIds'>):string[] {
+ if(!existing || existing.subject!==draft.subject || normalizedSchedule(existing.schedule)!==normalizedSchedule(draft.schedule))return draft.studentIds;
+ return draft.studentIds.filter(id=>!existing.studentIds.includes(id));
+}
+
+/** Editing must never silently replace the assigned teacher with a suggestion. */
+export function nextClassTeacherSelection(current:string,eligible:string[],editing:boolean) {
+ if(eligible.includes(current))return current;
+ return editing ? '' : eligible[0] || '';
+}

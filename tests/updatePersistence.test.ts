@@ -34,6 +34,10 @@ try {
  await db.exec(file('supabase/migrations/20261028_document_drive_catalog.sql'));
  await db.exec(file('supabase/migrations/20261030_update_existing_business_rows.sql'));
  await db.exec(file('supabase/migrations/20261030_update_existing_business_rows.sql'));
+ await db.exec(file('supabase/migrations/20261031_profile_edit_rules.sql'));
+ await db.exec(file('supabase/migrations/20261031_profile_edit_rules.sql'));
+ await db.exec(file('supabase/migrations/20261101_stop_class_release_slots.sql'));
+ await db.exec(file('supabase/migrations/20261101_stop_class_release_slots.sql'));
  globalThis.fetch=async(url,options)=>{
   const request=url instanceof Request?url:new Request(url,options);
   const name=new URL(request.url).pathname.split('/').at(-1)!;
@@ -79,6 +83,119 @@ try {
   assert.equal(business.getBusinessSnapshot().data[dataset].find((row:any)=>row.id===id)[field],value,dataset+' survives reload');
   console.log('PASS update:',dataset);
  }
+ // A live, seeded class can be renamed without resetting status/assignments.
+ const liveClass=business.getBusinessSnapshot().data.classes.find((row:any)=>row.status==='Đang học');
+ assert.ok(liveClass,'ongoing seeded class fixture exists');
+ const liveBefore=structuredClone(liveClass);
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id===liveClass.id?{...row,name:'Updated ongoing sample',roomLink:'https://room.example/updated'}:row));
+ await business.waitForBusinessSave();await business.loadBusinessData();
+ const liveAfter=business.getBusinessSnapshot().data.classes.find((row:any)=>row.id===liveClass.id);
+ assert.equal(liveAfter.name,'Updated ongoing sample');
+ assert.equal(liveAfter.roomLink,'https://room.example/updated');
+ assert.equal(liveAfter.status,'Đang học');
+ assert.equal(liveAfter.teacherId,liveBefore.teacherId);
+ assert.deepEqual(liveAfter.studentIds,liveBefore.studentIds);
+ assert.deepEqual(liveAfter.activeSessions,liveBefore.activeSessions);
+ console.log('PASS: ongoing seeded class rename/link persist with status, teacher, roster and sessions intact');
+ // Personal teacher fields sync through the existing account FK, including class labels.
+ const linkedTeacher=business.getBusinessSnapshot().data.teachers.find((row:any)=>row.id===liveClass.teacherId);
+ assert.ok(linkedTeacher?.user_id);
+ business.setBusinessValue('teachers',(rows:any[])=>rows.map(row=>row.id===linkedTeacher.id?{...row,name:'Updated personal teacher',phone:'0901112223'}:row));
+ await business.waitForBusinessSave();await business.loadBusinessData();
+ const linkedAccount:any=(await withDb<any>(()=>db.query('SELECT hoten,sodienthoai FROM vuihoc."NGUOI_DUNG" WHERE madinhdanh=$1',[linkedTeacher.user_id]))).rows[0];
+ assert.equal(linkedAccount.hoten,'Updated personal teacher');assert.equal(linkedAccount.sodienthoai,'0901112223');
+ assert.equal(business.getBusinessSnapshot().data.classes.find((row:any)=>row.id===liveClass.id).teacherName,'Updated personal teacher');
+ business.setBusinessValue('teachers',(rows:any[])=>rows.map(row=>row.id===linkedTeacher.id?{...row,models:[]}:row));
+ await assert.rejects(business.waitForBusinessSave(),/ảnh hưởng lớp/);await business.loadBusinessData();
+ // Personal student edits preserve enrollment. Academic edits require a prior release.
+ const occupiedClass=business.getBusinessSnapshot().data.classes.find((row:any)=>row.status==='Đang học'&&row.studentIds.length);
+ assert.ok(occupiedClass);
+ const pupilId=occupiedClass.studentIds[0];
+ const {updateStudentRegistration}=await import('../src/lib/studentRegistrations');
+ const pupilBefore=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId);
+ business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?{...row,name:'Updated personal student',fatherPhone:'0904445556'}:row));
+ await business.waitForBusinessSave();await business.loadBusinessData();
+ assert.deepEqual(business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations,pupilBefore.registrations);
+ const enrolled=pupilBefore.registrations.find((row:any)=>row.subject===occupiedClass.subject);
+ const alternateModel=business.getBusinessSnapshot().data.class_models.find((row:any)=>row.code!==enrolled.model).code;
+ business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?updateStudentRegistration(row,{subject:occupiedClass.subject,model:alternateModel}):row));
+ await assert.rejects(business.waitForBusinessSave(),/Chờ xếp lớp/);await business.loadBusinessData();
+ business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?updateStudentRegistration(row,{subject:occupiedClass.subject,status:'Chờ xếp lớp',currentClassCode:undefined,model:alternateModel}):row));
+ await assert.rejects(business.waitForBusinessSave(),/lưu trước/);await business.loadBusinessData();
+ business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?updateStudentRegistration(row,{subject:occupiedClass.subject,status:'Chờ xếp lớp',currentClassCode:undefined}):row));
+ await assert.rejects(business.waitForBusinessSave(),/Dừng hoạt động lớp/);await business.loadBusinessData();
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id===occupiedClass.id?{...row,studentIds:row.studentIds.filter((id:string)=>id!==pupilId)}:row));
+ await assert.rejects(business.waitForBusinessSave(),/Dừng hoạt động lớp/);await business.loadBusinessData();
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id===occupiedClass.id?{...row,schedule:'T2 (18:00 - 19:30)'}:row));
+ await assert.rejects(business.waitForBusinessSave(),/Dừng hoạt động lớp/);await business.loadBusinessData();
+ console.log('PASS: personal student edits preserve enrollment; direct withdrawal, roster removal and schedule release require stopping the class');
+ // Real teacher session: occupied availability is locked; a free slot can be edited.
+ const credentials:any=(await withDb<any>(()=>db.query('SELECT tendangnhap,matkhau FROM vuihoc."NGUOI_DUNG" WHERE madinhdanh=$1',[linkedTeacher.user_id]))).rows[0];
+ const occupiedSlot:any=(await withDb<any>(()=>db.query(`SELECT k.madinhdanh id,k.makhunggio code,s.thutrongtuan-1 AS day_index FROM vuihoc."LICH_LOP" s JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=s.malop JOIN vuihoc."KHUNG_GIO" k ON k.madinhdanh=s.makhunggio WHERE l.magiaovien=$1 AND l.trangthai NOT IN ('TAM_DUNG','DA_KET_THUC') LIMIT 1`,[linkedTeacher.id]))).rows[0];
+ assert.ok(occupiedSlot);
+ await accounts.logoutAccount();business.resetBusinessData();await accounts.loginAccount(credentials.tendangnhap,credentials.matkhau);await business.loadBusinessData();
+ const alterSlot=(slot:any)=>business.setBusinessValue('teachers',(rows:any[])=>rows.map(row=>{
+  if(row.id!==linkedTeacher.id)return row;
+  const schedule=structuredClone(row.schedule||{});const key=Object.hasOwn(schedule,slot.id)?slot.id:slot.code;
+  const days=[...(schedule[key]||Array(7).fill('none'))];days[slot.day_index]=days[slot.day_index]==='free'?'none':'free';schedule[key]=days;
+  return {...row,schedule};
+ }));
+ alterSlot(occupiedSlot);await assert.rejects(business.waitForBusinessSave(),/Ca đã gắn/);await business.loadBusinessData();
+ const unlockedSlot:any=(await withDb<any>(()=>db.query(`SELECT k.madinhdanh id,k.makhunggio code,d.day_index FROM vuihoc."KHUNG_GIO" k CROSS JOIN generate_series(0,6) d(day_index) WHERE NOT EXISTS(SELECT 1 FROM vuihoc."LICH_LOP" s JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=s.malop WHERE l.magiaovien=$1 AND l.trangthai NOT IN ('TAM_DUNG','DA_KET_THUC') AND s.makhunggio=k.madinhdanh AND s.thutrongtuan=d.day_index+1) AND NOT EXISTS(SELECT 1 FROM vuihoc."BUOI_HOC" b WHERE b.magiaoviendaythay=$1 AND b.makhunggio=k.madinhdanh AND extract(isodow FROM b.ngayhoc)=d.day_index+1 AND b.trangthai NOT IN ('NGHI_HOC','DA_HOAN_THANH')) LIMIT 1`,[linkedTeacher.id]))).rows[0];
+ assert.ok(unlockedSlot);alterSlot(unlockedSlot);await business.waitForBusinessSave();
+ await accounts.logoutAccount();business.resetBusinessData();await accounts.loginAccount('admin.tong','234567');await business.loadBusinessData();
+ console.log('PASS: real teacher availability rejects assigned slot changes and accepts unrelated slot edits');
+ // Stop releases only this class. Preferences, other subjects, and past lessons stay intact.
+ const releaseTeacherId=occupiedClass.teacherId;
+ const releaseSlot:any=(await withDb<any>(()=>db.query('SELECT makhunggio,thutrongtuan-1 AS day FROM vuihoc."LICH_LOP" WHERE malop=$1 LIMIT 1',[occupiedClass.id]))).rows[0];
+ await withDb(()=>db.query(`UPDATE vuihoc."LICH_RANH_DINH_KY" SET trangthai='busy' WHERE magiaovien=$1 AND makhunggio=$2 AND thutrongtuan=$3`,[releaseTeacherId,releaseSlot.makhunggio,releaseSlot.day]));
+ // Simulate a pre-existing overlapping assignment: stopping one class must not unlock both.
+ await withDb(()=>db.query(`INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh','REG-OVERLAP','malophoc','REG-OVERLAP'))).* FROM vuihoc."LOP_HOC" l WHERE l.madinhdanh=$1`,[occupiedClass.id]));
+ await withDb(()=>db.query(`INSERT INTO vuihoc."LICH_LOP"(malop,thutu,thutrongtuan,makhunggio) SELECT 'REG-OVERLAP',thutu,thutrongtuan,makhunggio FROM vuihoc."LICH_LOP" WHERE malop=$1`,[occupiedClass.id]));
+ const slotsBefore:any=(await withDb<any>(()=>db.query('SELECT * FROM vuihoc."LICH_RANH_DINH_KY" WHERE magiaovien=$1 ORDER BY makhunggio,thutrongtuan',[releaseTeacherId]))).rows;
+ const preferences:any=(await withDb<any>(()=>db.query('SELECT * FROM vuihoc."LICH_DANG_KY_MON_HOC" WHERE mahocsinh=$1 ORDER BY mamonhoc,thutu',[pupilId]))).rows;
+ const lessonsBefore:any=(await withDb<any>(()=>db.query('SELECT * FROM vuihoc."BUOI_HOC" WHERE malop=$1 AND vaolopluc IS NOT NULL ORDER BY madinhdanh',[occupiedClass.id]))).rows;
+ const otherRegs=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations.filter((row:any)=>row.subject!==occupiedClass.subject);
+ await business.loadBusinessData();
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id===occupiedClass.id?{...row,status:'Tạm dừng',studentIds:[]}:row));
+ await business.waitForBusinessSave();await business.loadBusinessData();
+ const releasedPupil=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId);
+ const releasedRegistration=releasedPupil.registrations.find((row:any)=>row.subject===occupiedClass.subject);
+ assert.equal(releasedRegistration.status,'Chờ xếp lớp');assert.ok(!releasedRegistration.currentClassCode);
+ assert.deepEqual(releasedPupil.registrations.filter((row:any)=>row.subject!==occupiedClass.subject),otherRegs);
+ assert.deepEqual((await withDb<any>(()=>db.query('SELECT * FROM vuihoc."LICH_DANG_KY_MON_HOC" WHERE mahocsinh=$1 ORDER BY mamonhoc,thutu',[pupilId]))).rows,preferences);
+ assert.deepEqual((await withDb<any>(()=>db.query('SELECT * FROM vuihoc."BUOI_HOC" WHERE malop=$1 AND vaolopluc IS NOT NULL ORDER BY madinhdanh',[occupiedClass.id]))).rows,lessonsBefore);
+ const slotsAfter:any=(await withDb<any>(()=>db.query('SELECT * FROM vuihoc."LICH_RANH_DINH_KY" WHERE magiaovien=$1 ORDER BY makhunggio,thutrongtuan',[releaseTeacherId]))).rows;
+ for(const old of slotsBefore){
+  const next=slotsAfter.find((row:any)=>row.makhunggio===old.makhunggio&&row.thutrongtuan===old.thutrongtuan);
+  const occupied:any=(await withDb<any>(()=>db.query('SELECT vuihoc.ca_giao_vien_con_lop($1,$2,$3) AS occupied',[releaseTeacherId,old.makhunggio,old.thutrongtuan]))).rows[0].occupied;
+  if(occupied)assert.equal(next.trangthai,old.trangthai,'another active class keeps its slot');
+  else if(old.makhunggio===releaseSlot.makhunggio&&old.thutrongtuan===releaseSlot.day)assert.equal(next.trangthai,'free');
+  else if(old.trangthai!=='busy')assert.equal(next.trangthai,old.trangthai,'unrelated availability preserved');
+ }
+ assert.equal(slotsAfter.find((row:any)=>row.makhunggio===releaseSlot.makhunggio&&row.thutrongtuan===releaseSlot.day).trangthai,'busy','overlapping live class retains busy state');
+ const countBeforeFinalStop=business.getBusinessSnapshot().data.teachers.find((row:any)=>row.id===releaseTeacherId).busySlots;
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id==='REG-OVERLAP'?{...row,status:'Tạm dừng',studentIds:[]}:row));
+ await business.waitForBusinessSave();await business.loadBusinessData();
+ const releasedSlot:any=(await withDb<any>(()=>db.query('SELECT trangthai FROM vuihoc."LICH_RANH_DINH_KY" WHERE magiaovien=$1 AND makhunggio=$2 AND thutrongtuan=$3',[releaseTeacherId,releaseSlot.makhunggio,releaseSlot.day]))).rows[0];
+ assert.equal(releasedSlot.trangthai,'free','last active class stop frees the teacher');
+ const teacherAfterStop=business.getBusinessSnapshot().data.teachers.find((row:any)=>row.id===releaseTeacherId);
+ assert.ok(teacherAfterStop.busySlots<countBeforeFinalStop,'queried occupied count reflects the stop');
+ assert.equal(teacherAfterStop.busySlots,0);
+ const releaseCredentials:any=(await withDb<any>(()=>db.query('SELECT tendangnhap,matkhau FROM vuihoc."NGUOI_DUNG" WHERE madinhdanh=$1',[teacherAfterStop.user_id]))).rows[0];
+ await accounts.logoutAccount();business.resetBusinessData();await accounts.loginAccount(releaseCredentials.tendangnhap,releaseCredentials.matkhau);await business.loadBusinessData();
+ business.setBusinessValue('teachers',(rows:any[])=>rows.map(row=>{
+  if(row.id!==releaseTeacherId)return row;
+  const schedule=structuredClone(row.schedule);const key=Object.hasOwn(schedule,releaseSlot.makhunggio)?releaseSlot.makhunggio:business.getBusinessSnapshot().data.time_slots.find((slot:any)=>slot.id===releaseSlot.makhunggio).code;
+  schedule[key][releaseSlot.day]='none';return {...row,schedule};
+ }));
+ await business.waitForBusinessSave();
+ await accounts.logoutAccount();business.resetBusinessData();await accounts.loginAccount('admin.tong','234567');await business.loadBusinessData();
+ console.log('PASS: overlapping active class keeps slot locked; final stop frees slot/count and teacher can edit it afterward');
+ business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?updateStudentRegistration(row,{subject:occupiedClass.subject,model:alternateModel}):row));
+ await business.waitForBusinessSave();await business.loadBusinessData();
+ assert.equal(business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations.find((row:any)=>row.subject===occupiedClass.subject).model,alternateModel);
+ console.log('PASS: stopping class releases teachers/students atomically, preserves other subjects/preferences/started lesson history, and permits subsequent academic edit');
  // Configurations and dictionaries also retain their stored singleton/row IDs.
  business.setBusinessValue('rag_bot_config',(value:any)=>({...value,welcomeGreeting:'Confirmed greeting'}));
  await business.waitForBusinessSave();await business.loadBusinessData();
@@ -118,13 +235,14 @@ try {
  assert.equal(business.getBusinessSnapshot().data.subjects.find((row:any)=>row.id===subject.id).name,'Changed in another session');
  console.log('PASS: conflicting update rejected without overwriting database');
  // Account and permission-group edits use their existing IDs and survive refresh.
- const user=accounts.getAccountSnapshot().users.find(row=>row.id!==accounts.getAccountSnapshot().actor!.id)!;
+ const user=accounts.getAccountSnapshot().users.find(row=>row.id===linkedTeacher.user_id)!;
  assert.ok(user);
  const accountCount=accounts.getAccountSnapshot().users.length;
  accounts.setSessionUsers(rows=>rows.map(row=>row.id===user.id?{...row,phone:'0901234567'}:row));
  await accounts.waitForAccountSave();await accounts.refreshAccountSession();
  assert.equal(accounts.getAccountSnapshot().users.find(row=>row.id===user.id)!.phone,'0901234567');
  assert.equal(accounts.getAccountSnapshot().users.length,accountCount);
+ await business.loadBusinessData();assert.equal(business.getBusinessSnapshot().data.teachers.find((row:any)=>row.id===linkedTeacher.id).phone,'0901234567');
  console.log('PASS update: accounts');
  const group=accounts.getAccountSnapshot().groups.find(row=>!row.isDefault)!;assert.ok(group);
  accounts.setSessionGroups(rows=>rows.map(row=>row.id===group.id?{...row,desc:'Updated group description'}:row));

@@ -1,6 +1,8 @@
 import { ConfirmAction } from '../components/ConfirmAction';
+import {classBindingEditIssue,studentsNeedingScheduleValidation} from '../lib/classEditing';
+import {studentStudyEditIssue,teacherStudyEditIssue,teacherScheduleEditIssue} from '../lib/profileEditing';
 import { updateStudentRegistration, studentScheduleConflict } from '../lib/studentRegistrations';
-import { useBusinessValue, useBusinessStatus, loadBusinessData, resetBusinessData, acceptBusinessTeacher, businessSaving, getBusinessSnapshot, setBusinessValue } from '../lib/businessPersistence';
+import { useBusinessValue, useBusinessStatus, loadBusinessData, refreshBusinessData, resetBusinessData, acceptBusinessTeacher, businessSaving, getBusinessSnapshot, setBusinessValue } from '../lib/businessPersistence';
 import { persistTeacher } from '../lib/teacherPersistence';
 import { teacherSessionRequest, useAccountSession, setSessionUsers, setSessionGroups, logoutAccount, getAccountSnapshot } from '../lib/accountSession';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, isPreviewAccount } from '../lib/previewMode';
@@ -167,6 +169,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toneDirectives, setToneDirectives] = useBusinessValue<Record<string, { name: string; directive: string }>>('tone_directives');
   const [payrollStore, setPayrollStore] = useBusinessValue<Record<string, MonthPayrollData>>('monthly_payroll');
   const businessStatus = useBusinessStatus();
+  const contactVersion=JSON.stringify(accountSession.users.map(user=>[user.id,user.name,user.username,user.email,user.phone]));
+  const previousContactVersion=React.useRef(contactVersion);
+  useEffect(()=>{
+    if(previousContactVersion.current===contactVersion || businessStatus.loading || businessStatus.saving)return;
+    previousContactVersion.current=contactVersion;
+    if(accountSession.actor)void refreshBusinessData();
+  },[contactVersion,businessStatus.loading,businessStatus.saving,accountSession.actor?.id]);
   const teacherAccess = JSON.stringify(accountSession.groups.map(g=>[g.id,g.permissions,g.portal]));
   useEffect(() => {
     resetBusinessData();
@@ -275,10 +284,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     if (editsProfile && teacher) {
-      const linked = users.find(u => u.id === teacher.id || (teacher.username && u.username === teacher.username) || (teacher.email && u.email.toLowerCase() === teacher.email.toLowerCase()));
-      if (updates.email && users.some(u => u.id !== linked?.id && u.email.toLowerCase() === updates.email!.trim().toLowerCase())) { showToast('Email đã được sử dụng.', 'error'); return false; }
+      const linked = users.find(u => u.id === teacher.user_id);
+      if (updates.email && updates.email.trim().toLowerCase()!==teacher.email.trim().toLowerCase() && users.some(u => u.id !== linked?.id && u.email.toLowerCase() === updates.email!.trim().toLowerCase())) { showToast('Email đã được sử dụng.', 'error'); return false; }
     }
-    setTeachers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    const next={...teacher,...updates};
+    const issue=teacherStudyEditIssue(teacher,next,classes) || (editsAvailability && teacherScheduleEditIssue(teacher,next,classes,timeSlots));
+    if(issue){showToast(issue,'warning');return false;}
+    setTeachers(prev => prev.map(t => t.id === id ? next : t));
     showToast('Cập nhật hồ sơ Giáo viên thành công!', 'success');
     return true;
   };
@@ -296,13 +308,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if(!existing){showToast('Học sinh không còn tồn tại. Hãy tải lại dữ liệu.','error');return false;}
     if ('currentClassCode' in updates && (updates.currentClassCode || '')!==(existing.currentClassCode || '') && !permit('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) return false;
     if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return false;
-    setStudents(prev => prev.map(s => s.id === id ? updateStudentRegistration(s, updates) : s));
+    const next=updateStudentRegistration(existing,updates);
+    const issue=studentStudyEditIssue(existing,next,classes);
+    if(issue){showToast(issue,'warning');return false;}
+    setStudents(prev => prev.map(s => s.id === id ? next : s));
     showToast('Cập nhật hồ sơ học sinh thành công!', 'success');
     return true;
   };
 
   const deleteStudent = (id: string) => {
     if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
+    if(classes.some(cls=>cls.studentIds.includes(id)&&!['Tạm dừng','Đã kết thúc'].includes(cls.status||''))){showToast('Dừng hoạt động các lớp của học sinh trước khi xóa hồ sơ.','warning');return;}
     setStudents(prev => prev.filter(s => s.id !== id));
     setClasses(prev => prev.map(c => ({
       ...c,
@@ -326,7 +342,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const releasing = updates.status === 'Tạm dừng' || updates.status === 'Đã kết thúc';
     if (releasing) updates = { ...updates, studentIds: [] };
     const next = { ...existing, ...updates };
-    if (next.studentIds.some(studentId => studentScheduleConflict(studentId, next, classes))) {
+    const bindingIssue=classBindingEditIssue(existing,next);
+    if(bindingIssue){showToast(bindingIssue,'warning');return false;}
+    if (studentsNeedingScheduleValidation(existing,next).some(studentId => studentScheduleConflict(studentId, next, classes))) {
       showToast('Lịch lớp trùng với lớp môn khác của học sinh đã chọn.', 'error'); return false;
     }
     setClasses(prev => prev.map(c => c.id === id ? next : c));
@@ -336,6 +354,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteClass = (id: string) => {
     if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
+    const existing=classes.find(cls=>cls.id===id);
+    if(existing&&!['Tạm dừng','Đã kết thúc'].includes(existing.status||'')&&(existing.teacherId||existing.studentIds.length)){showToast('Dừng hoạt động lớp để giải phóng ca trước khi xóa.','warning');return;}
     setClasses(prev => prev.filter(c => c.id !== id));
     showToast('Đã xóa lớp học thành công! Học sinh đã được đưa về danh sách chờ xếp lớp.', 'info');
   };

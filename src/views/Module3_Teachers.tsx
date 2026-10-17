@@ -259,11 +259,14 @@ export const Module3_Teachers: React.FC = () => {
     e.preventDefault();
     if (isSavingChanges) return;
     if (!canManageProfiles || !editingTeacher) return;
-    if (editTeacherGrades.length === 0) {
+    const studyChanged=editTeacherSubject!==editingTeacher.subject || editTeacherLevel!==editingTeacher.levelId ||
+      JSON.stringify([...editTeacherGrades].sort())!==JSON.stringify([...editingTeacher.grades].sort()) ||
+      JSON.stringify([...editTeacherModels].sort())!==JSON.stringify([...(editingTeacher.models||[])].sort());
+    if (studyChanged && editTeacherGrades.length === 0) {
       showToast('Vui lòng chọn ít nhất 1 khối lớp phụ trách!', 'error');
       return;
     }
-    if (editTeacherModels.filter(code=>!isTeachingModelParent(code)).length === 0) {
+    if (studyChanged && editTeacherModels.filter(code=>!isTeachingModelParent(code)).length === 0) {
       showToast('Vui lòng chọn ít nhất một mô hình trong danh mục.', 'error');
       return;
     }
@@ -274,8 +277,9 @@ export const Module3_Teachers: React.FC = () => {
 
     const category = activeCategories.find(c => c.id === editTeacherLevel);
     const subject = activeSubjects.find(s => s.code === editTeacherSubject);
-    if (!category || !subject || !editTeacherName.trim() || !editTeacherGrades.every(grade => category.options.some(option => option.id === grade))) { showToast('Vui lòng chọn môn và lớp hợp lệ từ danh mục.', 'error'); return; }
-    const saved = updateTeacher(editingTeacher.id, { name: editTeacherName.trim(), phone: editTeacherPhone.trim(), email: editTeacherEmail.trim().toLowerCase(), subject: subject.code, subjectName: subject.name, levelId: category.id, levelName: category.name, grades: editTeacherGrades, models: editTeacherModels, status: editTeacherStatus, statusLabel, degree: editTeacherDegree.trim() });
+    if (!editTeacherName.trim() || (studyChanged && (!category || !subject || !editTeacherGrades.every(grade => category.options.some(option => option.id === grade))))) { showToast('Vui lòng chọn môn và lớp hợp lệ từ danh mục.', 'error'); return; }
+    const saved = updateTeacher(editingTeacher.id, { name: editTeacherName.trim(), phone: editTeacherPhone.trim(), email: editTeacherEmail.trim().toLowerCase(),
+      ...(studyChanged?{subject:editTeacherSubject,levelId:editTeacherLevel,grades:editTeacherGrades,models:editTeacherModels}:{}),status:editTeacherStatus,statusLabel,degree:editTeacherDegree.trim() });
     if (!saved) return;
 
     void confirmSave(()=>setEditingTeacher(null));
