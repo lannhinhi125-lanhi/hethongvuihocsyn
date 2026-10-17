@@ -317,13 +317,13 @@ export const Module2_MasterData: React.FC = () => {
         { id: 'incidents', name: 'Sự cố & Hệ số công', group: 'Vận hành', count: incidents.length }
       ]}>
       <div className="space-y-3">
-      {activeTab !== 'teaching' && activeTab !== 'incidents' && activeTab !== 'document-types' && <div className="relative max-w-sm">
+      {activeTab !== 'teaching' && activeTab !== 'incidents' && <div className="relative max-w-sm">
         <input type="search" aria-label="Tìm giá trị trong danh mục đang chọn" value={searchKeyword}
           onChange={event => setSearchKeyword(event.target.value)} placeholder="Tìm theo mã hoặc tên trong danh mục..."
           className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-xs focus:border-orange-500 focus:outline-none" />
         <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
       </div>}
-      {activeTab === 'document-types' && <DocumentCategoryManager embedded />}
+      {activeTab === 'document-types' && <DocumentCategoryManager searchKeyword={searchKeyword} />}
       {activeTab === 'teaching' && <TeachingCatalog />}
       {/* ================= TAB 1: MÔN HỌC ================= */}
       {activeTab === 'subjects' && (
