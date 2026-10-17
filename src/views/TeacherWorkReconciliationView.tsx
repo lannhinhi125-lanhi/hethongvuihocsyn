@@ -1,7 +1,7 @@
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   ClipboardCheck,
@@ -20,13 +20,22 @@ import {
 } from 'lucide-react';
 import { SessionPayrollRecord, DisputeItem } from '../types';
 import { getCurrentPayrollMonth, getPayrollMonthOptions } from '../lib/payrollPeriods';
-import { useBusinessValue } from '../lib/businessPersistence';
+import { useBusinessValue, refreshBusinessData } from '../lib/businessPersistence';
+import { visibleTeacherWork, canDisputeTeacherWork } from '../lib/teacherWorkReconciliation';
 import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
 export const TeacherWorkReconciliationView: React.FC = () => {
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const { can, requirePermission } = usePermissions();
-  const { currentUser, payrollStore, submitDispute, showToast, teachers, users, classes } = useApp();
+  const { currentUser, payrollStore, submitDispute, showToast, teachers, users } = useApp();
+  const [clockNow,setClockNow] = useState(()=>new Date());
+  useEffect(()=>{
+    const refresh=()=>{if(document.visibilityState==='visible'){setClockNow(new Date());void refreshBusinessData();}};
+    refresh();
+    const timer=window.setInterval(refresh,15_000);
+    window.addEventListener('focus',refresh);
+    return ()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);};
+  },[]);
 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
@@ -41,7 +50,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   // Tìm hồ sơ đối soát của nhân sự đang đăng nhập
   const monthData = payrollStore[selectedMonth] || {
     isLocked: false,
-    adminSentNotice: true,
+    adminSentNotice: false,
     teachers: [],
     disputes: []
   };
@@ -51,22 +60,9 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     ? monthData.teachers.find(record => record.teacherId === ownTeacher.id)
     : undefined;
 
-  const completedSessions = useMemo(() => (myRecord?.sessions || []).filter(session => {
-    const matchingClass = classes.find(cls => cls.code === session.classCode);
-    const classroomSession = Object.values(matchingClass?.activeSessions || {}).find(item =>
-      item.dateStr.slice(0, 10) === session.date &&
-      (!item.dateStr.includes(' - ') || item.dateStr.includes(session.time))
-    );
-    const lesson = datedLessons.find(item => item.id === (session.lessonId || session.id));
-    const canceledWithIncident = (session.type === 'EMERGENCY' || session.type === 'STUDENT_CANCELED') &&
-      (lesson?.status === 'HUY' || lesson?.status === 'NGHI_HOC' ||
-        classroomSession?.status === 'Nghỉ có phép' || session.type === 'STUDENT_CANCELED');
-    if (canceledWithIncident) return true;
-    return Boolean(classroomSession &&
-      classroomSession.status === 'Đã hoàn thành' &&
-      matchingClass?.studentIds.length &&
-      matchingClass.studentIds.every(studentId => classroomSession.feedback?.[studentId]?.trim()));
-  }), [myRecord, classes, datedLessons]);
+  const completedSessions = useMemo(() => ownTeacher
+    ? visibleTeacherWork(myRecord?.sessions || [],datedLessons,ownTeacher.id,clockNow) : [],
+    [myRecord,datedLessons,ownTeacher?.id,clockNow]);
 
   // Các đơn giải trình của bản thân
   const myDisputes = useMemo(() => {
@@ -158,7 +154,8 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       showToast('Vui lòng chọn ca dạy cần giải trình!', 'error');
       return;
     }
-    if (!(selectedSessionForDispute.reconciliationSent ?? myRecord.payrollSent)) {
+    const latestSession=completedSessions.find(session=>session.id===selectedSessionForDispute.id);
+    if (!latestSession || !(latestSession.reconciliationSent ?? myRecord.payrollSent)) {
       showToast('Ca này chưa được gửi yêu cầu đối soát.', 'warning');
       return;
     }
@@ -223,7 +220,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
 
   const isTutor = myRecord.staffRole === 'GIA_SU';
   const canDisputeSession = (session: SessionPayrollRecord) =>
-    !monthData.isLocked && Boolean(session.reconciliationSent ?? myRecord.payrollSent);
+    canDisputeTeacherWork(session,monthData.isLocked,Boolean(myRecord.payrollSent),can('Gửi giải trình / khiếu nại sai lệch ca dạy'),myDisputes);
   const hasDisputableSessions = completedSessions.some(canDisputeSession);
 
   return (
@@ -241,7 +238,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-800">Bảng Đối Soát Công Giảng Dạy</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Theo dõi, đối chiếu số ca và số công thực tế trong tháng; gửi giải trình nếu có sai lệch và xuất bảng công gửi bộ phận tính công.
+            Công cá nhân cập nhật đến hiện tại. Giải trình được mở khi vận hành gửi yêu cầu đối soát cho ca dạy.
           </p>
         </div>
 
