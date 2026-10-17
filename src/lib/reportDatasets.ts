@@ -38,11 +38,11 @@ export function makeReportDatasets(sources: Sources): ReportDataset[] {
     },
     {
       id: 'students', label: 'Học sinh', dateKind: 'event',
-      note: 'Khoảng thời gian lọc theo ngày tiếp nhận học sinh. Trạng thái xếp lớp là trạng thái hiện có.',
+      note: 'Đếm theo đăng ký từng môn và ngày đăng ký môn đó. Một học sinh đăng ký Toán và Anh được tính hai lượt. Trạng thái xếp lớp là trạng thái hiện có.',
       records: sources.students.map(item => ({ ...item })),
-      metrics: [{ id: 'count', label: 'Số học sinh', mode: 'count' }],
+      metrics: [{ id: 'count', label: 'Lượt học sinh theo môn', mode: 'count' }],
       defaultMetricIds: ['count'], dimensions: [grade, subject, model, status, ...time], filters: [subject, grade, model, status],
-      detailFields: [dimension('id', 'Mã học sinh'), dimension('name', 'Họ tên'), dimension('date', 'Ngày tiếp nhận'), subject, grade, model, status]
+      detailFields: [dimension('id', 'Mã học sinh'), dimension('name', 'Họ tên'), dimension('date', 'Ngày đăng ký môn'), subject, grade, model, status]
     },
     {
       id: 'teachers', label: 'Giáo viên mới', dateKind: 'event',

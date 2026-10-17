@@ -1,4 +1,5 @@
 import { classifyClassGrowth,classGrowthLabels, type ClassGrowthKind } from '../lib/classGrowth';
+import { studentRegistrationRows } from '../lib/studentRegistrations';
 import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -301,16 +302,17 @@ export const Module8_Reports: React.FC = () => {
   const subjectCode = (code: string) => code === 'SUB-MATH' ? 'TOAN' : code === 'SUB-ENG' ? 'ENG' : code;
   const rawClasses = useMemo(() => sourceClasses.map(c => ({
     classId:c.id, studentIds:c.studentIds, code: c.code, name: c.name, date: creationDate(c), grade: c.grade, gradeNum: Number(c.grade.match(/\d+/)?.[0] || 0),
-    subject: subjectLabel(c.subject), subjectCode: subjectCode(c.subject),
+    subject: subjectLabel(c.subject), subjectCode: subjectCode(c.subject), subjectId: c.subject,
     model: sourceModels.find(item => item.code === c.model)?.name || c.model, modelCode: c.model,
     students: c.studentIds.length + ' / ' + c.maxStudents + ' HS',
     capacityPct: c.maxStudents ? Math.round(c.studentIds.length / c.maxStudents * 100) : 0,
     status: c.studentIds.length >= c.maxStudents ? 'Đã đủ trần' : 'Còn trống ' + (c.maxStudents - c.studentIds.length) + ' chỗ'
   })), [sourceClasses, sourceSubjects, sourceModels]);
-  const rawStudents = useMemo(() => sourceStudents.map(s => ({
-    id: s.id, name: s.name, date: creationDate(s), grade: s.grade, gradeNum: Number(s.grade.match(/\d+/)?.[0] || 0),
-    subject: subjectLabel(s.subject), subjectCode: subjectCode(s.subject),
-    model: sourceModels.find(item => item.code === s.model)?.name || s.model, modelCode: s.model,
+  const rawStudents = useMemo(() => studentRegistrationRows(sourceStudents).map(s => ({
+    id: s.id, registrationKey: s.registrationKey, name: s.name, date: creationDate(s), grade: s.grade, gradeNum: Number(s.grade.match(/\d+/)?.[0] || 0),
+    registrations: [{subject:s.subject,model:s.model,status:s.status}],
+    subject: subjectLabel(s.subject), subjectCodes: [subjectCode(s.subject)],
+    model: sourceModels.find(item => item.code === s.model)?.name || s.model,
     status: s.status === 'Chờ xếp lớp' ? 'Chờ ghép lớp' : s.status === 'Đang học' ? 'Đã vào lớp' : s.status
   })), [sourceStudents, sourceSubjects, sourceModels]);
   const rawTutors = useMemo(() => sourceTeachers.map(t => ({
@@ -356,7 +358,7 @@ export const Module8_Reports: React.FC = () => {
   // =========================================================================
 
   const growthStudents=useMemo(()=>new Map(sourceStudents.map(student=>[student.id,student])),[sourceStudents]);
-  const classifyGrowth=(item:typeof rawClasses[number],range:{start:string;end:string})=>classifyClassGrowth(item.studentIds,growthStudents,range,item.classId);
+  const classifyGrowth=(item:typeof rawClasses[number],range:{start:string;end:string})=>classifyClassGrowth(item.studentIds,growthStudents,range,item.classId,item.subjectId);
   const classifiedClasses=rawClasses.map(item=>({...item,...classifyGrowth(item,clsDateRange)}));
   const dashboardGrowthClasses=rawClasses.filter(item=>classifyGrowth(item,dashDateRange).kind==='NEW');
 
@@ -387,12 +389,9 @@ export const Module8_Reports: React.FC = () => {
       if (stuFilterCode && !s.id.toLowerCase().includes(stuFilterCode.toLowerCase())) return false;
       if (stuFilterName && !s.name.toLowerCase().includes(stuFilterName.toLowerCase())) return false;
       if (stuFilterGrade !== 'ALL' && s.grade !== stuFilterGrade) return false;
-      if (stuFilterSubject !== 'ALL' && s.subjectCode !== stuFilterSubject) return false;
-      if (stuFilterModel !== 'ALL' && s.modelCode !== stuFilterModel) return false;
-      if (stuFilterStatus !== 'ALL') {
-        if (stuFilterStatus === 'FULL' && !s.status.includes('vào lớp')) return false;
-        if (stuFilterStatus === 'AVAILABLE' && !s.status.includes('ghép')) return false;
-      }
+      if (!s.registrations.some(r => (stuFilterSubject === 'ALL' || subjectCode(r.subject) === stuFilterSubject) &&
+        (stuFilterModel === 'ALL' || r.model === stuFilterModel) &&
+        (stuFilterStatus === 'ALL' || (stuFilterStatus === 'FULL' ? r.status === 'Đang học' : r.status === 'Chờ xếp lớp')))) return false;
       return true;
     });
   }, [rawStudents, stuDateRange, stuFilterCode, stuFilterName, stuFilterGrade, stuFilterSubject, stuFilterModel, stuFilterStatus]);
@@ -808,10 +807,10 @@ export const Module8_Reports: React.FC = () => {
   const stuStats = useMemo(() => {
     const total = filteredStudents.length;
     const assignedCount = filteredStudents.filter(s => s.status.includes('vào lớp')).length;
-    const waitingCount = total - assignedCount;
+    const waitingCount = filteredStudents.filter(s => s.status.includes('ghép')).length;
     const assignedRate = total > 0 ? Math.round((assignedCount / total) * 100) : 0;
-    const toanCount = filteredStudents.filter(s => s.subjectCode === 'TOAN').length;
-    const engCount = total - toanCount;
+    const toanCount = filteredStudents.filter(s => s.subjectCodes.includes('TOAN')).length;
+    const engCount = filteredStudents.filter(s => s.subjectCodes.includes('ENG')).length;
     return { total, assignedCount, waitingCount, assignedRate, toanCount, engCount };
   }, [filteredStudents]);
 
@@ -1856,7 +1855,8 @@ export const Module8_Reports: React.FC = () => {
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredStudents.length} học sinh</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredStudents.length} lượt học sinh theo môn</span>
+                  <span className="text-slate-500">Đăng ký Toán và Anh tính hai lượt; chuyển lớp cùng môn không tính mới.</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2037,7 +2037,7 @@ export const Module8_Reports: React.FC = () => {
                           </tr>
                         ) : (
                           filteredStudents.slice(currentReportPage * REPORT_PAGE_SIZE, (currentReportPage + 1) * REPORT_PAGE_SIZE).map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
+                            <tr key={s.registrationKey} className="hover:bg-slate-50/70 transition-colors">
                               <td className="py-3 px-3 font-bold font-mono text-emerald-600">{s.id}</td>
                               <td className="py-3 px-3 font-semibold text-slate-800">{s.name}</td>
                               <td className="py-3 px-3 text-center text-slate-500 font-mono">{s.date}</td>

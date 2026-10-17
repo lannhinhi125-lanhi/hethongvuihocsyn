@@ -1,5 +1,11 @@
 # Bộ SQL Supabase Vuihoc
 
+**Học nhiều môn, chuyển lớp và phân công theo mã giáo viên:** chạy
+[migrations/20261026_student_subject_enrollments.sql](migrations/20261026_student_subject_enrollments.sql)
+sau các bản đến 20261023. Mỗi môn có đăng ký/lịch/lớp riêng trên cùng mã học sinh;
+dừng lớp trả đăng ký về chờ xếp lớp và giữ lịch sử. Buổi học giữ mã chính/mã cover,
+lịch cover và công cùng đọc từ buổi. Xem [hướng dẫn](STUDENT_SUBJECT_ENROLLMENTS.md).
+
 **Danh mục loại tài liệu:** Sau bản 20261021, chạy
 [migrations/20261022_document_categories.sql](migrations/20261022_document_categories.sql).
 Loại tài liệu được quản lý trong CSDL; tài liệu liên kết khóa ngoại, tên hiển thị được SELECT.

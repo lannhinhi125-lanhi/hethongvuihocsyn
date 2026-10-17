@@ -2,7 +2,7 @@ import type {StudentClassTrace} from '../types';
 import {reportCreationDate} from './reportCreationDate';
 export type ClassGrowthKind='NEW'|'TRANSFER'|'MIXED'|'EMPTY'|'UNKNOWN';
 export const classGrowthLabels:Record<ClassGrowthKind,string>={NEW:'Lớp mới',TRANSFER:'Học sinh chuyển lớp',MIXED:'Có học sinh cũ — không tính lớp mới',EMPTY:'Chưa có học sinh',UNKNOWN:'Chưa đủ dữ liệu để phân loại'};
-export function classifyClassGrowth(studentIds:string[],students:Map<string,{created_at?:string;classHistory?:StudentClassTrace[]}>,range:{start:string;end:string},classId?:string) {
+export function classifyClassGrowth(studentIds:string[],students:Map<string,{created_at?:string;subject?:string;registrations?:Array<{subject:string;registeredAt?:string}>;classHistory?:StudentClassTrace[]}>,range:{start:string;end:string},classId?:string,classSubject?:string) {
  let ids=[...new Set(studentIds)];let newStudents=0,oldStudents=0,unknownStudents=0;
  if(classId) {
   // Query arrivals as of period end. A later move never removes an older arrival.
@@ -13,7 +13,9 @@ export function classifyClassGrowth(studentIds:string[],students:Map<string,{cre
   if(!ids.length && studentIds.length)return {kind:'UNKNOWN' as const,label:classGrowthLabels.UNKNOWN,newStudents:0,oldStudents:0,unknownStudents:studentIds.length};
   for(const id of ids) {
    const events=arrivals.filter(item=>item.id===id).map(item=>item.event);
-   const date=reportCreationDate(students.get(id)?.created_at);
+   const student=students.get(id);
+   const registration=classSubject ? student?.registrations?.find(item=>item.subject===classSubject) : undefined;
+   const date=reportCreationDate(classSubject && student?.registrations?.length ? registration?.registeredAt : student?.created_at);
    if(events.some(event=>event.isBaseline) || !date || !range.start)unknownStudents++;
    else if(events.some(event=>!event.isInitial) || date<range.start)oldStudents++;
    else if(range.end && date>range.end)unknownStudents++;

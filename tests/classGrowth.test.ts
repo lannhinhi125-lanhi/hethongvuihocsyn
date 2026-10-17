@@ -27,3 +27,21 @@ assert.equal(classifyClassGrowth(['s'],samePeriod,range,'B').kind,'TRANSFER','Tr
 const baseline=new Map([['s',{created_at:'2026-10-02',classHistory:[{...trace('A','2026-10-02T10:00:00+07:00',true),isBaseline:true}]}]]);
 assert.equal(classifyClassGrowth(['s'],baseline,range,'A').kind,'UNKNOWN','Baseline is not invented growth');
 console.log('PASS: historical growth survives moving, rejoining and same-period transfers; legacy baseline excluded');
+
+const bySubject=new Map([['s',{created_at:'2026-08-01',registrations:[
+ {subject:'MATH',registeredAt:'2026-08-01'}, {subject:'ENG',registeredAt:'2026-10-02'}
+],classHistory:[
+ {...trace('MATH-A','2026-08-01T10:00:00+07:00',true),subject:'MATH'},
+ {...trace('ENG-A','2026-10-02T10:00:00+07:00',true),subject:'ENG'},
+ {...trace('ENG-B','2026-10-10T10:00:00+07:00',false),subject:'ENG'}
+]}]]);
+assert.equal(classifyClassGrowth(['s'],bySubject,range,'ENG-A','ENG').kind,'NEW','First English class is new despite older Math registration/profile');
+assert.equal(classifyClassGrowth(['s'],bySubject,range,'ENG-B','ENG').kind,'TRANSFER','Another class of the same subject is a transfer');
+const sameDay=new Map([['s',{created_at:'2026-10-02',registrations:[
+ {subject:'MATH',registeredAt:'2026-10-02'}, {subject:'ENG',registeredAt:'2026-10-02'}
+],classHistory:[
+ {...trace('MATH-A','2026-10-02T10:00:00+07:00',true),subject:'MATH'},
+ {...trace('ENG-A','2026-10-02T11:00:00+07:00',true),subject:'ENG'}
+]}]]);
+assert.equal(['MATH','ENG'].filter(subject=>classifyClassGrowth(['s'],sameDay,range,subject+'-A',subject).kind==='NEW').length,2,'Both first classes count when registered on the same day');
+console.log('PASS: class growth counts independently by subject; new English is not a Math transfer');

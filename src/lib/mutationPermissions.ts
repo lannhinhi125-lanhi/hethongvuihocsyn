@@ -21,7 +21,7 @@ export function classChangeAllowed(before: ClassItem[], after: ClassItem[], can:
         const previousSession = previousSessions[Number(key)];
         if (!changedFields(previousSession || {}, session).length) return true;
         const cover = old.coverAssignments?.find(row => row.sessionNum === session.sessionNum && row.dateStr.slice(0, 10) === session.dateStr.slice(0, 10));
-        if (cover ? cover.teacherId !== ownTeacherId : (old.teacherId ? old.teacherId !== ownTeacherId : !ownTeacherName || old.teacherName !== ownTeacherName)) return false;
+        if (cover ? cover.teacherId !== ownTeacherId : old.teacherId !== ownTeacherId) return false;
         return changedFields(previousSession || {}, session).every(sessionField => {
           if (sessionField === 'feedback') return can('Giáo viên Check-in / Check-out vào ca dạy');
           return can('Giáo viên Check-in / Check-out vào ca dạy') && ['sessionNum', 'dateStr', 'title', 'status', 'materialGv', 'materialHs', 'exerciseLms', 'checkinTime', 'checkinAt', 'checkinUserId', 'checkoutAt', 'checkoutUserId', 'teacherAttendance', 'checkinBy', 'attendance'].includes(sessionField);

@@ -41,7 +41,9 @@ export interface MonitoringSession {
   roomUrl: string;
   recordingUrl: string | null;
   primaryTeacher: string;
+  primaryTeacherId?: string;
   coverTeacher: string | null;
+  coverTeacherId?: string | null;
   attendance: 'ATTENDED' | 'LATE' | 'ABSENT';
   checkinTime: string | null;
   checkinAt?: string | null;
@@ -154,6 +156,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           );
           const local = sessions.find(session => session.classCode === cls.code && session.sessionDate === sessionDate && session.timeSlot === entry.timeSlot);
           const stored = persistedLessons.find(l=>l.classId===cls.id&&l.date===sessionDate&&timeSlots.find(t=>t.id===l.timeSlotId)?.timeRange===entry.timeSlot);
+          if (['Tạm dừng','Đã kết thúc'].includes(cls.status || '') && !stored) return;
           const existing = local && stored ? storedMonitoringSession(local,persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents,users) : undefined;
           const assignedStudents = cls.studentIds.map(studentId => students.find(student => student.id === studentId)).filter((student): student is NonNullable<typeof student> => Boolean(student));
           const sessionCode = existing?.sessionCode || `${cls.code}-${sessionDate}-${sessionNum}`;
@@ -191,6 +194,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             }),
             className: cls.name,
             primaryTeacher: cls.teacherName,
+            primaryTeacherId: existing?.primaryTeacherId || cls.teacherId,
             levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
             subject: cls.subject === 'SUB-ENG' ? 'ANH' : 'TOAN',
             grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
@@ -201,6 +205,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             checkinAt: activeSession?.checkinAt || existing?.checkinAt || null,
             checkoutAt: activeSession?.checkoutAt || existing?.checkoutAt || null,
             status: activeSession?.checkoutAt ? 'DA_HOC' : existing?.status || 'CHUA_DIEN_RA',
+            coverTeacherId: coverAssignment?.teacherId || activeSession?.coverTeacherId || existing?.coverTeacherId || null,
             coverTeacher: coverAssignment
               ? coverAssignment.teacherName
               : activeSession
@@ -209,7 +214,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             students: assignedStudents.map(student => ({
               name: student.name,
               code: student.id,
-              gradeText: `${student.grade} - ${levels.find(level => level.code === student.level)?.name || student.level}`,
+              gradeText: `${student.grade} - ${levels.find(level => level.code === cls.level)?.name || cls.level}`,
               attendance: activeSession?.attendance?.[student.id] || 'Chưa điểm danh',
               aiComment: activeSession?.feedback?.[student.id] || '',
               criteria: []
@@ -218,9 +223,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         });
       }
     });
-    if (!generated.length) return;
     setSessions(previous => {
-      const merged = [...previous];
+      const merged = previous.filter(session => {
+        const cls=classes.find(item=>item.code===session.classCode);
+        return cls && (!['Tạm dừng','Đã kết thúc'].includes(cls.status || '') || persistedLessons.some(lesson=>lesson.classId===cls.id&&lesson.date===session.sessionDate&&timeSlots.find(slot=>slot.id===lesson.timeSlotId)?.timeRange===session.timeSlot));
+      });
       generated.forEach(session => {
         const index = merged.findIndex(existing => existing.sessionCode === session.sessionCode);
         if (index < 0) merged.push(session);
@@ -540,7 +547,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
     if (session.coverTeacher) {
       setIncHasCover(true);
-      setIncCoverTeacher(teachers.find(teacher => teacher.name === session.coverTeacher)?.id || '');
+      setIncCoverTeacher(session.coverTeacherId || '');
     } else {
       setIncHasCover(false);
       setIncCoverTeacher('');
@@ -604,19 +611,23 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       const updated = prev.map(s => {
         if (s.sessionCode === selectedIncidentSession.sessionCode) {
           let nextCover = s.coverTeacher;
+          let nextCoverId = s.coverTeacherId || null;
           let nextStatus = s.status;
 
           if (!isCompletedIncidentSession) {
             if (incParent === 'GRP-TCH') {
               if (incHasCover && incCoverTeacher) {
                 nextCover = coverTeacher?.name || null;
+                nextCoverId = coverTeacher?.id || null;
 
               } else {
                 nextCover = null;
+                nextCoverId = null;
                 nextStatus = incStatus === 'HUY_CA' ? 'NGHI_HOC' : s.status;
               }
             } else {
               nextCover = null;
+              nextCoverId = null;
               if (incStatus === 'HUY_CA' || incChild === 'INC-STU-01') nextStatus = 'NGHI_HOC';
 
             }
@@ -631,6 +642,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             incidentStatus: resolvedIncidentStatus,
             incidentNote: incNote,
             coverTeacher: nextCover,
+            coverTeacherId: nextCoverId,
             status: nextStatus,
             handledByOpsId: currentOps.id,
             handledByName: currentOps.name,
@@ -642,24 +654,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       });
       return updated;
     })) return;
-
-    if (targetClass && sessionNum > 0 && !isCompletedIncidentSession) {
-      setClasses(previous => previous.map(cls => {
-        if (cls.id !== targetClass.id) return cls;
-        const coverAssignments = (cls.coverAssignments || []).filter(assignment =>
-          assignment.sessionNum !== sessionNum || assignment.dateStr !== selectedIncidentSession.sessionDate
-        );
-        if (incParent === 'GRP-TCH' && incHasCover && coverTeacher) {
-          coverAssignments.push({
-            sessionNum,
-            dateStr: selectedIncidentSession.sessionDate,
-            teacherId: coverTeacher.id,
-            teacherName: coverTeacher.name
-          });
-        }
-        return { ...cls, coverAssignments };
-      }));
-    }
 
     setSavingIncident(true);
     try {

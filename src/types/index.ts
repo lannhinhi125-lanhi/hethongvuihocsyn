@@ -136,10 +136,12 @@ export interface TeacherProfile {
 
 // Phân hệ 4 & 5: Lớp học & Học sinh
 export interface StudentClassTrace {
+  subject?: string;
   traceId:string; fromClassId:string|null; toClassId:string|null; fromClassCode:string|null; toClassCode:string|null;
   occurredAt:string; actorId:string|null; actorName:string|null; isBaseline:boolean; isInitial:boolean;
 }
 export interface StudentRecord {
+  registrations?: StudentSubjectRegistration[];
   classHistory?:StudentClassTrace[];
   created_at?: string;
   id: string;
@@ -154,6 +156,16 @@ export interface StudentRecord {
   motherPhone?: string;
   scheduleSlots: string[]; // ['T3 (18:00 - 19:30)', 'T5 (18:00 - 19:30)']
   status: 'Chờ xếp lớp' | 'Đang học' | 'Bảo lưu' | 'Đã thôi học';
+  currentClassCode?: string;
+}
+
+export interface StudentSubjectRegistration {
+  registeredAt?: string;
+  subject: string;
+  model: string;
+  level: string;
+  scheduleSlots: string[];
+  status: StudentRecord['status'];
   currentClassCode?: string;
 }
 

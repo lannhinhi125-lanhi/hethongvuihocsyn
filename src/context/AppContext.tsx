@@ -1,5 +1,6 @@
 import { ConfirmAction } from '../components/ConfirmAction';
-import { useBusinessValue, useBusinessStatus, loadBusinessData, resetBusinessData, acceptBusinessTeacher, businessSaving, getBusinessSnapshot } from '../lib/businessPersistence';
+import { updateStudentRegistration, studentScheduleConflict } from '../lib/studentRegistrations';
+import { useBusinessValue, useBusinessStatus, loadBusinessData, resetBusinessData, acceptBusinessTeacher, businessSaving, getBusinessSnapshot, setBusinessValue } from '../lib/businessPersistence';
 import { persistTeacher } from '../lib/teacherPersistence';
 import { teacherSessionRequest, useAccountSession, setSessionUsers, setSessionGroups, logoutAccount, getAccountSnapshot } from '../lib/accountSession';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT, isPreviewAccount } from '../lib/previewMode';
@@ -99,7 +100,7 @@ interface AppContextType {
 
   // PH5: Operations & Monitoring (Giám sát ca & Cover)
   reportIncidentToSession: (classCode: string, incidentCode: string, note: string, date: string, timeRange: string) => Promise<boolean>;
-  assignCoverTeacher: (sessionId: string, newTeacherName: string) => void;
+  assignCoverTeacher: (sessionId: string, newTeacherId: string) => void;
 
   // PH6: AI Studio
   criteriaCategories: CriteriaCategory[];
@@ -282,14 +283,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // PH4 Actions
   const addStudent = (student: StudentRecord) => {
     if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
-    setStudents(prev => [student, ...prev]);
+    setStudents(prev => [updateStudentRegistration(student, student), ...prev]);
     showToast(`Đã tiếp nhận hồ sơ học sinh [${student.name}]!`, 'success');
   };
 
   const updateStudent = (id: string, updates: Partial<StudentRecord>) => {
     if ('currentClassCode' in updates && !permit('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) return;
     if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    setStudents(prev => prev.map(s => s.id === id ? updateStudentRegistration(s, updates) : s));
     showToast('Cập nhật hồ sơ học sinh thành công!', 'success');
   };
 
@@ -306,51 +307,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addClass = (cls: ClassItem) => {
     if (!classChangeAllowed([], [cls], can)) { showToast('Bạn chưa có đủ quyền tạo lớp và gán học sinh/giáo viên.', 'error'); return; }
     if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
+    if (cls.studentIds.some(id => studentScheduleConflict(id, cls, classes))) { showToast('Lịch lớp trùng với lớp môn khác của học sinh.', 'error'); return; }
     setClasses(prev => [cls, ...prev]);
-    if (cls.studentIds && cls.studentIds.length > 0) {
-      setStudents(prev => prev.map(s => {
-        if (cls.studentIds.includes(s.id)) {
-          return { ...s, status: 'Đang học', currentClassCode: cls.code };
-        }
-        return s;
-      }));
-    }
     showToast(`Khởi tạo thành công lớp [${cls.code}]!`, 'success');
   };
 
   const updateClass = (id: string, updates: Partial<ClassItem>, successMessage?: string) => {
     const existing = classes.find(item => item.id === id);
     if (!existing || !classChangeAllowed([existing], [{ ...existing, ...updates }], can, ownTeacher?.id, ownTeacher?.name)) { showToast('Bạn không có quyền sửa các trường lớp học đã chọn.', 'error'); return; }
-    const previousClass = classes.find(item => item.id === id);
-    setClasses(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
-    if (previousClass && (updates.studentIds !== undefined || updates.code !== undefined)) {
-      const nextClass = { ...previousClass, ...updates };
-      setStudents(prev => prev.map(student => {
-        if (nextClass.studentIds.includes(student.id)) {
-          const newlyAssigned = !previousClass.studentIds.includes(student.id);
-          return { ...student, currentClassCode: nextClass.code, status: newlyAssigned ? 'Đang học' : student.status };
-        }
-        if (previousClass.studentIds.includes(student.id) && student.currentClassCode === previousClass.code) {
-          const otherClass = classes.find(item => item.id !== id && item.studentIds.includes(student.id));
-          return { ...student, currentClassCode: otherClass?.code, status: otherClass ? student.status : 'Chờ xếp lớp' };
-        }
-        return student;
-      }));
+    const releasing = updates.status === 'Tạm dừng' || updates.status === 'Đã kết thúc';
+    if (releasing) updates = { ...updates, studentIds: [] };
+    const next = { ...existing, ...updates };
+    if (next.studentIds.some(studentId => studentScheduleConflict(studentId, next, classes))) {
+      showToast('Lịch lớp trùng với lớp môn khác của học sinh đã chọn.', 'error'); return;
     }
+    setClasses(prev => prev.map(c => c.id === id ? next : c));
     showToast(successMessage || 'Cập nhật lớp học thành công!', 'success');
   };
 
   const deleteClass = (id: string) => {
     if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
-    const cls = classes.find(c => c.id === id);
-    if (cls && cls.studentIds) {
-      setStudents(prev => prev.map(s => {
-        if (cls.studentIds.includes(s.id)) {
-          return { ...s, status: 'Chờ xếp lớp', currentClassCode: undefined };
-        }
-        return s;
-      }));
-    }
     setClasses(prev => prev.filter(c => c.id !== id));
     showToast('Đã xóa lớp học thành công! Học sinh đã được đưa về danh sách chờ xếp lớp.', 'info');
   };
@@ -400,55 +376,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch(error){showToast((error as Error).message,'error');return false;}
   };
 
-  const assignCoverTeacher = (sessionId: string, newTeacherName: string) => {
-    if (!permit("Tìm và phân công giáo viên dạy thay")) return;
-    setPayrollStore(prev => {
-      const monthKey = Object.keys(prev).find(key => prev[key].teachers.some(t => t.sessions.some(s => s.id === sessionId)));
-      if (!monthKey) return prev;
-      const monthData = prev[monthKey];
-      if (!monthData) return prev;
-
-      let coverTeacherId = '';
-      const matchedTeacher = teachers.find(t => t.name === newTeacherName);
-      if (matchedTeacher) coverTeacherId = matchedTeacher.id;
-
-      const updatedTeachers = monthData.teachers.map(t => {
-        // Nếu là giáo viên được giao Cover, cộng thêm 1 ca cover
-        if (coverTeacherId && t.teacherId === coverTeacherId) {
-          return {
-            ...t,
-            coverSessions: (t.coverSessions || 0) + 1
-          };
-        }
-        // Đổi trạng thái ca học tương ứng thành COVER
-        const hasSession = (t.sessions || []).some(s => s.id === sessionId);
-        if (hasSession) {
-          const updatedSessions = t.sessions.map(s => {
-            if (s.id === sessionId) {
-              return {
-                ...s,
-                type: 'COVER' as const,
-                reconciliationSent: false,
-                statusText: `Dạy thay bởi ${newTeacherName}`,
-                hrPayNote: `Ca Cover giao cho ${newTeacherName}`
-              };
-            }
-            return s;
-          });
-          return { ...t, payrollSent: false, sessions: updatedSessions };
-        }
-        return t;
-      });
-
-      return {
-        ...prev,
-        [monthKey]: {
-          ...monthData,
-          teachers: updatedTeachers
-        }
-      };
-    });
-    showToast(`Đã điều phối giáo viên [${newTeacherName}] dạy thay (Cover) ca ${sessionId}!`, 'success');
+  const assignCoverTeacher = (sessionId: string, newTeacherId: string) => {
+    if (!permit('Tìm và phân công giáo viên dạy thay')) return;
+    const teacher = teachers.find(item => item.id === newTeacherId);
+    const lessons = getBusinessSnapshot().data.dated_lessons || [];
+    const payrollSession = Object.values(payrollStore).flatMap(month => month.teachers).flatMap(row => row.sessions).find(row => row.id === sessionId);
+    const lesson = lessons.find((item: any) => item.id === (payrollSession?.lessonId || sessionId));
+    if (!teacher || !lesson) { showToast('Không tìm thấy mã giáo viên hoặc buổi học cần phân công.', 'error'); return; }
+    setBusinessValue('dated_lessons', lessons.map((item: any) => item.id === lesson.id ? { ...item, coverTeacherId: newTeacherId } : item));
   };
 
   // PH7 Actions

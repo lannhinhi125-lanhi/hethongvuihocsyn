@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { sessionTeacherIds, storedMonitoringSession } from '../src/lib/monitoringPersistence';
+import type { TeacherProfile, ClassItem, TimeSlotItem } from '../src/types';
+import type { MonitoringSession } from '../src/views/Module5_OperationsMonitoring';
+const teachers=[{id:'PRIMARY',name:'Nguyễn An'},{id:'COVER-A',name:'Trần Bình'},{id:'COVER-B',name:'Trần Bình'}] as TeacherProfile[];
+const cls={id:'CLS',code:'CLS',teacherId:'PRIMARY'} as ClassItem;
+assert.deepEqual(sessionTeacherIds({coverTeacherId:'COVER-B'},undefined,cls,teachers),{primaryTeacherId:'PRIMARY',coverTeacherId:'COVER-B'});
+assert.deepEqual(sessionTeacherIds({coverTeacherId:null},{primaryTeacherId:'COVER-A'},cls,teachers),{primaryTeacherId:'COVER-A',coverTeacherId:null});
+assert.throws(()=>sessionTeacherIds({coverTeacherId:'MISSING'},undefined,cls,teachers),/Mã giáo viên/);
+const base={classCode:'CLS',sessionDate:'2026-10-17',timeSlot:'18:00 - 19:30',primaryTeacher:'Nguyễn An'} as MonitoringSession;
+const mapped=storedMonitoringSession(base,[{id:'B1',classId:'CLS',date:'2026-10-17',timeSlotId:'SLOT',primaryTeacherId:'PRIMARY',coverTeacherId:'COVER-B',status:'CHUA_DIEN_RA'}],[],[cls],teachers,[{id:'SLOT',timeRange:'18:00 - 19:30'} as TimeSlotItem],[]);
+assert.equal(mapped.coverTeacherId,'COVER-B');
+assert.equal(mapped.primaryTeacherId,'PRIMARY');
+console.log('PASS: duplicate teacher names preserve selected cover ID; primary identity preserved; invalid IDs rejected');

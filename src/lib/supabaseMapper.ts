@@ -41,6 +41,12 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
     if (dataset === 'weekly_availability' && field === 'weekEnd') continue;
     if (field === 'auth_user_id' || field === 'passwordRaw' || field === 'created_at' || field === 'updated_at') continue;
     if (!Object.hasOwn(fields,field)) throw new Error('Chưa ánh xạ trường ' + dataset + '.' + field);
+    if (dataset === 'students' && field === 'registrations') {
+      result[fields[field]] = (content as any[]).map(item => ({ ...item,
+        status: STATUS_CODES.students[item.status as keyof typeof STATUS_CODES.students] || item.status,
+        currentClassCode: item.currentClassCode || null }));
+      continue;
+    }
     if (dataset === 'teacher_evaluations' && ['evaluationDate','sessionDate'].includes(field) && content != null && content !== '') {
       const raw = String(content);
       const dmy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -81,6 +87,11 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     if (Object.hasOwn(row,column)) result[field] = row[column];
   }
   if (dataset === 'users') result.passwordRaw = '';
+  if (dataset === 'students' && Array.isArray(result.registrations)) {
+    result.registrations = result.registrations.map(item => ({ ...item,
+      status: Object.entries(STATUS_CODES.students).find(([, code]) => code === item.status)?.[0] || item.status,
+      currentClassCode: item.currentClassCode || undefined }));
+  }
   // UI timing calculations use an instant; the database stores date and time separately.
   if (dataset === 'dated_lessons') {
     for (const field of ['startsAt','endsAt']) {

@@ -592,6 +592,7 @@ export const APP_DATABASE_FIELDS = {
   },
   "students": {
     "classHistory": "lichsulophoc",
+    "registrations": "dangkymonhoc",
     "id": "madinhdanh",
     "name": "hoten",
     "grade": "khoi",

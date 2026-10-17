@@ -242,9 +242,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(ownTeacher?.id || teachers[0]?.id || '');
   const currentTeacher = isTeacherAccount ? ownTeacher : teachers.find(t => t.id === selectedTeacherId);
 
-  const isPrimaryTeacherForClass = (cls: ClassItem) => Boolean(currentTeacher && (
-    cls.teacherId ? cls.teacherId === currentTeacher.id : cls.teacherName === currentTeacher.name
-  ));
+  const isPrimaryTeacherForClass = (cls: ClassItem) => Boolean(currentTeacher && cls.teacherId === currentTeacher.id);
   const teacherClasses = classes.filter(cls =>
     isPrimaryTeacherForClass(cls) ||
     cls.coverAssignments?.some(assignment =>
@@ -279,6 +277,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
         .filter(entry => entry.time === time && entry.dayIndex === dayIndex)
         .flatMap(entry => {
           if (cls.startDate && dateStringForWeekDay(dayIndex) < cls.startDate) return [];
+          if (['Tạm dừng','Đã kết thúc'].includes(cls.status || '') && !datedLessons.some(lesson=>lesson.classId===cls.id&&lesson.date===dateStringForWeekDay(dayIndex)&&timeSlots.find(slot=>slot.id===lesson.timeSlotId)?.timeRange===entry.time)) return [];
           const coverAssignment = cls.coverAssignments?.find(assignment =>
             assignment.sessionNum === entry.session && assignment.dateStr === dateStringForWeekDay(dayIndex)
           );
