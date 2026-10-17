@@ -50,11 +50,13 @@ export function createGeminiHandler(getEnvironment:()=>GeminiEnvironment=()=>pro
     }
     try {
       if(!req.headers['content-type']?.startsWith('application/json'))throw new GeminiError(415,'Yêu cầu phải dùng application/json.');
-      const input=validateGeminiInput(await readBody(req));
+      const body=await readBody(req);
+      const checking=!!body && typeof body==='object' && 'action' in body && body.action==='check';
+      const input=checking ? {messages:[{role:'user' as const,text:'Reply with OK only.'}]} : validateGeminiInput(body);
       const env=getEnvironment();
       await authorize(req,env);
       const text=await generateGeminiText(input,env);
-      res.statusCode=200;res.end(JSON.stringify({text}));
+      res.statusCode=200;res.end(JSON.stringify(checking ? {connected:true} : {text}));
     } catch(error) {
       const known=error instanceof GeminiError;
       const timeout=error instanceof Error && ['TimeoutError','AbortError'].includes(error.name);

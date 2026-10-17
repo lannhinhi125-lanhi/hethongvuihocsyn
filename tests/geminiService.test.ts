@@ -40,6 +40,9 @@ try {
   assert.equal(calls[0].url.endsWith('/gemini-test:generateContent'),true);
   assert.deepEqual(calls[0].body.contents,[{role:'user',parts:[{text:'Xin chào'}]}]);
   const success=await request();assert.equal(success.status,200);assert.equal(success.body.text,'Chào bạn!');
+  const probe=await request({action:'check'});
+  assert.equal(probe.status,200);assert.deepEqual(probe.body,{connected:true});
+  assert.equal(calls.at(-1)?.body.contents[0].parts[0].text,'Reply with OK only.');
   assert.equal(success.headers['Cache-Control'],'no-store');
   assert.equal((await request(input,undefined,'POST',false)).status,200);
   let count=calls.length;
@@ -49,8 +52,13 @@ try {
   assert.equal((await request(input,{'content-type':'text/plain'})).status,415);
   assert.equal((await request({messages:[{role:'user',text:'a'.repeat(600_000)}]})).status,413);
   validSession=false;assert.equal((await request()).status,401);validSession=true;
+  validSession=false;count=calls.length;
+  assert.equal((await request({action:'check'})).status,401);
+  assert.equal(calls.length,count+1,'invalid session never calls Gemini for connection checks');validSession=true;
   permission=false;count=calls.length;assert.equal((await request()).status,403);assert.equal(calls.length,count+1);permission=true;
   upstreamStatus=429;const limited=await request();assert.equal(limited.status,429);
+  const failedProbe=await request({action:'check'});assert.equal(failedProbe.status,429);
+  assert.equal(failedProbe.body.connected,undefined,'failed upstream never reports connected');
   assert.equal(JSON.stringify(limited).includes(env.GEMINI_API_KEY),false);
   upstreamStatus=403;const rejected=await request();assert.equal(rejected.status,502);
   assert.equal(JSON.stringify(rejected).includes(env.GEMINI_API_KEY),false);

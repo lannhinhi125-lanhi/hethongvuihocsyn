@@ -1,4 +1,5 @@
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
+import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { useBusinessValue,waitForBusinessSave } from '../lib/businessPersistence';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { confirmAction } from '../components/ConfirmAction';
@@ -464,7 +465,7 @@ export const Module6_AIStudio: React.FC = () => {
                   <div>
                     <h4 className="font-bold text-xs text-slate-800">Thử nghiệm Bot chat AI</h4>
                     <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Mô phỏng tra cứu · Chưa kết nối Gemini
+                      Mô phỏng tra cứu tài liệu
                     </span>
                   </div>
                 </div>
@@ -476,6 +477,7 @@ export const Module6_AIStudio: React.FC = () => {
                 </button>
               </div>
 
+              {can('Sử dụng chatbot tra cứu quy chế và nghiệp vụ') && <GeminiConnectionStatus />}
               {/* Chat body */}
               <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
                 {sandboxMessages.map((msg, idx) => (

@@ -1,4 +1,5 @@
 import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
+import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingSessionDetails, teachingScheduleEntries, type TeachingLesson } from '../lib/teachingSessionDetails';
@@ -709,7 +710,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-300" />
                     <h3 className="font-bold text-xs text-white">Bot chat AI</h3>
                   </div>
                   <p className="text-[10px] text-orange-100">
@@ -739,6 +739,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
               </div>
             </div>
 
+            <GeminiConnectionStatus />
             {/* Quick Questions Chips */}
             <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex-shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
