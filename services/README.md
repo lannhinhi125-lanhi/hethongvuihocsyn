@@ -34,6 +34,8 @@ const answer = await askGemini([
 ], {systemPrompt:'Trả lời bằng tiếng Việt dựa trên nội dung được cung cấp.'});
 ```
 
-Chatbot quản trị và giáo viên gọi Gemini thật, gửi các trích đoạn từ tài liệu đang bật làm căn cứ để tổng hợp và giải thích. Mỗi yêu cầu giới hạn nội dung tài liệu ở 28.000 ký tự; lịch sử dùng tối đa 6 lượt hỏi/đáp và 24.000 ký tự trong bộ nhớ, xóa khi làm mới/đóng bot giáo viên hoặc rời màn hình. Không tạo bảng, cột, lịch sử chat hay chỉ mục mới trong database. Bot chưa tự tải nội dung link Drive; tài liệu cần có nội dung đã nhập hoặc trích xuất từ tệp. Luồng nhận xét AI không thay đổi.
+Chatbot quản trị và giáo viên gọi Gemini thật, gửi các trích đoạn từ tài liệu đang bật làm căn cứ để tổng hợp và giải thích. Mỗi yêu cầu giới hạn nội dung tài liệu ở 28.000 ký tự; lịch sử dùng tối đa 6 lượt hỏi/đáp và 24.000 ký tự trong bộ nhớ. Bot chưa tự tải nội dung link Drive; tài liệu cần có nội dung đã nhập hoặc trích xuất từ tệp. Luồng nhận xét AI không thay đổi.
+
+Chatbot giáo viên có lịch sử câu hỏi theo cuộc trò chuyện và giáo viên; không lưu câu trả lời AI. Giáo viên có thể xem lại, hỏi lại và tạo cuộc trò chuyện mới. Nút X đóng bot và giữ lịch sử; Xóa chat có xác nhận rồi xóa câu hỏi của phiên đó trong Supabase trước khi xóa màn hình. Chạy toàn bộ file supabase/setup_teacher_question_history.sql; xem [chi tiết lịch sử câu hỏi](../supabase/TEACHER_CHAT_QUESTIONS.md). Khung thử nghiệm quản trị không lưu câu hỏi.
 
 Tham khảo: [Gemini generateContent](https://ai.google.dev/api/generate-content), [Vercel Node Functions](https://vercel.com/docs/functions/runtimes/node-js), [Vite env](https://vite.dev/guide/env-and-mode).

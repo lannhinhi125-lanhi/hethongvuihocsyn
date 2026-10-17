@@ -75,6 +75,8 @@ try {
  for(const table of ['LUOT_NHAN_XET_AI','TUY_CHON_NGUOI_DUNG','LICH_DANG_KY_HOC_SINH'])assert.equal((await db.query('SELECT to_regclass($1) AS target',['vuihoc."'+table+'"'])).rows[0].target,null);
  for(const table of retainedTables)assert.deepEqual((await db.query('SELECT * FROM vuihoc."'+table+'" ORDER BY 1,2')).rows,retainedRows.get(table),table+' retained after combined cleanup');
  console.log('PASS: combined cleanup is idempotent, blocks unmatched legacy schedules, and preserves current per-subject/weekly/recurring schedules');
+ await db.exec(file('supabase/setup_teacher_question_history.sql'));
+ await db.exec(file('supabase/setup_teacher_question_history.sql'));
  assert.deepEqual((await db.query(file('supabase/diagnostics/json_storage_columns.sql'))).rows,[],'no JSON/JSONB columns, domains or arrays store business data');
  console.log('PASS: relational storage audit has zero JSON/JSONB columns');
  globalThis.fetch=async(url,options)=>{
@@ -86,8 +88,10 @@ try {
   try {
    await db.exec('BEGIN; SET LOCAL ROLE anon');
    const entries=Object.entries(args);
-   const query='SELECT public.'+name+'('+entries.map(([key],i)=>key+' => $'+(i+1)).join(',')+') result';
-   const result=(await db.query(query,entries.map(([,value])=>value))).rows[0].result;
+   const tableResult=['vuihoc_ai_chat_list','vuihoc_ai_chat_questions'].includes(name);
+   const query=(tableResult?'SELECT * FROM public.':'SELECT public.')+name+'('+entries.map(([key],i)=>key+' => $'+(i+1)).join(',')+')'+(tableResult?'':' result');
+   const queried=await db.query(query,entries.map(([,value])=>value));
+   const result=tableResult?queried.rows:queried.rows[0].result;
    await db.exec('COMMIT');
    return Response.json(result);
   }catch(error:any){await db.exec('ROLLBACK');return Response.json({code:error.code,message:error.message,details:error.detail,hint:error.hint},{status:400});}
@@ -286,6 +290,58 @@ try {
  const occupiedSlot:any=(await withDb<any>(()=>db.query(`SELECT k.madinhdanh id,k.makhunggio code,s.thutrongtuan-1 AS day_index FROM vuihoc."LICH_LOP" s JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=s.malop JOIN vuihoc."KHUNG_GIO" k ON k.madinhdanh=s.makhunggio WHERE l.magiaovien=$1 AND l.trangthai NOT IN ('TAM_DUNG','DA_KET_THUC') LIMIT 1`,[linkedTeacher.id]))).rows[0];
  assert.ok(occupiedSlot);
  await accounts.logoutAccount();business.resetBusinessData();await accounts.loginAccount(credentials.tendangnhap,credentials.matkhau);await business.loadBusinessData();
+ const chat=await import('../src/lib/teacherChatHistory');
+ const ownChat=crypto.randomUUID(),questionId=crypto.randomUUID();
+ await chat.openTeacherChat(ownChat);
+ await chat.saveTeacherQuestion(ownChat,questionId,'Tôi cần xin nghỉ trước bao nhiêu ngày?');
+ await chat.saveTeacherQuestion(ownChat,questionId,'Tôi cần xin nghỉ trước bao nhiêu ngày?');
+ const savedQuestion:any=(await withDb<any>(()=>db.query(`SELECT q.*,p.magiaovien FROM vuihoc."CAU_HOI_CHAT_AI" q JOIN vuihoc."PHIEN_CHAT_AI" p USING(maphien)`))).rows[0];
+ assert.equal(savedQuestion.magiaovien,linkedTeacher.id);
+ assert.equal(savedQuestion.noidung,'Tôi cần xin nghỉ trước bao nhiêu ngày?');
+ assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."CAU_HOI_CHAT_AI"'))).rows[0].n,1,'retry does not duplicate a saved question');
+ const history=await chat.listTeacherChats();
+ assert.equal(history[0].tieude,savedQuestion.noidung);
+ assert.deepEqual(Object.keys(history[0]).sort(),['maphien','thoigianbatdau','tieude'],'summary query does not return full messages or store a title');
+ const reloaded=await chat.readTeacherChat(ownChat);
+ assert.equal(reloaded[0].noidung,savedQuestion.noidung);
+ assert.equal(reloaded[0].traloi,null,'history has no stored AI response');
+ const columns:any=(await withDb<any>(()=>db.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='CAU_HOI_CHAT_AI' ORDER BY column_name`))).rows;
+ assert.deepEqual(columns.map((row:any)=>row.column_name),['macauhoi','maphien','noidung','thoigianhoi'],'question-only relational schema');
+ const anotherTeacher:any=(await withDb<any>(()=>db.query('SELECT madinhdanh FROM vuihoc."GIAO_VIEN" WHERE madinhdanh<>$1 LIMIT 1',[linkedTeacher.id]))).rows[0];
+ const foreignChat=crypto.randomUUID();
+ await withDb(()=>db.query('INSERT INTO vuihoc."PHIEN_CHAT_AI"(maphien,magiaovien) VALUES($1,$2)',[foreignChat,anotherTeacher.madinhdanh]));
+ await assert.rejects(chat.openTeacherChat(foreignChat),/không thuộc/);
+ await assert.rejects(chat.saveTeacherQuestion(foreignChat,crypto.randomUUID(),'Câu hỏi người khác'),/không thuộc/);
+ await assert.rejects(chat.readTeacherChat(foreignChat),/không thuộc/);
+ assert.ok(!(await chat.listTeacherChats()).some(row=>row.maphien===foreignChat));
+ await chat.deleteTeacherChat(foreignChat);
+ assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."PHIEN_CHAT_AI" WHERE maphien=$1',[foreignChat]))).rows[0].n,1);
+ await withDb(()=>db.exec(`CREATE FUNCTION vuihoc.reject_chat_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Simulated delete failure'; END $$; CREATE TRIGGER reject_chat_delete BEFORE DELETE ON vuihoc."PHIEN_CHAT_AI" FOR EACH ROW EXECUTE FUNCTION vuihoc.reject_chat_delete();`));
+ await assert.rejects(chat.deleteTeacherChat(ownChat),/Simulated delete failure/);
+ assert.equal((await chat.readTeacherChat(ownChat)).length,1,'failed delete retains history');
+ await withDb(()=>db.exec('DROP TRIGGER reject_chat_delete ON vuihoc."PHIEN_CHAT_AI"; DROP FUNCTION vuihoc.reject_chat_delete()'));
+ await withDb(()=>db.query(`INSERT INTO vuihoc."CAU_HOI_CHAT_AI"(macauhoi,maphien,noidung) SELECT gen_random_uuid(),$1,'Câu hỏi số '||n FROM generate_series(1,25) n`,[ownChat]));
+ const firstQuestions=await chat.readTeacherChat(ownChat),nextQuestions=await chat.readTeacherChat(ownChat,20);
+ assert.equal(firstQuestions.length,21);assert.equal(nextQuestions.length,6);
+ assert.equal(new Set([...firstQuestions.slice(0,20),...nextQuestions].map(row=>row.macauhoi)).size,26,'question pages preserve all rows without overlap');
+ await withDb(()=>db.query(`INSERT INTO vuihoc."PHIEN_CHAT_AI"(maphien,magiaovien) SELECT gen_random_uuid(),$1 FROM generate_series(1,25)`,[linkedTeacher.id]));
+ const firstChats=await chat.listTeacherChats(),nextChats=await chat.listTeacherChats(20);
+ assert.equal(firstChats.length,21);assert.equal(nextChats.length,6);
+ assert.equal(new Set([...firstChats.slice(0,20),...nextChats].map(row=>row.maphien)).size,26,'history pages are bounded');
+ await withDb(async()=>{
+  await db.exec('BEGIN READ ONLY; SET LOCAL ROLE anon');
+  try{
+   await db.query('SELECT * FROM public.vuihoc_ai_chat_list($1,$2)',[accounts.getAccountSessionToken(),0]);
+   await db.query('SELECT * FROM public.vuihoc_ai_chat_questions($1,$2,$3)',[accounts.getAccountSessionToken(),ownChat,0]);
+   await db.exec('COMMIT');
+  }catch(error){await db.exec('ROLLBACK');throw error;}
+ });
+ await chat.deleteTeacherChat(ownChat);await chat.deleteTeacherChat(ownChat);
+ assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."CAU_HOI_CHAT_AI" WHERE maphien=$1',[ownChat]))).rows[0].n,0);
+ await assert.rejects(chat.saveTeacherQuestion(ownChat,crypto.randomUUID(),'Late write'),/đã xóa/);
+ for(const role of ['anon','authenticated'])assert.equal((await withDb<any>(()=>db.query(`SELECT has_table_privilege($1,'vuihoc."CAU_HOI_CHAT_AI"','SELECT') AS allowed`,[role]))).rows[0].allowed,false);
+ await withDb(()=>db.query('DELETE FROM vuihoc."PHIEN_CHAT_AI" WHERE magiaovien=$1 OR maphien=$2',[linkedTeacher.id,foreignChat]));
+ console.log('PASS: question-only history survives reload, scoped teacher access, bounded read-only pages, no AI response columns, atomic deletion and blocked late writes');
  const alterSlot=(slot:any)=>business.setBusinessValue('teachers',(rows:any[])=>rows.map(row=>{
   if(row.id!==linkedTeacher.id)return row;
   const schedule=structuredClone(row.schedule||{});const key=Object.hasOwn(schedule,slot.id)?slot.id:slot.code;

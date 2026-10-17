@@ -22,7 +22,6 @@ import {
   Trash2,
   X,
   Send,
-  RotateCcw,
   CheckCircle,
   Brain,
   Search,
@@ -491,10 +490,18 @@ export const Module6_AIStudio: React.FC = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => {sandboxChat.reset();setSandboxInput('');setSandboxMessages([{ sender: 'ai', text: ragBotConfig.welcomeGreeting }]);}}
-                  className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 px-2.5 py-1 rounded bg-white border border-slate-200 cursor-pointer"
+                  type="button"
+                  title="Xóa câu hỏi và câu trả lời trong cuộc trò chuyện"
+                  aria-label="Xóa đoạn chat thử nghiệm"
+                  onClick={async () => {
+                    if(!await confirmAction('Bạn có muốn xóa đoạn chat này không? Toàn bộ câu hỏi và câu trả lời trong cuộc trò chuyện sẽ bị xóa.'))return;
+                    sandboxChat.reset();setSandboxInput('');
+                    setSandboxMessages([{ sender: 'ai', text: ragBotConfig.welcomeGreeting }]);
+                    showToast('Đã xóa đoạn chat thử nghiệm.','info');
+                  }}
+                  className="text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-red-200 cursor-pointer shrink-0"
                 >
-                  <RotateCcw className="w-3 h-3" /> Làm mới
+                  <Trash2 className="w-3.5 h-3.5" /> Xóa chat
                 </button>
               </div>
 

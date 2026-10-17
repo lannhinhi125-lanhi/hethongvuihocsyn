@@ -1,6 +1,7 @@
 import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
-import { ChatMessageText } from '../components/ChatMessageText';
+import { TeacherChatThread } from '../components/TeacherChatThread';
+import { confirmAction } from '../components/ConfirmAction';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingSessionDetails, teachingScheduleEntries, type TeachingLesson } from '../lib/teachingSessionDetails';
@@ -11,7 +12,7 @@ import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ClassItem } from '../types';
-import { useKnowledgeChat } from '../hooks/useKnowledgeChat';
+import { useTeacherChatHistory } from '../hooks/useTeacherChatHistory';
 import { materialForSessionDate, teachingWeekForDate } from '../lib/teacherScheduleMaterials';
 import { scheduledClassStart } from '../lib/classSessionTiming';
 import {
@@ -29,7 +30,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const businessStatus=useBusinessStatus();
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const initialWeek = teachingWeekForDate(new Date());
-  const { can, requirePermission } = usePermissions();
+  const { can, requirePermission, portal } = usePermissions();
   const {
     incidents, classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
     timeSlots, subjects, sopDocuments, ragBotConfig, users
@@ -42,37 +43,14 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [toDate, setToDate] = useState(initialWeek.to);
   const [currentWeekLabel, setCurrentWeekLabel] = useState(initialWeek.label);
 
-  // Chat is kept in memory; Gemini answers using enabled knowledge documents.
+  // Only teacher questions are persisted. AI answers remain in memory.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
-  const [isCloseChatConfirmOpen, setIsCloseChatConfirmOpen] = useState(false);
-  const [botMessages, setBotMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
-    {
-      sender: 'bot',
-      text: ragBotConfig.welcomeGreeting,
-      time: 'Vừa xong'
-    }
-  ]);
   const [chatInput, setChatInput] = useState('');
-  const knowledgeChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse,ragBotConfig.systemPrompt);
-
-  // Hàm xóa đoạn chat làm mới theo yêu cầu
-  const handleClearChat = () => {
-    knowledgeChat.reset();
-    setBotMessages([
-      {
-        sender: 'bot',
-        text: ragBotConfig.welcomeGreeting,
-        time: 'Vừa xong'
-      }
-    ]);
-    setChatInput('');
-    showToast('Đã xóa toàn bộ dữ liệu đoạn chat!', 'info');
-  };
-
-  const handleConfirmCloseChat = () => {
-    setIsKnowledgeBotOpen(false);
-    setIsCloseChatConfirmOpen(false);
-    handleClearChat();
+  const [showChatHistory,setShowChatHistory]=useState(false);
+  const knowledgeChat=useTeacherChatHistory(portal==='TEACHER'?currentUser.id:undefined,isKnowledgeBotOpen,sopDocuments,ragBotConfig);
+  const handleClearChat=async()=>{
+    if(!await confirmAction('Bạn có muốn xóa cuộc trò chuyện này không? Các câu hỏi đã lưu của cuộc trò chuyện sẽ bị xóa khỏi Supabase. Thao tác không thể khôi phục.'))return;
+    if(await knowledgeChat.remove()){setChatInput('');showToast('Đã xóa cuộc trò chuyện.','info');}
   };
 
   // Trạng thái buổi học: CHUA_DIEN_RA (chưa diễn ra), DANG_HOC (đang học), DA_HOAN_THANH (đã hoàn thành)
@@ -82,21 +60,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   const handleSendQuestion = async (questionText?: string) => {
     if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
-    const q = (questionText || chatInput).trim();
-    if (!q || knowledgeChat.isAnswering) return;
-
-    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    const userMsg = { sender: 'user' as const, text: q, time: timeStr };
-
-    setBotMessages(prev => [...prev, userMsg]);
+    const q=(questionText||chatInput).trim();
+    if(!q||knowledgeChat.isBusy)return;
     setChatInput('');
-    try{
-      const text=await knowledgeChat.answer(q);
-      if(text!==null)setBotMessages(prev=>[...prev,{sender:'bot',text,time:new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}]);
-    }catch(error){
-      setBotMessages(prev=>prev.slice(0,-1));setChatInput(q);
-      showToast(error instanceof Error ? error.message : 'Chưa nhận được câu trả lời từ AI.','error');
-    }
+    if(!await knowledgeChat.send(q))setChatInput(q);
   };
 
   const [selectedClassId, setSelectedClass] = useState<string | null>(null);
@@ -725,7 +692,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={handleClearChat}
+                  disabled={knowledgeChat.isBusy}
+                  onClick={()=>void handleClearChat()}
                   className="px-2 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white font-semibold text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
                   title="Xóa đoạn chat làm mới"
                 >
@@ -734,10 +702,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsCloseChatConfirmOpen(true)}
+                  onClick={() => setIsKnowledgeBotOpen(false)}
                   className="w-7 h-7 rounded-lg bg-white/15 hover:bg-white/30 flex items-center justify-center text-white cursor-pointer font-bold text-xs transition-colors"
-                  title="Thoát cuộc trò chuyện"
-                  aria-label="Thoát cuộc trò chuyện"
+                  title="Đóng bot, giữ lịch sử câu hỏi"
+                  aria-label="Đóng bot, giữ lịch sử câu hỏi"
                 >
                   ✕
                 </button>
@@ -745,6 +713,27 @@ export const Module4_TeacherSchedule: React.FC = () => {
             </div>
 
             <GeminiConnectionStatus />
+            <div className="px-3 py-2 border-b border-slate-200 space-y-1.5 bg-white text-[11px]">
+              <div className="flex gap-2 items-center justify-between">
+                {portal==='TEACHER' && <button type="button" onClick={()=>setShowChatHistory(value=>!value)} className="font-semibold text-orange-700 hover:underline" aria-expanded={showChatHistory}>Lịch sử câu hỏi</button>}
+                <button type="button" disabled={knowledgeChat.isBusy} onClick={()=>{knowledgeChat.newChat();setChatInput('');setShowChatHistory(false);}} className="ml-auto font-semibold text-orange-700 hover:underline disabled:opacity-40">+ Cuộc trò chuyện mới</button>
+              </div>
+              {portal==='TEACHER' && <p className="text-[10px] text-slate-500">Chỉ lưu câu hỏi. Câu trả lời AI được giữ tạm, không lưu vào lịch sử.</p>}
+              {knowledgeChat.activeChat && <p className="truncate text-slate-600" title={knowledgeChat.chats.find(chat=>chat.maphien===knowledgeChat.activeChat)?.tieude}>{knowledgeChat.chats.find(chat=>chat.maphien===knowledgeChat.activeChat)?.tieude||'Cuộc trò chuyện hiện tại'}</p>}
+              {showChatHistory && portal==='TEACHER' && <div className="max-h-36 overflow-y-auto space-y-1 border-t border-slate-100 pt-1.5">
+                <button type="button" disabled={knowledgeChat.isBusy} onClick={()=>void knowledgeChat.refresh()} className="text-slate-500 hover:text-orange-700 disabled:opacity-40">Tải lại danh sách</button>
+                {!knowledgeChat.chats.length && !knowledgeChat.isBusy && <p className="text-slate-500">Chưa có lịch sử câu hỏi.</p>}
+                {knowledgeChat.chats.map(chat=><button key={chat.maphien} type="button" disabled={knowledgeChat.isBusy}
+                  onClick={async()=>{if(await knowledgeChat.open(chat.maphien)){setShowChatHistory(false);setChatInput('');}}}
+                  className={`block w-full text-left px-2 py-1.5 rounded-lg disabled:opacity-40 ${knowledgeChat.activeChat===chat.maphien?'bg-orange-50 text-orange-800':'hover:bg-slate-50 text-slate-700'}`}>
+                  <span className="block truncate">{chat.tieude}</span>
+                  <span className="block text-[9px] text-slate-400">{new Date(chat.thoigianbatdau).toLocaleString('vi-VN')}</span>
+                </button>)}
+                {knowledgeChat.hasMoreChats && <button type="button" disabled={knowledgeChat.isBusy} onClick={()=>void knowledgeChat.moreChats()} className="w-full text-orange-700 hover:underline disabled:opacity-40">Xem thêm cuộc trò chuyện</button>}
+              </div>}
+              {knowledgeChat.error && <div role="alert" className="text-red-600 break-words">{knowledgeChat.error}</div>}
+              {knowledgeChat.isBusy && !knowledgeChat.isAnswering && <p role="status" className="text-slate-500 animate-pulse">Đang xử lý lịch sử…</p>}
+            </div>
             {/* Quick Questions Chips */}
             <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex-shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
@@ -755,6 +744,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                   <button
                     key={idx}
                     type="button"
+                    disabled={knowledgeChat.isBusy}
                     onClick={() => handleSendQuestion(q)}
                     className="px-2 py-0.5 text-[10px] rounded-md bg-white hover:bg-orange-50 text-slate-700 hover:text-[#FF5C00] border border-slate-200 hover:border-orange-300 transition-colors text-left cursor-pointer truncate max-w-full"
                   >
@@ -764,32 +754,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
               </div>
             </div>
 
-            {/* Message Thread */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs bg-slate-50/40">
-              {botMessages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-                >
-                  <div className="flex items-center gap-1.5 mb-0.5 text-[9px] text-slate-400">
-                    <span className={msg.sender === 'bot' ? 'text-[#FF5C00] font-semibold' : ''}>
-                      {msg.sender === 'user' ? 'Thầy/Cô' : 'Bot chat AI'}
-                    </span>
-                    <span>• {msg.time}</span>
-                  </div>
-                  <div
-                    className={`max-w-[90%] p-2.5 rounded-2xl whitespace-pre-line leading-relaxed text-xs shadow-2xs ${
-                      msg.sender === 'user'
-                        ? 'bg-[#FF5C00] text-white rounded-br-xs font-medium'
-                        : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
-                    }`}
-                  >
-                    <ChatMessageText text={msg.text} format={msg.sender==='bot'} />
-                  </div>
-                </div>
-              ))}
-              {knowledgeChat.isAnswering && <p role="status" className="text-slate-500 animate-pulse">AI đang soạn câu trả lời…</p>}
-            </div>
+            <TeacherChatThread turns={knowledgeChat.turns} greeting={ragBotConfig.welcomeGreeting}
+              isBusy={knowledgeChat.isBusy} isAnswering={knowledgeChat.isAnswering} hasOlder={knowledgeChat.hasOlderTurns}
+              onOlder={()=>void knowledgeChat.olderTurns()} onAskAgain={turn=>void knowledgeChat.send(turn.noidung,turn.macauhoi)} />
 
             {/* Input Bar */}
             <form
@@ -801,6 +768,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             >
               <input
                 type="text"
+                maxLength={8000}
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 placeholder="Đặt câu hỏi trong phạm vi tài liệu tri thức..."
@@ -808,7 +776,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
               />
               <button
                 type="submit"
-                disabled={!chatInput.trim() || knowledgeChat.isAnswering}
+                disabled={!chatInput.trim() || knowledgeChat.isBusy}
                 className="px-3.5 py-1.5 bg-[#FF5C00] hover:bg-[#E05200] disabled:opacity-40 text-white font-bold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 Gửi
@@ -817,46 +785,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
           </div>
         )}
 
-        {isCloseChatConfirmOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="close-chat-title"
-              className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-                  <AlertTriangle className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 id="close-chat-title" className="text-sm font-bold text-slate-800">
-                    Đóng trợ lý AI và xóa cuộc trò chuyện?
-                  </h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
-                    Nếu thoát, nội dung cuộc trò chuyện hiện tại sẽ bị xóa và không thể khôi phục.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCloseChatConfirmOpen(false)}
-                  className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Ở lại
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmCloseChat}
-                  className="rounded-lg bg-[#FF5C00] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#E05200]"
-                >
-                  Thoát và xóa
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   );

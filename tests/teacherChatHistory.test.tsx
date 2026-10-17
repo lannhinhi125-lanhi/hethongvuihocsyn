@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {teacherChatContext,type ChatTurn} from '../src/lib/teacherChatHistory';
+import {TeacherChatThread} from '../src/components/TeacherChatThread';
+
+const turn=(n:number,reply:string|null='Trả lời '+n):ChatTurn=>({macauhoi:String(n),noidung:'Câu hỏi '+n,traloi:reply,thoigianhoi:'2026-10-17T01:00:00Z',thoigiantraloi:reply?'2026-10-17T01:00:02Z':null});
+const turns=Array.from({length:20},(_,n)=>turn(n));
+turns.push(turn(20,null));
+const messages=teacherChatContext(turns,'Câu hỏi tiếp theo');
+assert.equal(messages.length,13,'at most six completed previous pairs plus current question');
+assert.equal(messages[0].text,'Câu hỏi 14');
+assert.equal(messages.at(-1)?.role,'user');
+assert.ok(!messages.some(message=>message.text==='Câu hỏi 20'),'historic unanswered questions are not treated as model context');
+assert.deepEqual(teacherChatContext([turn(1,null),turn(2,null)],'Hỏi lại'),[{role:'user',text:'Hỏi lại'}]);
+const retry=teacherChatContext(turns,'Câu hỏi 5','5');
+assert.ok(!retry.some(message=>message.text==='Câu hỏi 6'),'retry uses preceding turns only');
+const bounded=teacherChatContext([turn(1,'x'.repeat(25_000)),turn(2)],'Tiếp');
+assert.equal(bounded.length,3);
+const html=renderToStaticMarkup(<TeacherChatThread turns={[turn(1,null)]} greeting="Xin chào" isBusy={false} isAnswering={false} hasOlder={true} onOlder={()=>{}} onAskAgain={()=>{}} />);
+assert.ok(html.includes('Câu hỏi 1'));assert.ok(html.includes('Hỏi lại câu này'));assert.ok(html.includes('Xem câu hỏi cũ hơn'));assert.ok(!html.includes('Trả lời 1'));
+const live=renderToStaticMarkup(<TeacherChatThread turns={[turn(1,'**Trước 2 ngày**')]} greeting="" isBusy={true} isAnswering={true} hasOlder={false} onOlder={()=>{}} onAskAgain={()=>{}} />);
+assert.ok(live.includes('<strong>Trước 2 ngày</strong>'));assert.ok(live.includes('disabled=""'));assert.ok(live.includes('AI đang soạn'));
+console.log('PASS: question-only history display, ask-again actions and bounded valid context from live replies only');
