@@ -28,3 +28,12 @@ assert.match(studentStudyEditIssue(student,updateStudentRegistration(student,{su
 assert.equal(canEditTeacherAvailability({id:'U1',status:'active',name:'Different name',email:'new@example.com'} as any,teacher),true);
 assert.equal(canEditTeacherAvailability({id:'OTHER',status:'active',email:'old@example.com'} as any,teacher),false);
 console.log('PASS: personal edits, enrolled subject lock, separate wait-then-edit, independent subjects, assigned slot lock, stable teacher-account identity');
+
+const boundClass={...cls,studentIds:['S1']};
+const withExtra=updateStudentRegistration(student,{subject:'MATH',scheduleSlots:['T2 (18:00 - 19:30)','T3 (18:00 - 19:30)']});
+assert.equal(studentStudyEditIssue(student,withExtra,[boundClass]),undefined);
+assert.equal(studentStudyEditIssue(withExtra,updateStudentRegistration(withExtra,{subject:'MATH',scheduleSlots:['T2 (18:00 - 19:30)','T4 (18:00 - 19:30)']}),[boundClass]),undefined);
+assert.match(studentStudyEditIssue(withExtra,updateStudentRegistration(withExtra,{subject:'MATH',scheduleSlots:['T3 (18:00 - 19:30)']}),[boundClass])!,/CLASS.*Dừng hoạt động lớp/);
+assert.equal(studentStudyEditIssue(student,updateStudentRegistration(student,{subject:'ENGLISH',scheduleSlots:['T2 (18:00 - 19:30)']}),[boundClass]),undefined);
+assert.equal(studentStudyEditIssue(student,updateStudentRegistration(student,{subject:'MATH',scheduleSlots:[]}),[{...boundClass,status:'Tạm dừng'}]),undefined);
+console.log('PASS: active students can add/remove unrelated availability and register another subject; only occupied slot removal requires class stop');

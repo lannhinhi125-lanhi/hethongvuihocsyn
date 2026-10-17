@@ -84,13 +84,13 @@ try {
   const args=await request.json();requests.push({name,args});
   return withDb(async()=>{
   try {
-   await db.exec('SET ROLE anon');
+   await db.exec('BEGIN; SET LOCAL ROLE anon');
    const entries=Object.entries(args);
    const query='SELECT public.'+name+'('+entries.map(([key],i)=>key+' => $'+(i+1)).join(',')+') result';
    const result=(await db.query(query,entries.map(([,value])=>value))).rows[0].result;
+   await db.exec('COMMIT');
    return Response.json(result);
-  }catch(error:any){return Response.json({code:error.code,message:error.message,details:error.detail,hint:error.hint},{status:400});}
-  finally{await db.exec('RESET ROLE');}
+  }catch(error:any){await db.exec('ROLLBACK');return Response.json({code:error.code,message:error.message,details:error.detail,hint:error.hint},{status:400});}
   });
  };
  const accounts=await import('../src/lib/accountSession');
@@ -107,6 +107,53 @@ try {
  await business.loadBusinessData();
  assert.equal(business.getBusinessSnapshot().error,'');
  assert.equal(business.getBusinessSnapshot().data.criteria_categories.length,0,'retired criteria table remains absent');
+ // Reproduce a permission failure restricted to schedule-writing helpers.
+ const {updateStudentRegistration:updateWaitingRegistration}=await import('../src/lib/studentRegistrations');
+ const waitingStudent=business.getBusinessSnapshot().data.students.find((row:any)=>row.registrations.some((r:any)=>r.status==='Chờ xếp lớp'&&!r.currentClassCode));
+ assert.ok(waitingStudent,'waiting student fixture');
+ const waitingBefore=structuredClone(waitingStudent);
+ const waitingSubject=waitingStudent.registrations.find((r:any)=>r.status==='Chờ xếp lớp'&&!r.currentClassCode).subject;
+ const waitingSlot=business.getBusinessSnapshot().data.time_slots[0];
+ let newSchedule=[`T2 (${waitingSlot.timeRange})`,`T4 (${waitingSlot.timeRange})`];
+ if(JSON.stringify(waitingStudent.registrations.find((r:any)=>r.subject===waitingSubject).scheduleSlots)===JSON.stringify(newSchedule))newSchedule=[`T3 (${waitingSlot.timeRange})`];
+ const editWaitingSchedule=()=>business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===waitingStudent.id?updateWaitingRegistration(row,{subject:waitingSubject,scheduleSlots:newSchedule}):row));
+ await withDb(()=>db.exec('ALTER FUNCTION vuihoc.tach_lich(text) OWNER TO anon; ALTER FUNCTION vuihoc.tach_lich(text) SECURITY DEFINER'));
+ editWaitingSchedule();await assert.rejects(business.waitForBusinessSave(),/permission denied for schema vuihoc/);
+ const permissionReport:any=(await withDb<any>(()=>db.query(file('supabase/diagnostics/student_schedule_permissions.sql')))).rows;
+ assert.equal(permissionReport.find((row:any)=>row.function_name==='tach_lich').owner_can_use_schema,false);
+ // Older installations can have equivalent function bodies with different spacing.
+ // The upgrade must not depend on exact source-text matches in any of these functions.
+ await withDb(async()=>{
+  for(const signature of ['vuihoc.kiem_tra_sua_ho_so_truoc_dung_lop(text,jsonb,jsonb)',
+   'vuihoc.kiem_tra_sua_ho_so(text,jsonb,jsonb)','vuihoc.ghi_du_lieu_quan_he(text,jsonb,boolean)']){
+   const definition:any=(await db.query('SELECT pg_get_functiondef($1::regprocedure) AS definition',[signature])).rows[0];
+   const reformatted=definition.definition.replace(/\n/g,'\r\n').replace(/AND \(\(oldreg/g,'AND  ((oldreg')
+    .replace('registrations:=p_row', 'registrations := p_row')
+    .replace('PERFORM vuihoc.kiem_tra_sua_ho_so_truoc_dung_lop(p_table,b,v);',
+     'PERFORM vuihoc.kiem_tra_sua_ho_so_truoc_dung_lop(p_table, b, v);');
+   await db.exec(reformatted);
+  }
+ });
+ await withDb(()=>db.exec(file('supabase/fix_student_available_slots.sql')));
+ await withDb(()=>db.exec(file('supabase/fix_student_available_slots.sql')));
+ for(const role of ['anon','authenticated']){
+  const access:any=(await withDb<any>(()=>db.query(`SELECT has_schema_privilege($1,'vuihoc','USAGE') AS schema_access,has_table_privilege($1,'vuihoc."HOC_SINH"','UPDATE') AS table_access,has_function_privilege($1,'vuihoc.tach_lich(text)','EXECUTE') AS helper_access`,[role]))).rows[0];
+  assert.deepEqual(access,{schema_access:false,table_access:false,helper_access:false},'repair preserves private schema/table/helper isolation');
+ }
+ await withDb(async()=>{
+  await db.exec('BEGIN; SET LOCAL ROLE anon');
+  try{await assert.rejects(db.query('SELECT public.vuihoc_save_business($1,$2)',['x'.repeat(64),[]]),/Phiên/);}
+  finally{await db.exec('ROLLBACK');}
+ });
+ await business.loadBusinessData();editWaitingSchedule();await business.waitForBusinessSave();await business.loadBusinessData();
+ const waitingAfter=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===waitingStudent.id);
+ const savedWaiting=waitingAfter.registrations.find((r:any)=>r.subject===waitingSubject);
+ assert.deepEqual(savedWaiting.scheduleSlots,newSchedule);assert.equal(savedWaiting.status,'Chờ xếp lớp');assert.ok(!savedWaiting.currentClassCode);
+ assert.deepEqual(waitingAfter.registrations.filter((r:any)=>r.subject!==waitingSubject),waitingBefore.registrations.filter((r:any)=>r.subject!==waitingSubject));
+ assert.equal(waitingAfter.id,waitingBefore.id);
+ const physicalSchedule:any=(await withDb<any>(()=>db.query('SELECT thutrongtuan,makhunggio FROM vuihoc."LICH_DANG_KY_MON_HOC" WHERE mahocsinh=$1 AND mamonhoc=$2 ORDER BY thutu',[waitingStudent.id,waitingSubject]))).rows;
+ assert.equal(physicalSchedule.length,newSchedule.length);assert.ok(physicalSchedule.every((row:any)=>row.makhunggio===waitingSlot.id));
+ console.log('PASS: waiting-student schedule permission failure reproduced; repaired update survives commit/reload in relational rows without exposing private schema');
  const {defaultReportConfig}=await import('../src/lib/customReports');
  const reportConfig=defaultReportConfig({id:'classes',label:'Classes',dateKind:'event',records:[],metrics:[{id:'count',label:'Count',mode:'count'}],dimensions:[],defaultMetricIds:['count'],filters:[],detailFields:[]});
  business.setBusinessValue('report_templates',[{id:'REGRESSION-REPORT',name:'Report',config:reportConfig}]);
@@ -191,6 +238,37 @@ try {
  await business.waitForBusinessSave();await business.loadBusinessData();
  assert.deepEqual(business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations,pupilBefore.registrations);
  const enrolled=pupilBefore.registrations.find((row:any)=>row.subject===occupiedClass.subject);
+ // Enrolled students can add/change unrelated preferences, but not remove occupied ones.
+ const {schedulesOverlap}=await import('../src/lib/workflow');
+ const boundSlots=occupiedClass.schedule.split(',').map((slot:string)=>slot.trim());
+ const extraChoices=business.getBusinessSnapshot().data.time_slots.flatMap((slot:any)=>['T2','T3','T4','T5','T6','T7','CN'].map(day=>`${day} (${slot.timeRange})`)).filter((slot:string)=>!schedulesOverlap(slot,occupiedClass.schedule));
+ const [spareOne,spareTwo]=extraChoices;assert.ok(spareOne&&spareTwo);
+ const setPupilAvailability=(slots:string[])=>business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?updateStudentRegistration(row,{subject:occupiedClass.subject,scheduleSlots:slots}):row));
+ let activePreferences=[...new Set([...enrolled.scheduleSlots,...boundSlots,spareOne])];
+ setPupilAvailability(activePreferences);await business.waitForBusinessSave();await business.loadBusinessData();
+ activePreferences=[...new Set([...activePreferences,spareTwo])];
+ setPupilAvailability(activePreferences);await business.waitForBusinessSave();await business.loadBusinessData();
+ activePreferences=activePreferences.filter(slot=>slot!==spareOne);
+ setPupilAvailability(activePreferences);await business.waitForBusinessSave();await business.loadBusinessData();
+ const activeAfter=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations.find((row:any)=>row.subject===occupiedClass.subject);
+ assert.deepEqual(activeAfter.scheduleSlots,activePreferences);assert.equal(activeAfter.status,'Đang học');assert.equal(activeAfter.currentClassCode,occupiedClass.code);
+ setPupilAvailability(activePreferences.filter(slot=>slot!==boundSlots[0]));
+ await assert.rejects(business.waitForBusinessSave(),/Dừng hoạt động lớp/);await business.loadBusinessData();
+ assert.deepEqual(business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations.find((row:any)=>row.subject===occupiedClass.subject).scheduleSlots,activePreferences);
+ const pupilForNewSubject=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId);
+ const newSubject=business.getBusinessSnapshot().data.subjects.find((subject:any)=>!pupilForNewSubject.registrations.some((row:any)=>row.subject===subject.code));assert.ok(newSubject);
+ await withDb(()=>db.exec(`CREATE FUNCTION vuihoc.reject_unchanged_subject_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP='DELETE' THEN IF OLD.mamonhoc=TG_ARGV[0] THEN RAISE EXCEPTION 'Unchanged subject was rewritten'; END IF; ELSE IF NEW.mamonhoc=TG_ARGV[0] THEN RAISE EXCEPTION 'Unchanged subject was rewritten'; END IF; END IF; IF TG_OP='DELETE' THEN RETURN OLD; END IF; RETURN NEW; END $$;`));
+ for(const table of ['DANG_KY_MON_HOC','LICH_DANG_KY_MON_HOC']){
+  const ddl:any=(await withDb<any>(()=>db.query(`SELECT format('CREATE TRIGGER reject_unchanged_subject_write BEFORE INSERT OR UPDATE OR DELETE ON vuihoc.%I FOR EACH ROW EXECUTE FUNCTION vuihoc.reject_unchanged_subject_write(%L)',$1::text,$2::text) AS sql`,[table,occupiedClass.subject]))).rows[0].sql;
+  await withDb(()=>db.exec(ddl));
+ }
+ business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?updateStudentRegistration(row,{subject:newSubject.code,model:enrolled.model,level:enrolled.level,status:'Chờ xếp lớp',currentClassCode:undefined,scheduleSlots:[spareOne]}):row));
+ await business.waitForBusinessSave();await business.loadBusinessData();
+ for(const table of ['DANG_KY_MON_HOC','LICH_DANG_KY_MON_HOC'])await withDb(()=>db.exec('DROP TRIGGER reject_unchanged_subject_write ON vuihoc."'+table+'"'));
+ await withDb(()=>db.exec('DROP FUNCTION vuihoc.reject_unchanged_subject_write()'));
+ assert.deepEqual(business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations.find((row:any)=>row.subject===occupiedClass.subject),activeAfter);
+ assert.deepEqual(business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations.find((row:any)=>row.subject===newSubject.code).scheduleSlots,[spareOne]);
+ console.log('PASS: active students add/edit unrelated slots, occupied removal is blocked, and a new subject is saved without rewriting the current class registration');
  const alternateModel=business.getBusinessSnapshot().data.class_models.find((row:any)=>row.code!==enrolled.model).code;
  business.setBusinessValue('students',(rows:any[])=>rows.map(row=>row.id===pupilId?updateStudentRegistration(row,{subject:occupiedClass.subject,model:alternateModel}):row));
  await assert.rejects(business.waitForBusinessSave(),/Chờ xếp lớp/);await business.loadBusinessData();

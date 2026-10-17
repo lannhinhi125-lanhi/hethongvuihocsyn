@@ -1,5 +1,6 @@
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import {canKeepAssignedTeacher,studentsNeedingClassValidation,studentsNeedingScheduleValidation,nextClassTeacherSelection} from '../lib/classEditing';
+import {studentSlotAssignment} from '../lib/profileEditing';
 import { studentRegistrations, studentRegistrationRows, studentForSubject, studentHistoryForSubject, studentScheduleConflict } from '../lib/studentRegistrations';
 import { waitForBusinessSave } from '../lib/businessPersistence';
 import { canTeachClassModel, isTeachingModelParent } from '../lib/teachingModelGroups';
@@ -234,13 +235,27 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [stdDrafts, setStdDrafts] = useState<StudentSubjectRegistration[]>([]);
 
   const activeTimeSlots = timeSlots.filter(slot => slot.status);
+  const savedStudentSlotClass = (key:string) => {
+    const saved=editingSubjectProfile?.scheduleSlots.some(slot=>slot.replace(/\s/g,'')===key.replace(/\s/g,''));
+    return saved&&editingStudentId?studentSlotAssignment(editingStudentId,stdSubject,key,classes):undefined;
+  };
 
   const handleToggleSingleSlot = (day: string, range: string) => {
     const key = day + ' (' + range + ')';
+    const occupied=savedStudentSlotClass(key);
+    if(stdSlots.includes(key)&&occupied){showToast(`Ca ${key} đang gắn với lớp ${occupied.code}. Dừng lớp trước khi bỏ ca này.`,'warning');return;}
     setStdSlots(prev => prev.includes(key) ? prev.filter(slot => slot !== key) : [...prev, key]);
   };
-  const handleRemoveSlotChip = (key: string) => setStdSlots(prev => prev.filter(slot => slot !== key));
-  const handleClearAllSlots = () => setStdSlots([]);
+  const handleRemoveSlotChip = (key: string) => {
+    const occupied=savedStudentSlotClass(key);
+    if(occupied){showToast(`Ca ${key} đang gắn với lớp ${occupied.code}. Dừng lớp trước khi bỏ ca này.`,'warning');return;}
+    setStdSlots(prev => prev.filter(slot => slot !== key));
+  };
+  const handleClearAllSlots = () => {
+    const retained=stdSlots.filter(slot=>savedStudentSlotClass(slot));
+    setStdSlots(retained);
+    if(retained.length)showToast('Đã bỏ các ca chưa gắn lớp. Ca đang có lớp được giữ lại; cần dừng lớp trước khi bỏ.','warning');
+  };
 
   // Class Modal state
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -586,6 +601,10 @@ export const Module4_StudentsClasses: React.FC = () => {
   const editingProfile = studentProfiles.find(item=>item.id===editingStudentId);
   const editingSubjectProfile=editingProfile && studentForSubject(editingProfile,stdSubject);
   const studentStudyFieldsLocked=Boolean(editingSubjectProfile && (editingSubjectProfile.status!=='Chờ xếp lớp'||editingSubjectProfile.currentClassCode));
+  const studentLockedSlots=Object.fromEntries(stdSlots.flatMap(slot=>{
+    const cls=savedStudentSlotClass(slot);
+    return cls?[[slot,cls.code]]:[];
+  }));
   const studentGradeLocked=Boolean(editingProfile && studentRegistrations(editingProfile).some(row=>row.status!=='Chờ xếp lớp'||row.currentClassCode));
   const formSubjectOptions = isAddingSubject && editingProfile ? availableAdditionalSubjects(editingProfile) : activeSubjects;
 
@@ -1576,8 +1595,8 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><label className="block text-slate-600">Họ tên bố<input type="text"  value={stdFatherName} onChange={e => setStdFatherName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Số điện thoại bố<input type="tel"  value={stdFatherPhone} onChange={e => setStdFatherPhone(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Họ tên mẹ<input type="text"  value={stdMotherName} onChange={e => setStdMotherName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Số điện thoại mẹ<input type="tel"  value={stdMotherPhone} onChange={e => setStdMotherPhone(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label></div>
               </fieldset>
               <div className="flex flex-wrap gap-2">{Array.from(new Set([...stdDrafts.map(item => item.subject), stdSubject])).filter(subject=>Boolean(subject) && (!isAddingSubject || formSubjectOptions.some(item=>item.code===subject))).map(subject => <button type="button" key={subject} onClick={() => selectStudentSubject(subject)} className="rounded-lg border border-orange-200 px-3 py-1 text-orange-700">{subjectName(subject)}</button>)}</div>
-              {studentStudyFieldsLocked && <p className="text-xs text-amber-700">Thông tin cá nhân và liên hệ vẫn sửa được. Lớp đang hoạt động giữ nguyên ca đã xếp. Dừng lớp để đưa đăng ký môn về Chờ xếp lớp trước khi đổi trình độ, mô hình hoặc lịch học.</p>}
-              <StudentSchedulePicker disabled={studentStudyFieldsLocked} slots={activeTimeSlots} selected={stdSlots} onToggle={handleToggleSingleSlot} onRemove={handleRemoveSlotChip} onClear={handleClearAllSlots} />
+              {studentStudyFieldsLocked && <p className="text-xs text-amber-700">Vẫn được sửa thông tin cá nhân và thêm/sửa ca rảnh chưa gắn lớp. Chỉ cần dừng lớp trước khi bỏ ca đang có lớp; đổi trình độ hoặc mô hình cần đăng ký môn về Chờ xếp lớp.</p>}
+              <StudentSchedulePicker lockedSlots={studentLockedSlots} slots={activeTimeSlots} selected={stdSlots} onToggle={handleToggleSingleSlot} onRemove={handleRemoveSlotChip} onClear={handleClearAllSlots} />
               {editingStudentId && studentClassInfo(editingSubjectProfile)}
               {!studentStudyFieldsLocked && <ClassSuggestions model={stdModel} schedule={stdSlots} isChanging={Boolean(assignedClass(editingSubjectProfile))} items={findMatchingClassesForStudent(stdSubject, stdGrade, stdLevel, stdModel).filter(item => item.id !== assignedClass(editingSubjectProfile)?.id && (!editingStudentId || !item.studentIds.includes(editingStudentId)))} onAssign={handleSaveAndAssignToClass} />}
               <p className="text-xs text-slate-500">Mỗi môn có lịch và trạng thái riêng. Chọn lần lượt các môn để nhập đăng ký, sau đó lưu chung trên một mã học sinh.</p>
@@ -1592,25 +1611,25 @@ export const Module4_StudentsClasses: React.FC = () => {
                 </button>
                 <button
                   type="submit" disabled={isSavingChanges}
-                  className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
-                  title="Lưu thông tin hồ sơ học sinh"
+                  className={editingStudentId ? 'px-4 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold cursor-pointer disabled:opacity-50' : 'px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer disabled:opacity-50'}
+                  title={editingStudentId ? 'Cập nhật hồ sơ và lịch đăng ký theo môn của học sinh này' : 'Lưu thông tin hồ sơ học sinh'}
                 >
-                  Lưu hồ sơ
+                  {isSavingChanges ? 'Đang lưu…' : editingStudentId ? 'Cập nhật hồ sơ' : 'Lưu hồ sơ'}
                 </button>
                 {(!editingStudentId || !assignedClass(editingSubjectProfile)) && <button
                   type="button"
-                  disabled={!can("Tạo, sửa, xóa lớp và cập nhật link phòng học")} onClick={handleSaveAndCreateClass}
-                  className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  disabled={isSavingChanges || !can("Tạo, sửa, xóa lớp và cập nhật link phòng học")} onClick={handleSaveAndCreateClass}
+                  className={editingStudentId ? 'px-5 py-2 rounded-lg border border-orange-200 bg-white hover:bg-orange-50 text-orange-700 font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50' : 'px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50'}
                 >
                   {stdModel === '1-1' ? (
                     <>
                       <PlusCircle className="w-4 h-4" />
-                      <span>Lưu &amp; Tạo lớp 1-1</span>
+                      <span>{editingStudentId ? 'Cập nhật & Tạo lớp 1-1' : 'Lưu & Tạo lớp 1-1'}</span>
                     </>
                   ) : (
                     <>
                       <PlusCircle className="w-4 h-4" />
-                      <span>Lưu &amp; Tạo lớp {stdModel}</span>
+                      <span>{editingStudentId ? 'Cập nhật & Tạo lớp' : 'Lưu & Tạo lớp'} {stdModel}</span>
                     </>
                   )}
                 </button>}

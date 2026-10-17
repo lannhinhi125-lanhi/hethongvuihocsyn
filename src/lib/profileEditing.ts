@@ -4,6 +4,11 @@ import {schedulesOverlap} from './workflow';
 import {canTeachClassModel} from './teachingModelGroups';
 
 const sameSet=(a:string[]=[],b:string[]=[])=>JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
+const scheduleKey=(value:string)=>value.replace(/\s/g,'').toUpperCase();
+export function studentSlotAssignment(studentId:string,subject:string,slot:string,classes:ClassItem[]):ClassItem|undefined {
+ return classes.find(cls=>cls.subject===subject&&cls.studentIds.includes(studentId)&&
+  !['Tạm dừng','Đã kết thúc'].includes(cls.status||'')&&schedulesOverlap(slot,cls.schedule));
+}
 export function studentStudyEditIssue(before:StudentRecord,after:StudentRecord,classes?:ClassItem[]):string|undefined {
  const previous=studentRegistrations(before),next=studentRegistrations(after);
  if(before.grade!==after.grade && previous.some(row=>row.status!=='Chờ xếp lớp'||row.currentClassCode))return 'Đưa các đăng ký môn về Chờ xếp lớp và lưu trước khi đổi khối.';
@@ -12,8 +17,13 @@ export function studentStudyEditIssue(before:StudentRecord,after:StudentRecord,c
   const linkedClass=classes?.find(cls=>cls.subject===old.subject&&cls.studentIds.includes(before.id)&&!['Tạm dừng','Đã kết thúc'].includes(cls.status||''));
   const assigned=classes ? Boolean(linkedClass) : Boolean(old.currentClassCode);
   if(assigned && (!row || row.status!==old.status || row.currentClassCode!==old.currentClassCode))return `Chưa thể đổi trạng thái hoặc rút học sinh vì đang gắn với lớp ${linkedClass?.code||old.currentClassCode}. Dừng hoạt động lớp trước để chuyển về Chờ xếp lớp và giải phóng ca.`;
-  const changed=!row || row.model!==old.model || row.level!==old.level || !sameSet(row.scheduleSlots,old.scheduleSlots);
-  if(changed && (old.status!=='Chờ xếp lớp'||old.currentClassCode))return 'Đưa đăng ký môn về Chờ xếp lớp và lưu trước khi đổi trình độ, mô hình hoặc lịch học.';
+  const changed=!row || row.model!==old.model || row.level!==old.level;
+  if(changed && (old.status!=='Chờ xếp lớp'||old.currentClassCode))return 'Đưa đăng ký môn về Chờ xếp lớp và lưu trước khi đổi trình độ hoặc mô hình.';
+  for(const slot of old.scheduleSlots||[]){
+   if(row?.scheduleSlots.some(nextSlot=>scheduleKey(nextSlot)===scheduleKey(slot)))continue;
+   const occupied=classes?studentSlotAssignment(before.id,old.subject,slot,classes):undefined;
+   if(occupied || (!classes&&old.currentClassCode))return `Không thể bỏ ca ${slot} vì đang gắn với lớp ${occupied?.code||old.currentClassCode}. Dừng hoạt động lớp trước khi bỏ ca này; các ca khác vẫn được thêm hoặc sửa.`;
+  }
  }
 }
 
