@@ -62,8 +62,8 @@ interface AppContextType {
   setUsers: React.Dispatch<React.SetStateAction<UserAccount[]>>;
   roleGroups: SystemRoleGroup[];
   setRoleGroups: React.Dispatch<React.SetStateAction<SystemRoleGroup[]>>;
-  addUser: (user: Omit<UserAccount, 'id'>) => void;
-  updateUser: (id: string, updates: Partial<UserAccount>) => void;
+  addUser: (user: Omit<UserAccount, 'id'>) => boolean;
+  updateUser: (id: string, updates: Partial<UserAccount>) => boolean;
   toggleLockUser: (id: string) => void;
 
   // PH2: Master Data
@@ -89,11 +89,11 @@ interface AppContextType {
   setStudents: React.Dispatch<React.SetStateAction<StudentRecord[]>>;
   classes: ClassItem[];
   setClasses: React.Dispatch<React.SetStateAction<ClassItem[]>>;
-  addStudent: (student: StudentRecord) => void;
-  updateStudent: (id: string, updates: Partial<StudentRecord>) => void;
+  addStudent: (student: StudentRecord) => boolean;
+  updateStudent: (id: string, updates: Partial<StudentRecord>) => boolean;
   deleteStudent: (id: string) => void;
-  addClass: (cls: ClassItem) => void;
-  updateClass: (id: string, updates: Partial<ClassItem>, successMessage?: string) => void;
+  addClass: (cls: ClassItem) => boolean;
+  updateClass: (id: string, updates: Partial<ClassItem>, successMessage?: string) => boolean;
   deleteClass: (id: string) => void;
   batchAssignMaterials: (classIds: string[], materials: ClassItem['materials']) => void;
   batchImportRoomLinks: (updates: { classCode: string; roomLink: string }[]) => { updated: number; skipped: number };
@@ -117,10 +117,10 @@ interface AppContextType {
   // PH7: Payroll & Disputes
   payrollStore: Record<string, MonthPayrollData>;
   setPayrollStore: React.Dispatch<React.SetStateAction<Record<string, MonthPayrollData>>>;
-  updateSessionCredit: (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => void;
+  updateSessionCredit: (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => boolean;
   sendPayrollToTeachers: (month: string, teacherIds: string[]) => void;
   submitDispute: (month: string, dispute: DisputeItem) => boolean;
-  reviewDispute: (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => void;
+  reviewDispute: (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => boolean;
   lockPayrollMonth: (month: string) => void;
   unlockPayrollMonth: (month: string, reason: string) => void;
 
@@ -217,20 +217,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const ownTeacher = resolveAccountTeacher(actor, teachers, users);
   // PH1 Actions
   const addUser = (newUser: Omit<UserAccount, 'id'>) => {
-    if (!permit('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
-    if (!assignedRole({ ...newUser, id: '' }, roleGroups)) { showToast('Chọn nhóm quyền đang tồn tại.', 'error'); return; }
-    if (!permit("Cấp tài khoản & Mật khẩu người dùng")) return;
+    if (!permit('Tạo, sửa, xóa & Gán Nhóm quyền')) return false;
+    if (!assignedRole({ ...newUser, id: '' }, roleGroups)) { showToast('Chọn nhóm quyền đang tồn tại.', 'error'); return false; }
+    if (!permit("Cấp tài khoản & Mật khẩu người dùng")) return false;
     const id = 'USR-' + crypto.randomUUID();
     const user: UserAccount = { ...newUser, id };
     setUsers(prev => [user, ...prev]);
     showToast(`Đang lưu tài khoản [${user.username}]…`, 'info');
+    return true;
   };
 
   const updateUser = (id: string, updates: Partial<UserAccount>) => {
-    if (['role', 'roleGroupId'].some(key => key in updates) && !permit('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
-    if (!permit("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return;
+    if(!users.some(user=>user.id===id)){showToast('Tài khoản không còn tồn tại. Hãy tải lại dữ liệu.','error');return false;}
+    if (['role', 'roleGroupId'].some(key => key in updates) && !permit('Tạo, sửa, xóa & Gán Nhóm quyền')) return false;
+    if (!permit("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return false;
     setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
     showToast('Đang lưu thông tin tài khoản…', 'info');
+    return true;
   };
 
   const toggleLockUser = (id: string) => {
@@ -282,16 +285,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // PH4 Actions
   const addStudent = (student: StudentRecord) => {
-    if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
+    if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return false;
     setStudents(prev => [updateStudentRegistration(student, student), ...prev]);
     showToast(`Đã tiếp nhận hồ sơ học sinh [${student.name}]!`, 'success');
+    return true;
   };
 
   const updateStudent = (id: string, updates: Partial<StudentRecord>) => {
-    if ('currentClassCode' in updates && !permit('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) return;
-    if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
+    const existing=students.find(student=>student.id===id);
+    if(!existing){showToast('Học sinh không còn tồn tại. Hãy tải lại dữ liệu.','error');return false;}
+    if ('currentClassCode' in updates && (updates.currentClassCode || '')!==(existing.currentClassCode || '') && !permit('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) return false;
+    if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return false;
     setStudents(prev => prev.map(s => s.id === id ? updateStudentRegistration(s, updates) : s));
     showToast('Cập nhật hồ sơ học sinh thành công!', 'success');
+    return true;
   };
 
   const deleteStudent = (id: string) => {
@@ -305,24 +312,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addClass = (cls: ClassItem) => {
-    if (!classChangeAllowed([], [cls], can)) { showToast('Bạn chưa có đủ quyền tạo lớp và gán học sinh/giáo viên.', 'error'); return; }
-    if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
-    if (cls.studentIds.some(id => studentScheduleConflict(id, cls, classes))) { showToast('Lịch lớp trùng với lớp môn khác của học sinh.', 'error'); return; }
+    if (!classChangeAllowed([], [cls], can)) { showToast('Bạn chưa có đủ quyền tạo lớp và gán học sinh/giáo viên.', 'error'); return false; }
+    if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return false;
+    if (cls.studentIds.some(id => studentScheduleConflict(id, cls, classes))) { showToast('Lịch lớp trùng với lớp môn khác của học sinh.', 'error'); return false; }
     setClasses(prev => [cls, ...prev]);
     showToast(`Khởi tạo thành công lớp [${cls.code}]!`, 'success');
+    return true;
   };
 
   const updateClass = (id: string, updates: Partial<ClassItem>, successMessage?: string) => {
     const existing = classes.find(item => item.id === id);
-    if (!existing || !classChangeAllowed([existing], [{ ...existing, ...updates }], can, ownTeacher?.id, ownTeacher?.name)) { showToast('Bạn không có quyền sửa các trường lớp học đã chọn.', 'error'); return; }
+    if (!existing || !classChangeAllowed([existing], [{ ...existing, ...updates }], can, ownTeacher?.id, ownTeacher?.name)) { showToast('Bạn không có quyền sửa các trường lớp học đã chọn.', 'error'); return false; }
     const releasing = updates.status === 'Tạm dừng' || updates.status === 'Đã kết thúc';
     if (releasing) updates = { ...updates, studentIds: [] };
     const next = { ...existing, ...updates };
     if (next.studentIds.some(studentId => studentScheduleConflict(studentId, next, classes))) {
-      showToast('Lịch lớp trùng với lớp môn khác của học sinh đã chọn.', 'error'); return;
+      showToast('Lịch lớp trùng với lớp môn khác của học sinh đã chọn.', 'error'); return false;
     }
     setClasses(prev => prev.map(c => c.id === id ? next : c));
     showToast(successMessage || 'Cập nhật lớp học thành công!', 'success');
+    return true;
   };
 
   const deleteClass = (id: string) => {
@@ -388,12 +397,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // PH7 Actions
   const updateSessionCredit = (month: string, teacherId: string, sessionId: string, newCoeff: number, note?: string) => {
-    if (!permit("Điều chỉnh hệ số công từng buổi kèm lý do")) return;
-    if (!Number.isFinite(newCoeff) || Math.abs(newCoeff) > 999.999) { showToast('Hệ số công phải là số từ -999.999 đến 999.999.', 'error'); return; }
+    if (!permit("Điều chỉnh hệ số công từng buổi kèm lý do")) return false;
+    if (!Number.isFinite(newCoeff) || Math.abs(newCoeff) > 999.999) { showToast('Hệ số công phải là số từ -999.999 đến 999.999.', 'error'); return false; }
     if (payrollStore[month]?.isLocked) {
       showToast('Không thể sửa công khi kỳ đã khóa. Hãy mở khóa kỳ trước khi điều chỉnh.', 'error');
-      return;
+      return false;
     }
+    if(!payrollStore[month]?.teachers.some(teacher=>teacher.teacherId===teacherId && teacher.sessions?.some(session=>session.id===sessionId))){showToast('Ca công không còn tồn tại. Hãy tải lại dữ liệu.','error');return false;}
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -423,6 +433,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
     showToast(`Đã cập nhật hệ số buổi học [${sessionId}] sang ${newCoeff}; cần gửi lại bảng công đã cập nhật cho giáo viên.`, 'success');
+    return true;
   };
 
   const sendPayrollToTeachers = (month: string, teacherIds: string[]) => {
@@ -518,9 +529,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const reviewDispute = (month: string, disputeId: string, status: 'DA_DUYET' | 'TU_CHOI' | 'CHO_DUYET', note: string, creditCoeff: number) => {
-    if (!permit("Xử lý & phê duyệt đơn giải trình công dạy")) return;
-    if (payrollStore[month]?.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'error'); return; }
-    if (!Number.isFinite(creditCoeff) || Math.abs(creditCoeff) > 999.999) { showToast('Hệ số công phải là số từ -999.999 đến 999.999.', 'error'); return; }
+    if (!permit("Xử lý & phê duyệt đơn giải trình công dạy")) return false;
+    if (payrollStore[month]?.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'error'); return false; }
+    if (!Number.isFinite(creditCoeff) || Math.abs(creditCoeff) > 999.999) { showToast('Hệ số công phải là số từ -999.999 đến 999.999.', 'error'); return false; }
+    if(!payrollStore[month]?.disputes.some(dispute=>dispute.id===disputeId)){showToast('Giải trình không còn tồn tại. Hãy tải lại dữ liệu.','error');return false;}
     setPayrollStore(prev => {
       const currentMonthData = prev[month];
       if (!currentMonthData) return prev;
@@ -602,6 +614,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     showToast('Đã xử lý giải trình. Bảng công chuyển sang Chưa gửi; hãy gửi lại để giáo viên xem kết quả.', 'success');
+    return true;
   };
 
   const lockPayrollMonth = (month: string) => {

@@ -103,6 +103,12 @@ Chưa chạy migration lên Supabase thật trong phiên này. Chưa upload tệ
 
 ## Kiểm tra cục bộ
 
+Sửa luồng cập nhật dùng chung: chạy [20261030_update_existing_business_rows.sql](migrations/20261030_update_existing_business_rows.sql) sau các migration quan hệ và tài liệu hiện có. Bản ghi đã có dùng `UPDATE ... WHERE madinhdanh=...`, bản ghi mới dùng `INSERT`; chỉ các cột thật được ghi. Tên loại tài liệu, thông tin ca dự giờ và dữ liệu hiển thị tiếp tục lấy bằng truy vấn. Không tạo cột JSONB hoặc chạy lại seed. Frontend gửi mã gốc và trường thay đổi; các form chỉ đóng sau khi database xác nhận lưu. Bảng công là kết quả tổng hợp, vẫn được RPC ghi về các bảng công/giải trình quan hệ.
+
+Kiểm thử `tests/updatePersistence.test.ts` chạy cả frontend store, mapper, RPC dưới role `anon`, database và tải lại; kiểm tra ID giữ nguyên, số dòng không tăng, dòng khác không đổi, trường chỉnh ở phiên khác không bị ghi đè và tài khoản/nhóm quyền được lưu đúng.
+
+Nếu đọc/lưu báo `permission denied for schema vuihoc`, chạy [diagnostics/business_rpc_permissions.sql](diagnostics/business_rpc_permissions.sql) trong SQL Editor để xem owner và `security_definer` của RPC. Bản [20261029_restore_business_rpc_permissions.sql](migrations/20261029_restore_business_rpc_permissions.sql) khôi phục quyền chạy của hai RPC nghiệp vụ theo owner của RPC đăng nhập; không sửa dữ liệu và không mở quyền bảng/schema riêng cho trình duyệt. Sau khi chạy, bấm Tải lại dữ liệu rồi thử lưu. Nếu lỗi còn, cần kết quả chẩn đoán để xác định quyền trên database thật; không chạy lại schema hoặc seed dữ liệu để chữa lỗi quyền.
+
 Phần Danh mục dùng chung → Loại tài liệu quản lý bảng `LOAI_TAI_LIEU` (quyền `PH2` / `Quản lý danh mục loại tài liệu`). Phần Tài liệu & AI chỉ chọn loại bằng khóa ngoại `maloaitailieu`; tên loại được truy vấn, không lưu trùng.
 
 Sau migration `20261022_document_categories.sql`, chạy [20261028_document_drive_catalog.sql](migrations/20261028_document_drive_catalog.sql) để thêm cột `TAI_LIEU_QUY_TRINH.linkdrive` kiểu text và cập nhật quyền danh mục. Không thêm cột JSON/JSONB. JSON trong hàm cấu hình/RPC chỉ là định dạng truyền dữ liệu hiện có.

@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedTableBody, PaginatedTableGroups } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useState } from 'react';
@@ -9,6 +10,7 @@ const input = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text
 const button = 'inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40';
 const notices = { unspecified: 'Chưa phân loại', advance: 'Có báo trước', unannounced: 'Không báo trước' };
 export const IncidentCatalog: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { incidents, setIncidents, currentUser, roleGroups, showToast } = useApp();
   const { can, requirePermission } = usePermissions();
   const canConfigure = can('Cấu hình Danh mục Sự cố & Vi phạm ca học');
@@ -114,7 +116,7 @@ export const IncidentCatalog: React.FC = () => {
     <footer className="border-t border-slate-100 p-3 text-[11px] text-slate-500">{visibleGroups.length}/{incidents.length} nhóm · {rows.length}/{allRows.length} loại sự cố · Cấu hình hệ số không tự sửa công của các buổi đã ghi nhận.</footer>
     {dialog && canEdit && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="incident-config-title">
       <form className="max-h-[90vh] w-full max-w-lg space-y-3 overflow-auto rounded-2xl bg-white p-5 shadow-xl" onSubmit={event => {
-        event.preventDefault(); if (!canEdit) return;
+        event.preventDefault();if(isSavingChanges)return; if (!canEdit) return;
         if (dialog === 'group' && !requirePermission('Cấu hình Danh mục Sự cố & Vi phạm ca học')) return;
         const normalizedCode = code.trim().toUpperCase(), normalizedName = name.trim();
         if (!normalizedCode || !normalizedName) { showToast('Nhập mã và tên hợp lệ.', 'warning'); return; }
@@ -137,7 +139,7 @@ export const IncidentCatalog: React.FC = () => {
           }));
           setExpanded(previous => previous.includes(parentId) ? previous : [...previous, parentId]);
         }
-        setDialog(null); showToast('Đã lưu cấu hình danh mục sự cố.', 'success');
+        void confirmSave(()=>{setDialog(null); showToast('Đã lưu cấu hình danh mục sự cố.', 'success');});
       }}>
         <div className="flex items-center justify-between"><h3 id="incident-config-title" className="text-sm font-bold text-slate-800">{dialog === 'group' ? editingId ? 'Sửa nhóm sự cố' : 'Thêm nhóm sự cố' : editingId ? 'Sửa sự cố & Hệ số công' : 'Thêm sự cố & Hệ số công'}</h3><button type="button" aria-label="Đóng cấu hình sự cố" onClick={() => setDialog(null)}><X className="h-4 w-4" /></button></div>
         {dialog === 'incident' && <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Nhóm sự cố *</span><select required disabled={!canConfigure} value={parentId} onChange={event => setParentId(event.target.value)} className={input}>{incidents.map(parent => <option key={parent.id} value={parent.id}>{parent.name}</option>)}</select></label>}
@@ -154,7 +156,7 @@ export const IncidentCatalog: React.FC = () => {
           <p className="rounded-lg bg-orange-50 p-2.5 text-[11px] text-orange-800">Hệ số thuộc loại sự cố cụ thể bạn chọn. Nhóm chỉ dùng để phân loại; không có hệ số chung tự áp xuống các sự cố con.</p>
         </>}
         <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>{dialog === 'incident' ? 'Điều kiện áp dụng / Ghi chú' : 'Mô tả nhóm'}</span><textarea rows={2} maxLength={500} disabled={!canConfigure} value={desc} onChange={event => setDesc(event.target.value)} className={input} placeholder={dialog === 'incident' ? 'Ví dụ: gia sư đã vào phòng và chờ đủ thời gian quy định.' : ''} /></label>
-        <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => setDialog(null)}>Hủy</button><button type="submit" className={button + ' border-orange-600 bg-orange-600 text-white hover:bg-orange-700'}>Lưu cấu hình</button></div>
+        <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => setDialog(null)}>Hủy</button><button type="submit" disabled={isSavingChanges} className={button + ' border-orange-600 bg-orange-600 text-white hover:bg-orange-700'}>Lưu cấu hình</button></div>
       </form>
     </div>}
   </section>;

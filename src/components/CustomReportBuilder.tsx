@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -14,6 +15,7 @@ const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg borde
 import { PAGE_SIZE, PaginatedList } from './Pagination';
 const displayDate = (value: string) => value ? value.slice(8, 10) + '/' + value.slice(5, 7) + '/' + value.slice(0, 4) : '';
 export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ datasets }) => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const { currentUser, showToast } = useApp();
   const [config, setConfig] = useState<CustomReportConfig>(() => defaultReportConfig(datasets[0]));
@@ -81,6 +83,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     } catch { showToast('Không thể lưu mẫu trong phiên làm việc. Cấu hình hiện tại vẫn được giữ.', 'error'); return false; }
   };
   const saveTemplate = (overwrite: boolean) => {
+    if (isSavingChanges) return;
     const name = templateName.trim();
     if (!name) { showToast('Nhập tên để dễ tìm lại báo cáo.', 'warning'); return; }
     if (templates.some(item => item.name.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi') && (!overwrite || item.id !== templateId))) {
@@ -90,7 +93,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     const saved = { id: overwrite && selectedTemplate ? templateId : crypto.randomUUID(), name, config };
     const next = overwrite && selectedTemplate ? templates.map(item => item.id === templateId ? saved : item) : [saved, ...templates];
     if (persistTemplates(next)) {
-      setTemplateId(saved.id); setSaveOpen(false);
+      void confirmSave(()=>{setTemplateId(saved.id); setSaveOpen(false);});
       showToast('Đang lưu mẫu báo cáo…', 'success');
     }
   };
@@ -315,7 +318,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
         <div className="flex items-center justify-between"><h3 id="save-report-title" className="text-sm font-bold text-slate-800">Lưu mẫu báo cáo</h3><button type="button" aria-label="Đóng lưu mẫu" onClick={() => setSaveOpen(false)}><X className="h-4 w-4" /></button></div>
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600">Tên mẫu<input autoFocus required maxLength={80} value={templateName} onChange={event => setTemplateName(event.target.value)} placeholder="Ví dụ: Lớp còn chỗ theo môn" className={control} /></label>
         <p className="text-[11px] text-slate-500">Lưu thiết lập, không lưu bản sao dữ liệu. “Tháng này” và “30 ngày gần nhất” sẽ tính lại khi mở. Mẫu thuộc tài khoản này trên trình duyệt hiện tại.</p>
-        <div className="flex flex-wrap justify-end gap-2"><button type="button" className={button} onClick={() => setSaveOpen(false)}>Hủy</button>{selectedTemplate && <button type="button" className={button} onClick={() => saveTemplate(true)}>Cập nhật mẫu</button>}<button type="submit" className={button + ' border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700'}>Lưu mẫu mới</button></div>
+        <div className="flex flex-wrap justify-end gap-2"><button type="button" className={button} onClick={() => setSaveOpen(false)}>Hủy</button>{selectedTemplate && <button type="button" className={button} onClick={() => saveTemplate(true)}>Cập nhật mẫu</button>}<button type="submit" disabled={isSavingChanges} className={button + ' border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700'}>Lưu mẫu mới</button></div>
       </form>
     </div>}
     {deleteOpen && selectedTemplate && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-report-title">

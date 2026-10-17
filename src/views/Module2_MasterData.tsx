@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { DocumentCategoryManager } from '../components/DocumentCategoryManager';
 import { useBusinessValue } from '../lib/businessPersistence';
 import type { DocumentCategory } from '../types';
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 
 export const Module2_MasterData: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
     teachingCategories,
@@ -99,6 +101,7 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveSubject = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     e.preventDefault();
     if (!requirePermission("Quản lý danh mục môn học")) return;
     e.preventDefault();
@@ -127,7 +130,7 @@ export const Module2_MasterData: React.FC = () => {
       ]);
       showToast(`Đã thêm môn học mới "${subName}"!`, 'success');
     }
-    setIsSubjectModalOpen(false);
+    void confirmSave(()=>setIsSubjectModalOpen(false));
   };
 
   // 2. Level Handlers
@@ -152,6 +155,7 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveLevel = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     e.preventDefault();
     if (!requirePermission("Quản lý danh mục trình độ")) return;
     e.preventDefault();
@@ -181,7 +185,7 @@ export const Module2_MasterData: React.FC = () => {
       ]);
       showToast(`Đã thêm trình độ mới "${lvlName}"!`, 'success');
     }
-    setIsLevelModalOpen(false);
+    void confirmSave(()=>setIsLevelModalOpen(false));
   };
 
   // 3. Time Slot Handlers
@@ -226,6 +230,7 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveSlot = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     e.preventDefault();
     if (!requirePermission("Cấu hình Khung giờ ca dạy chuẩn (Time Slot)")) return;
     e.preventDefault();
@@ -254,7 +259,7 @@ export const Module2_MasterData: React.FC = () => {
       ]);
       showToast(`Đã thêm khung giờ mới "${slotName}"!`, 'success');
     }
-    setIsSlotModalOpen(false);
+    void confirmSave(()=>setIsSlotModalOpen(false));
   };
 
   // 5. Model Handlers
@@ -275,6 +280,7 @@ export const Module2_MasterData: React.FC = () => {
   };
 
   const handleSaveModel = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     e.preventDefault();
     if (!requirePermission("Quản lý mô hình lớp và sĩ số tối đa")) return;
     e.preventDefault();
@@ -302,7 +308,7 @@ export const Module2_MasterData: React.FC = () => {
       ]);
       showToast(`Đã thêm mô hình "${modName}"!`, 'success');
     }
-    setIsModelModalOpen(false);
+    void confirmSave(()=>setIsModelModalOpen(false));
   };
 
   return (
@@ -678,7 +684,7 @@ export const Module2_MasterData: React.FC = () => {
                   Hủy
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
                 >
                   Lưu dữ liệu
@@ -776,7 +782,7 @@ export const Module2_MasterData: React.FC = () => {
                   Hủy
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
                 >
                   Lưu dữ liệu
@@ -883,7 +889,7 @@ export const Module2_MasterData: React.FC = () => {
                   Hủy
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
                 >
                   Lưu khung giờ
@@ -952,7 +958,7 @@ export const Module2_MasterData: React.FC = () => {
                   Hủy
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold shadow-xs cursor-pointer"
                 >
                   Lưu mô hình

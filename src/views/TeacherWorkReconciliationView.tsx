@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
@@ -25,6 +26,7 @@ import { visibleTeacherWork, canDisputeTeacherWork } from '../lib/teacherWorkRec
 import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
 export const TeacherWorkReconciliationView: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const { can, requirePermission } = usePermissions();
   const { currentUser, payrollStore, submitDispute, showToast, teachers, users } = useApp();
@@ -149,6 +151,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
 
   // Gửi giải trình
   const handleSubmitDispute = () => {
+    if(isSavingChanges)return;
     if (!requirePermission("Gửi giải trình / khiếu nại sai lệch ca dạy")) return;
     if (!myRecord || !selectedSessionForDispute) {
       showToast('Vui lòng chọn ca dạy cần giải trình!', 'error');
@@ -183,10 +186,12 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     };
 
     if (!submitDispute(selectedMonth, disputeItem)) return;
+    void confirmSave(()=>{
     setShowDisputeModal(false);
     setSelectedSessionForDispute(null);
     setDisputeContent('');
     setDisputeAttachment('');
+    });
   };
 
   if (!myRecord) {

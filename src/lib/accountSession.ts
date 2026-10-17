@@ -158,3 +158,15 @@ export async function deleteAccount(userId: string): Promise<void> {
 }
 
 export function getAccountSnapshot() { return state; }
+export function waitForAccountSave(): Promise<void> {
+  const version=generation;
+  return new Promise((resolve,reject)=>{
+    const check=()=>{
+      if(version!==generation){listeners.delete(check);reject(new Error('Phiên đăng nhập đã thay đổi.'));return;}
+      if(state.saving || pending.length)return;
+      listeners.delete(check);
+      if(state.error)reject(new Error(state.error));else resolve();
+    };
+    listeners.add(check);check();
+  });
+}

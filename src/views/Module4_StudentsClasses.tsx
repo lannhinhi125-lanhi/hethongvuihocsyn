@@ -1,4 +1,6 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { studentRegistrations, studentRegistrationRows, studentForSubject, studentHistoryForSubject, studentScheduleConflict } from '../lib/studentRegistrations';
+import { waitForBusinessSave } from '../lib/businessPersistence';
 import { canTeachClassModel, isTeachingModelParent } from '../lib/teachingModelGroups';
 import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody, PaginatedList } from '../components/Pagination';
@@ -103,6 +105,7 @@ const shiftTeachingWeek = (offset: number) => {
 const INITIAL_TEACHING_WEEK = teachingWeekForDate(new Date());
 
 export const Module4_StudentsClasses: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
     students: studentProfiles,
@@ -240,7 +243,10 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Class Modal state
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [savingClass, setSavingClass] = useState(false);
+  const [classSaveError, setClassSaveError] = useState('');
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
+  useEffect(() => { setClassSaveError(''); }, [isClassModalOpen, editingClassId]);
   const [clsCode, setClsCode] = useState('');
   const [clsSchoolYear, setClsSchoolYear] = useState('2026');
   const [clsCategory, setClsCategory] = useState('');
@@ -620,6 +626,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   };
 
   const handleSaveStudentSubmit = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     e.preventDefault();
     if (!requirePermission("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
     e.preventDefault();
@@ -634,7 +641,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
 
     if (editingStudentId) {
-      updateStudent(editingStudentId, {
+      if (!updateStudent(editingStudentId, {
         name: stdName.trim(),
         grade: stdGrade,
         subject: stdSubject,
@@ -647,7 +654,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         motherPhone: stdMotherPhone.trim(),
         registrations: formRegistrations(),
         scheduleSlots: stdSlots
-      });
+      })) return;
     } else {
       const newStudent: StudentRecord = {
         id: nextStudentId(),
@@ -665,9 +672,9 @@ export const Module4_StudentsClasses: React.FC = () => {
         status: stdStatus,
         currentClassCode: undefined
       };
-      addStudent(newStudent);
+      if (!addStudent(newStudent)) return;
     }
-    setIsStudentModalOpen(false);
+    void confirmSave(()=>setIsStudentModalOpen(false));
   };
 
   // Tìm danh sách lớp học phù hợp đang còn chỗ trống cho học sinh (Mô hình 1-n)
@@ -689,6 +696,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Ghép ngay học sinh từ Form Modal vào lớp học có sẵn đang thiếu người
   const handleSaveAndAssignToClass = (targetClass: ClassItem) => {
+    if(isSavingChanges)return;
     if (!requirePermission("Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)")) return;
     if (!validateStudentForm()) return;
     targetClass = classes.find(item => item.id === targetClass.id) || targetClass;
@@ -713,7 +721,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       classes.filter(item => item.id !== targetClass.id && item.subject === stdSubject && item.studentIds.includes(editingStudentId)).forEach(item => {
         updateClass(item.id, { studentIds: item.studentIds.filter(id => id !== editingStudentId) });
       });
-      updateStudent(editingStudentId, {
+      if (!updateStudent(editingStudentId, {
         name: stdName.trim(),
         grade: stdGrade,
         subject: stdSubject,
@@ -727,7 +735,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         motherPhone: stdMotherPhone.trim(),
         registrations: formRegistrations(targetClass),
         scheduleSlots: stdSlots
-      });
+      })) return;
     } else {
       const newStudent: StudentRecord = {
         id: studentIdToUse,
@@ -745,7 +753,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         status: 'Đang học',
         currentClassCode: targetClass.code
       };
-      addStudent(newStudent);
+      if (!addStudent(newStudent)) return;
     }
 
     // Cập nhật học sinh vào lớp học
@@ -755,7 +763,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       });
     }
 
-    setIsStudentModalOpen(false);
+    void confirmSave(()=>setIsStudentModalOpen(false));
     showToast(
       `${previousClass ? "Đã chuyển" : "Đã ghép"} học sinh ${stdName.trim()} ${previousClass ? "từ lớp " + previousClass.code + " " : ""}vào lớp ${targetClass.name} (${targetClass.code})! Sĩ số: ${targetClass.studentIds.length + 1}/${targetClass.maxStudents} HS`,
       'success'
@@ -764,6 +772,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Lưu hồ sơ và mở ngay luồng Tạo lớp mới (1-1 hoặc 1-n khi chưa có lớp ghép)
   const handleSaveAndCreateClass = () => {
+    if(isSavingChanges)return;
     if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     if (!validateStudentForm()) return;
     if (!stdName.trim()) {
@@ -796,7 +805,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         scheduleSlots: stdSlots,
         currentClassCode: undefined
       };
-      updateStudent(editingStudentId, studentObj);
+      if (!updateStudent(editingStudentId, studentObj)) return;
     } else {
       studentObj = {
         id: nextStudentId(),
@@ -814,9 +823,10 @@ export const Module4_StudentsClasses: React.FC = () => {
         status: 'Chờ xếp lớp',
         currentClassCode: undefined
       };
-      addStudent(studentObj);
+      if (!addStudent(studentObj)) return;
     }
 
+    void confirmSave(()=>{
     setIsStudentModalOpen(false);
     showToast(
       `Đã lưu hồ sơ học sinh ${stdName.trim()}. Đang mở form tạo lớp ${stdModel === '1-1' ? '1 Kèm 1' : stdModel} mới...`,
@@ -826,6 +836,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setTimeout(() => {
       openCreateClass(studentObj);
     }, 150);
+    });
   };
 
   // Class CRUD
@@ -892,8 +903,9 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsSelectedStudentIds(prev => [...prev, student.id]);
   };
 
-  const handleSaveClassSubmit = (e: React.FormEvent) => {
+  const handleSaveClassSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingClass) return;
     if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     e.preventDefault();
     if (!clsName.trim()) return;
@@ -927,55 +939,65 @@ export const Module4_StudentsClasses: React.FC = () => {
       return;
     }
 
-    if (editingClassId) {
-      const existingClass = classes.find(item => item.id === editingClassId);
-      const rosterChanged = Boolean(existingClass && (
-        existingClass.teacherId !== assignedTeacher?.id ||
-        existingClass.teacherName !== assignedTeacher?.name ||
-        existingClass.studentIds.length !== clsSelectedStudentIds.length ||
-        existingClass.studentIds.some(id => !clsSelectedStudentIds.includes(id))
-      ));
-      updateClass(editingClassId, {
-        code: savedCode,
-        categoryId: clsCategory,
-        status: rosterChanged ? 'Chờ khai giảng' : clsStatus,
-        name: clsName.trim(),
-        grade: clsGrade,
-        subject: clsSubject,
-        level: clsLevel,
-        model: clsModel,
-        maxStudents: max,
-        roomLink: clsRoomLink.trim(),
-        schedule: clsSchedule.trim(),
-        startDate: clsStartDate || undefined,
-        teacherName: assignedTeacher?.name || '',
-        teacherId: assignedTeacher?.id,
-        studentIds: clsSelectedStudentIds
-      });
-    } else {
-      const newClass: ClassItem = {
-        id: 'CLS-' + crypto.randomUUID(),
-        code: savedCode,
-        categoryId: clsCategory,
-        status: clsStatus,
-        name: clsName.trim(),
-        grade: clsGrade,
-        subject: clsSubject,
-        level: clsLevel,
-        model: clsModel,
-        maxStudents: max,
-        studentIds: clsSelectedStudentIds,
-        schedule: clsSchedule.trim(),
-        startDate: clsStartDate,
-        roomLink: clsRoomLink.trim(),
-        teacherName: assignedTeacher?.name || '',
-        teacherId: assignedTeacher?.id,
-        materials: []
-      };
-      addClass(newClass);
-    }
+    setSavingClass(true);
+    setClassSaveError('');
+    try {
+      if (editingClassId) {
+        const existingClass = classes.find(item => item.id === editingClassId);
+        const rosterChanged = Boolean(existingClass && (
+          existingClass.teacherId !== assignedTeacher?.id ||
+          existingClass.teacherName !== assignedTeacher?.name ||
+          existingClass.studentIds.length !== clsSelectedStudentIds.length ||
+          existingClass.studentIds.some(id => !clsSelectedStudentIds.includes(id))
+        ));
+        const accepted = updateClass(editingClassId, {
+          code: savedCode,
+          categoryId: clsCategory,
+          status: rosterChanged ? 'Chờ khai giảng' : clsStatus,
+          name: clsName.trim(),
+          grade: clsGrade,
+          subject: clsSubject,
+          level: clsLevel,
+          model: clsModel,
+          maxStudents: max,
+          roomLink: clsRoomLink.trim(),
+          schedule: clsSchedule.trim(),
+          startDate: clsStartDate || undefined,
+          teacherName: assignedTeacher?.name || '',
+          teacherId: assignedTeacher?.id,
+          studentIds: clsSelectedStudentIds
+        });
+        if (!accepted) return;
+      } else {
+        const newClass: ClassItem = {
+          id: 'CLS-' + crypto.randomUUID(),
+          code: savedCode,
+          categoryId: clsCategory,
+          status: clsStatus,
+          name: clsName.trim(),
+          grade: clsGrade,
+          subject: clsSubject,
+          level: clsLevel,
+          model: clsModel,
+          maxStudents: max,
+          studentIds: clsSelectedStudentIds,
+          schedule: clsSchedule.trim(),
+          startDate: clsStartDate,
+          roomLink: clsRoomLink.trim(),
+          teacherName: assignedTeacher?.name || '',
+          teacherId: assignedTeacher?.id,
+          materials: []
+        };
+        if (!addClass(newClass)) return;
+      }
 
-    setIsClassModalOpen(false);
+      await waitForBusinessSave();
+      setIsClassModalOpen(false);
+    } catch (error) {
+      setClassSaveError(error instanceof Error ? error.message : 'Chưa lưu được lớp học. Vui lòng thử lại.');
+    } finally {
+      setSavingClass(false);
+    }
   };
 
   // Batch materials
@@ -1072,6 +1094,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   };
 
   const handleExecuteBatchMaterials = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     e.preventDefault();
     if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     e.preventDefault();
@@ -1109,7 +1132,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     ];
 
     batchAssignMaterials(selectedEligibleClassIds, newMaterials);
-    setIsBatchMaterialModalOpen(false);
+    void confirmSave(()=>setIsBatchMaterialModalOpen(false));
     setEditingMaterialClassId(null);
   };
 
@@ -1575,7 +1598,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   Hủy bỏ
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer"
                   title="Lưu thông tin hồ sơ học sinh"
                 >
@@ -1787,12 +1810,14 @@ export const Module4_StudentsClasses: React.FC = () => {
               <h3 className="font-bold text-base text-slate-800">
                 {editingClassId ? 'Hiệu chỉnh Lớp học' : 'Khởi Tạo Lớp Học Mới'}
               </h3>
-              <button onClick={() => setIsClassModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button disabled={savingClass} onClick={() => setIsClassModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveClassSubmit} className="mt-4 space-y-3.5 text-xs">
+              {classSaveError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">Chưa lưu được lớp học: {classSaveError}. Thông tin bạn nhập vẫn được giữ để thử lại.</p>}
+              <fieldset disabled={savingClass} className="contents">
               {!editingClassId && <label className="block font-semibold text-slate-700">Năm học tạo lớp
                 <select aria-label="Năm học tạo lớp" value={clsSchoolYear} onChange={event => setClsSchoolYear(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">
                   {Array.from({ length: 12 }, (_, index) => 2020 + index).map(year => <option key={year} value={String(year)}>{year} - {year + 1}</option>)}
@@ -1947,12 +1972,13 @@ export const Module4_StudentsClasses: React.FC = () => {
                   Hủy bỏ
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
                 >
-                  Lưu lớp học
+                  {savingClass ? 'Đang lưu...' : 'Lưu lớp học'}
                 </button>
               </div>
+              </fieldset>
             </form>
           </div>
         </div>
@@ -2196,7 +2222,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   Hủy bỏ
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
                 >
                   {editingMaterialClassId ? 'Lưu thay đổi' : 'Xác nhận lưu'}

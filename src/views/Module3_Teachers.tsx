@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { TeacherModelPicker,TeacherModelBadges } from '../components/TeacherModelPicker';
 import { teachingModelFilterOptions, matchesTeachingModelFilter, isTeachingModelParent } from '../lib/teachingModelGroups';
@@ -57,6 +58,7 @@ import {
 } from 'lucide-react';
 
 export const Module3_Teachers: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const { teachers, setTeachers, classes, timeSlots, createTeacherWithAccount, updateTeacher, showToast, users, currentUser, roleGroups, subjects, teachingCategories, models } = useApp();
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
@@ -255,6 +257,7 @@ export const Module3_Teachers: React.FC = () => {
 
   const handleEditTeacherSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingChanges) return;
     if (!canManageProfiles || !editingTeacher) return;
     if (editTeacherGrades.length === 0) {
       showToast('Vui lòng chọn ít nhất 1 khối lớp phụ trách!', 'error');
@@ -275,7 +278,7 @@ export const Module3_Teachers: React.FC = () => {
     const saved = updateTeacher(editingTeacher.id, { name: editTeacherName.trim(), phone: editTeacherPhone.trim(), email: editTeacherEmail.trim().toLowerCase(), subject: subject.code, subjectName: subject.name, levelId: category.id, levelName: category.name, grades: editTeacherGrades, models: editTeacherModels, status: editTeacherStatus, statusLabel, degree: editTeacherDegree.trim() });
     if (!saved) return;
 
-    setEditingTeacher(null);
+    void confirmSave(()=>setEditingTeacher(null));
     showToast(`Đã cập nhật thông tin Giáo viên ${editTeacherName} thành công!`, 'success');
   };
 
@@ -1693,7 +1696,7 @@ export const Module3_Teachers: React.FC = () => {
                   Hủy
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs cursor-pointer"
                 >
                   Cập nhật thay đổi

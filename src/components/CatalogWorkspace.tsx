@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { EmptyState } from './EmptyState';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { PaginatedTableBody } from './Pagination';
@@ -13,6 +14,7 @@ type Navigation = { id: string; name: string; group: string; count: number };
 const input = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500';
 const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40';
 export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; onSelect: (id: string) => void; children: React.ReactNode }> = ({ items, active, onSelect, children }) => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { currentUser, roleGroups, showToast } = useApp();
   const { can } = usePermissions();
   const canEdit = can("Tạo danh mục bổ sung và danh mục con");
@@ -127,7 +129,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
     </div>
     {dialog && canEdit && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="catalog-dialog-title">
       <form className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl" onSubmit={event => {
-        event.preventDefault();
+        event.preventDefault();if(isSavingChanges)return;
         const normalizedCode = code.trim().toUpperCase(), normalizedName = name.trim();
         if (!normalizedCode || !normalizedName) { showToast('Nhập mã và tên hợp lệ.', 'warning'); return; }
         const existing = dialog === 'catalog' ? catalogs.filter(item => (item.parentId || '') === parentId) : selected?.entries || [];
@@ -142,7 +144,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
           const entry = { id: editingId || crypto.randomUUID(), code: normalizedCode, name: normalizedName, desc: desc.trim(), status: selected.entries.find(item => item.id === editingId)?.status ?? true };
           if (!persist(catalogs.map(item => item.id === selected.id ? { ...item, entries: editingId ? item.entries.map(row => row.id === editingId ? entry : row) : [...item.entries, entry] } : item))) return;
         }
-        setDialog(null); showToast(dialog === 'catalog' ? 'Đã thêm danh mục. Bạn có thể thêm các giá trị bên trong.' : 'Đã lưu giá trị danh mục.', 'success');
+        void confirmSave(()=>{setDialog(null); showToast(dialog === 'catalog' ? 'Đã thêm danh mục. Bạn có thể thêm các giá trị bên trong.' : 'Đã lưu giá trị danh mục.', 'success');});
       }}>
         <div className="flex items-center justify-between"><h3 id="catalog-dialog-title" className="text-sm font-bold text-slate-800">{dialog === 'catalog' ? parentId ? 'Thêm danh mục con' : 'Thêm danh mục' : editingId ? 'Sửa giá trị' : 'Thêm giá trị'}</h3><button type="button" aria-label="Đóng" onClick={() => setDialog(null)}><X className="h-4 w-4" /></button></div>
         {dialog === 'catalog' && <>
@@ -165,7 +167,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Mã *</span><input autoFocus required maxLength={40} pattern="[A-Za-z0-9_-]+" title="Dùng chữ không dấu, số, dấu gạch ngang hoặc gạch dưới." value={code} onChange={event => setCode(event.target.value)} className={input} placeholder={dialog === 'catalog' ? 'NGUON_TUYEN_SINH' : 'GIOI_THIEU'} /></label>
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Tên *</span><input required maxLength={100} value={name} onChange={event => setName(event.target.value)} className={input} /></label>
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Mô tả</span><textarea rows={3} maxLength={500} value={desc} onChange={event => setDesc(event.target.value)} className={input} /></label>
-        <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => setDialog(null)}>Hủy</button><button type="submit" className={button + ' border-orange-600 bg-orange-600 text-white hover:bg-orange-700'}>Lưu</button></div>
+        <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => setDialog(null)}>Hủy</button><button type="submit" disabled={isSavingChanges} className={button + ' border-orange-600 bg-orange-600 text-white hover:bg-orange-700'}>Lưu</button></div>
       </form>
     </div>}
   </div>;

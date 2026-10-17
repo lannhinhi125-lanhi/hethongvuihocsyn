@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore, type SetStateAction } from 'react';
 import { teacherSessionRequest } from './accountSession';
 import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset } from './supabaseMapper';
+import { recordChanges } from './recordChanges';
 type Row = Record<string, any>;
 type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number };
 const emptyRag = { welcomeGreeting:'',personaTone:'',strictGroundingOnly:true,fallbackResponse:'',systemPrompt:'' };
@@ -80,20 +81,13 @@ async function flush(){
    for(const key of Object.keys(snapshot)){
     if(JSON.stringify(snapshot[key])===JSON.stringify(confirmed[key]??initial(key)))continue;
     const dataset=key==='active_tone_key'?'app_settings':key;
-    const before=new Map(encode(key,confirmed[key]??initial(key)).map(r=>[r.madinhdanh,r]));
-    const after=new Map(encode(key,snapshot[key]).map(r=>[r.madinhdanh,r]));
-    for(const id of new Set([...before.keys(),...after.keys()])){
-     const b=before.get(id),a=after.get(id);if(JSON.stringify(b)===JSON.stringify(a))continue;
-     // A singleton absent from the database must be inserted, not compared with its UI default.
-     const exists=raw[dataset]?.some(r=>r.madinhdanh===id);
-     changes.push({dataset,before:exists?b:null,after:a||null});
-    }
+    changes.push(...recordChanges(dataset,encode(key,confirmed[key]??initial(key)),encode(key,snapshot[key]),raw[dataset]||[]));
    }
    if(!changes.length){publish({...state,saving:false});break;}
    const receipt=await teacherSessionRequest('vuihoc_save_business',{p_changes:changes});
    if(version!==generation)return;
    confirmed=snapshot;
-   for(const c of changes){raw[c.dataset]=(raw[c.dataset]||[]).filter(r=>r.madinhdanh!==(c.after||c.before).madinhdanh);if(c.after)raw[c.dataset].push(c.after);}
+   for(const c of changes){const existing=raw[c.dataset]?.find(r=>r.madinhdanh===(c.after||c.before).madinhdanh);raw[c.dataset]=(raw[c.dataset]||[]).filter(r=>r.madinhdanh!==(c.after||c.before).madinhdanh);if(c.after)raw[c.dataset].push({...existing,...c.after});}
    const more=JSON.stringify(state.data)!==JSON.stringify(snapshot);
    if(!more&&receipt.data){
     raw=receipt.data;confirmed=decode(raw);

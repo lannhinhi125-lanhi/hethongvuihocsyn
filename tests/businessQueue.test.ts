@@ -15,7 +15,7 @@ const calls:any[]=[];let release:(()=>void)|undefined;let fail=false;
   if(fail)return {error:{message:'forced save error'}};
   for(const c of args.p_changes){const id=(c.after||c.before).madinhdanh;const rows=data[c.dataset]||[];const old=rows.find((r:any)=>r.madinhdanh===id);
    if(c.before)for(const key of Object.keys(c.before))assert.deepEqual(old?.[key],c.before[key]);
-   data[c.dataset]=rows.filter((r:any)=>r.madinhdanh!==id);if(c.after)data[c.dataset].push(c.dataset==='custom_catalogs'?{madanhmuccha:null,...c.after}:c.after);
+   data[c.dataset]=rows.filter((r:any)=>r.madinhdanh!==id);if(c.after)data[c.dataset].push(c.dataset==='custom_catalogs'?{madanhmuccha:null,...old,...c.after}:{...old,...c.after});
   }return {data:{saved:true}};
  }return {data:{}};
 }});

@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { EmptyState } from '../components/EmptyState';
 import { confirmAction } from '../components/ConfirmAction';
 import { deleteAccount } from '../lib/accountSession';
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 
 export const Module1_UsersRoles: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('accounts');
   const { can, requirePermission } = usePermissions();
   const { users, currentUser, roleGroups, setRoleGroups, addUser, updateUser, toggleLockUser, showToast } = useApp();
 
@@ -94,6 +96,7 @@ export const Module1_UsersRoles: React.FC = () => {
   });
 
   const handleCreateUserSubmit = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     if (!requirePermission("Cấp tài khoản & Mật khẩu người dùng")) return;
     e.preventDefault();
     if (!/^[0-9]{6,8}$/.test(newUserPass)) { showToast('Mật khẩu phải gồm 6–8 chữ số.', 'error'); return; }
@@ -109,7 +112,7 @@ export const Module1_UsersRoles: React.FC = () => {
       .join('')
       .toUpperCase();
 
-    addUser({
+    if (!addUser({
       name: newUserName.trim(),
       username: newUserUsername.trim(),
       passwordRaw: newUserPass,
@@ -120,8 +123,9 @@ export const Module1_UsersRoles: React.FC = () => {
       subject: portal === 'TEACHER' ? newUserSubject : undefined,
       status: 'active',
       avatarInitials: avatarInitials || 'VH'
-    });
+    })) return;
 
+    void confirmSave(()=>{
     setIsCreateUserModalOpen(false);
     // Reset form
     setNewUserName('');
@@ -129,6 +133,7 @@ export const Module1_UsersRoles: React.FC = () => {
     setNewUserPass('123456');
     setNewUserEmail('');
     setNewUserPhone('');
+    });
   };
 
   const openEditUser = (user: UserAccount) => {
@@ -145,6 +150,7 @@ export const Module1_UsersRoles: React.FC = () => {
   };
 
   const handleEditUserSubmit = (e: React.FormEvent) => {
+    if(isSavingChanges){e.preventDefault();return;}
     if (!requirePermission("Chỉnh sửa thông tin tài khoản & Mật khẩu")) return;
     e.preventDefault();
     if (!editingUser) return;
@@ -152,7 +158,7 @@ export const Module1_UsersRoles: React.FC = () => {
 
     const roleChanged = assignedRole(editingUser, roleGroups)?.name !== editUserRole;
     if (roleChanged && !requirePermission('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
-    updateUser(editingUser.id, {
+    if (!updateUser(editingUser.id, {
       name: editUserName.trim(),
       username: editUserUsername.trim(),
       passwordRaw: editUserPass,
@@ -163,9 +169,9 @@ export const Module1_UsersRoles: React.FC = () => {
       roleGroupId: roleGroups.find(group => group.name === editUserRole)?.id,
       } : {}),
       subject: portal === 'TEACHER' ? editUserSubject : undefined
-    });
+    })) return;
 
-    setEditingUser(null);
+    void confirmSave(()=>setEditingUser(null));
   };
 
   const handleDeleteUser = (user: UserAccount) => {
@@ -223,6 +229,7 @@ export const Module1_UsersRoles: React.FC = () => {
   };
 
   const handleSaveRole = () => {
+    if(isSavingChanges)return;
     if (!requirePermission("Tạo, sửa, xóa & Gán Nhóm quyền")) return;
     if (editingRole?.isDefault) return;
     if (!roleFormName.trim()) {
@@ -260,7 +267,7 @@ export const Module1_UsersRoles: React.FC = () => {
       setRoleGroups(prev => [...prev, newRole]);
       showToast(`Đang lưu Nhóm quyền mới "${roleFormName}"!`, 'success');
     }
-    setIsRoleModalOpen(false);
+    void confirmSave(()=>setIsRoleModalOpen(false));
   };
 
   const handleDeleteRole = async (id: string, name: string) => {
@@ -719,7 +726,7 @@ export const Module1_UsersRoles: React.FC = () => {
                   Hủy bỏ
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
                 >
                   Xác nhận cấp tài khoản
@@ -894,7 +901,7 @@ export const Module1_UsersRoles: React.FC = () => {
                   Hủy bỏ
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
                 >
                   Lưu Thay đổi

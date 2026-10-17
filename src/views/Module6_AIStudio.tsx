@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { useBusinessValue,waitForBusinessSave } from '../lib/businessPersistence';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { confirmAction } from '../components/ConfirmAction';
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 
 export const Module6_AIStudio: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation();
   const { can, requirePermission } = usePermissions();
   const {
     sopDocuments,
@@ -442,7 +444,7 @@ export const Module6_AIStudio: React.FC = () => {
 
               <div className="flex justify-end pt-2">
                 <button
-                  onClick={() => showToast('Đã lưu cấu hình Bot chat AI!', 'success')}
+                  disabled={isSavingChanges} onClick={() => void confirmSave(()=>showToast('Đã lưu cấu hình Bot chat AI!', 'success'))}
                   className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg shadow-xs cursor-pointer"
                 >
                   Lưu cấu hình Bot chat AI

@@ -1,3 +1,4 @@
+import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -54,6 +55,7 @@ const getSessionStudentNames = (session: SessionPayrollRecord) =>
   session.studentNames?.length ? session.studentNames.join(', ') : session.studentName;
 
 export const Module7_WorkReconciliation: React.FC = () => {
+  const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
     payrollStore,
@@ -464,11 +466,12 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   // Lưu điều chỉnh hệ số công
   const handleSaveCoeff = () => {
+    if(isSavingChanges)return;
     if (!requirePermission("Điều chỉnh hệ số công từng buổi kèm lý do")) return;
     if (!editingSession) return;
-    updateSessionCredit(selectedMonth, editingSession.teacherId, editingSession.session.id, newCoeff, editNote);
+    if (!updateSessionCredit(selectedMonth, editingSession.teacherId, editingSession.session.id, newCoeff, editNote)) return;
     highlightSessionRow(editingSession.session.id);
-    setEditingSession(null);
+    void confirmSave(()=>setEditingSession(null));
   };
 
   const closeSessionDetails = () => {
@@ -483,12 +486,15 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   // Xử lý duyệt giải trình
   const handleApproveDispute = (status: 'DA_DUYET' | 'TU_CHOI') => {
+    if(isSavingChanges)return;
     if (!requirePermission("Xử lý & phê duyệt đơn giải trình công dạy")) return;
     if (!reviewingDispute) return;
-    reviewDispute(selectedMonth, reviewingDispute.id, status, disputeAdminNote, disputeCreditCoeff);
+    if (!reviewDispute(selectedMonth, reviewingDispute.id, status, disputeAdminNote, disputeCreditCoeff)) return;
+    void confirmSave(()=>{
     setReviewingDispute(null);
     setDisputeAdminNote('');
     setDisputeDecision('DA_DUYET');
+    });
   };
 
   const sendSelectedPayrolls = () => {
