@@ -292,17 +292,6 @@ export const DATABASE_NAMES = {
       "updated_at": "ngaycapnhat"
     }
   },
-  "user_preferences": {
-    "table": "TUY_CHON_NGUOI_DUNG",
-    "columns": {
-      "user_id": "manguoidung",
-      "active_module": "phanhedangchon",
-      "workspace_mode": "chedogiaodien",
-      "teacher_portal_tab": "tabgiaoviendangchon",
-      "created_at": "ngaytao",
-      "updated_at": "ngaycapnhat"
-    }
-  },
   "weekly_availability": {
     "table": "LICH_RANH_TUAN",
     "columns": {
@@ -697,14 +686,6 @@ export const APP_DATABASE_FIELDS = {
   "app_settings": {
     "id": "madinhdanh",
     "active_tone_key": "mavanphongdangchon",
-    "created_at": "ngaytao",
-    "updated_at": "ngaycapnhat"
-  },
-  "user_preferences": {
-    "user_id": "manguoidung",
-    "active_module": "phanhedangchon",
-    "workspace_mode": "chedogiaodien",
-    "teacher_portal_tab": "tabgiaoviendangchon",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
   },

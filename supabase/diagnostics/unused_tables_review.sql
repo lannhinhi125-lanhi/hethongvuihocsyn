@@ -2,6 +2,10 @@
 -- Row estimates come from PostgreSQL statistics; NULL means not yet estimated.
 WITH review(table_name,status,reason) AS (
  VALUES
+ ('TUY_CHON_NGUOI_DUNG','CO_THE_GO','Tùy chọn giao diện cũ chưa có luồng đọc/ghi; giao diện hiện dùng state. Gỡ bằng cleanup_unused_tables.sql.'),
+ ('LICH_DANG_KY_HOC_SINH','CO_THE_GO','Lịch học sinh một môn cũ, đã được thay bằng LICH_DANG_KY_MON_HOC. File dọn kiểm tra đối chiếu ca và cập nhật hàm trước khi gỡ.'),
+ ('LICH_RANH_TUAN','GIU','Lịch rảnh theo tuần có ngày cụ thể và dữ liệu riêng; giữ để bảo toàn đăng ký tuần, khác với mẫu lịch định kỳ.'),
+ ('CHI_TIET_LICH_RANH','GIU','Các ô lịch theo ngày thuộc tuần đã đăng ký; liên kết LICH_RANH_TUAN và KHUNG_GIO.'),
  ('NHOM_QUYEN','GIU','Nhóm quyền dùng để phân quyền truy cập.'),
  ('NGUOI_DUNG','GIU','Tài khoản, liên hệ và phiên đăng nhập.'),
  ('QUYEN','GIU','Danh mục mã quyền.'),

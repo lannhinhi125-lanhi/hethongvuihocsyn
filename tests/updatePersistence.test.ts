@@ -43,7 +43,7 @@ try {
  // Review actual tables, then remove only the retired AI counter/RPC.
  const reviewBefore=(await db.query(file('supabase/diagnostics/unused_tables_review.sql'))).rows;
  assert.equal(reviewBefore.find((row:any)=>row.ten_bang==='LUOT_NHAN_XET_AI').danh_gia,'CO_THE_GO');
- const retainedTables=['GIAO_VIEN','HOC_SINH','LOP_HOC','BUOI_HOC','NHAN_XET_BUOI_HOC','TAI_LIEU_QUY_TRINH','CAU_HINH_TRO_LY'];
+ const retainedTables=['GIAO_VIEN','HOC_SINH','LOP_HOC','BUOI_HOC','NHAN_XET_BUOI_HOC','TAI_LIEU_QUY_TRINH','CAU_HINH_TRO_LY','LICH_RANH_TUAN','CHI_TIET_LICH_RANH','LICH_RANH_DINH_KY','DANG_KY_MON_HOC','LICH_DANG_KY_MON_HOC'];
  const retainedRows=new Map();for(const table of retainedTables)retainedRows.set(table,(await db.query('SELECT * FROM vuihoc."'+table+'" ORDER BY 1,2')).rows);
  await db.exec(`CREATE FUNCTION public.counter_dependency_probe() RETURNS bigint LANGUAGE sql AS 'SELECT count(*) FROM vuihoc."LUOT_NHAN_XET_AI"';`);
  await assert.rejects(db.exec(file('supabase/migrations/20261103_remove_unused_ai_review_usage.sql')),/Còn hàm khác/);
@@ -62,6 +62,19 @@ try {
  for(const table of retainedTables)assert.deepEqual((await db.query('SELECT * FROM vuihoc."'+table+'" ORDER BY 1,2')).rows,retainedRows.get(table),table+' data preserved');
  assert.ok(!(await db.query(file('supabase/diagnostics/unused_tables_review.sql'))).rows.some((row:any)=>row.ten_bang==='LUOT_NHAN_XET_AI'));
  console.log('PASS: AI counter review/removal; extra function/FK dependencies stop cleanup atomically; feedback, documents and operational data preserved');
+ // The supplied inventory also has obsolete UI preferences and single-subject schedules.
+ const unmatched:any=(await db.query(`SELECT h.madinhdanh AS student,k.madinhdanh AS slot,d.day FROM vuihoc."HOC_SINH" h CROSS JOIN vuihoc."KHUNG_GIO" k CROSS JOIN generate_series(1,7) d(day) WHERE NOT EXISTS(SELECT 1 FROM vuihoc."LICH_DANG_KY_MON_HOC" s WHERE s.mahocsinh=h.madinhdanh AND s.makhunggio=k.madinhdanh AND s.thutrongtuan=d.day) LIMIT 1`)).rows[0];
+ assert.ok(unmatched);
+ await db.query(`INSERT INTO vuihoc."LICH_DANG_KY_HOC_SINH" SELECT $1,coalesce(max(thutu),0)+1,$2,$3 FROM vuihoc."LICH_DANG_KY_HOC_SINH" WHERE mahocsinh=$1`,[unmatched.student,unmatched.day,unmatched.slot]);
+ await assert.rejects(db.exec(file('supabase/cleanup_unused_tables.sql')),/lịch học sinh cũ chưa khớp/);
+ await db.exec('ROLLBACK');
+ assert.ok((await db.query(`SELECT to_regclass('vuihoc."TUY_CHON_NGUOI_DUNG"') AS target`)).rows[0].target,'unmatched slot blocks all cleanup');
+ await db.query('DELETE FROM vuihoc."LICH_DANG_KY_HOC_SINH" WHERE mahocsinh=$1 AND thutrongtuan=$2 AND makhunggio=$3',[unmatched.student,unmatched.day,unmatched.slot]);
+ await db.exec(file('supabase/cleanup_unused_tables.sql'));
+ await db.exec(file('supabase/cleanup_unused_tables.sql'));
+ for(const table of ['LUOT_NHAN_XET_AI','TUY_CHON_NGUOI_DUNG','LICH_DANG_KY_HOC_SINH'])assert.equal((await db.query('SELECT to_regclass($1) AS target',['vuihoc."'+table+'"'])).rows[0].target,null);
+ for(const table of retainedTables)assert.deepEqual((await db.query('SELECT * FROM vuihoc."'+table+'" ORDER BY 1,2')).rows,retainedRows.get(table),table+' retained after combined cleanup');
+ console.log('PASS: combined cleanup is idempotent, blocks unmatched legacy schedules, and preserves current per-subject/weekly/recurring schedules');
  assert.deepEqual((await db.query(file('supabase/diagnostics/json_storage_columns.sql'))).rows,[],'no JSON/JSONB columns, domains or arrays store business data');
  console.log('PASS: relational storage audit has zero JSON/JSONB columns');
  globalThis.fetch=async(url,options)=>{

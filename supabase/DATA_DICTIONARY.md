@@ -31,7 +31,7 @@ Giao diện dùng src/config/supabase.ts để kết nối và src/lib/supabaseM
 | Bảng công, hệ số công, giải trình | BANG_CONG_THANG (kỳ); CONG_DAY_BUOI_HOC; GIAI_TRINH_CONG_DAY; DOI_SOAT_CONG_GIAO_VIEN |
 | AI, SOP | NHOM_TIEU_CHI, TAI_LIEU_QUY_TRINH, CAU_HINH_TRO_LY, VAN_PHONG_NHAN_XET |
 | Báo cáo | MAU_BAO_CAO; số liệu tính từ bảng nghiệp vụ |
-| Cấu hình | CAU_HINH_HE_THONG, TUY_CHON_NGUOI_DUNG |
+| Cấu hình | CAU_HINH_HE_THONG |
 
 ## Dữ liệu lồng và quy ước lưu
 
@@ -334,17 +334,7 @@ CA_HOC đã bỏ. Dùng BUOI_HOC; điểm danh, nhận xét và sự cố lưu t
 
 Bảng đếm lượt nhận xét AI cũ đã được gỡ bằng `20261103_remove_unused_ai_review_usage.sql`. Nội dung nhận xét thật vẫn nằm trong `NHAN_XET_BUOI_HOC`; kho tài liệu và cấu hình chatbot vẫn được giữ.
 
-### TUY_CHON_NGUOI_DUNG (user_preferences)
-
-| Trường UI | Cột SQL | Kiểu và ràng buộc |
-| --- | --- | --- |
-| user_id | manguoidung | text PRIMARY KEY REFERENCES vuihoc."NGUOI_DUNG"(madinhdanh) ON DELETE CASCADE |
-| active_module | phanhedangchon | integer CHECK (phanhedangchon BETWEEN 1 AND 8) |
-| workspace_mode | chedogiaodien | text CHECK (chedogiaodien IN ('ADMIN','TEACHER')) |
-| teacher_portal_tab | tabgiaoviendangchon | text CHECK (tabgiaoviendangchon IN ('schedule','availability','payroll','evaluation','reconcile')) |
-| created_at | ngaytao | timestamptz NOT NULL DEFAULT now() |
-| updated_at | ngaycapnhat | timestamptz NOT NULL DEFAULT now() |
-
+Bảng tùy chọn giao diện cũ được gỡ bằng `cleanup_unused_tables.sql`; giao diện hiện dùng state. Bảng lịch học sinh một môn cũ cũng được gỡ sau khi đối chiếu với `LICH_DANG_KY_MON_HOC`. Các bảng lịch rảnh theo tuần và mẫu lịch rảnh định kỳ được giữ.
 
 ## Nhật ký hành động nghiệp vụ
 
