@@ -7,6 +7,10 @@ type Snapshot = { actor: UserAccount | null; users: UserAccount[]; groups: Syste
 let state: Snapshot = { actor: null, users: [], groups: [], loading: true, saving: false, error: '', saved: false };
 const listeners = new Set<() => void>();
 const KEY = 'vuihoc_session_token';
+export function getAccountSessionToken(): string {
+  if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
+  return token;
+}
 let token: string | null = null;
 try { token = sessionStorage.getItem(KEY); } catch { /* Phiên vẫn dùng được trong bộ nhớ. */ }
 let generation = 0;

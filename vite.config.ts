@@ -1,11 +1,28 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
+import {createGeminiHandler} from './server/geminiHandler.ts';
+
+function localGeminiApi(): Plugin {
+  return {
+    name: 'local-gemini-api',
+    apply: 'serve',
+    configureServer(server) {
+      // Read secrets only inside the dev server. Never add them to Vite `define`.
+      const env = loadEnv(server.config.mode, server.config.envDir, '');
+      const handler = createGeminiHandler(() => ({...env, ...process.env}));
+      server.middlewares.use((req,res,next) => {
+        if (req.url?.split('?')[0] !== '/api/gemini') return next();
+        void handler(req,res);
+      });
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), localGeminiApi()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
