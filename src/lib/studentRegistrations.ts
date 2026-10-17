@@ -16,6 +16,17 @@ export function studentRegistrationRows(students: StudentRecord[]) {
   })));
 }
 
+export function studentProfileRows(students: StudentRecord[]) {
+  return [...new Map(students.map(student => [student.id, student])).values()];
+}
+
+export function studentHistoryForSubject(student: StudentRecord, subject: string, classes: ClassItem[]) {
+  return (student.classHistory || []).filter(event => {
+    const eventSubject = event.subject || classes.find(cls => cls.id === (event.toClassId || event.fromClassId))?.subject;
+    return eventSubject === subject;
+  });
+}
+
 export function studentForSubject(student: StudentRecord, subject: string): StudentRecord | undefined {
   const registration = studentRegistrations(student).find(item => item.subject === subject);
   if (!registration) return undefined;

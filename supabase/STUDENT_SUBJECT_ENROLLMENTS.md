@@ -6,7 +6,10 @@
 
 - Một mã học sinh dùng chung hồ sơ và thông tin phụ huynh, đăng ký được nhiều môn. Mỗi môn có trình độ, mô hình, lịch mong muốn, trạng thái và lớp hiện tại riêng.
 - Một môn có tối đa một lớp hiện tại. Cùng học sinh có thể học Toán và Anh đồng thời khi lịch hai lớp không giao nhau. Hai ca nối tiếp nhau được phép.
-- Trong form học sinh, chọn lần lượt các môn để nhập thông tin và lịch riêng rồi lưu. Danh sách và báo cáo đếm từng đăng ký môn trên cùng mã học sinh: một em đăng ký mới Toán và Anh được tính hai lượt đăng ký mới.
+- Hồ sơ học sinh mới đếm một lần theo mã học sinh và ngày tiếp nhận hồ sơ. Một em học Toán và Anh vẫn chỉ là một học sinh; đăng ký thêm môn không tạo lại hồ sơ mới.
+- Đăng ký môn được thống kê riêng: một hồ sơ đăng ký Toán và Anh có hai lượt đăng ký môn. Báo cáo tùy biến có hai nguồn **Hồ sơ học sinh mới** và **Đăng ký môn học** để chọn đúng đơn vị đếm.
+- Nút **Học thêm môn** ở màn quản lý/ghép lớp mở đăng ký môn chưa học trên cùng hồ sơ, giữ thông tin phụ huynh và các lớp môn khác. Môn mới có lịch riêng và bắt đầu ở trạng thái chờ xếp lớp.
+- Chi tiết học sinh có bộ chọn môn cho lịch sử lớp. Chỉ hiển thị lịch sử ghép/rời/chuyển lớp của môn đang xem, kể cả dữ liệu cũ nhận diện môn từ khóa lớp.
 - Đăng ký và ghép lớp lần đầu của một môn được tính mới theo môn đó, dù học sinh đã học môn khác. Chuyển/rút rồi ghép lại lớp cùng môn được tính chuyển lớp. Ngày đăng ký và lịch sử lần đầu được theo dõi độc lập cho từng môn; không dùng ngày tạo hồ sơ chung để loại đăng ký môn mới.
 - Nút **Rút khỏi lớp môn này** trả đăng ký môn đang chọn về **Chờ xếp lớp**. Lớp và đăng ký các môn khác giữ nguyên.
 - Nút **Dừng lớp**, hoặc đổi trạng thái lớp thành **Tạm dừng / Đã kết thúc**, trả các đăng ký thuộc lớp đó về **Chờ xếp lớp**. Mở lại lớp không tự ghép lại các học sinh đã chuyển đi.
@@ -15,6 +18,7 @@
 - Lớp đã có lịch sử có thể bị FK ngăn xóa; dùng dừng/kết thúc lớp để giữ truy vết.
 - Buổi mới tự lấy mã giáo viên chính từ lớp. Mã giáo viên cover nằm riêng ở `BUOI_HOC.magiaoviendaythay`; giáo viên thực dạy là `coalesce(magiaoviendaythay,magiaovienchinh)`. Tên chỉ dùng hiển thị.
 - Lịch cover trên cổng giáo viên được truy vấn từ buổi thực tế. Công ca cover ghi cho mã giáo viên cover, không cộng công chuẩn cho giáo viên chính. Không đổi mã giáo viên sau khi buổi đã ghi công.
+- Giám sát ca chia tab theo các môn đang hoạt động trong danh mục. Mỗi tab có nhật ký, sự cố, điều phối cover và KPI riêng theo môn; thêm môn trong danh mục sẽ xuất hiện tab tương ứng, không cần thêm nhánh mã cho Toán/Anh.
 
 ## Lưu trữ và tương thích
 

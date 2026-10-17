@@ -1,5 +1,5 @@
 import { classifyClassGrowth,classGrowthLabels, type ClassGrowthKind } from '../lib/classGrowth';
-import { studentRegistrationRows } from '../lib/studentRegistrations';
+import { studentRegistrations, studentRegistrationRows, studentProfileRows } from '../lib/studentRegistrations';
 import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -308,12 +308,20 @@ export const Module8_Reports: React.FC = () => {
     capacityPct: c.maxStudents ? Math.round(c.studentIds.length / c.maxStudents * 100) : 0,
     status: c.studentIds.length >= c.maxStudents ? 'Đã đủ trần' : 'Còn trống ' + (c.maxStudents - c.studentIds.length) + ' chỗ'
   })), [sourceClasses, sourceSubjects, sourceModels]);
-  const rawStudents = useMemo(() => studentRegistrationRows(sourceStudents).map(s => ({
+  const rawStudentRegistrations = useMemo(() => studentRegistrationRows(sourceStudents).map(s => ({
     id: s.id, registrationKey: s.registrationKey, name: s.name, date: creationDate(s), grade: s.grade, gradeNum: Number(s.grade.match(/\d+/)?.[0] || 0),
     registrations: [{subject:s.subject,model:s.model,status:s.status}],
     subject: subjectLabel(s.subject), subjectCodes: [subjectCode(s.subject)],
     model: sourceModels.find(item => item.code === s.model)?.name || s.model,
     status: s.status === 'Chờ xếp lớp' ? 'Chờ ghép lớp' : s.status === 'Đang học' ? 'Đã vào lớp' : s.status
+  })), [sourceStudents, sourceSubjects, sourceModels]);
+  const rawStudents = useMemo(() => studentProfileRows(sourceStudents).map(s => ({
+    id:s.id, registrationKey:s.id, name:s.name, date:creationDate(s), grade:s.grade,
+    gradeNum:Number(s.grade.match(/\d+/)?.[0] || 0), registrations:studentRegistrations(s),
+    subject:studentRegistrations(s).map(r=>subjectLabel(r.subject)).join(', '),
+    subjectCodes:studentRegistrations(s).map(r=>subjectCode(r.subject)),
+    model:Array.from(new Set(studentRegistrations(s).map(r=>sourceModels.find(item=>item.code===r.model)?.name || r.model))).join(', '),
+    status:studentRegistrations(s).map(r=>subjectLabel(r.subject)+': '+(r.status==='Chờ xếp lớp'?'Chờ ghép lớp':r.status==='Đang học'?'Đã vào lớp':r.status)).join('; ')
   })), [sourceStudents, sourceSubjects, sourceModels]);
   const rawTutors = useMemo(() => sourceTeachers.map(t => ({
     id: t.id, name: t.name, date: creationDate(t), subject: subjectLabel(t.subject), subjectCode: subjectCode(t.subject),
@@ -337,9 +345,9 @@ export const Module8_Reports: React.FC = () => {
     .map(row => ({ ...row, subject: subjectLabel(row.subjectCode), subjectCode: subjectCode(row.subjectCode) })),
   [sourceTeachers, sourceSubjects, reportEvaluations, reportLessons]);
   const customDatasets = useMemo(() => makeReportDatasets({
-    classes: rawClasses, students: rawStudents, teachers: rawTutors,
+    classes: rawClasses, students: rawStudents, registrations: rawStudentRegistrations, teachers: rawTutors,
     incidents: rawIncidents, inspections: rawTeachersInspection
-  }), [rawClasses, rawStudents, rawTutors, rawIncidents, rawTeachersInspection]);
+  }), [rawClasses, rawStudents, rawStudentRegistrations, rawTutors, rawIncidents, rawTeachersInspection]);
 
   const detailDateRange = { start: detailDateFrom, end: detailDateTo };
   const clsDateRange = detailDateRange;
@@ -512,7 +520,7 @@ export const Module8_Reports: React.FC = () => {
   const dashboardEnglishClasses = dashboardClasses.length - dashboardMathClasses;
   const dashboardMathClassRate = dashboardClasses.length ? Math.round((dashboardMathClasses / dashboardClasses.length) * 100) : 0;
   const dashboardEnglishClassRate = dashboardClasses.length ? 100 - dashboardMathClassRate : 0;
-  const dashboardAssignedStudents = dashboardStudents.length - dashboardWaitingStudents.length;
+  const dashboardAssignedStudents = dashboardStudents.filter(item=>item.registrations.some(r=>r.status==='Đang học')).length;
   const dashboardAssignedRate = dashboardStudents.length ? Math.round((dashboardAssignedStudents / dashboardStudents.length) * 100) : 0;
   const previousDashboardRange = dashDateRange.start && dashDateRange.end
     ? {
@@ -1855,8 +1863,8 @@ export const Module8_Reports: React.FC = () => {
               <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-slate-800">{detailReportNames[selectedFixedReport]}</span>
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredStudents.length} lượt học sinh theo môn</span>
-                  <span className="text-slate-500">Đăng ký Toán và Anh tính hai lượt; chuyển lớp cùng môn không tính mới.</span>
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">{filteredStudents.length} hồ sơ học sinh</span>
+                  <span className="text-slate-500">Mỗi mã học sinh tính một hồ sơ mới, kể cả khi đăng ký nhiều môn.</span>
                 </div>
 
                 <div className="flex items-center gap-2">

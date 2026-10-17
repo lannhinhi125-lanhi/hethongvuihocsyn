@@ -1,4 +1,5 @@
 import { canTeachClassModel } from '../lib/teachingModelGroups';
+import { monitoringSubjectCode, selectedMonitoringSubject } from '../lib/monitoringSubjects';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
@@ -34,7 +35,7 @@ export interface MonitoringSession {
   className: string;
   levelText: string;
   modelText: string;
-  subject: 'TOAN' | 'ANH';
+  subject: string;
   grade: number;
   timeSlot: string;
   room: string;
@@ -169,7 +170,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               className: cls.name,
               levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
               modelText: cls.model,
-              subject: cls.subject === 'SUB-ENG' ? 'ANH' : 'TOAN',
+              subject: cls.subject,
               grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
               timeSlot: entry.timeSlot,
               room: cls.roomLink || 'Chưa gán phòng',
@@ -196,7 +197,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             primaryTeacher: cls.teacherName,
             primaryTeacherId: existing?.primaryTeacherId || cls.teacherId,
             levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
-            subject: cls.subject === 'SUB-ENG' ? 'ANH' : 'TOAN',
+            subject: cls.subject,
             grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
             room: cls.roomLink || 'Chưa gán phòng',
             roomUrl: cls.roomLink,
@@ -248,6 +249,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [colFilterStatus, setColFilterStatus] = useState('ALL');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterSubject, setFilterSubject] = useState('ALL');
+  const subjectTabs = subjects.filter(subject=>subject.status !== false);
+  const selectedSubjectCode = selectedMonitoringSubject(subjects,filterSubject);
+  const selectedSubjectName = subjects.find(subject=>subject.code===selectedSubjectCode)?.name || 'Chưa có môn học';
   const [filterGrade, setFilterGrade] = useState('ALL');
   const [filterLevel, setFilterLevel] = useState('ALL');
 
@@ -329,7 +333,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     });
 
     return teachers.filter(teacher => {
-      const subjectMatches = teacher.subject === (session.subject === 'ANH' ? 'SUB-ENG' : 'SUB-MATH');
+      const subjectMatches = teacher.subject === monitoringSubjectCode(session,classes);
       const availability = teacher.schedule?.[slot.code] || teacher.schedule?.[slot.id];
       return subjectMatches && canTeachClassModel(teacher.models,targetClass.model) && availability?.[weekday] === 'free' &&
         teacher.id !== targetClass.teacherId &&
@@ -444,14 +448,15 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     const cls = classForSession(session);
     return cls ? teachingCategories.find(category => category.options.some(option => option.id === cls.grade))?.id || 'ALL' : 'ALL';
   };
-  const subjectCodeForSession = (session: MonitoringSession) => classForSession(session)?.subject || (session.subject === 'TOAN' ? 'SUB-MATH' : 'SUB-ENG');
+  const subjectCodeForSession = (session: MonitoringSession) => monitoringSubjectCode(session,classes);
   const matchesCatalogFilters = (session: MonitoringSession) => {
     const cls = classForSession(session);
     return (filterCategory === 'ALL' || classCategoryForSession(session) === filterCategory) &&
-      (filterSubject === 'ALL' || subjectCodeForSession(session) === filterSubject) &&
+      Boolean(selectedSubjectCode) && subjectCodeForSession(session) === selectedSubjectCode &&
       (filterGrade === 'ALL' || cls?.grade === filterGrade) &&
       (filterLevel === 'ALL' || cls?.level === filterLevel || session.levelText === levels.find(level => level.code === filterLevel)?.name);
   };
+  const subjectFilteredSessions = dateFilteredSessions.filter(matchesCatalogFilters);
 
   // Lọc Tab 1
   const diaryFilteredSessions = dateFilteredSessions.filter(s => {
@@ -500,16 +505,16 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   });
 
   // Thống kê KPI Tab 1
-  const kpiTotal = dateFilteredSessions.length;
-  const kpiCompleted = dateFilteredSessions.filter(s => studyStatus(s) === 'DA_HOC').length;
-  const kpiIncidents = dateFilteredSessions.filter(s => s.hasIncident || s.status === 'NGHI_HOC').length;
-  const kpiCover = dateFilteredSessions.filter(s => s.coverTeacher).length;
+  const kpiTotal = subjectFilteredSessions.length;
+  const kpiCompleted = subjectFilteredSessions.filter(s => studyStatus(s) === 'DA_HOC').length;
+  const kpiIncidents = subjectFilteredSessions.filter(s => s.hasIncident || s.status === 'NGHI_HOC').length;
+  const kpiCover = subjectFilteredSessions.filter(s => s.coverTeacherId).length;
 
   // Thống kê KPI Tab 2
-  const kpiIncTotal = dateFilteredSessions.filter(s => s.hasIncident).length;
-  const kpiIncEmergency = dateFilteredSessions.filter(s => s.incidentUrgency === 'EMERGENCY').length;
-  const kpiIncTeacher = dateFilteredSessions.filter(s => s.incidentParent === 'GRP-TCH').length;
-  const kpiIncStudent = dateFilteredSessions.filter(s => s.incidentParent === 'GRP-STU').length;
+  const kpiIncTotal = subjectFilteredSessions.filter(s => s.hasIncident).length;
+  const kpiIncEmergency = subjectFilteredSessions.filter(s => s.incidentUrgency === 'EMERGENCY').length;
+  const kpiIncTeacher = subjectFilteredSessions.filter(s => s.incidentParent === 'GRP-TCH').length;
+  const kpiIncStudent = subjectFilteredSessions.filter(s => s.incidentParent === 'GRP-STU').length;
 
   // Reset bộ lọc Tab 1
   const resetColFilters = () => {
@@ -531,6 +536,12 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     setIncColFilterCover('');
     setIncColFilterStatus('ALL');
     setIncColFilterOps('');
+  };
+
+  const selectMonitoringSubject = (code: string) => {
+    setFilterSubject(code);
+    resetColFilters();
+    resetIncColFilters();
   };
 
   // Mở Modal Sự cố
@@ -748,7 +759,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     <div className="space-y-6 text-slate-700">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-slate-800">Giám sát ca &amp; sự cố</h1>
+          <h1 className="text-lg font-bold text-slate-800">Giám sát ca &amp; sự cố · {selectedSubjectName}</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Theo dõi ca dạy, chuyên cần và điều phối giáo viên dạy thay.
           </p>
@@ -789,6 +800,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           </button>
         </div>
       </div>
+      <div role="tablist" aria-label="Môn học giám sát" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1">
+        {subjectTabs.map(subject=><button key={subject.code} id={'monitoring-subject-'+subject.code} type="button" role="tab" aria-selected={selectedSubjectCode===subject.code} aria-controls="monitoring-subject-content" onClick={()=>selectMonitoringSubject(subject.code)} className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${selectedSubjectCode===subject.code?'bg-orange-50 text-[#FF5C00] ring-1 ring-orange-200':'text-slate-600 hover:bg-slate-50'}`}>
+          {subject.name}<span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] leading-none">{dateFilteredSessions.filter(session=>subjectCodeForSession(session)===subject.code).length}</span>
+        </button>)}
+        {!subjectTabs.length && <p className="px-3 py-2 text-sm text-slate-500">Chưa có môn học đang hoạt động trong danh mục.</p>}
+      </div>
+      <div id="monitoring-subject-content" role="tabpanel" aria-labelledby={'monitoring-subject-'+selectedSubjectCode} className="space-y-6">
       {/* ========================================================================= */}
       {/* ================= TAB 1: NHẬT KÝ & GIÁM SÁT BUỔI HỌC ==================== */}
       {/* ========================================================================= */}
@@ -811,7 +829,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             <div className="bg-white p-4 rounded-2xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">{viewingToday ? 'Tổng ca dạy hôm nay' : 'Tổng ca dạy'}</div>
               <div className="text-2xl font-black text-slate-800 font-mono">{kpiTotal}</div>
-              <div className="text-[11px] text-slate-400 mt-1">Toán &amp; Tiếng Anh (Khối 1-5)</div>
+              <div className="text-[11px] text-slate-400 mt-1">{selectedSubjectName}</div>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200">
@@ -931,7 +949,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   </tr>
                 </thead>
 
-                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody key={selectedSubjectCode+'-diary'} className="divide-y divide-slate-100 font-medium">
                   {diaryFilteredSessions.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-4 py-2 text-center">
@@ -1273,7 +1291,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   </tr>
                 </thead>
 
-                <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
+                <PaginatedTableBody key={selectedSubjectCode+'-incidents'} className="divide-y divide-slate-100 font-medium">
                   {incidentFilteredSessions.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-4 py-2 text-center">
@@ -1449,6 +1467,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         </div>
       )}
 
+      </div>
       {/* ================= MODAL 1: SỔ CA DẠY (READ-ONLY) ================= */}
       {selectedClassViewSession && (() => {
         const cls = classes.find(item => item.code === selectedClassViewSession.classCode);
@@ -1825,7 +1844,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         activeCount={[
           Boolean(specificDate),
           Boolean(filterCategory !== 'ALL'),
-          Boolean(filterSubject !== 'ALL'),
           Boolean(filterGrade !== 'ALL'),
           Boolean(filterLevel !== 'ALL'),
           Boolean(colFilterTime !== 'ALL')
@@ -1835,7 +1853,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           applyWeekFilter(0);
           setColFilterTime('ALL');
           setFilterCategory('ALL');
-          setFilterSubject('ALL');
           setFilterGrade('ALL');
           setFilterLevel('ALL');
         }}
@@ -1877,8 +1894,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               </select>
             </label>
             <label className="block font-medium text-slate-600">Môn học
-              <select value={filterSubject} onChange={event => setFilterSubject(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
-                <option value="ALL">Tất cả môn học</option>
+              <select value={selectedSubjectCode} onChange={event => selectMonitoringSubject(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
                 {subjects.filter(subject => subject.status !== false).map(subject => <option key={subject.code} value={subject.code}>{subject.name}</option>)}
               </select>
             </label>

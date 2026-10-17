@@ -3,6 +3,7 @@ import type { ReportDataset, ReportDimension } from './customReports';
 interface Sources {
   classes: Array<{ code: string; name: string; date: string; subject: string; grade: string; model: string; students: string; status: string }>;
   students: Array<{ id: string; name: string; date: string; subject: string; grade: string; model: string; status: string }>;
+  registrations?: Array<{ id: string; name: string; date: string; subject: string; grade: string; model: string; status: string }>;
   teachers: Array<{ id: string; name: string; date: string; subject: string; grades: string; status: string; assigned: number }>;
   incidents: Array<{ periodCode: string; period: string; dateFrom: string; dateTo: string; total: number; incidents: number; urgent: number; notice: number; main: string }>;
   inspections: Array<{ id: string; name: string; subject: string; avg: number; rank: string; total: number }>;
@@ -37,13 +38,21 @@ export function makeReportDatasets(sources: Sources): ReportDataset[] {
       detailFields: [dimension('id', 'Mã lớp'), dimension('name', 'Tên lớp'), dimension('date', 'Ngày tạo'), subject, grade, model, status, dimension('enrolled', 'Sĩ số'), dimension('capacity', 'Sĩ số tối đa')]
     },
     {
-      id: 'students', label: 'Học sinh', dateKind: 'event',
-      note: 'Đếm theo đăng ký từng môn và ngày đăng ký môn đó. Một học sinh đăng ký Toán và Anh được tính hai lượt. Trạng thái xếp lớp là trạng thái hiện có.',
-      records: sources.students.map(item => ({ ...item })),
-      metrics: [{ id: 'count', label: 'Lượt học sinh theo môn', mode: 'count' }],
+      id: 'students', label: 'Hồ sơ học sinh mới', dateKind: 'event',
+      note: 'Đếm một hồ sơ theo mã học sinh và ngày tiếp nhận. Học sinh đăng ký nhiều môn vẫn chỉ tính một hồ sơ.',
+      records: [...new Map(sources.students.map(item=>[item.id,{...item}])).values()],
+      metrics: [{ id: 'count', label: 'Số hồ sơ học sinh', mode: 'count' }],
       defaultMetricIds: ['count'], dimensions: [grade, subject, model, status, ...time], filters: [subject, grade, model, status],
-      detailFields: [dimension('id', 'Mã học sinh'), dimension('name', 'Họ tên'), dimension('date', 'Ngày đăng ký môn'), subject, grade, model, status]
+      detailFields: [dimension('id', 'Mã học sinh'), dimension('name', 'Họ tên'), dimension('date', 'Ngày tiếp nhận hồ sơ'), subject, grade, model, status]
     },
+    ...(sources.registrations ? [{
+      id:'student_registrations',label:'Đăng ký môn học',dateKind:'event' as const,
+      note:'Đếm từng đăng ký môn theo ngày đăng ký môn đó. Một hồ sơ đăng ký Toán và Anh được tính hai lượt đăng ký.',
+      records:sources.registrations.map(item=>({...item})),
+      metrics:[{id:'count',label:'Lượt đăng ký môn',mode:'count' as const}],
+      defaultMetricIds:['count'],dimensions:[grade,subject,model,status,...time],filters:[subject,grade,model,status],
+      detailFields:[dimension('id','Mã học sinh'),dimension('name','Họ tên'),dimension('date','Ngày đăng ký môn'),subject,grade,model,status]
+    }] : []),
     {
       id: 'teachers', label: 'Giáo viên mới', dateKind: 'event',
       note: 'Khoảng thời gian lọc theo ngày gia nhập. Số ca được giao phản ánh số liệu hiện có của giáo viên trong danh sách.',

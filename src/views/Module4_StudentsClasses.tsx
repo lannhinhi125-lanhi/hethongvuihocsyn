@@ -1,4 +1,4 @@
-import { studentRegistrations, studentRegistrationRows, studentScheduleConflict } from '../lib/studentRegistrations';
+import { studentRegistrations, studentRegistrationRows, studentForSubject, studentHistoryForSubject, studentScheduleConflict } from '../lib/studentRegistrations';
 import { canTeachClassModel, isTeachingModelParent } from '../lib/teachingModelGroups';
 import { EmptyState } from '../components/EmptyState';
 import { PaginatedTableBody, PaginatedList } from '../components/Pagination';
@@ -213,6 +213,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   // Student Modal state
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
   const [viewingDetailStudent, setViewingDetailStudent] = useState<StudentRecord | null>(null);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [stdName, setStdName] = useState('');
@@ -527,6 +528,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const openCreateStudent = () => {
     if (!requirePermission("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
     setEditingStudentId(null);
+    setIsAddingSubject(false);
     setStdDrafts([]);
     setStdName('');
     setStdGrade(gradeOptions[0]?.id || '');
@@ -545,6 +547,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const openEditStudent = (s: StudentRecord) => {
     if (!requirePermission("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
     setEditingStudentId(s.id);
+    setIsAddingSubject(false);
     setStdDrafts(studentRegistrations(s));
     setStdName(s.name);
     setStdGrade(s.grade);
@@ -560,6 +563,24 @@ export const Module4_StudentsClasses: React.FC = () => {
     setStdSlots(existingSlots);
     setIsStudentModalOpen(true);
   };
+
+  const availableAdditionalSubjects = (student: StudentRecord) => activeSubjects.filter(subject =>
+    !studentRegistrations(student).some(registration => registration.subject === subject.code));
+  const openAddSubject = (student: StudentRecord) => {
+    if (!requirePermission('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')) return;
+    const profile = studentProfiles.find(item => item.id === student.id) || student;
+    const next = availableAdditionalSubjects(profile)[0];
+    if (!next) { showToast('Học sinh đã đăng ký tất cả môn đang hoạt động.', 'info'); return; }
+    openEditStudent(profile);
+    setIsAddingSubject(true);
+    setStdSubject(next.code);
+    setStdLevel(activeLevels[0]?.code || '');
+    setStdModel(activeModels[0]?.code || '');
+    setStdStatus('Chờ xếp lớp');
+    setStdSlots([]);
+  };
+  const editingProfile = studentProfiles.find(item=>item.id===editingStudentId);
+  const formSubjectOptions = isAddingSubject && editingProfile ? availableAdditionalSubjects(editingProfile) : activeSubjects;
 
   const selectStudentSubject = (subject: string) => {
     const drafts = formRegistrations();
@@ -1254,6 +1275,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <td className="px-3 py-3"><div className="flex items-center justify-center gap-1">
                       <button type="button" onClick={() => setViewingDetailStudent(student)} title="Chi tiết học sinh và phụ huynh" className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><Eye className="w-3.5 h-3.5" /></button>
                       <button type="button" onClick={() => openEditStudent(student)} title="Sửa thông tin và ghép lớp" className="p-1.5 rounded hover:bg-orange-50 text-[#FF5C00]"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button type="button" onClick={() => openAddSubject(student)} disabled={!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy') || !availableAdditionalSubjects(student).length} title="Đăng ký thêm môn trên cùng mã học sinh" className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-indigo-200 px-2 py-1 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"><PlusCircle className="w-3.5 h-3.5" />Học thêm môn</button>
                       <button type="button" onClick={() => setPendingDelete({ type: 'student', id: student.id, name: student.name })} title="Xóa học sinh" className="p-1.5 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div></td>
                   </tr>)}
@@ -1510,7 +1532,7 @@ export const Module4_StudentsClasses: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-base text-slate-800">
-                {editingStudentId ? 'Chỉnh Sửa Hồ Sơ Học Sinh' : 'Tiếp Nhận Hồ Sơ Học Sinh Mới'}
+                {isAddingSubject ? `Học thêm môn · ${stdName}` : editingStudentId ? 'Chỉnh Sửa Hồ Sơ Học Sinh' : 'Tiếp Nhận Hồ Sơ Học Sinh Mới'}
               </h3>
               <button onClick={() => setIsStudentModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -1522,7 +1544,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="block text-slate-600">Họ và tên học sinh *<input type="text" required value={stdName} onChange={e => setStdName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label>
                   <label className="block text-slate-600">Khối<select required value={stdGrade} onChange={e => setStdGrade(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn khối</option>{gradeOptions.map(item => ({value:item.id,label:item.label})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdGrade && !gradeOptions.map(item => ({value:item.id,label:item.label})).some(item => item.value === stdGrade) && <option value={stdGrade}>{stdGrade} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Môn học<select required value={stdSubject} onChange={e => selectStudentSubject(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn môn học</option>{activeSubjects.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdSubject && !activeSubjects.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdSubject) && <option value={stdSubject}>{stdSubject} (đã lưu)</option>}</select></label>
+                  <label className="block text-slate-600">Môn học<select required value={stdSubject} onChange={e => selectStudentSubject(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn môn học</option>{formSubjectOptions.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdSubject && !activeSubjects.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdSubject) && <option value={stdSubject}>{stdSubject} (đã lưu)</option>}</select></label>
                   <label className="block text-slate-600">Trình độ<select required value={stdLevel} onChange={e => setStdLevel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn trình độ</option>{activeLevels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdLevel && !activeLevels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdLevel) && <option value={stdLevel}>{stdLevel} (đã lưu)</option>}</select></label>
                   <label className="block text-slate-600">Mô hình lớp<select required value={stdModel} onChange={e => setStdModel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn mô hình lớp</option>{activeModels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdModel && !activeModels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdModel) && <option value={stdModel}>{stdModel} (đã lưu)</option>}</select></label>
                   <label className="block text-slate-600">Trạng thái<select value={stdStatus} onChange={e => setStdStatus(e.target.value as StudentRecord['status'])} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg">{['Chờ xếp lớp','Đang học','Bảo lưu','Đã thôi học'].map(status => <option key={status}>{status}</option>)}</select></label>
@@ -1532,7 +1554,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <p className="text-[11px] text-slate-500">Nhập ít nhất một số điện thoại bố hoặc mẹ.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><label className="block text-slate-600">Họ tên bố<input type="text"  value={stdFatherName} onChange={e => setStdFatherName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Số điện thoại bố<input type="tel"  value={stdFatherPhone} onChange={e => setStdFatherPhone(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Họ tên mẹ<input type="text"  value={stdMotherName} onChange={e => setStdMotherName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label><label className="block text-slate-600">Số điện thoại mẹ<input type="tel"  value={stdMotherPhone} onChange={e => setStdMotherPhone(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label></div>
               </fieldset>
-              <div className="flex flex-wrap gap-2">{Array.from(new Set([...stdDrafts.map(item => item.subject), stdSubject])).filter(Boolean).map(subject => <button type="button" key={subject} onClick={() => selectStudentSubject(subject)} className="rounded-lg border border-orange-200 px-3 py-1 text-orange-700">{subjectName(subject)}</button>)}</div>
+              <div className="flex flex-wrap gap-2">{Array.from(new Set([...stdDrafts.map(item => item.subject), stdSubject])).filter(subject=>Boolean(subject) && (!isAddingSubject || formSubjectOptions.some(item=>item.code===subject))).map(subject => <button type="button" key={subject} onClick={() => selectStudentSubject(subject)} className="rounded-lg border border-orange-200 px-3 py-1 text-orange-700">{subjectName(subject)}</button>)}</div>
               <StudentSchedulePicker slots={activeTimeSlots} selected={stdSlots} onToggle={handleToggleSingleSlot} onRemove={handleRemoveSlotChip} onClear={handleClearAllSlots} />
               {editingStudentId && studentClassInfo(students.find(item => item.id === editingStudentId && item.subject === stdSubject))}
               <ClassSuggestions model={stdModel} schedule={stdSlots} isChanging={Boolean(assignedClass(students.find(item => item.id === editingStudentId && item.subject === stdSubject)))} items={findMatchingClassesForStudent(stdSubject, stdGrade, stdLevel, stdModel).filter(item => item.id !== assignedClass(students.find(student => student.id === editingStudentId && student.subject === stdSubject))?.id && (!editingStudentId || !item.studentIds.includes(editingStudentId)))} onAssign={handleSaveAndAssignToClass} />
@@ -1710,15 +1732,21 @@ export const Module4_StudentsClasses: React.FC = () => {
 
               {studentClassInfo(viewingDetailStudent)}
               <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-                <h4 className="font-bold text-slate-800">Lịch sử lớp học</h4>
-                <p className="text-xs text-slate-500">Tự ghi nhận khi ghép, rời hoặc chuyển lớp. Dòng hiện trạng ban đầu không xác nhận ngày ghép lịch sử.</p>
-                <div role="region" aria-label="Lịch sử lớp học" tabIndex={0}><PaginatedList key={viewingDetailStudent.id} className="space-y-2 max-h-72 overflow-y-auto overscroll-contain pr-2 print:max-h-none print:overflow-visible">{(() => {
-                  const history=(students.find(student=>student.id===viewingDetailStudent.id) || viewingDetailStudent).classHistory;
+                <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-bold text-slate-800">Lịch sử lớp học · {subjectName(viewingDetailStudent.subject)}</h4>
+                  <select aria-label="Môn xem lịch sử lớp học" value={viewingDetailStudent.subject} className="rounded-lg border border-slate-200 px-2 py-1 text-xs" onChange={event=>{
+                    const profile=studentProfiles.find(item=>item.id===viewingDetailStudent.id) || viewingDetailStudent;
+                    const selected=studentForSubject(profile,event.target.value);
+                    if(selected)setViewingDetailStudent(selected);
+                  }}>{studentRegistrations(studentProfiles.find(item=>item.id===viewingDetailStudent.id) || viewingDetailStudent).map(registration=><option key={registration.subject} value={registration.subject}>{subjectName(registration.subject)}</option>)}</select>
+                </div>
+                <p className="text-xs text-slate-500">Chỉ hiển thị ghép, rời và chuyển lớp của môn đang chọn. Dòng hiện trạng ban đầu không xác nhận ngày ghép lịch sử.</p>
+                <div role="region" aria-label="Lịch sử lớp học" tabIndex={0}><PaginatedList key={viewingDetailStudent.id+viewingDetailStudent.subject} className="space-y-2 max-h-72 overflow-y-auto overscroll-contain pr-2 print:max-h-none print:overflow-visible">{(() => {
+                  const history=studentHistoryForSubject(studentProfiles.find(student=>student.id===viewingDetailStudent.id) || viewingDetailStudent,viewingDetailStudent.subject,classes);
                   return history?.length ? [...history].reverse().map(event=><div key={event.traceId} className="rounded-lg border border-slate-100 p-3 text-xs">
                     <div className="font-semibold">#{event.traceId} · {event.isBaseline ? 'Ghi nhận hiện trạng ban đầu' : !event.toClassId ? 'Rời lớp' : event.isInitial ? 'Ghép lớp lần đầu' : 'Chuyển / ghép lại lớp'}</div>
                     <div className="mt-1">{event.subject && <strong>{subjectName(event.subject)} · </strong>}{event.fromClassCode || 'Chưa xếp lớp'} → {event.toClassCode || 'Chưa xếp lớp'}</div>
                     <div className="mt-1 text-slate-500">{new Date(event.occurredAt).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})} · {event.actorName || 'Hệ thống'}</div>
-                  </div>) : <p className="text-sm text-slate-500">Chưa có dữ liệu truy vết ghép/chuyển lớp.</p>;
+                  </div>) : <p className="text-sm text-slate-500">Môn này chưa có lịch sử ghép/chuyển lớp.</p>;
                 })()}</PaginatedList></div>
               </section>
 
