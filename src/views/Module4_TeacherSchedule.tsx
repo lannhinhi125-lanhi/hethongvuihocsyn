@@ -1,6 +1,7 @@
 import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { TeacherChatThread } from '../components/TeacherChatThread';
+import { ChatHistoryControls } from '../components/ChatHistoryControls';
 import { confirmAction } from '../components/ConfirmAction';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
@@ -46,8 +47,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
   // Only teacher questions are persisted. AI answers remain in memory.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [showChatHistory,setShowChatHistory]=useState(false);
-  const knowledgeChat=useTeacherChatHistory(portal==='TEACHER'?currentUser.id:undefined,isKnowledgeBotOpen,sopDocuments,ragBotConfig);
+  const chatPermission=portal==='TEACHER'?'Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy':'Sử dụng chatbot tra cứu quy chế và nghiệp vụ';
+  const knowledgeChat=useTeacherChatHistory(currentUser.id,isKnowledgeBotOpen && can(chatPermission),sopDocuments,ragBotConfig);
   const handleClearChat=async()=>{
     if(!await confirmAction('Bạn có muốn xóa cuộc trò chuyện này không? Các câu hỏi đã lưu của cuộc trò chuyện sẽ bị xóa khỏi Supabase. Thao tác không thể khôi phục.'))return;
     if(await knowledgeChat.remove()){setChatInput('');showToast('Đã xóa cuộc trò chuyện.','info');}
@@ -59,7 +60,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const quickQuestions = ASSISTANT_QUICK_PROMPTS;
 
   const handleSendQuestion = async (questionText?: string) => {
-    if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
+    if (!requirePermission(chatPermission)) return;
     const q=(questionText||chatInput).trim();
     if(!q||knowledgeChat.isBusy)return;
     setChatInput('');
@@ -642,7 +643,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
         {!isKnowledgeBotOpen && (
           <button
             type="button"
-            onClick={() => setIsKnowledgeBotOpen(true)}
+            onClick={() => {if(requirePermission(chatPermission))setIsKnowledgeBotOpen(true);}}
             className="group relative w-14 h-14 rounded-full bg-gradient-to-tr from-[#E05200] via-[#FF5C00] to-amber-500 text-white shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:shadow-orange-500/40 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 hover:scale-105 active:scale-95 border-2 border-white ring-4 ring-orange-200/70"
             title="Bot chat AI tra cứu tài liệu tri thức"
           >
@@ -713,27 +714,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             </div>
 
             <GeminiConnectionStatus />
-            <div className="px-3 py-2 border-b border-slate-200 space-y-1.5 bg-white text-[11px]">
-              <div className="flex gap-2 items-center justify-between">
-                {portal==='TEACHER' && <button type="button" onClick={()=>setShowChatHistory(value=>!value)} className="font-semibold text-orange-700 hover:underline" aria-expanded={showChatHistory}>Lịch sử câu hỏi</button>}
-                <button type="button" disabled={knowledgeChat.isBusy} onClick={()=>{knowledgeChat.newChat();setChatInput('');setShowChatHistory(false);}} className="ml-auto font-semibold text-orange-700 hover:underline disabled:opacity-40">+ Cuộc trò chuyện mới</button>
-              </div>
-              {portal==='TEACHER' && <p className="text-[10px] text-slate-500">Chỉ lưu câu hỏi. Câu trả lời AI được giữ tạm, không lưu vào lịch sử.</p>}
-              {knowledgeChat.activeChat && <p className="truncate text-slate-600" title={knowledgeChat.chats.find(chat=>chat.maphien===knowledgeChat.activeChat)?.tieude}>{knowledgeChat.chats.find(chat=>chat.maphien===knowledgeChat.activeChat)?.tieude||'Cuộc trò chuyện hiện tại'}</p>}
-              {showChatHistory && portal==='TEACHER' && <div className="max-h-36 overflow-y-auto space-y-1 border-t border-slate-100 pt-1.5">
-                <button type="button" disabled={knowledgeChat.isBusy} onClick={()=>void knowledgeChat.refresh()} className="text-slate-500 hover:text-orange-700 disabled:opacity-40">Tải lại danh sách</button>
-                {!knowledgeChat.chats.length && !knowledgeChat.isBusy && <p className="text-slate-500">Chưa có lịch sử câu hỏi.</p>}
-                {knowledgeChat.chats.map(chat=><button key={chat.maphien} type="button" disabled={knowledgeChat.isBusy}
-                  onClick={async()=>{if(await knowledgeChat.open(chat.maphien)){setShowChatHistory(false);setChatInput('');}}}
-                  className={`block w-full text-left px-2 py-1.5 rounded-lg disabled:opacity-40 ${knowledgeChat.activeChat===chat.maphien?'bg-orange-50 text-orange-800':'hover:bg-slate-50 text-slate-700'}`}>
-                  <span className="block truncate">{chat.tieude}</span>
-                  <span className="block text-[9px] text-slate-400">{new Date(chat.thoigianbatdau).toLocaleString('vi-VN')}</span>
-                </button>)}
-                {knowledgeChat.hasMoreChats && <button type="button" disabled={knowledgeChat.isBusy} onClick={()=>void knowledgeChat.moreChats()} className="w-full text-orange-700 hover:underline disabled:opacity-40">Xem thêm cuộc trò chuyện</button>}
-              </div>}
-              {knowledgeChat.error && <div role="alert" className="text-red-600 break-words">{knowledgeChat.error}</div>}
-              {knowledgeChat.isBusy && !knowledgeChat.isAnswering && <p role="status" className="text-slate-500 animate-pulse">Đang xử lý lịch sử…</p>}
-            </div>
+            <ChatHistoryControls chat={knowledgeChat} onSelect={()=>setChatInput('')} />
             {/* Quick Questions Chips */}
             <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex-shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
@@ -756,7 +737,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
             <TeacherChatThread turns={knowledgeChat.turns} greeting={ragBotConfig.welcomeGreeting}
               isBusy={knowledgeChat.isBusy} isAnswering={knowledgeChat.isAnswering} hasOlder={knowledgeChat.hasOlderTurns}
-              onOlder={()=>void knowledgeChat.olderTurns()} onAskAgain={turn=>void knowledgeChat.send(turn.noidung,turn.macauhoi)} />
+              onOlder={()=>void knowledgeChat.olderTurns()} onAskAgain={turn=>{if(requirePermission(chatPermission))void knowledgeChat.send(turn.noidung,turn.macauhoi);}} />
 
             {/* Input Bar */}
             <form

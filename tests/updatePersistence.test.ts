@@ -75,6 +75,16 @@ try {
  for(const table of ['LUOT_NHAN_XET_AI','TUY_CHON_NGUOI_DUNG','LICH_DANG_KY_HOC_SINH'])assert.equal((await db.query('SELECT to_regclass($1) AS target',['vuihoc."'+table+'"'])).rows[0].target,null);
  for(const table of retainedTables)assert.deepEqual((await db.query('SELECT * FROM vuihoc."'+table+'" ORDER BY 1,2')).rows,retainedRows.get(table),table+' retained after combined cleanup');
  console.log('PASS: combined cleanup is idempotent, blocks unmatched legacy schedules, and preserves current per-subject/weekly/recurring schedules');
+ await db.exec(file('supabase/migrations/20261106_teacher_chat_questions.sql'));
+ await db.exec(file('supabase/migrations/20261107_teacher_question_history.sql'));
+ const legacyTeacher:any=(await db.query('SELECT madinhdanh,manguoidung FROM vuihoc."GIAO_VIEN" WHERE manguoidung IS NOT NULL LIMIT 1')).rows[0];
+ const legacyChat=crypto.randomUUID();
+ await db.query('INSERT INTO vuihoc."PHIEN_CHAT_AI"(maphien,magiaovien) VALUES($1,$2)',[legacyChat,legacyTeacher.madinhdanh]);
+ await db.query('INSERT INTO vuihoc."CAU_HOI_CHAT_AI"(macauhoi,maphien,noidung) VALUES($1,$2,$3)',[crypto.randomUUID(),legacyChat,'Câu hỏi đã lưu trước bản nâng cấp quản trị']);
+ await db.exec(file('supabase/migrations/20261108_chat_history_accounts.sql'));
+ assert.equal((await db.query('SELECT manguoidung FROM vuihoc."PHIEN_CHAT_AI" WHERE maphien=$1',[legacyChat])).rows[0].manguoidung,legacyTeacher.manguoidung);
+ assert.equal((await db.query('SELECT noidung FROM vuihoc."CAU_HOI_CHAT_AI" WHERE maphien=$1',[legacyChat])).rows[0].noidung,'Câu hỏi đã lưu trước bản nâng cấp quản trị');
+ await db.query('DELETE FROM vuihoc."PHIEN_CHAT_AI" WHERE maphien=$1',[legacyChat]);
  await db.exec(file('supabase/setup_teacher_question_history.sql'));
  await db.exec(file('supabase/setup_teacher_question_history.sql'));
  assert.deepEqual((await db.query(file('supabase/diagnostics/json_storage_columns.sql'))).rows,[],'no JSON/JSONB columns, domains or arrays store business data');
@@ -100,6 +110,21 @@ try {
  const accounts=await import('../src/lib/accountSession');
  const business=await import('../src/lib/businessPersistence');
  await accounts.loginAccount('admin.tong','234567');
+ const historyApi=await import('../src/lib/teacherChatHistory');
+ const adminChat=crypto.randomUUID(),adminId=accounts.getAccountSnapshot().actor!.id;
+ await historyApi.openTeacherChat(adminChat);
+ await historyApi.saveTeacherQuestion(adminChat,crypto.randomUUID(),'Câu hỏi quản trị: xin nghỉ cần báo trước bao lâu?');
+ const adminOwner:any=(await withDb<any>(()=>db.query('SELECT manguoidung,magiaovien FROM vuihoc."PHIEN_CHAT_AI" WHERE maphien=$1',[adminChat]))).rows[0];
+ assert.equal(adminOwner.manguoidung,adminId);assert.equal(adminOwner.magiaovien,null,'administrator works without a teacher profile');
+ assert.equal((await historyApi.listTeacherChats())[0].maphien,adminChat);
+ const adminGroup:any=(await withDb<any>(()=>db.query('SELECT manhomquyen FROM vuihoc."NGUOI_DUNG" WHERE madinhdanh=$1',[adminId]))).rows[0];
+ const permissionsBefore:any[]=(await withDb<any>(()=>db.query('SELECT * FROM vuihoc."NHOM_QUYEN_CHI_TIET" WHERE manhom=$1',[adminGroup.manhomquyen]))).rows;
+ try{
+  await withDb(()=>db.query('DELETE FROM vuihoc."NHOM_QUYEN_CHI_TIET" WHERE manhom=$1',[adminGroup.manhomquyen]));
+  await assert.rejects(historyApi.listTeacherChats(),/chưa có quyền sử dụng AI/);
+ }finally{
+  for(const row of permissionsBefore)await withDb(()=>db.query('INSERT INTO vuihoc."NHOM_QUYEN_CHI_TIET"(manhom,maquyen,thutu) VALUES($1,$2,$3)',[row.manhom,row.maquyen,row.thutu]));
+ }
  await withDb(async()=>{
   await db.exec('BEGIN READ ONLY; SET LOCAL ROLE anon');
   try {
@@ -290,15 +315,18 @@ try {
  const occupiedSlot:any=(await withDb<any>(()=>db.query(`SELECT k.madinhdanh id,k.makhunggio code,s.thutrongtuan-1 AS day_index FROM vuihoc."LICH_LOP" s JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=s.malop JOIN vuihoc."KHUNG_GIO" k ON k.madinhdanh=s.makhunggio WHERE l.magiaovien=$1 AND l.trangthai NOT IN ('TAM_DUNG','DA_KET_THUC') LIMIT 1`,[linkedTeacher.id]))).rows[0];
  assert.ok(occupiedSlot);
  await accounts.logoutAccount();business.resetBusinessData();await accounts.loginAccount(credentials.tendangnhap,credentials.matkhau);await business.loadBusinessData();
- const chat=await import('../src/lib/teacherChatHistory');
+ const chat=historyApi;
+ await assert.rejects(chat.readTeacherChat(adminChat),/không thuộc/);
+ await chat.deleteTeacherChat(adminChat);
+ assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."PHIEN_CHAT_AI" WHERE maphien=$1',[adminChat]))).rows[0].n,1,'teacher cannot delete administrator history');
  const ownChat=crypto.randomUUID(),questionId=crypto.randomUUID();
  await chat.openTeacherChat(ownChat);
  await chat.saveTeacherQuestion(ownChat,questionId,'Tôi cần xin nghỉ trước bao nhiêu ngày?');
  await chat.saveTeacherQuestion(ownChat,questionId,'Tôi cần xin nghỉ trước bao nhiêu ngày?');
- const savedQuestion:any=(await withDb<any>(()=>db.query(`SELECT q.*,p.magiaovien FROM vuihoc."CAU_HOI_CHAT_AI" q JOIN vuihoc."PHIEN_CHAT_AI" p USING(maphien)`))).rows[0];
+ const savedQuestion:any=(await withDb<any>(()=>db.query(`SELECT q.*,p.magiaovien FROM vuihoc."CAU_HOI_CHAT_AI" q JOIN vuihoc."PHIEN_CHAT_AI" p USING(maphien) WHERE q.maphien=$1`,[ownChat]))).rows[0];
  assert.equal(savedQuestion.magiaovien,linkedTeacher.id);
  assert.equal(savedQuestion.noidung,'Tôi cần xin nghỉ trước bao nhiêu ngày?');
- assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."CAU_HOI_CHAT_AI"'))).rows[0].n,1,'retry does not duplicate a saved question');
+ assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."CAU_HOI_CHAT_AI" WHERE maphien=$1',[ownChat]))).rows[0].n,1,'retry does not duplicate a saved question');
  const history=await chat.listTeacherChats();
  assert.equal(history[0].tieude,savedQuestion.noidung);
  assert.deepEqual(Object.keys(history[0]).sort(),['maphien','thoigianbatdau','tieude'],'summary query does not return full messages or store a title');
@@ -307,9 +335,9 @@ try {
  assert.equal(reloaded[0].traloi,null,'history has no stored AI response');
  const columns:any=(await withDb<any>(()=>db.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='CAU_HOI_CHAT_AI' ORDER BY column_name`))).rows;
  assert.deepEqual(columns.map((row:any)=>row.column_name),['macauhoi','maphien','noidung','thoigianhoi'],'question-only relational schema');
- const anotherTeacher:any=(await withDb<any>(()=>db.query('SELECT madinhdanh FROM vuihoc."GIAO_VIEN" WHERE madinhdanh<>$1 LIMIT 1',[linkedTeacher.id]))).rows[0];
+ const anotherTeacher:any=(await withDb<any>(()=>db.query('SELECT madinhdanh,manguoidung FROM vuihoc."GIAO_VIEN" WHERE madinhdanh<>$1 AND manguoidung IS NOT NULL LIMIT 1',[linkedTeacher.id]))).rows[0];
  const foreignChat=crypto.randomUUID();
- await withDb(()=>db.query('INSERT INTO vuihoc."PHIEN_CHAT_AI"(maphien,magiaovien) VALUES($1,$2)',[foreignChat,anotherTeacher.madinhdanh]));
+ await withDb(()=>db.query('INSERT INTO vuihoc."PHIEN_CHAT_AI"(maphien,magiaovien,manguoidung) VALUES($1,$2,$3)',[foreignChat,anotherTeacher.madinhdanh,anotherTeacher.manguoidung]));
  await assert.rejects(chat.openTeacherChat(foreignChat),/không thuộc/);
  await assert.rejects(chat.saveTeacherQuestion(foreignChat,crypto.randomUUID(),'Câu hỏi người khác'),/không thuộc/);
  await assert.rejects(chat.readTeacherChat(foreignChat),/không thuộc/);
@@ -324,7 +352,7 @@ try {
  const firstQuestions=await chat.readTeacherChat(ownChat),nextQuestions=await chat.readTeacherChat(ownChat,20);
  assert.equal(firstQuestions.length,21);assert.equal(nextQuestions.length,6);
  assert.equal(new Set([...firstQuestions.slice(0,20),...nextQuestions].map(row=>row.macauhoi)).size,26,'question pages preserve all rows without overlap');
- await withDb(()=>db.query(`INSERT INTO vuihoc."PHIEN_CHAT_AI"(maphien,magiaovien) SELECT gen_random_uuid(),$1 FROM generate_series(1,25)`,[linkedTeacher.id]));
+ await withDb(()=>db.query(`INSERT INTO vuihoc."PHIEN_CHAT_AI"(maphien,magiaovien,manguoidung) SELECT gen_random_uuid(),$1,$2 FROM generate_series(1,25)`,[linkedTeacher.id,linkedTeacher.user_id]));
  const firstChats=await chat.listTeacherChats(),nextChats=await chat.listTeacherChats(20);
  assert.equal(firstChats.length,21);assert.equal(nextChats.length,6);
  assert.equal(new Set([...firstChats.slice(0,20),...nextChats].map(row=>row.maphien)).size,26,'history pages are bounded');
@@ -342,6 +370,8 @@ try {
  for(const role of ['anon','authenticated'])assert.equal((await withDb<any>(()=>db.query(`SELECT has_table_privilege($1,'vuihoc."CAU_HOI_CHAT_AI"','SELECT') AS allowed`,[role]))).rows[0].allowed,false);
  await withDb(()=>db.query('DELETE FROM vuihoc."PHIEN_CHAT_AI" WHERE magiaovien=$1 OR maphien=$2',[linkedTeacher.id,foreignChat]));
  console.log('PASS: question-only history survives reload, scoped teacher access, bounded read-only pages, no AI response columns, atomic deletion and blocked late writes');
+ const retainedTeacherChat=crypto.randomUUID();await chat.openTeacherChat(retainedTeacherChat);
+ await chat.saveTeacherQuestion(retainedTeacherChat,crypto.randomUUID(),'Câu hỏi riêng của giáo viên');
  const alterSlot=(slot:any)=>business.setBusinessValue('teachers',(rows:any[])=>rows.map(row=>{
   if(row.id!==linkedTeacher.id)return row;
   const schedule=structuredClone(row.schedule||{});const key=Object.hasOwn(schedule,slot.id)?slot.id:slot.code;
@@ -352,6 +382,15 @@ try {
  const unlockedSlot:any=(await withDb<any>(()=>db.query(`SELECT k.madinhdanh id,k.makhunggio code,d.day_index FROM vuihoc."KHUNG_GIO" k CROSS JOIN generate_series(0,6) d(day_index) WHERE NOT EXISTS(SELECT 1 FROM vuihoc."LICH_LOP" s JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=s.malop WHERE l.magiaovien=$1 AND l.trangthai NOT IN ('TAM_DUNG','DA_KET_THUC') AND s.makhunggio=k.madinhdanh AND s.thutrongtuan=d.day_index+1) AND NOT EXISTS(SELECT 1 FROM vuihoc."BUOI_HOC" b WHERE b.magiaoviendaythay=$1 AND b.makhunggio=k.madinhdanh AND extract(isodow FROM b.ngayhoc)=d.day_index+1 AND b.trangthai NOT IN ('NGHI_HOC','DA_HOAN_THANH')) LIMIT 1`,[linkedTeacher.id]))).rows[0];
  assert.ok(unlockedSlot);alterSlot(unlockedSlot);await business.waitForBusinessSave();
  await accounts.logoutAccount();business.resetBusinessData();await accounts.loginAccount('admin.tong','234567');await business.loadBusinessData();
+ await assert.rejects(historyApi.readTeacherChat(retainedTeacherChat),/không thuộc/);
+ assert.ok(!(await historyApi.listTeacherChats()).some(row=>row.maphien===retainedTeacherChat));
+ await historyApi.deleteTeacherChat(retainedTeacherChat);
+ assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."PHIEN_CHAT_AI" WHERE maphien=$1',[retainedTeacherChat]))).rows[0].n,1,'administrator uses full chat functions but cannot delete another account history');
+ assert.equal((await historyApi.readTeacherChat(adminChat)).length,1,'administrator question survives portal/account switches');
+ await historyApi.deleteTeacherChat(adminChat);
+ assert.equal((await withDb<any>(()=>db.query('SELECT count(*)::int n FROM vuihoc."CAU_HOI_CHAT_AI" WHERE maphien=$1',[adminChat]))).rows[0].n,0);
+ await withDb(()=>db.query('DELETE FROM vuihoc."PHIEN_CHAT_AI" WHERE maphien=$1',[retainedTeacherChat]));
+ console.log('PASS: administrator history works without teacher profile, respects AI permissions and remains isolated from teacher accounts');
  console.log('PASS: real teacher availability rejects assigned slot changes and accepts unrelated slot edits');
  // Stop releases only this class. Preferences, other subjects, and past lessons stay intact.
  const releaseTeacherId=occupiedClass.teacherId;

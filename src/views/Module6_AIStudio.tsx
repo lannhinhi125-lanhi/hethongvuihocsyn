@@ -1,6 +1,7 @@
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
-import { ChatMessageText } from '../components/ChatMessageText';
+import { TeacherChatThread } from '../components/TeacherChatThread';
+import { ChatHistoryControls } from '../components/ChatHistoryControls';
 import {additionalAIInstructions,responseLength,responseStylePrompt,type ResponseLength} from '../lib/aiResponseStyle';
 import { useBusinessValue,waitForBusinessSave } from '../lib/businessPersistence';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
@@ -11,7 +12,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { SOPDocument, RAGBotConfig, DocumentCategory } from '../types';
-import { useKnowledgeChat } from '../hooks/useKnowledgeChat';
+import { useTeacherChatHistory } from '../hooks/useTeacherChatHistory';
 import { extractDocumentText } from '../lib/documentExtraction';
 import {
   Sparkles,
@@ -36,6 +37,7 @@ export const Module6_AIStudio: React.FC = () => {
   const {confirmSave,isSavingChanges}=useSaveConfirmation();
   const { can, requirePermission } = usePermissions();
   const {
+    currentUser,
     sopDocuments,
     setSopDocuments,
     ragBotConfig,
@@ -62,15 +64,9 @@ export const Module6_AIStudio: React.FC = () => {
   const [documentSearch, setDocumentSearch] = useState('');
   const [documentCategoryFilter, setDocumentCategoryFilter] = useState('ALL');
 
-  // Sandbox chat state
-  const [sandboxMessages, setSandboxMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string; matchedDoc?: string }>>([
-    {
-      sender: 'ai',
-      text: ragBotConfig.welcomeGreeting
-    }
-  ]);
-  const [sandboxInput, setSandboxInput] = useState('');
-  const sandboxChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse,ragBotConfig.systemPrompt);
+  const [sandboxInput,setSandboxInput]=useState('');
+  const canChat=can('Sử dụng chatbot tra cứu quy chế và nghiệp vụ');
+  const sandboxChat=useTeacherChatHistory(currentUser.id,activeTab==='rag-config' && canChat,sopDocuments,ragBotConfig);
 
   // Filtered categories
   const filteredDocuments = sopDocuments.filter(document => {
@@ -194,24 +190,13 @@ export const Module6_AIStudio: React.FC = () => {
     );
   };
 
-  // Sandbox chat
-  const handleSandboxSend = async (e: React.FormEvent) => {
+  const handleSandboxSend=async(e:React.FormEvent)=>{
     e.preventDefault();
-    if (!requirePermission("Sử dụng chatbot tra cứu quy chế và nghiệp vụ")) return;
-    e.preventDefault();
-    const query = sandboxInput.trim();
-    if (!query || sandboxChat.isAnswering) return;
-
-    setSandboxMessages(prev => [...prev, { sender: 'user', text: query }]);
+    if(!requirePermission('Sử dụng chatbot tra cứu quy chế và nghiệp vụ'))return;
+    const query=sandboxInput.trim();
+    if(!query||sandboxChat.isBusy)return;
     setSandboxInput('');
-
-    try {
-      const text=await sandboxChat.answer(query);
-      if(text!==null)setSandboxMessages(prev=>[...prev,{sender:'ai',text}]);
-    }catch(error){
-      setSandboxMessages(prev=>prev.slice(0,-1));setSandboxInput(query);
-      showToast(error instanceof Error ? error.message : 'Chưa nhận được câu trả lời từ AI.','error');
-    }
+    if(!await sandboxChat.send(query))setSandboxInput(query);
   };
 
   return (
@@ -493,11 +478,10 @@ export const Module6_AIStudio: React.FC = () => {
                   type="button"
                   title="Xóa câu hỏi và câu trả lời trong cuộc trò chuyện"
                   aria-label="Xóa đoạn chat thử nghiệm"
+                  disabled={sandboxChat.isBusy || !canChat}
                   onClick={async () => {
-                    if(!await confirmAction('Bạn có muốn xóa đoạn chat này không? Toàn bộ câu hỏi và câu trả lời trong cuộc trò chuyện sẽ bị xóa.'))return;
-                    sandboxChat.reset();setSandboxInput('');
-                    setSandboxMessages([{ sender: 'ai', text: ragBotConfig.welcomeGreeting }]);
-                    showToast('Đã xóa đoạn chat thử nghiệm.','info');
+                    if(!await confirmAction('Bạn có muốn xóa cuộc trò chuyện này không? Các câu hỏi đã lưu sẽ bị xóa khỏi Supabase. Thao tác không thể khôi phục.'))return;
+                    if(await sandboxChat.remove()){setSandboxInput('');showToast('Đã xóa cuộc trò chuyện.','info');}
                   }}
                   className="text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-red-200 cursor-pointer shrink-0"
                 >
@@ -506,36 +490,11 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
 
               {can('Sử dụng chatbot tra cứu quy chế và nghiệp vụ') && <GeminiConnectionStatus />}
-              {/* Chat body */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-                {sandboxMessages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {msg.sender === 'ai' && (
-                      <div className="w-7 h-7 rounded-lg bg-[#FF5C00] text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
-                        AI
-                      </div>
-                    )}
-                    <div
-                      className={`p-3 rounded-2xl max-w-[85%] leading-relaxed ${
-                        msg.sender === 'user'
-                          ? 'bg-[#FF5C00] text-white rounded-tr-sm'
-                          : 'bg-slate-50 border border-slate-200 text-slate-700 rounded-tl-sm'
-                      }`}
-                    >
-                      <ChatMessageText text={msg.text} format={msg.sender==='ai'} />
-                      {msg.matchedDoc && (
-                        <div className="mt-2 pt-1.5 border-t border-slate-200 text-[10px] text-slate-400">
-                          Trích dẫn: {msg.matchedDoc}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {sandboxChat.isAnswering && <p role="status" className="text-slate-500 animate-pulse">AI đang soạn câu trả lời…</p>}
-              </div>
+              {canChat && <ChatHistoryControls chat={sandboxChat} onSelect={()=>setSandboxInput('')} />}
+              <TeacherChatThread turns={sandboxChat.turns} greeting={ragBotConfig.welcomeGreeting}
+                isBusy={sandboxChat.isBusy||!canChat} isAnswering={sandboxChat.isAnswering} hasOlder={sandboxChat.hasOlderTurns}
+                onOlder={()=>void sandboxChat.olderTurns()}
+                onAskAgain={turn=>{if(requirePermission('Sử dụng chatbot tra cứu quy chế và nghiệp vụ'))void sandboxChat.send(turn.noidung,turn.macauhoi);}} />
 
               {/* Quick prompts */}
               <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-1.5 text-[10px]">
@@ -556,6 +515,7 @@ export const Module6_AIStudio: React.FC = () => {
               <form onSubmit={handleSandboxSend} className="p-3 border-t border-slate-200 flex items-center gap-2">
                 <input
                   type="text"
+                  maxLength={8000}
                   value={sandboxInput}
                   onChange={e => setSandboxInput(e.target.value)}
                   placeholder="Đặt câu hỏi trong phạm vi kho tài liệu..."
@@ -563,7 +523,7 @@ export const Module6_AIStudio: React.FC = () => {
                 />
                 <button
                   type="submit"
-                  disabled={sandboxChat.isAnswering || !sandboxInput.trim()}
+                  disabled={sandboxChat.isBusy || !canChat || !sandboxInput.trim()}
                   className="px-3.5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
