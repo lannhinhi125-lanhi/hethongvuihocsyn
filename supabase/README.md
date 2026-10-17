@@ -1,5 +1,11 @@
 # Bộ SQL Supabase Vuihoc
 
+**Thống nhất điểm dự giờ:** sau bản 20261026, chạy
+[migrations/20261027_standardize_inspection_scores.sql](migrations/20261027_standardize_inspection_scores.sql).
+Điểm tổng dùng `(TC1 + 2×TC2 + TC3)/4`, làm tròn hai chữ số; xếp loại A/B/C/D
+theo mốc 9/8/7. Database tự tính lại điểm tổng và xếp loại từ điểm tiêu chí,
+giữ nguyên nhận xét và liên kết giáo viên/buổi học.
+
 **Học nhiều môn, chuyển lớp và phân công theo mã giáo viên:** chạy
 [migrations/20261026_student_subject_enrollments.sql](migrations/20261026_student_subject_enrollments.sql)
 sau các bản đến 20261023. Mỗi môn có đăng ký/lịch/lớp riêng trên cùng mã học sinh;

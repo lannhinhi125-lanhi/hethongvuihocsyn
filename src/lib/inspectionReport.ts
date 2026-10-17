@@ -38,11 +38,12 @@ export function inspectionReportRows(
       .filter(record => {
         const date = inspectionDate(record.evaluationDate);
         return date && (!range.start || date >= range.start) && (!range.end || date <= range.end) &&
-          Number.isFinite(Number(record.overallScore));
+          record.overallScore!=null && Number.isFinite(Number(record.overallScore)) && Number(record.overallScore)>=0 && Number(record.overallScore)<=10;
       });
     if (!records.length) return [];
-    const avg = Number((records.reduce((sum, record) => sum + Number(record.overallScore), 0) / records.length).toFixed(2));
-    const rankCode = avg >= 9 ? 'A' : avg >= 8 ? 'B' : avg >= 7 ? 'C' : 'D';
+    const avg = averageEvaluationScore(records.map(record=>({overallScore:Number(record.overallScore)})));
+    if(avg==null)return [];
+    const rankCode = evaluationRating(avg)!.code;
     const taught = lessons.filter(lesson =>
       (lesson.coverTeacherId || lesson.primaryTeacherId) === teacher.id && ['DA_HOC','HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status || '') &&
       (!range.start || reportCreationDate(lesson.startsAt) >= range.start) &&
@@ -61,4 +62,5 @@ export function inspectionReportRows(
   });
 }
 import { reportCreationDate } from './reportCreationDate';
+import { averageEvaluationScore, evaluationRating } from './evaluationScoring';
 

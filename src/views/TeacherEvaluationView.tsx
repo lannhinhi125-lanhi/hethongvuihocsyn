@@ -23,7 +23,8 @@ import {
 
 import { EvaluationRecord } from '../types';
 import { resolveTeacherAccount, sessionDateISO } from '../lib/evaluation';
-import { inspectionSession, isCompletedInspectionLesson } from '../lib/inspectionSession';
+import { inspectionSession, isCompletedInspectionLesson, completedLessonsForTeacher } from '../lib/inspectionSession';
+import { evaluationRating, weightedEvaluationScore, averageEvaluationScore } from '../lib/evaluationScoring';
 import { useBusinessValue, waitForBusinessSave } from '../lib/businessPersistence';
 import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
@@ -38,7 +39,7 @@ export const TeacherEvaluationView: React.FC = () => {
   const isTeacherAccount = currentUser.role === 'Giáo viên Giảng dạy';
   const defaultTeacher = teachers.find(t => resolveTeacherAccount(t, users)?.id === currentUser.id);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(defaultTeacher?.id || teachers[0]?.id || '');
-  const currentTeacher = isTeacherAccount ? defaultTeacher : teachers.find(t => t.id === selectedTeacherId);
+  const currentTeacher = isTeacherAccount ? defaultTeacher : teachers.find(t => t.id === selectedTeacherId) || teachers[0];
 
   // Lọc thời gian biên bản
   const [filterSchoolYear, setFilterSchoolYear] = useState('2026 - 2027');
@@ -52,7 +53,8 @@ export const TeacherEvaluationView: React.FC = () => {
   // Modal lập biên bản đánh giá buổi học mới
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newSessionCode, setNewSessionCode] = useState('');
-  const availableSessions = datedLessons.map(lesson => inspectionSession(lesson.id || '', classes, datedLessons, timeSlots)).filter(source => source &&
+  const completedLessons = currentTeacher ? completedLessonsForTeacher(datedLessons,currentTeacher.id) : [];
+  const availableSessions = completedLessons.map(lesson => inspectionSession(lesson.id || '', classes, datedLessons, timeSlots)).filter(source => source &&
     isCompletedInspectionLesson(source.lesson) &&
     (source.lesson.coverTeacherId || source.lesson.primaryTeacherId) === currentTeacher?.id);
   const newSession = availableSessions.find(source => source?.session.code === newSessionCode);
@@ -77,9 +79,8 @@ export const TeacherEvaluationView: React.FC = () => {
   });
 
   // Điểm trung bình các buổi dự giờ
-  const averageScore = currentRecords.length > 0
-    ? (currentRecords.reduce((acc, r) => acc + r.overallScore, 0) / currentRecords.length).toFixed(1)
-    : '—';
+  const averageScore = averageEvaluationScore(filteredRecords);
+  const averageRating = evaluationRating(averageScore);
 
   const handleCreateReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,19 +88,24 @@ export const TeacherEvaluationView: React.FC = () => {
     e.preventDefault();
     if (isTeacherAccount || !currentTeacher || savingEvaluation) return;
     if (!newSession?.sessionNum) { showToast('Vui lòng chọn ca dạy có số buổi từ ca gốc. Nếu thiếu, hãy cập nhật truy vấn dự giờ.', 'error'); return; }
-    const finalScore = Number(((newTc1 * 0.25) + (newTc2 * 0.5) + (newTc3 * 0.25)).toFixed(1));
+    const finalScore = weightedEvaluationScore(newTc1,newTc2,newTc3);
+    if(finalScore==null) { showToast('Điểm từng tiêu chí phải nằm trong khoảng 0–10.','error'); return; }
+    if(!newComment.trim()) { showToast('Vui lòng nhập nhận xét trước khi gửi.','error'); return; }
+    const recipient=resolveTeacherAccount(currentTeacher,users);
+    if(!recipient || recipient.status!=='active') { showToast('Giáo viên chưa có tài khoản hoạt động được liên kết.','error'); return; }
+    const existing=currentRecords.find(record=>(record.lessonId || record.sessionCode)===newSession.lesson.id);
     const targetClass = newSession.cls;
 
     const newRecord: EvaluationRecord = {
-      id: crypto.randomUUID(),
+      id: existing?.id || crypto.randomUUID(),
       teacherId: currentTeacher.id,
       lessonId: newSession.lesson.id,
       sessionCode: newSession.session.code,
       sessionDate: newSession.lesson.date,
       sentAt: new Date().toISOString(),
-      recipientUserId: resolveTeacherAccount(currentTeacher, users)?.id,
+      recipientUserId: recipient.id,
       evaluatorUserId: currentUser.id,
-      reportCode: `BBDG/${new Date().getFullYear()}/${crypto.randomUUID()}`,
+      reportCode: existing?.reportCode || `BBDG/${new Date().getFullYear()}/${crypto.randomUUID()}`,
       evaluationDate: newEvalDate,
       evaluatorName: newEvaluatorName,
       evaluatorRole: newEvaluatorRole,
@@ -112,7 +118,7 @@ export const TeacherEvaluationView: React.FC = () => {
       roomLink: newSession.session.roomLink,
       recordLink: newSession.session.recordLink,
       overallScore: finalScore,
-      rank: finalScore >= 9.0 ? 'Xuất sắc' : finalScore >= 8.0 ? 'Tốt' : 'Khá',
+      rank: evaluationRating(finalScore)!.label,
       criteriaScores: {
         tc1: Number(newTc1),
         tc2: Number(newTc2),
@@ -127,7 +133,7 @@ export const TeacherEvaluationView: React.FC = () => {
 
     setSavingEvaluation(true);
     try {
-      setEvaluations(prev => [newRecord, ...prev]);
+      setEvaluations(prev => [newRecord, ...prev.filter(record=>record.id!==newRecord.id)]);
       await waitForBusinessSave();
       setIsCreateModalOpen(false);
       showToast(`Đã lập thành công Biên bản đánh giá dự giờ [${newRecord.reportCode}] cho ${currentTeacher.name}!`, 'success');
@@ -150,7 +156,7 @@ export const TeacherEvaluationView: React.FC = () => {
               Năm học {filterSchoolYear}
             </span>
             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {currentRecords.length} biên bản dự giờ
+              {filteredRecords.length} biên bản dự giờ
             </span>
           </div>
           <h1 className="text-xl font-bold text-slate-800 mt-2">
@@ -165,7 +171,7 @@ export const TeacherEvaluationView: React.FC = () => {
           <div className="text-right">
             <div className="text-[11px] text-slate-400">Điểm sư phạm trung bình</div>
             <div className="text-lg font-black text-emerald-600">
-              {averageScore} / 10.0 ({Number(averageScore) >= 9.0 ? 'Hạng A' : 'Hạng B'})
+              {averageScore==null ? 'Chưa có điểm' : `${averageScore.toFixed(2)} / 10 (Hạng ${averageRating!.code})`}
             </div>
           </div>
           {!isTeacherAccount && <button
@@ -186,22 +192,20 @@ export const TeacherEvaluationView: React.FC = () => {
             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
               {currentTeacher?.id}
             </span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {currentTeacher?.subjectName || 'Môn học'}
-            </span>
+            <span className="text-xs text-slate-500">{completedLessons.length} ca đã dạy đến hiện tại</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             {!isTeacherAccount && <>
             <span className="text-slate-500 text-[11px]">Chọn hồ sơ:</span>
             <select
-              value={selectedTeacherId}
+              value={currentTeacher.id}
               onChange={e => setSelectedTeacherId(e.target.value)}
               className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               {teachers.map(t => (
                 <option key={t.id} value={t.id}>
-                  {t.name} ({t.subjectName || t.subject}) - {t.id}
+                  {t.name} - {t.id}
                 </option>
               ))}
             </select>
@@ -268,7 +272,7 @@ export const TeacherEvaluationView: React.FC = () => {
                       Ngày dự giờ: {record.evaluationDate}
                     </span>
                     <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
-                      Xếp loại: {record.rank}
+                      Xếp loại: {evaluationRating(record.overallScore)?.label || 'Chưa có điểm'}
                     </span>
                   </div>
 
@@ -300,7 +304,7 @@ export const TeacherEvaluationView: React.FC = () => {
                   <div className="text-center px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
                     <div className="text-[10px] text-slate-500 uppercase font-semibold">Điểm tổng</div>
                     <div className="text-base font-black text-emerald-600 font-mono">
-                      {record.overallScore}
+                      {record.overallScore.toFixed(2)}
                     </div>
                   </div>
 
@@ -390,7 +394,7 @@ export const TeacherEvaluationView: React.FC = () => {
                       <span>Phiếu Đánh Giá &amp; Biên Bản Dự Giờ</span>
                     </span>
                     <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                      Hạng {viewingRecord.rank}
+                      {evaluationRating(viewingRecord.overallScore) ? `Hạng ${evaluationRating(viewingRecord.overallScore)!.code} · ${evaluationRating(viewingRecord.overallScore)!.label}` : 'Chưa có điểm'}
                     </span>
                   </div>
 
@@ -453,7 +457,7 @@ export const TeacherEvaluationView: React.FC = () => {
                             <td className="p-2 text-emerald-900">ĐIỂM TRUNG BÌNH CHUNG</td>
                             <td className="p-2 text-center text-emerald-700 font-mono">100%</td>
                             <td className="p-2 text-right text-emerald-700 text-sm font-mono">
-                              {viewingRecord.overallScore} / 10.0
+                              {viewingRecord.overallScore.toFixed(2)} / 10
                             </td>
                           </tr>
                         </tbody>
@@ -624,7 +628,7 @@ export const TeacherEvaluationView: React.FC = () => {
                     <input
                       type="number"
                       step="0.1"
-                      min="1"
+                      min="0"
                       max="10"
                       value={newTc1}
                       onChange={e => setNewTc1(Number(e.target.value))}
@@ -636,7 +640,7 @@ export const TeacherEvaluationView: React.FC = () => {
                     <input
                       type="number"
                       step="0.1"
-                      min="1"
+                      min="0"
                       max="10"
                       value={newTc2}
                       onChange={e => setNewTc2(Number(e.target.value))}
@@ -648,7 +652,7 @@ export const TeacherEvaluationView: React.FC = () => {
                     <input
                       type="number"
                       step="0.1"
-                      min="1"
+                      min="0"
                       max="10"
                       value={newTc3}
                       onChange={e => setNewTc3(Number(e.target.value))}

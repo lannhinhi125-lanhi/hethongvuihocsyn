@@ -16,7 +16,8 @@ import { FilterDrawer } from '../components/FilterDrawer';
 import { TeacherFieldInputs, TeacherCategoryFields, emptyTeacherFields, matchesTeacherFields } from '../components/TeacherFieldFilters';
 import { TeacherAvailabilityView } from './TeacherAvailabilityView';
 import { resolveTeacherAccount, sessionDateISO, sessionsInRange } from '../lib/evaluation';
-import { inspectionSession, isCompletedInspectionLesson } from '../lib/inspectionSession';
+import { inspectionSession, isCompletedInspectionLesson, completedLessonsForTeacher } from '../lib/inspectionSession';
+import { evaluationRating, weightedEvaluationScore } from '../lib/evaluationScoring';
 import { useBusinessValue, waitForBusinessSave } from '../lib/businessPersistence';
 import type { TeachingLesson } from '../lib/teachingSessionDetails';
 import { TeacherProfile, SuccessfulSession, EvaluationRecord } from '../types';
@@ -297,7 +298,7 @@ export const Module3_Teachers: React.FC = () => {
   };
 
   // Calculate weighted score
-  const finalWeightedScore = ((tc1Score * 1 + tc2Score * 2 + tc3Score * 1) / 4).toFixed(2);
+  const finalWeightedScore = weightedEvaluationScore(tc1Score,tc2Score,tc3Score)?.toFixed(2) || '—';
 
   const handleCreateTeacherSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,8 +347,7 @@ export const Module3_Teachers: React.FC = () => {
   // Evaluation Flow
   const gradingSource = inspectionSession(selectedSessionForGrading?.code || '', classes, datedLessons, timeSlots);
   const eligibleSessions = (teacher: TeacherProfile) => sessionsInRange({ ...teacher,
-    successfulSessions: datedLessons.filter(lesson => isCompletedInspectionLesson(lesson) &&
-      (lesson.coverTeacherId || lesson.primaryTeacherId) === teacher.id).flatMap(lesson => {
+    successfulSessions: completedLessonsForTeacher(datedLessons,teacher.id).filter(isCompletedInspectionLesson).flatMap(lesson => {
         const source = inspectionSession(lesson.id || '', classes, datedLessons, timeSlots);
         return source ? [source.session] : [];
       })
@@ -397,7 +397,7 @@ export const Module3_Teachers: React.FC = () => {
       evaluationDate: new Date().toLocaleDateString('vi-VN'), evaluatorName: currentUser.name, evaluatorRole: currentUser.role,
       lessonId: source.lesson.id, classCode: source.cls.code, className: source.cls.name, sessionName: source.session.name, sessionNum: source.sessionNum,
       timeSlot: source.session.slot, model: source.session.model || '', roomLink: source.session.roomLink, recordLink: source.session.recordLink,
-      overallScore: score, rank: score >= 9 ? 'Xuất sắc' : score >= 8 ? 'Tốt' : score >= 6.5 ? 'Khá' : 'Cần bồi dưỡng',
+      overallScore: score, rank: evaluationRating(score)!.label,
       criteriaScores: { tc1: tc1Score, tc2: tc2Score, tc3: tc3Score }, generalComment: gradingComment.trim(),
       strengths: '', improvements: '', recommendations: '', status: 'DA_DUYET'
     };
@@ -739,27 +739,6 @@ export const Module3_Teachers: React.FC = () => {
       {/* ================= TAB 3: ĐÁNH GIÁ DỰ GIỜ ================= */}
       {activeTab === 'evaluation' && (
         <div className="space-y-5">
-          <div className="bg-gradient-to-r from-orange-50 via-white to-amber-50 p-4 rounded-xl border border-orange-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#FF5C00] text-white flex items-center justify-center text-lg flex-shrink-0 font-bold shadow-md shadow-orange-500/20">
-                <ClipboardCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  QUY TRÌNH ĐÁNH GIÁ DỰ GIỜ SƯ PHẠM (CHUẨN HÓA 3 BƯỚC)
-                </h4>
-                <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
-                  <strong>Bước 1:</strong> Lọc danh sách giáo viên &bull;{' '}
-                  <strong>Bước 2:</strong> Chọn xem ca dạy và nghe lại video bản ghi recording &bull;{' '}
-                  <strong>Bước 3:</strong> Chấm điểm và gửi phiếu chấm cho tài khoản giáo viên.
-                </p>
-              </div>
-            </div>
-            <span className="px-3 py-1 rounded-lg bg-white border border-orange-200 text-[#FF5C00] font-bold text-xs shadow-xs">
-              Thang 10 Trọng số: (TC1*1 + TC2*2 + TC3*1)/4
-            </span>
-          </div>
-
           <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-end gap-4">
             <label className="text-xs font-semibold text-slate-700">Từ ngày (ca dạy)
               <input aria-label="Từ ngày ca dạy" type="date" value={evalDateFrom} onChange={e => setEvalDateFrom(e.target.value)} className="block mt-1 border border-slate-200 rounded-lg px-3 py-2" />
@@ -780,7 +759,7 @@ export const Module3_Teachers: React.FC = () => {
                     <th className="py-3 px-4">Giáo viên</th>
                     <th className="py-3 px-4">Môn chuyên trách</th>
                     <th className="py-3 px-4">Cấp &amp; Khối lớp</th>
-                    <th className="py-3 px-4 text-center">Số ca hoàn thành</th>
+                    <th className="py-3 px-4 text-center">Ca đã dạy đến hiện tại</th>
                     <th className="py-3 px-4 text-center">Trạng thái dự giờ</th>
                     <th className="py-3 px-4 text-center">Điểm dự giờ</th>
                     <th className="py-3 px-4 text-center">Tác vụ</th>
@@ -873,7 +852,7 @@ export const Module3_Teachers: React.FC = () => {
                         <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                           <td className="py-3 px-4">
                             <div className="font-bold text-slate-800">{t.name}</div>
-                            <div className="text-[11px] text-slate-400">{t.id} &bull; {t.degree}</div>
+                            <div className="text-[11px] text-slate-400">{t.id}</div>
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-0.5 rounded font-bold text-[11px] ${t.subject === 'SUB-MATH' ? 'bg-orange-50 text-[#FF5C00]' : 'bg-blue-50 text-blue-700'}`}>
@@ -885,7 +864,7 @@ export const Module3_Teachers: React.FC = () => {
                             <div className="text-slate-500 text-[11px]">{t.grades.join(', ')}</div>
                           </td>
                           <td className="py-3 px-4 text-center font-bold text-slate-700 font-mono">
-                            {eligibleSessions(t).length} ca hợp lệ
+                            {completedLessonsForTeacher(datedLessons,t.id).length} ca đã dạy
                           </td>
                           <td className="py-3 px-4 text-center">
                             {isScored ? (
@@ -1168,7 +1147,7 @@ export const Module3_Teachers: React.FC = () => {
                   <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Chỉ ca dạy thành công</span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Giáo viên: <strong className="text-[#FF5C00]">{gradingTeacher.name}</strong> &bull; Môn: {gradingTeacher.subjectName}
+                  <strong className="text-[#FF5C00]">{gradingTeacher.name}</strong> · {gradingTeacher.id}
                 </p>
               </div>
               <button onClick={() => setIsSelectSessionModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -1180,7 +1159,7 @@ export const Module3_Teachers: React.FC = () => {
               <div className="flex flex-wrap gap-3 items-center bg-slate-50 rounded-xl p-3">
                 <label>Từ ngày <input type="date" value={evalDateFrom} onChange={e => setEvalDateFrom(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
                 <label>Đến ngày <input type="date" value={evalDateTo} min={evalDateFrom || undefined} onChange={e => setEvalDateTo(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
-                <span>{eligibleSessions(gradingTeacher).length} ca đã học</span>
+                <span>{completedLessonsForTeacher(datedLessons,gradingTeacher.id).length} ca đã dạy đến hiện tại</span>
               </div>
               <PaginatedList className="space-y-2.5">
                 {eligibleSessions(gradingTeacher).length === 0 ? (
@@ -1269,7 +1248,7 @@ export const Module3_Teachers: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Giáo viên đứng lớp: <strong className="text-slate-800 font-semibold">{gradingTeacher.name}</strong> ({gradingTeacher.id}) &bull; Môn: <strong className="text-slate-800 font-semibold">{gradingTeacher.subjectName}</strong> &bull; Học vị: <span className="text-slate-600">{gradingTeacher.degree}</span>
+                    <strong className="text-slate-800 font-semibold">{gradingTeacher.name}</strong> ({gradingTeacher.id})
                   </p>
                 </div>
               </div>
@@ -1476,13 +1455,7 @@ export const Module3_Teachers: React.FC = () => {
                               : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                           }`}
                         >
-                          {Number(finalWeightedScore) >= 9.0
-                            ? '★ Hạng A: Xuất sắc'
-                            : Number(finalWeightedScore) >= 8.0
-                            ? '● Hạng B: Đạt chuẩn tốt'
-                            : Number(finalWeightedScore) >= 7.0
-                            ? '▲ Hạng C: Đạt yêu cầu'
-                            : '✕ Hạng D: Cần bồi dưỡng'}
+                          {evaluationRating(Number(finalWeightedScore)) ? `Hạng ${evaluationRating(Number(finalWeightedScore))!.code}: ${evaluationRating(Number(finalWeightedScore))!.label}` : 'Chưa có điểm'}
                         </span>
                       </div>
                     </div>

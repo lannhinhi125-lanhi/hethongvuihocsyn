@@ -101,5 +101,24 @@ try {
  await assert.rejects(rpc('vuihoc_save_business',[operator.token,[{dataset:'students',before:clean(restrictedStudent),
   after:{...clean(restrictedStudent),dangkymonhoc:restrictedStudent.dangkymonhoc.map(r=>r.subject===otherSubject?{...r,status:'BAO_LUU'}:r)}}]]),/Không có quyền ghép/);
  await assert.rejects(db.query('UPDATE vuihoc."BUOI_HOC" SET magiaoviendaythay=$1 WHERE madinhdanh=$2',[teacher,'MULTI-LESSON']),/đã ghi công/);
+ if(process.env.TEST_INSPECTION_SCORING==='1') {
+  const migration=file('supabase/migrations/20261027_standardize_inspection_scores.sql');
+  await db.exec(migration);await db.exec(migration);
+  const evaluationTemplate=(await data()).teacher_evaluations[0];
+  assert.ok(evaluationTemplate,'evaluation fixture exists');
+  const recipient=(await data()).teachers.find(t=>t.madinhdanh===cover).manguoidung;
+  const evaluation={...clean(evaluationTemplate),madinhdanh:'SCORE-STANDARD',mabienban:'SCORE-STANDARD',magiaovien:cover,
+   mabuoi:'MULTI-LESSON',malophoc:secondClass.malophoc,manguoinhan:recipient,ngaycahoc:'2020-01-05',
+   diemtieuchi:{tc1:8.5,tc2:8,tc3:9},diemtong:9.99,xeploai:'Xuất sắc'};
+  await save('teacher_evaluations',null,evaluation);
+  const saved=(await data()).teacher_evaluations.find(e=>e.madinhdanh==='SCORE-STANDARD');
+  assert.equal(Number(saved.diemtong),8.38);assert.equal(saved.xeploai,'Tốt');
+  await save('teacher_evaluations',saved,{...saved,diemtieuchi:{tc1:6.8,tc2:6.8,tc3:6.8},diemtong:9,xeploai:'Xuất sắc'});
+  const low=(await data()).teacher_evaluations.find(e=>e.madinhdanh==='SCORE-STANDARD');
+  assert.equal(Number(low.diemtong),6.8);assert.equal(low.xeploai,'Cần bồi dưỡng');
+  assert.equal(low.magiaovien,cover);assert.equal(low.mabuoi,'MULTI-LESSON');
+  assert.equal(low.nhanxetchung,evaluation.nhanxetchung);
+  console.log('PASS: inspection migration rerun, RPC score recomputation, criterion precision, cover identity and stored rank consistency');
+ }
  console.log('PASS: multiple subjects, schedule conflict rollback, class pause, transfer, withdrawal, retained history, reload, rerun, no JSON storage, primary/cover IDs');
 } catch(error){console.error(error.message,error.detail||'',error.where||'');process.exitCode=1;} finally {await db.close();}

@@ -1,8 +1,22 @@
 import type { ClassItem, SuccessfulSession } from '../types';
 import type { TeachingLesson } from './teachingSessionDetails';
+import { reportCreationDate } from './reportCreationDate';
 
 export function isCompletedInspectionLesson(lesson: TeachingLesson): boolean {
   return lesson.status === 'DA_HOC' || lesson.status === 'HOAN_THANH';
+}
+
+export function completedLessonsForTeacher(lessons: TeachingLesson[],teacherId:string,now=new Date()) {
+  const today=reportCreationDate(now.toISOString());
+  const seen=new Set<string>();
+  return lessons.filter(lesson=>{
+    if ((lesson.coverTeacherId || lesson.primaryTeacherId)!==teacherId ||
+      !['DA_HOC','HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status || '') || !lesson.date || lesson.date>today) return false;
+    if (lesson.checkoutAt && (!Number.isFinite(Date.parse(lesson.checkoutAt)) || Date.parse(lesson.checkoutAt)>now.getTime())) return false;
+    if (lesson.id && seen.has(lesson.id)) return false;
+    if (lesson.id)seen.add(lesson.id);
+    return true;
+  });
 }
 
 /** Resolve an existing dated lesson. This function never creates or updates data. */

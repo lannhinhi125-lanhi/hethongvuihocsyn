@@ -115,7 +115,7 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     if (Array.isArray(result.evaluationReports) && result.evaluationReports.length) {
       const latest = result.evaluationReports[0];
       result.evalStatus = 'SCORED';
-      result.evalScore = Number(latest.overallScore).toFixed(1);
+      result.evalScore = Number(latest.overallScore).toFixed(2);
       result.evalComment = latest.generalComment || '';
       result.evalCriteriaScores = latest.criteriaScores;
     }

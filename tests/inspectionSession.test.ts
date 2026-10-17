@@ -37,7 +37,7 @@ assert.equal(inspectionSession('MATH-2026-10-15-2',classes,lessons,[]),undefined
 assert.deepEqual({classes,lessons,slots},before,'Viewing must never mutate lesson/class data');
 const teacher = fromSupabaseRow('teachers', {madinhdanh:'T2',trangthaidanhgia:'UNSCORED',baocaodanhgia:[{overallScore:9,generalComment:'Good',criteriaScores:{tc1:9,tc2:9,tc3:9}}]});
 assert.equal(teacher.evalStatus,'SCORED');
-assert.equal(teacher.evalScore,'9.0');
+assert.equal(teacher.evalScore,'9.00');
 const unscored = fromSupabaseRow('teachers',{madinhdanh:'T2',trangthaidanhgia:'SCORED',diemdanhgia:'9.0',nhanxetdanhgia:'Stale seed',baocaodanhgia:[]});
 assert.equal(unscored.evalStatus,'UNSCORED');
 assert.equal(unscored.evalScore,null);
