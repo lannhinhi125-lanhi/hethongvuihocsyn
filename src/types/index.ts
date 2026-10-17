@@ -251,6 +251,7 @@ export interface CriteriaCategory {
 
 export interface DocumentCategory { id:string; name:string; description:string; isActive:boolean; }
 export interface SOPDocument {
+  driveUrl?: string;
   categoryId?: string;
   id: string;
   title: string;

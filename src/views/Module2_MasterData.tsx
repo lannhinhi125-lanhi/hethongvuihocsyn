@@ -1,3 +1,6 @@
+import { DocumentCategoryManager } from '../components/DocumentCategoryManager';
+import { useBusinessValue } from '../lib/businessPersistence';
+import type { DocumentCategory } from '../types';
 import { confirmAction } from '../components/ConfirmAction';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -40,7 +43,8 @@ export const Module2_MasterData: React.FC = () => {
     showToast
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching'>('subjects');
+  const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching' | 'document-types'>('subjects');
+  const [documentCategories] = useBusinessValue<DocumentCategory[]>('document_categories');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // Modals state
@@ -309,15 +313,17 @@ export const Module2_MasterData: React.FC = () => {
         { id: 'teaching', name: 'Cấp học & Lớp dạy', group: 'Đào tạo', count: teachingCategories.length },
         { id: 'models', name: 'Mô hình & Sĩ số', group: 'Tổ chức lớp học', count: models.length },
         { id: 'times', name: 'Khung giờ học', group: 'Tổ chức lớp học', count: timeSlots.length },
+        { id: 'document-types', name: 'Loại tài liệu', group: 'Vận hành', count: documentCategories.length },
         { id: 'incidents', name: 'Sự cố & Hệ số công', group: 'Vận hành', count: incidents.length }
       ]}>
       <div className="space-y-3">
-      {activeTab !== 'teaching' && activeTab !== 'incidents' && <div className="relative max-w-sm">
+      {activeTab !== 'teaching' && activeTab !== 'incidents' && activeTab !== 'document-types' && <div className="relative max-w-sm">
         <input type="search" aria-label="Tìm giá trị trong danh mục đang chọn" value={searchKeyword}
           onChange={event => setSearchKeyword(event.target.value)} placeholder="Tìm theo mã hoặc tên trong danh mục..."
           className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-xs focus:border-orange-500 focus:outline-none" />
         <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
       </div>}
+      {activeTab === 'document-types' && <DocumentCategoryManager embedded />}
       {activeTab === 'teaching' && <TeachingCatalog />}
       {/* ================= TAB 1: MÔN HỌC ================= */}
       {activeTab === 'subjects' && (

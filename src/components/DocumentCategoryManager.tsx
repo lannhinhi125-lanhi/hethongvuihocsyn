@@ -5,11 +5,11 @@ import {usePermissions} from '../hooks/usePermissions';
 import {useApp} from '../context/AppContext';
 import {PaginatedList} from './Pagination';
 
-export function DocumentCategoryManager({onClose,onCreated}:{onClose:()=>void;onCreated:(id:string)=>void}) {
+export function DocumentCategoryManager({onClose,onCreated,embedded=false}:{onClose?:()=>void;onCreated?:(id:string)=>void;embedded?:boolean}) {
   const [categories,setCategories]=useBusinessValue<DocumentCategory[]>('document_categories');
   const {sopDocuments,showToast}=useApp();
   const {can,requirePermission}=usePermissions();
-  const permission='Quản lý kho tài liệu tri thức SOP';
+  const permission='Quản lý danh mục loại tài liệu';
   const [editing,setEditing]=useState<string|null>(null);
   const [code,setCode]=useState('');const [name,setName]=useState('');const [description,setDescription]=useState('');
   const [isActive,setIsActive]=useState(true);const [saving,setSaving]=useState(false);
@@ -21,14 +21,14 @@ export function DocumentCategoryManager({onClose,onCreated}:{onClose:()=>void;on
     catch(error){showToast(error instanceof Error ? error.message : 'Chưa lưu được loại tài liệu.','error');}
     finally{setSaving(false);}
   };
-  return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4">
-    <section role="dialog" aria-modal="true" aria-label="Quản lý loại tài liệu" className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 space-y-4 shadow-xl">
-      <div className="flex justify-between items-center"><h3 className="font-bold">Quản lý loại tài liệu</h3><button type="button" disabled={saving} onClick={onClose} className="rounded border px-3 py-1 text-sm">Đóng</button></div>
+  return <div className={embedded ? "" : "fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4"}>
+    <section role={embedded ? undefined : "dialog"} aria-modal={embedded ? undefined : true} aria-label="Quản lý loại tài liệu" className={embedded ? "rounded-xl border bg-white p-4 space-y-4" : "w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 space-y-4 shadow-xl"}>
+      <div className="flex justify-between items-center"><h3 className="font-bold">Quản lý loại tài liệu</h3>{!embedded && <button type="button" disabled={saving} onClick={onClose} className="rounded border px-3 py-1 text-sm">Đóng</button>}</div>
       <form className="grid grid-cols-2 gap-3 rounded-xl border p-3" onSubmit={event=>{
         event.preventDefault();const id=code.trim();const label=name.trim();if(!id || !label)return;
         if(categories.some(item=>(item.id===id || item.name.toLocaleLowerCase('vi')===label.toLocaleLowerCase('vi')) && item.id!==editing)){showToast('Mã hoặc tên loại tài liệu đã tồn tại.','error');return;}
         const row={id,name:label,description:description.trim(),isActive};
-        void persist(editing ? categories.map(item=>item.id===editing?row:item) : [...categories,row],()=>{if(!editing && isActive)onCreated(id);reset();});
+        void persist(editing ? categories.map(item=>item.id===editing?row:item) : [...categories,row],()=>{if(!editing && isActive)onCreated?.(id);reset();});
       }}>
         <label className="text-sm">Mã loại<input required disabled={Boolean(editing)||saving||!can(permission)} value={code} onChange={event=>setCode(event.target.value)} className="mt-1 w-full rounded border p-2" /></label>
         <label className="text-sm">Tên loại<input required disabled={saving||!can(permission)} value={name} onChange={event=>setName(event.target.value)} className="mt-1 w-full rounded border p-2" /></label>

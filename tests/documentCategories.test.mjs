@@ -31,15 +31,22 @@ try {
  await db.exec(file('supabase/migrations/20261021_manual_student_feedback.sql'));
  const before=(await db.query('SELECT madinhdanh,phanloai,noidung,ngaycapnhat FROM vuihoc."TAI_LIEU_QUY_TRINH"')).rows;
  const migration=file('supabase/migrations/20261022_document_categories.sql');await db.exec(migration);await db.exec(migration);
+ const driveMigration=file('supabase/migrations/20261028_document_drive_catalog.sql');
+ await db.exec(driveMigration);await db.exec(driveMigration);
+ const config=(await db.query('SELECT vuihoc.business_config() config')).rows[0].config;
+ assert.equal(config.document_categories.module,'PH2');
+ assert.equal(config.document_categories.feature,'Quản lý danh mục loại tài liệu');
  let data=await rpc('vuihoc_business_data',[admin.token]);
  assert.equal(data.document_categories.length,new Set(before.map(row=>row.phanloai)).size);
  for(const old of before){const saved=data.sop_documents.find(doc=>doc.madinhdanh===old.madinhdanh);assert.equal(saved.tenloaitailieu,old.phanloai);assert.equal(saved.noidung,old.noidung);assert.equal(saved.ngaycapnhat,old.ngaycapnhat);}
  const category={madinhdanh:'NEW-TYPE',tenloai:'New category',mota:'User created',danghoatdong:true};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'document_categories',before:null,after:category}]]);
  const {tenloaitailieu,ngaytao,...source}=data.sop_documents[0];
- let doc={...source,madinhdanh:'NEW-TYPE-DOC',maloaitailieu:category.madinhdanh};
+ let doc={...source,madinhdanh:'NEW-TYPE-DOC',maloaitailieu:category.madinhdanh,linkdrive:'https://drive.google.com/file/d/example/view'};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'sop_documents',before:null,after:doc}]]);
  data=await rpc('vuihoc_business_data',[admin.token]);assert.equal(data.sop_documents.find(row=>row.madinhdanh===doc.madinhdanh).tenloaitailieu,category.tenloai);
+ assert.equal(data.sop_documents.find(row=>row.madinhdanh===doc.madinhdanh).linkdrive,doc.linkdrive);
+ await assert.rejects(rpc('vuihoc_save_business',[admin.token,[{dataset:'sop_documents',before:null,after:{...doc,madinhdanh:'BAD-URL',linkdrive:'javascript:alert(1)'}}]]),/tai_lieu_drive_url_check/);
  const renamed={...category,tenloai:'Renamed category'};
  await rpc('vuihoc_save_business',[admin.token,[{dataset:'document_categories',before:category,after:renamed}]]);
  data=await rpc('vuihoc_business_data',[admin.token]);assert.equal(data.sop_documents.find(row=>row.madinhdanh===doc.madinhdanh).tenloaitailieu,renamed.tenloai);

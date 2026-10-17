@@ -208,6 +208,7 @@ export const DATABASE_NAMES = {
       "updated_at": "ngaycapnhat",
       "content": "noidung",
       "source_file_name": "tentepgoc",
+      "drive_url": "linkdrive",
       "source_file_type": "loaitepgoc",
       "is_enabled": "dangsudung",
       "created_at": "ngaytao"
@@ -648,6 +649,7 @@ export const APP_DATABASE_FIELDS = {
     "updatedAt": "ngaycapnhat",
     "content": "noidung",
     "sourceFileName": "tentepgoc",
+    "driveUrl": "linkdrive",
     "sourceFileType": "loaitepgoc",
     "isEnabled": "dangsudung",
     "created_at": "ngaytao"

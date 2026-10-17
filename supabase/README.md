@@ -103,6 +103,12 @@ Chưa chạy migration lên Supabase thật trong phiên này. Chưa upload tệ
 
 ## Kiểm tra cục bộ
 
+Phần Danh mục dùng chung → Loại tài liệu quản lý bảng `LOAI_TAI_LIEU` (quyền `PH2` / `Quản lý danh mục loại tài liệu`). Phần Tài liệu & AI chỉ chọn loại bằng khóa ngoại `maloaitailieu`; tên loại được truy vấn, không lưu trùng.
+
+Sau migration `20261022_document_categories.sql`, chạy [20261028_document_drive_catalog.sql](migrations/20261028_document_drive_catalog.sql) để thêm cột `TAI_LIEU_QUY_TRINH.linkdrive` kiểu text và cập nhật quyền danh mục. Không thêm cột JSON/JSONB. JSON trong hàm cấu hình/RPC chỉ là định dạng truyền dữ liệu hiện có.
+
+Link Drive chỉ là nguồn tham khảo; chưa tích hợp tải Drive/Gemini. Bot demo tra cứu nội dung nhập hoặc trích xuất từ PDF/DOCX, bỏ qua tài liệu chỉ có link. Chat giáo viên ở bộ nhớ giao diện; đóng bằng X rồi xác nhận sẽ xóa, không có bảng chat hoặc thời hạn 5 phút.
+
 Các bài tests/databaseContract.test.ts, tests/timedWorkflow.test.ts và tests/teacherEvaluationSchema.test.ts dùng PGLITE_MODULE_PATH trỏ tới thư mục cài @electric-sql/pglite. Đã kiểm tra tạo mới/chạy lại, migration nâng cấp, khóa ngoại, tuần riêng biệt, sinh công đúng tháng, dạy thay, khóa kỳ và liên kết biên bản với đúng giáo viên.
 
 ## Don cot tai khoan

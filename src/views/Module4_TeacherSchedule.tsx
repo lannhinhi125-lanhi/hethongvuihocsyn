@@ -824,7 +824,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                 </div>
                 <div>
                   <h3 id="close-chat-title" className="text-sm font-bold text-slate-800">
-                    Thoát cuộc trò chuyện?
+                    Đóng trợ lý AI và xóa cuộc trò chuyện?
                   </h3>
                   <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
                     Nếu thoát, nội dung cuộc trò chuyện hiện tại sẽ bị xóa và không thể khôi phục.

@@ -7,3 +7,16 @@ const doc=fromSupabaseRow('sop_documents',{madinhdanh:'DOC-A',maloaitailieu:'TYP
 assert.equal(doc.categoryId,'TYPE-A');assert.equal(doc.category,'Custom type');
 assert.deepEqual(toSupabaseRow('sop_documents',doc),{madinhdanh:'DOC-A',maloaitailieu:'TYPE-A',tieude:'Title'});
 console.log('PASS: document category FK is written; display name is SELECT-only; custom catalog rows roundtrip');
+const linked = fromSupabaseRow('sop_documents', {
+  madinhdanh:'DRIVE-DOC', maloaitailieu:'TYPE-A', tenloaitailieu:'Custom type',
+  linkdrive:'https://drive.google.com/file/d/example/view', noidung:''
+});
+assert.equal(linked.driveUrl,'https://drive.google.com/file/d/example/view');
+const stored = toSupabaseRow('sop_documents',linked);
+assert.equal(stored.linkdrive,linked.driveUrl);
+assert.equal('tenloaitailieu' in stored,false);
+const {findKnowledgeDocument} = await import('../src/lib/knowledgeSearch');
+assert.equal(findKnowledgeDocument('quy che',[{
+  id:'LINK',title:'quy che',category:'Custom type',summary:'',content:'',updatedAt:'',driveUrl:linked.driveUrl
+}]),undefined);
+console.log('PASS: Drive link roundtrip; link-only documents are not treated as extracted knowledge');

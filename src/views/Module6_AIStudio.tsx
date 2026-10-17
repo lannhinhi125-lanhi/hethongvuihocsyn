@@ -1,4 +1,3 @@
-import { DocumentCategoryManager } from '../components/DocumentCategoryManager';
 import { useBusinessValue,waitForBusinessSave } from '../lib/businessPersistence';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { confirmAction } from '../components/ConfirmAction';
@@ -41,7 +40,6 @@ export const Module6_AIStudio: React.FC = () => {
   } = useApp();
 
   const [documentCategories]=useBusinessValue<DocumentCategory[]>('document_categories');
-  const [isCategoryManagerOpen,setIsCategoryManagerOpen]=useState(false);
   const [savingDocument,setSavingDocument]=useState(false);
   const [activeTab, setActiveTab] = useState<'knowledge' | 'rag-config'>('knowledge');
   const enabledKnowledgeDocuments = sopDocuments.filter(document => document.isEnabled !== false);
@@ -51,6 +49,7 @@ export const Module6_AIStudio: React.FC = () => {
   const [docTitle, setDocTitle] = useState('');
   const [docCategory, setDocCategory] = useState('');
   const [docSummary, setDocSummary] = useState('');
+  const [docDriveUrl, setDocDriveUrl] = useState('');
   const [docContent, setDocContent] = useState('');
   const [docSourceFileName, setDocSourceFileName] = useState('');
   const [docSourceFileType, setDocSourceFileType] = useState<'PDF' | 'DOCX' | undefined>();
@@ -82,6 +81,7 @@ export const Module6_AIStudio: React.FC = () => {
     setDocCategory(doc.categoryId || '');
     setDocSummary(doc.summary);
     setDocContent(doc.content);
+    setDocDriveUrl(doc.driveUrl || '');
     setDocSourceFileName(doc.sourceFileName || '');
     setDocSourceFileType(doc.sourceFileType);
     setIsExtractingDocument(false);
@@ -126,7 +126,12 @@ export const Module6_AIStudio: React.FC = () => {
       return;
     }
     if(savingDocument)return;
-    if (!docTitle.trim() || !docContent.trim()) return;
+    if (!docTitle.trim() || (!docContent.trim() && !docDriveUrl.trim())) return;
+    if (docDriveUrl.trim()) {
+      try { const url = new URL(docDriveUrl.trim());
+        if (url.protocol !== 'https:' || !['drive.google.com', 'docs.google.com'].includes(url.hostname)) throw new Error();
+      } catch { showToast('Nhập link Google Drive hoặc Google Docs hợp lệ (https).', 'warning'); return; }
+    }
     const selectedCategory=documentCategories.find(category=>category.id===docCategory);
     const existing=sopDocuments.find(doc=>doc.id===editingDocId);
     if(!selectedCategory || (!selectedCategory.isActive && existing?.categoryId!==selectedCategory.id)) {showToast('Chọn loại tài liệu đang hoạt động trong danh mục.','warning');return;}
@@ -142,6 +147,7 @@ export const Module6_AIStudio: React.FC = () => {
                 categoryId:docCategory, category:selectedCategory.name,
                 summary: docSummary.trim() || 'Quy chuẩn vận hành đã cập nhật',
                 content: docContent.trim(),
+                driveUrl: docDriveUrl.trim(),
                 sourceFileName: docSourceFileName || d.sourceFileName,
                 sourceFileType: docSourceFileType || d.sourceFileType,
                 updatedAt: new Date().toLocaleDateString('vi-VN')
@@ -157,6 +163,7 @@ export const Module6_AIStudio: React.FC = () => {
         categoryId:docCategory, category:selectedCategory.name,
         summary: docSummary.trim() || 'Quy chuẩn vận hành mới',
         content: docContent.trim(),
+        driveUrl: docDriveUrl.trim(),
         sourceFileName: docSourceFileName,
         sourceFileType: docSourceFileType,
         isEnabled: true,
@@ -205,7 +212,6 @@ export const Module6_AIStudio: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {isCategoryManagerOpen && <DocumentCategoryManager onClose={()=>setIsCategoryManagerOpen(false)} onCreated={setDocCategory} />}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <h1 className="text-lg font-bold text-slate-800">Quản lý tri thức và cấu hình AI</h1>
 
@@ -239,7 +245,6 @@ export const Module6_AIStudio: React.FC = () => {
               <h3 className="font-bold text-sm text-slate-800">Thư viện tài liệu tri thức</h3>
               <p className="text-xs text-slate-500 mt-0.5">Tải PDF/DOCX để làm nguồn tham khảo cho Bot chat AI.</p>
             </div>
-            <button type="button" onClick={()=>setIsCategoryManagerOpen(true)} className="rounded-lg border px-3 py-2 text-xs font-semibold">Quản lý loại tài liệu</button>
             <button
               onClick={() => {
                 setEditingDocId(null);
@@ -247,6 +252,7 @@ export const Module6_AIStudio: React.FC = () => {
                 setDocCategory(documentCategories.find(category=>category.isActive)?.id || '');
                 setDocSummary('');
                 setDocContent('');
+                setDocDriveUrl('');
                 setDocSourceFileName('');
                 setDocSourceFileType(undefined);
                 setIsExtractingDocument(false);
@@ -300,7 +306,7 @@ export const Module6_AIStudio: React.FC = () => {
                           <div className="min-w-0">
                             <div className="font-bold text-slate-800">{doc.title}</div>
                             <div className="mt-0.5 text-[10px] text-slate-400">
-                              {doc.sourceFileName || 'Tài liệu mẫu'}{doc.sourceFileType ? ` · ${doc.sourceFileType}` : ''}
+                              {doc.sourceFileName || (doc.driveUrl ? 'Google Drive' : 'Nội dung văn bản')}{doc.sourceFileType ? ` · ${doc.sourceFileType}` : ''}
                             </div>
                           </div>
                         </div>
@@ -560,7 +566,6 @@ export const Module6_AIStudio: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Phân loại nghiệp vụ</label>
-                  <button type="button" onClick={()=>setIsCategoryManagerOpen(true)} className="mb-2 text-xs font-semibold text-orange-600">+ Quản lý / thêm loại tài liệu</button>
                   <select
                     required value={docCategory}
                     onChange={e => setDocCategory(e.target.value)}
@@ -572,6 +577,11 @@ export const Module6_AIStudio: React.FC = () => {
                 </div>
               </div>
 
+              <label className="block font-semibold text-slate-700">Link Google Drive / Google Docs
+                <input type="url" value={docDriveUrl} onChange={event => setDocDriveUrl(event.target.value)} placeholder="https://drive.google.com/file/d/.../view" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" />
+                <span className="mt-1 block text-[11px] font-normal text-slate-500">Để bot tra cứu tài liệu này, tải tệp hoặc nhập nội dung bên dưới.</span>
+              </label>
+              <p className="text-[11px] text-slate-500">Thêm, sửa loại tài liệu tại Danh mục dùng chung → Loại tài liệu.</p>
               <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/50 p-3">
                 <label className="block font-semibold text-slate-700 mb-1">
                   {editingDocId ? 'Tải tệp PDF/DOCX thay thế (không bắt buộc)' : 'Tải tài liệu nguồn PDF/DOCX'}
@@ -606,6 +616,9 @@ export const Module6_AIStudio: React.FC = () => {
                 />
               </div>
 
+              <label className="block font-semibold text-slate-700">Nội dung tài liệu để bot tra cứu
+                <textarea value={docContent} onChange={event => setDocContent(event.target.value)} rows={8} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-normal" />
+              </label>
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-600">
                 {docContent
                   ? `Đã trích xuất ${docContent.length.toLocaleString('vi-VN')} ký tự. Nội dung này được dùng làm phạm vi trả lời của bot.`
@@ -622,7 +635,7 @@ export const Module6_AIStudio: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingDocument || isExtractingDocument || !docContent.trim() || !docCategory}
+                  disabled={savingDocument || isExtractingDocument || (!docContent.trim() && !docDriveUrl.trim()) || !docCategory}
                   className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white font-bold cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
                   {savingDocument ? 'Đang lưu...' : 'Lưu tài liệu'}
@@ -649,6 +662,8 @@ export const Module6_AIStudio: React.FC = () => {
             </div>
             <div className="overflow-y-auto p-5">
               <div className="mb-3 rounded-lg bg-slate-50 p-3 text-[11px] text-slate-600">{viewingDocument.summary}</div>
+              {viewingDocument.driveUrl && <a href={viewingDocument.driveUrl} target="_blank" rel="noopener noreferrer" className="mb-3 inline-block text-xs text-orange-600 underline">Mở tài liệu trên Google Drive</a>}
+              {!viewingDocument.content && <p className="text-xs text-slate-500">Tài liệu mới lưu link nguồn, chưa có nội dung để bot tra cứu.</p>}
               <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-slate-700">{viewingDocument.content}</pre>
             </div>
           </div>
