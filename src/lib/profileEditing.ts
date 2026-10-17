@@ -9,8 +9,9 @@ export function studentStudyEditIssue(before:StudentRecord,after:StudentRecord,c
  if(before.grade!==after.grade && previous.some(row=>row.status!=='Chờ xếp lớp'||row.currentClassCode))return 'Đưa các đăng ký môn về Chờ xếp lớp và lưu trước khi đổi khối.';
  for(const old of previous){
   const row=next.find(item=>item.subject===old.subject);
-  const assigned=classes ? classes.some(cls=>cls.subject===old.subject&&cls.studentIds.includes(before.id)&&!['Tạm dừng','Đã kết thúc'].includes(cls.status||'')) : Boolean(old.currentClassCode);
-  if(assigned && (!row || row.status!==old.status || row.currentClassCode!==old.currentClassCode))return 'Dừng hoạt động lớp trước khi rút học sinh hoặc chuyển về Chờ xếp lớp để giải phóng ca.';
+  const linkedClass=classes?.find(cls=>cls.subject===old.subject&&cls.studentIds.includes(before.id)&&!['Tạm dừng','Đã kết thúc'].includes(cls.status||''));
+  const assigned=classes ? Boolean(linkedClass) : Boolean(old.currentClassCode);
+  if(assigned && (!row || row.status!==old.status || row.currentClassCode!==old.currentClassCode))return `Chưa thể đổi trạng thái hoặc rút học sinh vì đang gắn với lớp ${linkedClass?.code||old.currentClassCode}. Dừng hoạt động lớp trước để chuyển về Chờ xếp lớp và giải phóng ca.`;
   const changed=!row || row.model!==old.model || row.level!==old.level || !sameSet(row.scheduleSlots,old.scheduleSlots);
   if(changed && (old.status!=='Chờ xếp lớp'||old.currentClassCode))return 'Đưa đăng ký môn về Chờ xếp lớp và lưu trước khi đổi trình độ, mô hình hoặc lịch học.';
  }
@@ -18,10 +19,11 @@ export function studentStudyEditIssue(before:StudentRecord,after:StudentRecord,c
 
 export function teacherStudyEditIssue(before:TeacherProfile,after:TeacherProfile,classes:ClassItem[]):string|undefined {
  const active=classes.filter(row=>row.teacherId===before.id&&!['Tạm dừng','Đã kết thúc'].includes(row.status||''));
- if(active.some(row=>(before.subject!==after.subject&&row.subject!==after.subject)||
+ const affected=active.find(row=>(before.subject!==after.subject&&row.subject!==after.subject)||
   (before.levelId!==after.levelId&&row.categoryId!==after.levelId)||
   (!sameSet(before.grades,after.grades)&&!after.grades.includes(row.grade))||
-  (!sameSet(before.models,after.models)&&!canTeachClassModel(after.models,row.model))))return 'Thay đổi chuyên môn ảnh hưởng lớp đang phụ trách. Dừng hoạt động lớp trước khi đổi phân công.';
+  (!sameSet(before.models,after.models)&&!canTeachClassModel(after.models,row.model)));
+ if(affected)return `Chưa thể cập nhật chuyên môn vì giáo viên đang phụ trách lớp ${affected.code}. Dừng hoạt động lớp trước khi đổi phân công. Thông tin cá nhân và liên hệ vẫn sửa được.`;
 }
 
 export function teacherScheduleEditIssue(before:TeacherProfile,after:TeacherProfile,classes:ClassItem[],slots:TimeSlotItem[]):string|undefined {

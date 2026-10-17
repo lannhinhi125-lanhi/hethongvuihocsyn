@@ -9,7 +9,7 @@ export function classBindingEditIssue(before:ClassItem,after:ClassItem):string|u
  if((before.teacherId && before.teacherId!==after.teacherId) ||
   before.studentIds.some(id=>!after.studentIds.includes(id)) ||
   ((before.teacherId || before.studentIds.length) && normalizedSchedule(before.schedule)!==normalizedSchedule(after.schedule))) {
-  return 'Dừng hoạt động lớp trước khi đổi giáo viên, đổi lịch hoặc rút học sinh để giải phóng ca.';
+  return `Chưa thể cập nhật phân công: lớp ${before.code} còn hoạt động. Dừng hoạt động lớp trước khi đổi giáo viên, đổi lịch hoặc rút học sinh để giải phóng ca.`;
  }
 }
 

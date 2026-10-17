@@ -201,10 +201,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (type === 'success' && (business.error || accounts.error)) return;
     if (type === 'success' && businessSaving()) { message='Đang lưu…'; type='info'; }
     const id = Date.now().toString() + Math.random().toString(36).slice(2);
-    setToasts(prev => [...prev, { id, type, message }]);
+    setToasts(prev => prev.some(t=>t.type===type&&t.message===message)?prev:[...prev.slice(-3), { id, type, message }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3200);
+    }, type==='error'||type==='warning'?9000:3200);
   };
 
   const actor = users.find(user => user.id === currentUser.id) || (PORTAL_PREVIEW_MODE && currentUser.id === PREVIEW_ACCOUNT.id ? PREVIEW_ACCOUNT : { ...currentUser, status: 'locked' as const });
@@ -770,10 +770,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {children}
 
       {/* Global Toast Render */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div className="fixed bottom-5 right-5 z-[120] flex flex-col gap-2 max-w-sm w-[calc(100%-2.5rem)] pointer-events-none">
         {toasts.map(t => (
           <div
             key={t.id}
+            role={t.type==='error'||t.type==='warning'?'alert':'status'}
             className={`p-3.5 rounded-xl shadow-xl border text-xs font-medium flex items-center gap-2.5 transition-all pointer-events-auto ${
               t.type === 'success'
                 ? 'bg-slate-900 text-white border-slate-700'
@@ -792,6 +793,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }`}
             />
             <span className="flex-1 leading-snug">{t.message}</span>
+            <button type="button" aria-label="Đóng thông báo" onClick={()=>setToasts(prev=>prev.filter(item=>item.id!==t.id))} className="shrink-0 self-start px-1 text-base leading-none opacity-80 hover:opacity-100">×</button>
           </div>
         ))}
       </div>

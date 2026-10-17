@@ -6,7 +6,7 @@ export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly s
   students: ['classHistory'],
   sop_documents: ['category'],
   rag_bot_config: ['quickPrompts'],
-  teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions'],
+  teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull'],
   "classes": [
     "teacherName"
   ],
@@ -79,7 +79,7 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
   if (typeof result.madinhdanh === 'string' && result.madinhdanh.startsWith('PREVIEW-')) throw new Error('Tài khoản mẫu chỉ dùng xem trước, không ghi vào database.');
   return result;
 }
-/** Chuyển hàng SQL về object UI; dữ liệu lồng JSONB giữ nguyên. */
+/** Chuyển kết quả truy vấn SQL về object UI, gồm các danh sách từ bảng liên quan. */
 export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, references: Partial<Record<SupabaseDataset, DataRow[]>> = {}): DataRow {
   if (dataset === 'teaching_sessions') throw new Error('CA_HOC đã bỏ; sử dụng dated_lessons và các bảng nghiệp vụ theo mã buổi.');
   const result: DataRow = {};

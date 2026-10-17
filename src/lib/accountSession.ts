@@ -1,5 +1,6 @@
 import { useSyncExternalStore, type SetStateAction } from 'react';
 import { supabase } from '../config/supabase';
+import {saveErrorMessage} from './saveErrorMessage';
 import { fromSupabaseRow, toSupabaseRow } from './supabaseMapper';
 import type { UserAccount, SystemRoleGroup } from '../types';
 
@@ -25,8 +26,8 @@ async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSig
   const request = supabase.schema('public').rpc(name,args);
   const { data, error } = await (signal ? request.abortSignal(signal) : request);
   if (error) throw new Error(error.code === 'PGRST202'
-    ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_ai_usage' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261012_plaintext_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
-    : error.message);
+    ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261012_plaintext_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
+    : saveErrorMessage(error));
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -119,7 +120,7 @@ export async function revealAccountPassword(userId: string, signal: AbortSignal)
 }
 
 /** Teacher RPCs share the existing internal login token; no direct table access. */
-export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_ai_usage' | 'vuihoc_report_lesson_incident', args: Record<string,unknown> = {}) {
+export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_report_lesson_incident', args: Record<string,unknown> = {}) {
   if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
   const version = generation, writing = name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident';
   if (writing && (state.saving || flushing || pending.length)) throw new Error('Đang lưu thay đổi khác. Vui lòng thử lại sau.');

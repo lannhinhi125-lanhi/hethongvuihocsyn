@@ -1,6 +1,15 @@
 -- Apply after 20261031. No new tables, columns or JSONB storage.
 BEGIN;
 
+DO $prerequisites$ BEGIN
+ IF to_regprocedure('vuihoc.kiem_tra_sua_ho_so(text,jsonb,jsonb)') IS NULL THEN
+  RAISE EXCEPTION 'Thiếu bản sửa hồ sơ 20261031. Chạy toàn bộ file supabase/fix_profile_class_updates.sql để cài đủ các bản sửa theo đúng thứ tự.';
+ END IF;
+ IF to_regprocedure('vuihoc.du_lieu_quan_he(text,jsonb)') IS NULL THEN
+  RAISE EXCEPTION 'Thiếu bản nâng cấp dữ liệu quan hệ. Cần nâng cấp database quan hệ trước khi sửa luồng dừng lớp.';
+ END IF;
+END $prerequisites$;
+
 -- Availability is occupied by active assignments, including overlapping time slots.
 CREATE OR REPLACE FUNCTION vuihoc.ca_giao_vien_con_lop(p_teacher text,p_slot text,p_day integer) RETURNS boolean
 LANGUAGE sql STABLE SET search_path=pg_catalog AS $$

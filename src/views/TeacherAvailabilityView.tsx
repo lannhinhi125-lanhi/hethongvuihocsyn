@@ -185,16 +185,8 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     if(isSavingChanges)return;
     if (!requirePermission("Giáo viên đăng ký lịch rảnh theo tuần")) return;
     if (!canEdit || !activeTeacher) return;
-    let freeCount = 0;
-    Object.values(scheduleState).forEach(arr => {
-      arr.forEach(val => {
-        if (val === 'free') freeCount++;
-      });
-    });
-
     const saved = updateTeacher(activeTeacher.id, {
-      schedule: scheduleState,
-      freeSlots: freeCount
+      schedule: scheduleState
     });
     if (!saved) return;
 

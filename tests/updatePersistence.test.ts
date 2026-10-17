@@ -32,12 +32,38 @@ try {
 
  await db.exec(file('supabase/migrations/20261027_standardize_inspection_scores.sql'));
  await db.exec(file('supabase/migrations/20261028_document_drive_catalog.sql'));
- await db.exec(file('supabase/migrations/20261030_update_existing_business_rows.sql'));
- await db.exec(file('supabase/migrations/20261030_update_existing_business_rows.sql'));
- await db.exec(file('supabase/migrations/20261031_profile_edit_rules.sql'));
- await db.exec(file('supabase/migrations/20261031_profile_edit_rules.sql'));
- await db.exec(file('supabase/migrations/20261101_stop_class_release_slots.sql'));
- await db.exec(file('supabase/migrations/20261101_stop_class_release_slots.sql'));
+ // Reproduce the reported upgrade order: class-stop migration without the profile prerequisite.
+ assert.equal((await db.query("SELECT to_regprocedure('vuihoc.kiem_tra_sua_ho_so(text,jsonb,jsonb)') AS signature")).rows[0].signature,null);
+ await assert.rejects(db.exec(file('supabase/migrations/20261101_stop_class_release_slots.sql')),/Thiếu bản sửa hồ sơ 20261031/);
+ await db.exec('ROLLBACK');
+ assert.equal((await db.query("SELECT to_regprocedure('vuihoc.ca_giao_vien_con_lop(text,text,integer)') AS signature")).rows[0].signature,null,'missing prerequisite fails before installing new functions');
+ await db.exec(file('supabase/fix_profile_class_updates.sql'));
+ await db.exec(file('supabase/fix_profile_class_updates.sql'));
+ console.log('PASS: missing profile prerequisite reproduced; combined recovery installs all fixes and is safe to rerun');
+ // Review actual tables, then remove only the retired AI counter/RPC.
+ const reviewBefore=(await db.query(file('supabase/diagnostics/unused_tables_review.sql'))).rows;
+ assert.equal(reviewBefore.find((row:any)=>row.ten_bang==='LUOT_NHAN_XET_AI').danh_gia,'CO_THE_GO');
+ const retainedTables=['GIAO_VIEN','HOC_SINH','LOP_HOC','BUOI_HOC','NHAN_XET_BUOI_HOC','TAI_LIEU_QUY_TRINH','CAU_HINH_TRO_LY'];
+ const retainedRows=new Map();for(const table of retainedTables)retainedRows.set(table,(await db.query('SELECT * FROM vuihoc."'+table+'" ORDER BY 1,2')).rows);
+ await db.exec(`CREATE FUNCTION public.counter_dependency_probe() RETURNS bigint LANGUAGE sql AS 'SELECT count(*) FROM vuihoc."LUOT_NHAN_XET_AI"';`);
+ await assert.rejects(db.exec(file('supabase/migrations/20261103_remove_unused_ai_review_usage.sql')),/Còn hàm khác/);
+ await db.exec('ROLLBACK');
+ assert.ok((await db.query(`SELECT to_regclass('vuihoc."LUOT_NHAN_XET_AI"') AS target`)).rows[0].target);
+ await db.exec('DROP FUNCTION public.counter_dependency_probe()');
+ await db.exec('CREATE TABLE public.counter_fk_probe(teacher text,student text,FOREIGN KEY(teacher,student) REFERENCES vuihoc."LUOT_NHAN_XET_AI"(magiaovien,mahocsinh))');
+ await assert.rejects(db.exec(file('supabase/migrations/20261103_remove_unused_ai_review_usage.sql')),/depend|constraint/i);
+ await db.exec('ROLLBACK');
+ assert.ok((await db.query(`SELECT to_regprocedure('public.vuihoc_ai_usage(text,text,text,boolean)') AS target`)).rows[0].target,'failed cleanup rolls back RPC deletion');
+ await db.exec('DROP TABLE public.counter_fk_probe');
+ await db.exec(file('supabase/migrations/20261103_remove_unused_ai_review_usage.sql'));
+ await db.exec(file('supabase/migrations/20261103_remove_unused_ai_review_usage.sql'));
+ assert.equal((await db.query(`SELECT to_regclass('vuihoc."LUOT_NHAN_XET_AI"') AS target`)).rows[0].target,null);
+ assert.equal((await db.query(`SELECT to_regprocedure('public.vuihoc_ai_usage(text,text,text,boolean)') AS target`)).rows[0].target,null);
+ for(const table of retainedTables)assert.deepEqual((await db.query('SELECT * FROM vuihoc."'+table+'" ORDER BY 1,2')).rows,retainedRows.get(table),table+' data preserved');
+ assert.ok(!(await db.query(file('supabase/diagnostics/unused_tables_review.sql'))).rows.some((row:any)=>row.ten_bang==='LUOT_NHAN_XET_AI'));
+ console.log('PASS: AI counter review/removal; extra function/FK dependencies stop cleanup atomically; feedback, documents and operational data preserved');
+ assert.deepEqual((await db.query(file('supabase/diagnostics/json_storage_columns.sql'))).rows,[],'no JSON/JSONB columns, domains or arrays store business data');
+ console.log('PASS: relational storage audit has zero JSON/JSONB columns');
  globalThis.fetch=async(url,options)=>{
   const request=url instanceof Request?url:new Request(url,options);
   const name=new URL(request.url).pathname.split('/').at(-1)!;
@@ -57,6 +83,14 @@ try {
  const accounts=await import('../src/lib/accountSession');
  const business=await import('../src/lib/businessPersistence');
  await accounts.loginAccount('admin.tong','234567');
+ await withDb(async()=>{
+  await db.exec('BEGIN READ ONLY; SET LOCAL ROLE anon');
+  try {
+   for(const name of ['vuihoc_business_data','vuihoc_teacher_data','vuihoc_session'])await db.query('SELECT public.'+name+'($1)',[accounts.getAccountSessionToken()]);
+   await db.exec('COMMIT');
+  }catch(error){await db.exec('ROLLBACK');throw error;}
+ });
+ console.log('PASS: business/teacher/account reads succeed in a read-only transaction');
  await business.loadBusinessData();
  assert.equal(business.getBusinessSnapshot().error,'');
  assert.equal(business.getBusinessSnapshot().data.criteria_categories.length,0,'retired criteria table remains absent');
@@ -64,6 +98,10 @@ try {
  const reportConfig=defaultReportConfig({id:'classes',label:'Classes',dateKind:'event',records:[],metrics:[{id:'count',label:'Count',mode:'count'}],dimensions:[],defaultMetricIds:['count'],filters:[],detailFields:[]});
  business.setBusinessValue('report_templates',[{id:'REGRESSION-REPORT',name:'Report',config:reportConfig}]);
  await business.waitForBusinessSave();
+ // Fail if scalar metadata edits rewrite unchanged relations or create redundant snapshots.
+ const guardedTables=['LICH_RANH_DINH_KY','GIAO_VIEN_KHOI','GIAO_VIEN_MO_HINH','DANG_KY_MON_HOC','LICH_DANG_KY_MON_HOC','LICH_LOP','HOC_LIEU_LOP','PHAN_CONG_DAY_THAY','CHI_TIET_CA_LOP','LUA_CHON_CAP_HOC','LOAI_SU_CO','CHI_SO_MAU_BAO_CAO','BO_LOC_MAU_BAO_CAO'];
+ await withDb(()=>db.exec(`CREATE FUNCTION vuihoc.reject_unchanged_relation_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Unchanged relation was rewritten: %',TG_TABLE_NAME; END $$;`));
+ for(const table of guardedTables)await withDb(()=>db.exec('CREATE TRIGGER reject_unchanged_relation_write BEFORE INSERT OR UPDATE OR DELETE ON vuihoc."'+table+'" FOR EACH ROW EXECUTE FUNCTION vuihoc.reject_unchanged_relation_write()'));
  const cases=[['subjects','desc'],['levels','objective'],['time_slots','name'],['class_models','name'],['teaching_categories','name'],['incident_categories','desc'],['teachers','phone'],['students','name'],['classes','name'],['document_categories','description'],['sop_documents','summary'],['custom_catalogs','desc'],['report_templates','name'],['teacher_evaluations','generalComment'],['dated_lessons','title'],['lesson_incidents','resolutionNote']] as const;
  for(const [dataset,field] of cases){
   const rows=business.getBusinessSnapshot().data[dataset];
@@ -83,6 +121,29 @@ try {
   assert.equal(business.getBusinessSnapshot().data[dataset].find((row:any)=>row.id===id)[field],value,dataset+' survives reload');
   console.log('PASS update:',dataset);
  }
+ for(const table of guardedTables)await withDb(()=>db.exec('DROP TRIGGER reject_unchanged_relation_write ON vuihoc."'+table+'"'));
+ await withDb(()=>db.exec('DROP FUNCTION vuihoc.reject_unchanged_relation_write()'));
+ console.log('PASS: all scalar metadata updates leave unrelated schedules, enrollments, class materials, catalogs and report configuration untouched');
+ // Set-based counts match the original occupancy rules without repeated per-day helper calls.
+ const teacherIds=business.getBusinessSnapshot().data.teachers.map((row:any)=>row.id);
+ for(const teacherId of teacherIds){
+  const expected:any=(await withDb<any>(()=>db.query(`SELECT (SELECT count(*) FROM vuihoc."LICH_RANH_DINH_KY" a WHERE a.magiaovien=$1 AND a.trangthai='free' AND NOT vuihoc.ca_giao_vien_con_lop(a.magiaovien,a.makhunggio,a.thutrongtuan)) AS socaranh,(SELECT count(*) FROM vuihoc."KHUNG_GIO" k CROSS JOIN generate_series(0,6) d(day) WHERE vuihoc.ca_giao_vien_con_lop($1,k.madinhdanh,d.day)) AS socadaxep`,[teacherId]))).rows[0];
+  assert.deepEqual((await withDb<any>(()=>db.query('SELECT * FROM vuihoc.thong_ke_ca_giao_vien($1)',[teacherId]))).rows[0],expected);
+ }
+ console.log('PASS: optimized availability counts preserve all teacher occupancy rules');
+ // Constraint failures reach the UI as actionable warnings, and failed edits roll back.
+ const usedSubject=business.getBusinessSnapshot().data.students[0].subject;
+ const subjectId=business.getBusinessSnapshot().data.subjects.find((row:any)=>row.code===usedSubject).id;
+ business.setBusinessValue('subjects',(rows:any[])=>rows.filter(row=>row.id!==subjectId));
+ await assert.rejects(business.waitForBusinessSave(),/đang được dùng/);
+ assert.doesNotMatch(business.getBusinessSnapshot().error,/foreign key constraint/);
+ await business.loadBusinessData();assert.ok(business.getBusinessSnapshot().data.subjects.some((row:any)=>row.id===subjectId));
+ const classRows=business.getBusinessSnapshot().data.classes;
+ const duplicateTarget=classRows[0],existingCode=classRows[1].code;
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id===duplicateTarget.id?{...row,code:existingCode}:row));
+ await assert.rejects(business.waitForBusinessSave(),/Mã lớp đã được sử dụng/);
+ await business.loadBusinessData();assert.equal(business.getBusinessSnapshot().data.classes.find((row:any)=>row.id===duplicateTarget.id).code,duplicateTarget.code);
+ console.log('PASS: linked-record and duplicate-code failures display actionable UI messages without saving the rejected changes');
  // A live, seeded class can be renamed without resetting status/assignments.
  const liveClass=business.getBusinessSnapshot().data.classes.find((row:any)=>row.status==='Đang học');
  assert.ok(liveClass,'ongoing seeded class fixture exists');

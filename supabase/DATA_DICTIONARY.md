@@ -29,7 +29,7 @@ Giao diện dùng src/config/supabase.ts để kết nối và src/lib/supabaseM
 | Lớp, học liệu, điểm danh, nhận xét | LOP_HOC; hoclieu, chitietcahoc, phancongdaythay |
 | Giám sát ca, check-in, sự cố | BUOI_HOC và các bảng con |
 | Bảng công, hệ số công, giải trình | BANG_CONG_THANG (kỳ); CONG_DAY_BUOI_HOC; GIAI_TRINH_CONG_DAY; DOI_SOAT_CONG_GIAO_VIEN |
-| AI, SOP | NHOM_TIEU_CHI, TAI_LIEU_QUY_TRINH, CAU_HINH_TRO_LY, VAN_PHONG_NHAN_XET, LUOT_NHAN_XET_AI |
+| AI, SOP | NHOM_TIEU_CHI, TAI_LIEU_QUY_TRINH, CAU_HINH_TRO_LY, VAN_PHONG_NHAN_XET |
 | Báo cáo | MAU_BAO_CAO; số liệu tính từ bảng nghiệp vụ |
 | Cấu hình | CAU_HINH_HE_THONG, TUY_CHON_NGUOI_DUNG |
 
@@ -332,15 +332,7 @@ CA_HOC đã bỏ. Dùng BUOI_HOC; điểm danh, nhận xét và sự cố lưu t
 | created_at | ngaytao | timestamptz NOT NULL DEFAULT now() |
 | updated_at | ngaycapnhat | timestamptz NOT NULL DEFAULT now() |
 
-### LUOT_NHAN_XET_AI (ai_review_usage)
-
-| Trường UI | Cột SQL | Kiểu và ràng buộc |
-| --- | --- | --- |
-| teacher_id | magiaovien | text REFERENCES vuihoc."GIAO_VIEN"(madinhdanh) ON DELETE CASCADE |
-| student_id | mahocsinh | text REFERENCES vuihoc."HOC_SINH"(madinhdanh) ON DELETE CASCADE |
-| usage_count | soluotsudung | integer NOT NULL DEFAULT 0 CHECK (soluotsudung >= 0), PRIMARY KEY (magiaovien, mahocsinh) |
-| created_at | ngaytao | timestamptz NOT NULL DEFAULT now() |
-| updated_at | ngaycapnhat | timestamptz NOT NULL DEFAULT now() |
+Bảng đếm lượt nhận xét AI cũ đã được gỡ bằng `20261103_remove_unused_ai_review_usage.sql`. Nội dung nhận xét thật vẫn nằm trong `NHAN_XET_BUOI_HOC`; kho tài liệu và cấu hình chatbot vẫn được giữ.
 
 ### TUY_CHON_NGUOI_DUNG (user_preferences)
 

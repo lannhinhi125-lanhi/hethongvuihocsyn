@@ -292,16 +292,6 @@ export const DATABASE_NAMES = {
       "updated_at": "ngaycapnhat"
     }
   },
-  "ai_review_usage": {
-    "table": "LUOT_NHAN_XET_AI",
-    "columns": {
-      "teacher_id": "magiaovien",
-      "student_id": "mahocsinh",
-      "usage_count": "soluotsudung",
-      "created_at": "ngaytao",
-      "updated_at": "ngaycapnhat"
-    }
-  },
   "user_preferences": {
     "table": "TUY_CHON_NGUOI_DUNG",
     "columns": {
@@ -707,13 +697,6 @@ export const APP_DATABASE_FIELDS = {
   "app_settings": {
     "id": "madinhdanh",
     "active_tone_key": "mavanphongdangchon",
-    "created_at": "ngaytao",
-    "updated_at": "ngaycapnhat"
-  },
-  "ai_review_usage": {
-    "teacher_id": "magiaovien",
-    "student_id": "mahocsinh",
-    "usage_count": "soluotsudung",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
   },
