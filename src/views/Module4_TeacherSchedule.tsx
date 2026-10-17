@@ -10,7 +10,7 @@ import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ClassItem } from '../types';
-import { findKnowledgeDocument } from '../lib/knowledgeSearch';
+import { useKnowledgeChat } from '../hooks/useKnowledgeChat';
 import { materialForSessionDate, teachingWeekForDate } from '../lib/teacherScheduleMaterials';
 import { scheduledClassStart } from '../lib/classSessionTiming';
 import {
@@ -41,7 +41,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [toDate, setToDate] = useState(initialWeek.to);
   const [currentWeekLabel, setCurrentWeekLabel] = useState(initialWeek.label);
 
-  // Bot chat tra cứu tài liệu tri thức; câu trả lời hiện là mô phỏng trước khi kết nối Gemini.
+  // Chat is kept in memory; Gemini answers using enabled knowledge documents.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
   const [isCloseChatConfirmOpen, setIsCloseChatConfirmOpen] = useState(false);
   const [botMessages, setBotMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
@@ -52,9 +52,11 @@ export const Module4_TeacherSchedule: React.FC = () => {
     }
   ]);
   const [chatInput, setChatInput] = useState('');
+  const knowledgeChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse);
 
   // Hàm xóa đoạn chat làm mới theo yêu cầu
   const handleClearChat = () => {
+    knowledgeChat.reset();
     setBotMessages([
       {
         sender: 'bot',
@@ -77,21 +79,23 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   const quickQuestions = ASSISTANT_QUICK_PROMPTS;
 
-  const handleSendQuestion = (questionText?: string) => {
+  const handleSendQuestion = async (questionText?: string) => {
     if (!requirePermission("Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy")) return;
     const q = (questionText || chatInput).trim();
-    if (!q) return;
+    if (!q || knowledgeChat.isAnswering) return;
 
     const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const userMsg = { sender: 'user' as const, text: q, time: timeStr };
 
-    const documentMatch = findKnowledgeDocument(q, sopDocuments);
-    const botReply = documentMatch
-      ? `${documentMatch.content}\n\nTài liệu tham khảo: ${documentMatch.title}`
-      : ragBotConfig.fallbackResponse;
-
-    setBotMessages(prev => [...prev, userMsg, { sender: 'bot', text: botReply, time: timeStr }]);
+    setBotMessages(prev => [...prev, userMsg]);
     setChatInput('');
+    try{
+      const text=await knowledgeChat.answer(q);
+      if(text!==null)setBotMessages(prev=>[...prev,{sender:'bot',text,time:new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}]);
+    }catch(error){
+      setBotMessages(prev=>prev.slice(0,-1));setChatInput(q);
+      showToast(error instanceof Error ? error.message : 'Chưa nhận được câu trả lời từ AI.','error');
+    }
   };
 
   const [selectedClassId, setSelectedClass] = useState<string | null>(null);
@@ -783,6 +787,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                   </div>
                 </div>
               ))}
+              {knowledgeChat.isAnswering && <p role="status" className="text-slate-500 animate-pulse">AI đang soạn câu trả lời…</p>}
             </div>
 
             {/* Input Bar */}
@@ -802,7 +807,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
               />
               <button
                 type="submit"
-                disabled={!chatInput.trim()}
+                disabled={!chatInput.trim() || knowledgeChat.isAnswering}
                 className="px-3.5 py-1.5 bg-[#FF5C00] hover:bg-[#E05200] disabled:opacity-40 text-white font-bold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 Gửi

@@ -9,7 +9,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { SOPDocument, RAGBotConfig, DocumentCategory } from '../types';
-import { findKnowledgeDocument } from '../lib/knowledgeSearch';
+import { useKnowledgeChat } from '../hooks/useKnowledgeChat';
 import { extractDocumentText } from '../lib/documentExtraction';
 import {
   Sparkles,
@@ -69,6 +69,7 @@ export const Module6_AIStudio: React.FC = () => {
     }
   ]);
   const [sandboxInput, setSandboxInput] = useState('');
+  const sandboxChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse);
 
   // Filtered categories
   const filteredDocuments = sopDocuments.filter(document => {
@@ -193,24 +194,23 @@ export const Module6_AIStudio: React.FC = () => {
   };
 
   // Sandbox chat
-  const handleSandboxSend = (e: React.FormEvent) => {
+  const handleSandboxSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requirePermission("Sử dụng chatbot tra cứu quy chế và nghiệp vụ")) return;
     e.preventDefault();
     const query = sandboxInput.trim();
-    if (!query) return;
+    if (!query || sandboxChat.isAnswering) return;
 
     setSandboxMessages(prev => [...prev, { sender: 'user', text: query }]);
     setSandboxInput('');
 
-    setTimeout(() => {
-      const document = findKnowledgeDocument(query, sopDocuments);
-      setSandboxMessages(prev => [...prev, {
-        sender: 'ai',
-        text: document ? document.content : ragBotConfig.fallbackResponse,
-        matchedDoc: document?.title
-      }]);
-    }, 400);
+    try {
+      const text=await sandboxChat.answer(query);
+      if(text!==null)setSandboxMessages(prev=>[...prev,{sender:'ai',text}]);
+    }catch(error){
+      setSandboxMessages(prev=>prev.slice(0,-1));setSandboxInput(query);
+      showToast(error instanceof Error ? error.message : 'Chưa nhận được câu trả lời từ AI.','error');
+    }
   };
 
   return (
@@ -392,7 +392,7 @@ export const Module6_AIStudio: React.FC = () => {
                   <div>
                     <div className="font-bold text-slate-800">Phạm vi trả lời: tài liệu tri thức đang bật</div>
                     <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
-                      Bot chỉ tra cứu nội dung tài liệu được bật ở tab Tài liệu tri thức. Nếu không tìm thấy căn cứ phù hợp, bot sẽ dùng câu trả lời bên dưới; không tự trả lời ngoài phạm vi này.
+                      Bot dùng tài liệu đang bật để tổng hợp và giải thích câu trả lời. Bot có thể thêm gợi ý chung, nhưng không tự đặt thêm quy định khi chưa có căn cứ.
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-orange-700">
@@ -465,12 +465,12 @@ export const Module6_AIStudio: React.FC = () => {
                   <div>
                     <h4 className="font-bold text-xs text-slate-800">Thử nghiệm Bot chat AI</h4>
                     <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                      Mô phỏng tra cứu tài liệu
+                      Gemini · Giải đáp dựa trên tài liệu
                     </span>
                   </div>
                 </div>
                 <button
-                  onClick={() => setSandboxMessages([{ sender: 'ai', text: ragBotConfig.welcomeGreeting }])}
+                  onClick={() => {sandboxChat.reset();setSandboxInput('');setSandboxMessages([{ sender: 'ai', text: ragBotConfig.welcomeGreeting }]);}}
                   className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 px-2.5 py-1 rounded bg-white border border-slate-200 cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" /> Làm mới
@@ -497,7 +497,7 @@ export const Module6_AIStudio: React.FC = () => {
                           : 'bg-slate-50 border border-slate-200 text-slate-700 rounded-tl-sm'
                       }`}
                     >
-                      <p>{msg.text}</p>
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
                       {msg.matchedDoc && (
                         <div className="mt-2 pt-1.5 border-t border-slate-200 text-[10px] text-slate-400">
                           Trích dẫn: {msg.matchedDoc}
@@ -506,6 +506,7 @@ export const Module6_AIStudio: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                {sandboxChat.isAnswering && <p role="status" className="text-slate-500 animate-pulse">AI đang soạn câu trả lời…</p>}
               </div>
 
               {/* Quick prompts */}
@@ -534,6 +535,7 @@ export const Module6_AIStudio: React.FC = () => {
                 />
                 <button
                   type="submit"
+                  disabled={sandboxChat.isAnswering || !sandboxInput.trim()}
                   className="px-3.5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />

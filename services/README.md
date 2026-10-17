@@ -34,6 +34,6 @@ const answer = await askGemini([
 ], {systemPrompt:'Trả lời bằng tiếng Việt dựa trên nội dung được cung cấp.'});
 ```
 
-Service đã sẵn sàng để nối vào bot. Các màn hình bot hiện vẫn dùng mô phỏng; phần này không tự tải link Drive, không tự tìm tài liệu và không thay đổi luồng nhận xét AI.
+Chatbot quản trị và giáo viên gọi Gemini thật, gửi các trích đoạn từ tài liệu đang bật làm căn cứ để tổng hợp và giải thích. Mỗi yêu cầu giới hạn nội dung tài liệu ở 28.000 ký tự; lịch sử dùng tối đa 6 lượt hỏi/đáp và 24.000 ký tự trong bộ nhớ, xóa khi làm mới/đóng bot giáo viên hoặc rời màn hình. Không tạo bảng, cột, lịch sử chat hay chỉ mục mới trong database. Bot chưa tự tải nội dung link Drive; tài liệu cần có nội dung đã nhập hoặc trích xuất từ tệp. Luồng nhận xét AI không thay đổi.
 
 Tham khảo: [Gemini generateContent](https://ai.google.dev/api/generate-content), [Vercel Node Functions](https://vercel.com/docs/functions/runtimes/node-js), [Vite env](https://vite.dev/guide/env-and-mode).

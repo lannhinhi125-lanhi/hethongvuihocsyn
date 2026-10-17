@@ -3,6 +3,7 @@ import {Readable} from 'node:stream';
 import type {IncomingMessage,ServerResponse} from 'node:http';
 import {generateGeminiText,validateGeminiInput} from '../services/geminiService';
 import {createGeminiHandler} from '../server/geminiHandler';
+import {knowledgeAnswerPrompt} from '../src/lib/knowledgeAnswer';
 
 const originalFetch=globalThis.fetch;
 const env={GEMINI_API_KEY:'test-server-secret',GEMINI_MODEL:'gemini-test',VITE_SUPABASE_URL:'https://project.supabase.co',VITE_SUPABASE_ANON_KEY:'public-test-key'};
@@ -40,6 +41,10 @@ try {
   assert.equal(calls[0].url.endsWith('/gemini-test:generateContent'),true);
   assert.deepEqual(calls[0].body.contents,[{role:'user',parts:[{text:'Xin chào'}]}]);
   const success=await request();assert.equal(success.status,200);assert.equal(success.body.text,'Chào bạn!');
+  const systemPrompt=knowledgeAnswerPrompt('Xin nghỉ?', [{id:'DEMO',title:'Nghỉ học',category:'Demo',summary:'',updatedAt:'',content:'Xin nghỉ trước 2 ngày.'}], 'Thân thiện','Chưa đủ thông tin');
+  const grounded=await request({messages:[{role:'user',text:'Xin nghỉ cần báo trước bao lâu?'}],systemPrompt});
+  assert.equal(grounded.status,200);
+  assert.equal(calls.at(-1)?.body.systemInstruction.parts[0].text,systemPrompt,'document context and answer instructions reach Gemini');
   const probe=await request({action:'check'});
   assert.equal(probe.status,200);assert.deepEqual(probe.body,{connected:true});
   assert.equal(calls.at(-1)?.body.contents[0].parts[0].text,'Reply with OK only.');
