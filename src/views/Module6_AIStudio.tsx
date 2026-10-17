@@ -1,5 +1,7 @@
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
+import { ChatMessageText } from '../components/ChatMessageText';
+import {additionalAIInstructions,responseLength,responseStylePrompt,type ResponseLength} from '../lib/aiResponseStyle';
 import { useBusinessValue,waitForBusinessSave } from '../lib/businessPersistence';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { confirmAction } from '../components/ConfirmAction';
@@ -69,7 +71,7 @@ export const Module6_AIStudio: React.FC = () => {
     }
   ]);
   const [sandboxInput, setSandboxInput] = useState('');
-  const sandboxChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse);
+  const sandboxChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse,ragBotConfig.systemPrompt);
 
   // Filtered categories
   const filteredDocuments = sopDocuments.filter(document => {
@@ -434,6 +436,25 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
 
               <div>
+                <label htmlFor="ai-response-length" className="block font-semibold text-slate-700 mb-1">Độ dài câu trả lời</label>
+                <select id="ai-response-length" value={responseLength(ragBotConfig.systemPrompt)}
+                  onChange={e=>setRagBotConfig(prev=>({...prev,systemPrompt:responseStylePrompt(e.target.value as ResponseLength,additionalAIInstructions(prev.systemPrompt))}))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200">
+                  <option value="short">Ngắn gọn — ưu tiên 2–4 câu</option>
+                  <option value="balanced">Vừa phải — ý chính và giải thích ngắn</option>
+                  <option value="detailed">Chi tiết — giải thích và hướng dẫn từng bước</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">AI vẫn giữ đủ điều kiện quan trọng trong tài liệu dù chọn trả lời ngắn.</p>
+              </div>
+              <div>
+                <label htmlFor="ai-extra-instructions" className="block font-semibold text-slate-700 mb-1">Hướng dẫn bổ sung</label>
+                <textarea id="ai-extra-instructions" rows={3} value={additionalAIInstructions(ragBotConfig.systemPrompt)}
+                  onChange={e=>setRagBotConfig(prev=>({...prev,systemPrompt:responseStylePrompt(responseLength(prev.systemPrompt),e.target.value)}))}
+                  placeholder="Ví dụ: Xưng hô thầy/cô. Nêu ý chính trước, sau đó thêm một lời nhắc thân thiện."
+                  className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed" />
+                <p className="mt-1 text-[11px] text-slate-500">Bấm Lưu cấu hình để lưu lại. Áp dụng cho câu trả lời tiếp theo ở cả chatbot quản trị và giáo viên.</p>
+              </div>
+              <div>
                 <label className="block font-semibold text-slate-700 mb-1">Câu trả lời khi không tìm thấy căn cứ trong tài liệu</label>
                 <textarea
                   rows={3}
@@ -497,7 +518,7 @@ export const Module6_AIStudio: React.FC = () => {
                           : 'bg-slate-50 border border-slate-200 text-slate-700 rounded-tl-sm'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                      <ChatMessageText text={msg.text} format={msg.sender==='ai'} />
                       {msg.matchedDoc && (
                         <div className="mt-2 pt-1.5 border-t border-slate-200 text-[10px] text-slate-400">
                           Trích dẫn: {msg.matchedDoc}

@@ -1,5 +1,6 @@
 import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
+import { ChatMessageText } from '../components/ChatMessageText';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingSessionDetails, teachingScheduleEntries, type TeachingLesson } from '../lib/teachingSessionDetails';
@@ -52,7 +53,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     }
   ]);
   const [chatInput, setChatInput] = useState('');
-  const knowledgeChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse);
+  const knowledgeChat=useKnowledgeChat(sopDocuments,ragBotConfig.personaTone,ragBotConfig.fallbackResponse,ragBotConfig.systemPrompt);
 
   // Hàm xóa đoạn chat làm mới theo yêu cầu
   const handleClearChat = () => {
@@ -783,7 +784,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                         : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
                     }`}
                   >
-                    {msg.text}
+                    <ChatMessageText text={msg.text} format={msg.sender==='bot'} />
                   </div>
                 </div>
               ))}

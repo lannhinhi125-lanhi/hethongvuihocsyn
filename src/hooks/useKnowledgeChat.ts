@@ -3,7 +3,7 @@ import {askGemini,type GeminiChatMessage} from '../lib/geminiClient';
 import {knowledgeAnswerPrompt} from '../lib/knowledgeAnswer';
 import type {SOPDocument} from '../types';
 
-export function useKnowledgeChat(documents:SOPDocument[],tone:string,fallback:string) {
+export function useKnowledgeChat(documents:SOPDocument[],tone:string,fallback:string,instructions='') {
   const [isAnswering,setIsAnswering]=useState(false);
   const request=useRef<AbortController|null>(null);
   const history=useRef<GeminiChatMessage[]>([]);
@@ -18,7 +18,7 @@ export function useKnowledgeChat(documents:SOPDocument[],tone:string,fallback:st
     try{
       const messages=[...history.current,{role:'user' as const,text:query}];
       const contextQuery=[...history.current.filter(item=>item.role==='user').slice(-2).map(item=>item.text),query].join('\n');
-      const text=await askGemini(messages,{systemPrompt:knowledgeAnswerPrompt(contextQuery,documents,tone,fallback),signal:controller.signal});
+      const text=await askGemini(messages,{systemPrompt:knowledgeAnswerPrompt(contextQuery,documents,tone,fallback,instructions),signal:controller.signal});
       if(request.current!==controller)return null;
       history.current=[...messages,{role:'model' as const,text}].slice(-12);
       while(history.current.length && history.current.reduce((total,item)=>total+item.text.length,0)>24_000){
