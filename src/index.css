@@ -101,6 +101,50 @@
 .workspace-table-scroll > table > tbody > tr > td {
   line-height: 1.6;
 }
+
+/* Compact working pages: preserve text size and isolate forms/dialogs from density changes. */
+.workspace-content :where(.p-4, .p-5, .p-6):not(:where(.fixed, .fixed *, dialog, dialog *, [role='dialog'], [role='dialog'] *, [role='alertdialog'], [role='alertdialog'] *)) {
+  padding: 0.75rem;
+}
+.workspace-content :where(.gap-4, .gap-5, .gap-6, .gap-8):not(:where(.fixed, .fixed *, dialog *, [role='dialog'] *, [role='alertdialog'] *)) {
+  gap: 0.75rem;
+}
+.workspace-content :where(.space-y-5, .space-y-6, .space-y-8):not(:where(.fixed, .fixed *, dialog *, [role='dialog'] *, [role='alertdialog'] *)) > :not(:last-child) {
+  margin-block-start: 0;
+  margin-block-end: 0.75rem;
+}
+.workspace-content .grid > :where(div, button):has(> :where(div, strong):is(.text-xl, .text-2xl, .text-3xl)):not(:where(.fixed *, dialog *, [role='dialog'] *, [role='alertdialog'] *)) {
+  padding: 0.5rem 0.75rem;
+}
+.workspace-content .grid > :where(div, button) > :where(div, strong):is(.text-xl, .text-2xl, .text-3xl):not(:where(.fixed *, dialog *, [role='dialog'] *, [role='alertdialog'] *)) {
+  margin-top: 0.125rem;
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+.workspace-content :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), select):not(:where(.fixed *, dialog *, [role='dialog'] *, [role='alertdialog'] *)),
+.workspace-filter :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), select) {
+  height: 2rem;
+  min-height: 2rem;
+  padding-block: 0.25rem;
+  border-radius: 0.5rem;
+}
+.workspace-content button[class*='px-']:not(:where([class*='h-'], [class*='rounded-full'], .fixed *, dialog *, [role='dialog'] *, [role='alertdialog'] *)),
+.workspace-filter button[class*='px-'] {
+  padding-block: 0.375rem;
+}
+.workspace-content :where(th, td):not(:where(.fixed *, dialog *, [role='dialog'] *, [role='alertdialog'] *)) {
+  padding-block: 0.5rem;
+}
+.workspace-content thead :where(input:not([type='checkbox']):not([type='radio']), select) {
+  height: 1.75rem;
+  min-height: 1.75rem;
+}
+@media (pointer: coarse) {
+  .workspace-content :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), select),
+  .workspace-filter :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), select) {
+    min-height: 2.5rem;
+  }
+}
 @media print {
   .workspace-table-scroll {
     max-height: none;

@@ -34,7 +34,7 @@ export function WorkbenchAnalytics({section,range,period}:{section:'enrollment'|
  const points=(key:'students'|'classes')=>data.growth.map((g,i)=>`${30+i*540/Math.max(1,data.growth.length-1)},${140-g[key]/max*115}`).join(' ');
  return <div className="space-y-4">
   <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="text-sm font-bold text-slate-800"><InfoTitle title={section==='enrollment'?'Học sinh & lớp học hiện tại':'Theo dõi chất lượng đào tạo'}><p>{section==='enrollment'?'Tổng hợp toàn bộ hồ sơ hiện có từ dữ liệu đã tải, không lọc ngày tạo. Mỗi mã học sinh hoặc mã lớp chỉ tính một lần; tổng lớp gồm cả lớp chờ khai giảng, tạm dừng và đã kết thúc.':'Sự cố tính theo ngày buổi học; dự giờ theo ngày đánh giá và chỉ lấy biên bản đã duyệt.'}</p></InfoTitle></h2>
-   <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map((m,i)=><div key={m.label} className="rounded-lg bg-slate-50 px-3 py-2"><span className="text-[11px] text-slate-600">{m.label}</span><strong className="mt-0.5 block text-xl text-slate-900">{m.value}</strong>{section==='quality'&&<MetricComparison {...qualityComparison[i]} label={comparison.label}/>}</div>)}</div>
+   <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map((m,i)=><div key={m.label} className="rounded-lg bg-slate-50 px-3 py-2"><span className="text-[11px] text-slate-600">{m.label}</span><strong className="mt-0.5 block text-xl text-orange-600">{m.value}</strong>{section==='quality'&&<MetricComparison {...qualityComparison[i]} label={comparison.label}/>}</div>)}</div>
   </section>
   {section==='enrollment'?<>
    <WorkbenchGrowth data={data} previous={previous} comparison={comparison} range={range}/>

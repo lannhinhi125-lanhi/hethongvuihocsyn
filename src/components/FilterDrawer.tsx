@@ -35,9 +35,9 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
       {/* Drawer content slide in from right */}
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200 filter-drawer-enter">
+        <div className="workspace-filter w-screen max-w-sm bg-white shadow-2xl flex flex-col border-l border-slate-200 filter-drawer-enter">
           {/* Header */}
-          <div className="p-5 border-b border-orange-100 bg-orange-50/40 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-orange-100 bg-orange-50/40 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
                 <Filter className="w-4 h-4" />
@@ -66,12 +66,12 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {children}
           </div>
 
           {/* Footer */}
-          <div className="p-4 px-5 border-t border-slate-200 bg-white flex items-center justify-between gap-3 shadow-xs">
+          <div className="px-4 py-3 border-t border-slate-200 bg-white flex items-center justify-between gap-2 shadow-xs">
             {onReset && (
               <button
                 type="button"

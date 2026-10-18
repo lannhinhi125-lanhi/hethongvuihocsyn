@@ -63,13 +63,13 @@ const MainLayout: React.FC = () => {
         <Header onLogout={() => { void logoutAccount(); setMobileMenuOpen(false); }} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         {/* Scrollable Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
+        <main className="workspace-content flex-1 overflow-y-auto p-3 sm:p-4 min-w-0">
           {business.loading && <p role="status" className="mb-4 rounded-lg bg-blue-50 p-3 text-sm">Đang tải dữ liệu…</p>}
           {business.error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm">{business.error} <button className="underline" onClick={()=>void loadBusinessData()}>Tải lại dữ liệu</button></p>}
           {session.saving && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm">Đang lưu…</p>}
           {session.error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Không lưu được: {session.error} <button onClick={()=>void refreshAccountSession()} className="underline">Tải lại dữ liệu</button></p>}
           {session.saved && !session.saving && !session.error && <p role="status" className="mb-4 text-sm text-green-700">Lưu thành công.</p>}
-          <div className="max-w-7xl mx-auto w-full">
+          <div className="max-w-[1600px] mx-auto w-full">
             {workspaceMode === 'ADMIN' && accountPortal(currentUser, roleGroups) === 'ADMIN' ? (
               // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================
               <>

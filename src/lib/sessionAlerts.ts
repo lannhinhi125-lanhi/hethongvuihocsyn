@@ -12,6 +12,8 @@ export const hasSessionStartPassed = (sessionDate: string, timeSlot: string, now
 };
 
 export type MonitoringSessionState = 'CHUA_DIEN_RA' | 'CHUA_HOC' | 'DANG_HOC' | 'CHUA_HOAN_TAT' | 'DA_HOC' | 'NGHI_HOC';
+export const monitoringSessionPriority = (state: MonitoringSessionState): number =>
+  ({CHUA_HOC:0,CHUA_HOAN_TAT:1,DANG_HOC:2,CHUA_DIEN_RA:3,DA_HOC:4,NGHI_HOC:5})[state];
 
 /** Scheduled time alone never proves that a teacher taught or completed a lesson. */
 export const monitoringSessionStatus = (session: {

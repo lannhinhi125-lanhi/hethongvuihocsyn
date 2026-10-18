@@ -1,11 +1,14 @@
 import { canTeachClassModel } from '../lib/teachingModelGroups';
+import {MonitoringPeriodToolbar} from '../components/MonitoringPeriodToolbar';
+import {workbenchRange} from '../lib/workbenchTime';
+import {reportToday} from '../lib/customReports';
 import { monitoringSubjectCode, selectedMonitoringSubject } from '../lib/monitoringSubjects';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
 import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
-import { monitoringSessionStatus, isEarlyCheckout, minutesEndedEarly, type MonitoringSessionState } from '../lib/sessionAlerts';
+import { monitoringSessionStatus, monitoringSessionPriority, isEarlyCheckout, minutesEndedEarly, type MonitoringSessionState } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -77,15 +80,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
 
   // Phạm vi thời gian đang xem
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  });
-  const [dateFrom, setDateFrom] = useState<string>(() => selectedDate);
-  const [dateTo, setDateTo] = useState<string>(() => selectedDate);
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => selectedDate.slice(0, 7));
-  const [specificDate, setSpecificDate] = useState('');
-
+  const [monitoringPeriod,setMonitoringPeriod]=useState<'day'|'week'>('day');
+  const [monitoringRange,setMonitoringRange]=useState(()=>workbenchRange(reportToday(),'day'));
+  const dateFrom=monitoringRange.start,dateTo=monitoringRange.end;
   // Tab chính
   const [activeTab, setActiveTab] = useState<'diary' | 'incidents'>('diary');
 
@@ -126,14 +123,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   }, [classes]);
 
   useEffect(() => {
-    const startDate = dateFrom || (selectedMonth !== 'ALL' ? `${selectedMonth}-01` : (() => {
-      const today = new Date();
-      today.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    })());
-    const endDate = dateTo || (selectedMonth !== 'ALL'
-      ? `${selectedMonth}-${String(new Date(Number(selectedMonth.slice(0, 4)), Number(selectedMonth.slice(5, 7)), 0).getDate()).padStart(2, '0')}`
-      : startDate);
+    const startDate=dateFrom,endDate=dateTo;
     const start = new Date(`${startDate}T00:00:00`);
     const end = new Date(`${endDate}T00:00:00`);
     const generated: MonitoringSession[] = [];
@@ -238,7 +228,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       });
       return merged;
     });
-  }, [classes, students, levels, dateFrom, dateTo, selectedMonth, persistedLessons, persistedIncidents, users]);
+  }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users]);
 
   // Bộ lọc cột cho Tab 1 (Nhật ký & Giám sát buổi học)
   const [colFilterCode, setColFilterCode] = useState('');
@@ -345,49 +335,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   // Điều hướng chuyển ngày nhanh
-  const navigateDate = (delta: number) => {
-    const parts = selectedDate.split('-');
-    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    d.setDate(d.getDate() + delta);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const nextDate = `${y}-${m}-${day}`;
-    setSelectedDate(nextDate);
-    setSpecificDate(nextDate);
-    setDateFrom(nextDate);
-    setDateTo(nextDate);
-  };
-
-  const applyWeekFilter = (offset: number) => {
-    const monday = new Date();
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + offset * 7);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    const toInputDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    const start = toInputDate(monday);
-    setDateFrom(start);
-    setDateTo(toInputDate(sunday));
-    setSelectedDate(start);
-    setSpecificDate('');
-    setSelectedMonth(start.slice(0, 7));
-  };
-
-  const applyMonthFilter = (month: string) => {
-    setSelectedMonth(month);
-    setSpecificDate('');
-    if (month === 'ALL') {
-      setDateFrom('');
-      setDateTo('');
-      return;
-    }
-    const [year, monthNumber] = month.split('-').map(Number);
-    setDateFrom(`${month}-01`);
-    setDateTo(`${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, '0')}`);
-  };
-
-  // Lọc theo phạm vi ngày / tuần / tháng
   const [testTimeMode, setTestTimeMode] = useState<'12:50' | '12:45' | '13:05' | 'REALTIME'>('REALTIME');
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
@@ -419,29 +366,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     return 'hover:bg-slate-50/80 border-b border-slate-100';
   };
 
-  const dateFilteredSessions = sessions.filter(s => {
-    if (!s.sessionDate) return true;
-    if (specificDate) return s.sessionDate === specificDate;
-    if (dateFrom && dateTo) {
-      return s.sessionDate >= dateFrom && s.sessionDate <= dateTo;
-    }
-    if (dateFrom) return s.sessionDate >= dateFrom;
-    if (dateTo) return s.sessionDate <= dateTo;
-    if (selectedMonth && selectedMonth !== 'ALL') {
-      return s.sessionDate.startsWith(selectedMonth);
-    }
-    return true;
-  });
-  const formatMonitoringDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-  const today = new Date();
-  const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const periodStart = specificDate || dateFrom;
-  const periodEnd = specificDate || dateTo;
-  const viewingToday = periodStart === todayString && periodEnd === todayString;
+  const dateFilteredSessions=sessions.filter(session=>session.sessionDate>=dateFrom&&session.sessionDate<=dateTo);
+  const viewingToday=dateFrom===reportToday()&&dateTo===reportToday();
 
   const classForSession = (session: MonitoringSession) => classes.find(item => item.code === session.classCode);
   const classCategoryForSession = (session: MonitoringSession) => {
@@ -473,7 +399,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (colFilterAttendance !== 'ALL' && s.attendance !== colFilterAttendance) return false;
     if (colFilterStatus !== 'ALL' && studyStatus(s) !== colFilterStatus) return false;
     return true;
-  });
+  }).sort((a,b)=>(viewingToday?monitoringSessionPriority(studyStatus(a))-monitoringSessionPriority(studyStatus(b)):0)||
+    a.sessionDate.localeCompare(b.sessionDate)||a.timeSlot.localeCompare(b.timeSlot)||a.classCode.localeCompare(b.classCode));
 
   // Lọc Tab 2
   const incidentFilteredSessions = dateFilteredSessions.filter(s => {
@@ -800,6 +727,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           </button>
         </div>
       </div>
+      <MonitoringPeriodToolbar range={monitoringRange} period={monitoringPeriod} onChange={(range,period)=>{setMonitoringRange(range);setMonitoringPeriod(period);}}/>
       <div role="tablist" aria-label="Môn học giám sát" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1">
         {subjectTabs.map(subject=><button key={subject.code} id={'monitoring-subject-'+subject.code} type="button" role="tab" aria-selected={selectedSubjectCode===subject.code} aria-controls="monitoring-subject-content" onClick={()=>selectMonitoringSubject(subject.code)} className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${selectedSubjectCode===subject.code?'bg-orange-50 text-[#FF5C00] ring-1 ring-orange-200':'text-slate-600 hover:bg-slate-50'}`}>
           {subject.name}<span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] leading-none">{dateFilteredSessions.filter(session=>subjectCodeForSession(session)===subject.code).length}</span>
@@ -812,18 +740,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'diary' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <h2 className="text-sm font-bold text-slate-800">
-              {viewingToday ? 'Các ca dạy hôm nay' : 'Các ca dạy theo thời gian đã chọn'}
-            </h2>
-            <span className="text-xs font-medium text-slate-500">
-              {periodStart && periodEnd
-                ? periodStart === periodEnd
-                  ? formatMonitoringDate(periodStart)
-                  : `${formatMonitoringDate(periodStart)} - ${formatMonitoringDate(periodEnd)}`
-                : 'Tất cả thời gian'}
-            </span>
-          </div>
           {/* 4 Thẻ KPI Tab 1 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div className="bg-white p-4 rounded-2xl border border-slate-200">
@@ -1840,17 +1756,14 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         isOpen={isTimeFilterOpen}
         onClose={() => setIsTimeFilterOpen(false)}
         title="Bộ lọc giám sát ca"
-        subtitle="Chọn nhanh tuần, ngày cụ thể và tiêu chí lớp học"
+        subtitle="Lọc theo lớp, khối, trình độ và khung giờ"
         activeCount={[
-          Boolean(specificDate),
           Boolean(filterCategory !== 'ALL'),
           Boolean(filterGrade !== 'ALL'),
           Boolean(filterLevel !== 'ALL'),
           Boolean(colFilterTime !== 'ALL')
         ].filter(Boolean).length}
         onReset={() => {
-          setSpecificDate('');
-          applyWeekFilter(0);
           setColFilterTime('ALL');
           setFilterCategory('ALL');
           setFilterGrade('ALL');
@@ -1859,33 +1772,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
         onApply={() => setIsTimeFilterOpen(false)}
       >
         <div className="space-y-5 text-xs">
-          <section className="space-y-3">
-            <div className="font-semibold text-slate-800">Thời gian</div>
-            <div className="grid grid-cols-3 gap-2">
-              {[-1, 0, 1].map(offset => <button key={offset} type="button" onClick={() => applyWeekFilter(offset)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 font-semibold text-slate-700 hover:border-orange-300 hover:bg-orange-50 hover:text-[#FF5C00]">
-                {offset === -1 ? 'Tuần trước' : offset === 0 ? 'Tuần này' : 'Tuần sau'}
-              </button>)}
-            </div>
-            <label className="block font-medium text-slate-600">Tháng
-              <select value={selectedMonth} onChange={event => applyMonthFilter(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
-                <option value="ALL">Tất cả tháng</option>
-                {Array.from(new Set(sessions.map(session => session.sessionDate.slice(0, 7)))).sort().map(month => <option key={month} value={month}>{month.slice(5, 7)}/{month.slice(0, 4)}</option>)}
-              </select>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="font-medium text-slate-600">Từ ngày
-                <input type="date" value={dateFrom} onChange={event => { setDateFrom(event.target.value); setSpecificDate(''); }} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-slate-800" />
-              </label>
-              <label className="font-medium text-slate-600">Đến ngày
-                <input type="date" value={dateTo} onChange={event => { setDateTo(event.target.value); setSpecificDate(''); }} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-slate-800" />
-              </label>
-            </div>
-            <label className="block font-medium text-slate-600">Hoặc chọn một ngày trong tuần
-              <input type="date" value={specificDate} min={dateFrom || undefined} max={dateTo || undefined} onChange={event => setSpecificDate(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-800" />
-            </label>
-          </section>
 
-          <section className="space-y-3 border-t border-slate-100 pt-4">
+
+          <section className="space-y-3">
             <div className="font-semibold text-slate-800">Thông tin lớp</div>
             <label className="block font-medium text-slate-600">Loại lớp
               <select value={filterCategory} onChange={event => setFilterCategory(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
