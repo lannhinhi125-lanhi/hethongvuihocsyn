@@ -1,4 +1,5 @@
 import type { ClassItem, StudentRecord, TeacherProfile } from '../types';
+import {studentMultiEnrollmentReport} from './studentMultiEnrollmentReport';
 import { makeReportDatasets } from './reportDatasets';
 import { operationalReportDatasets, type ReportLookups } from './operationalReportDatasets';
 import { reportCreationDate } from './reportCreationDate';
@@ -121,5 +122,7 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
   };
   const detail = [...basics, endingClasses, registrationPeriods, ...operational, teacherInspection];
   attachReportCatalogs(detail, { classes, students, teachers, lookups });
-  return { custom: [...basics, endingClasses, registrationPeriods, ...operational], detail };
+  const multiEnrollment=studentMultiEnrollmentReport(students,classes,lookups.subjects || [],lookups.teachingCategories?.flatMap(category=>category.options) || []);
+  detail.push(multiEnrollment);
+  return { custom: [...basics, endingClasses, registrationPeriods, multiEnrollment, ...operational], detail };
 }
