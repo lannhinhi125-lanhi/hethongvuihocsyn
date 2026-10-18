@@ -1,3 +1,4 @@
+import { ReportSelect } from './ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { EmptyState } from './EmptyState';
 import { useBusinessValue } from '../lib/businessPersistence';
@@ -117,7 +118,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
         {!selected ? children : <CatalogTreeBranch key={selected.id} title={selected.name} code={selected.code} count={selected.entries.length} disabled={!canEdit} addLabel="Thêm giá trị" onAdd={() => open('entry')} revealKey={entryQuery || (status !== 'all' ? status : '')}>
           <div className="space-y-3 p-4">
             <p className="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500">Chưa liên kết phân hệ · Danh mục này hiện lưu trên trình duyệt. Tạo danh mục con chỉ phân loại dữ liệu, chưa thêm trường vào biểu mẫu nghiệp vụ.</p>
-            <div className="flex flex-wrap gap-2"><input aria-label="Tìm giá trị danh mục" placeholder="Tìm theo mã hoặc tên..." value={entryQuery} onChange={event => setEntryQuery(event.target.value)} className={input + ' max-w-sm'} /><select aria-label="Lọc trạng thái giá trị" value={status} onChange={event => setStatus(event.target.value)} className={input + ' max-w-44'}><option value="all">Tất cả trạng thái</option><option value="active">Đang áp dụng</option><option value="inactive">Tạm dừng</option></select></div>
+            <div className="flex flex-wrap gap-2"><input aria-label="Tìm giá trị danh mục" placeholder="Tìm theo mã hoặc tên..." value={entryQuery} onChange={event => setEntryQuery(event.target.value)} className={input + ' max-w-sm'} /><ReportSelect aria-label="Lọc trạng thái giá trị" value={status} onChange={event => setStatus(event.target.value)} className={input + ' max-w-44'}><option value="all">Tất cả trạng thái</option><option value="active">Đang áp dụng</option><option value="inactive">Tạm dừng</option></ReportSelect></div>
           </div>
           <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-600"><tr>{['Mã', 'Tên giá trị', 'Mô tả', 'Trạng thái', 'Thao tác'].map(label => <th key={label} scope="col" className="px-4 py-3">{label}</th>)}</tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
             {rows.map(entry => <tr key={entry.id}><td className="px-4 py-3 font-mono text-orange-700">{entry.code}</td><td className="px-4 py-3 font-semibold text-slate-800">{entry.name}</td><td className="px-4 py-3 text-slate-500">{entry.desc || '—'}</td><td className="px-4 py-3"><label className="inline-flex items-center gap-2 whitespace-nowrap"><input type="checkbox" disabled={!canEdit} checked={entry.status} onChange={event => persist(catalogs.map(item => item.id === selected.id ? { ...item, entries: item.entries.map(row => row.id === entry.id ? { ...row, status: event.target.checked } : row) } : item))} className="accent-orange-600" />{entry.status ? 'Đang áp dụng' : 'Tạm dừng'}</label></td><td className="px-4 py-3"><button type="button" disabled={!canEdit} aria-label={'Sửa ' + entry.name} className={button} onClick={() => open('entry', entry)}><Pencil className="h-3.5 w-3.5" />Sửa</button></td></tr>)}
@@ -149,7 +150,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
         <div className="flex items-center justify-between"><h3 id="catalog-dialog-title" className="text-sm font-bold text-slate-800">{dialog === 'catalog' ? parentId ? 'Thêm danh mục con' : 'Thêm danh mục' : editingId ? 'Sửa giá trị' : 'Thêm giá trị'}</h3><button type="button" aria-label="Đóng" onClick={() => setDialog(null)}><X className="h-4 w-4" /></button></div>
         {dialog === 'catalog' && <>
           <p className="text-xs text-slate-500">Chọn danh mục cha để tạo nhánh con, hoặc chọn cấp cao nhất để tạo danh mục độc lập.</p>
-          <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Danh mục cha</span><select value={parentId} onChange={event => setParentId(event.target.value)} className={input}>
+          <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Danh mục cha</span><ReportSelect value={parentId} onChange={event => setParentId(event.target.value)} className={input}>
             <option value="">Không có — Danh mục cấp cao nhất</option>
             {items.map(item => <option key={item.id} value={item.id}>{item.group} / {item.name}</option>)}
             {catalogs.map(item => {
@@ -162,7 +163,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
               }
               return <option key={item.id} value={item.id}>{names.join(' / ')}</option>;
             })}
-          </select></label>
+          </ReportSelect></label>
         </>}
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Mã *</span><input autoFocus required maxLength={40} pattern="[A-Za-z0-9_-]+" title="Dùng chữ không dấu, số, dấu gạch ngang hoặc gạch dưới." value={code} onChange={event => setCode(event.target.value)} className={input} placeholder={dialog === 'catalog' ? 'NGUON_TUYEN_SINH' : 'GIOI_THIEU'} /></label>
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Tên *</span><input required maxLength={100} value={name} onChange={event => setName(event.target.value)} className={input} /></label>

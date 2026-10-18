@@ -1,3 +1,5 @@
+import { ReportSelect } from '../components/ReportSelect';
+import { RowActionMenu } from '../components/RowActionMenu';
 import { classEndDate, CLASS_DURATION_CODE, type ClassDurationCatalog } from '../lib/classDuration';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
@@ -1341,8 +1343,10 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <td className="px-3 py-3"><div className="flex items-center justify-center gap-1">
                       <button type="button" onClick={() => setViewingDetailStudent(student)} title="Chi tiết học sinh và phụ huynh" className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><Eye className="w-3.5 h-3.5" /></button>
                       <button type="button" onClick={() => openEditStudent(student)} title="Sửa thông tin và ghép lớp" className="p-1.5 rounded hover:bg-orange-50 text-[#FF5C00]"><Pencil className="w-3.5 h-3.5" /></button>
-                      {student.status==='Đã thôi học'&&<button type="button" onClick={()=>openReenrollment(student)} className="whitespace-nowrap rounded-lg border border-emerald-200 px-2 py-1 text-emerald-700">Đăng ký học lại</button>}
-                      <button type="button" onClick={() => openAddSubject(student)} disabled={!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy') || !availableAdditionalSubjects(student).length} title="Đăng ký thêm môn trên cùng mã học sinh" className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-indigo-200 px-2 py-1 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"><PlusCircle className="w-3.5 h-3.5" />Học thêm môn</button>
+                      <RowActionMenu label={'Thao tác khác của '+student.name+' · '+student.id} actions={[
+                        ...(student.status==='Đã thôi học'?[{label:'Đăng ký học lại',onSelect:()=>openReenrollment(student),disabled:!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')}]:[]),
+                        {label:'Học thêm môn',onSelect:()=>openAddSubject(student),disabled:!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')||!availableAdditionalSubjects(student).length}
+                      ]}/>
                       <button type="button" onClick={() => setPendingDelete({ type: 'student', id: student.id, name: student.name })} title="Xóa học sinh" className="p-1.5 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div></td>
                   </tr>)}
@@ -1450,24 +1454,24 @@ export const Module4_StudentsClasses: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-2xs">
             <label className="flex items-center gap-2 font-semibold text-slate-600">Tháng
-              <select aria-label="Tháng học liệu" value={materialMonthFilter} onChange={event => {
+              <ReportSelect aria-label="Tháng học liệu" value={materialMonthFilter} onChange={event => {
                 const month=event.target.value;
                 setMaterialMonthFilter(month);
                 setMaterialWeekFilter(month ? weeksForMonth(month)[0] || '' : '');
               }} className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 font-normal text-slate-800">
                 <option value="">Tất cả tháng</option>
                 {batchMonths.map(month=><option key={month} value={month}>{month}</option>)}
-              </select>
+              </ReportSelect>
             </label>
             <label className="flex min-w-0 max-w-full items-center gap-2 font-semibold text-slate-600">Tuần
-              <select aria-label="Tuần học liệu" value={materialWeekFilter} onChange={event => {
+              <ReportSelect aria-label="Tuần học liệu" value={materialWeekFilter} onChange={event => {
                 const week=event.target.value;
                 setMaterialWeekFilter(week);
                 if(week)setMaterialMonthFilter(monthFromTeachingWeek(week));
               }} className="h-8 min-w-0 max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 font-normal text-slate-800">
                 <option value="">Tất cả tuần</option>
                 {weeksForFilterMonth.map(week=><option key={week} value={week}>{week}</option>)}
-              </select>
+              </ReportSelect>
             </label>
             <button type="button" onClick={()=>applyMaterialWeek(0)} className="h-8 rounded-lg border border-orange-200 bg-orange-50 px-2.5 font-semibold text-orange-700 hover:bg-orange-100">Tuần này</button>
           </div>
@@ -1631,11 +1635,11 @@ export const Module4_StudentsClasses: React.FC = () => {
               <fieldset className="space-y-3"><legend className="font-semibold text-[#FF5C00] mb-2">Thông tin học tập</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="block text-slate-600">Họ và tên học sinh *<input type="text" required value={stdName} onChange={e => setStdName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label>
-                  <label className="block text-slate-600">Khối<select required disabled={studentGradeLocked} value={stdGrade} onChange={e => setStdGrade(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn khối</option>{gradeOptions.map(item => ({value:item.id,label:item.label})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdGrade && !gradeOptions.map(item => ({value:item.id,label:item.label})).some(item => item.value === stdGrade) && <option value={stdGrade}>{stdGrade} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Môn học<select required disabled={isReenrolling} value={stdSubject} onChange={e => selectStudentSubject(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn môn học</option>{formSubjectOptions.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdSubject && !activeSubjects.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdSubject) && <option value={stdSubject}>{stdSubject} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Trình độ<select required disabled={studentStudyFieldsLocked} value={stdLevel} onChange={e => setStdLevel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn trình độ</option>{activeLevels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdLevel && !activeLevels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdLevel) && <option value={stdLevel}>{stdLevel} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Mô hình lớp<select required disabled={studentStudyFieldsLocked} value={stdModel} onChange={e => setStdModel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn mô hình lớp</option>{activeModels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdModel && !activeModels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdModel) && <option value={stdModel}>{stdModel} (đã lưu)</option>}</select></label>
-                  <label className="block text-slate-600">Trạng thái<select disabled={Boolean(assignedClass(editingSubjectProfile))} value={stdStatus} onChange={e => setStdStatus(e.target.value as StudentRecord['status'])} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg">{['Chờ xếp lớp','Đang học','Bảo lưu','Đã thôi học'].map(status => <option key={status}>{status}</option>)}</select></label>
+                  <label className="block text-slate-600">Khối<ReportSelect required disabled={studentGradeLocked} value={stdGrade} onChange={e => setStdGrade(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn khối</option>{gradeOptions.map(item => ({value:item.id,label:item.label})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdGrade && !gradeOptions.map(item => ({value:item.id,label:item.label})).some(item => item.value === stdGrade) && <option value={stdGrade}>{stdGrade} (đã lưu)</option>}</ReportSelect></label>
+                  <label className="block text-slate-600">Môn học<ReportSelect required disabled={isReenrolling} value={stdSubject} onChange={e => selectStudentSubject(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn môn học</option>{formSubjectOptions.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdSubject && !activeSubjects.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdSubject) && <option value={stdSubject}>{stdSubject} (đã lưu)</option>}</ReportSelect></label>
+                  <label className="block text-slate-600">Trình độ<ReportSelect required disabled={studentStudyFieldsLocked} value={stdLevel} onChange={e => setStdLevel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn trình độ</option>{activeLevels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdLevel && !activeLevels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdLevel) && <option value={stdLevel}>{stdLevel} (đã lưu)</option>}</ReportSelect></label>
+                  <label className="block text-slate-600">Mô hình lớp<ReportSelect required disabled={studentStudyFieldsLocked} value={stdModel} onChange={e => setStdModel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn mô hình lớp</option>{activeModels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdModel && !activeModels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdModel) && <option value={stdModel}>{stdModel} (đã lưu)</option>}</ReportSelect></label>
+                  <label className="block text-slate-600">Trạng thái<ReportSelect disabled={Boolean(assignedClass(editingSubjectProfile))} value={stdStatus} onChange={e => setStdStatus(e.target.value as StudentRecord['status'])} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg">{['Chờ xếp lớp','Đang học','Bảo lưu','Đã thôi học'].map(status => <option key={status}>{status}</option>)}</ReportSelect></label>
                 </div>
               </fieldset>
               <fieldset className="border-t border-slate-100 pt-3 space-y-2"><legend className="font-semibold text-slate-800">Liên hệ phụ huynh</legend>
@@ -1821,11 +1825,11 @@ export const Module4_StudentsClasses: React.FC = () => {
                   return periods.map((row,index)=><div key={row.subject+'-'+(row.periodNumber||index)} className="rounded-lg border border-slate-200 p-3 text-xs"><div className="font-semibold">Đợt {row.periodNumber||index+1} · {row.registrationKind==='RETURNING'?'Đăng ký học lại':row.registrationKind==='ADDITIONAL'?'Đăng ký thêm môn':row.registrationKind==='FIRST'?'Đăng ký lần đầu':'Đăng ký trước nâng cấp'}</div><p className="mt-1">{row.registeredAt?new Date(row.registeredAt).toLocaleDateString('vi-VN',{timeZone:'Asia/Bangkok'}):'Chưa có ngày đăng ký'} · {row.status} · {levelName(row.level)} · {row.model}</p><p className="mt-1 text-slate-500">{row.scheduleSlots.join(', ')||'Chưa đăng ký lịch'}</p></div>);
                 })()}</section>
                 <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-bold text-slate-800">Lịch sử lớp học · {subjectName(viewingDetailStudent.subject)}</h4>
-                  <select aria-label="Môn xem lịch sử lớp học" value={viewingDetailStudent.subject} className="rounded-lg border border-slate-200 px-2 py-1 text-xs" onChange={event=>{
+                  <ReportSelect aria-label="Môn xem lịch sử lớp học" value={viewingDetailStudent.subject} className="rounded-lg border border-slate-200 px-2 py-1 text-xs" onChange={event=>{
                     const profile=studentProfiles.find(item=>item.id===viewingDetailStudent.id) || viewingDetailStudent;
                     const selected=studentForSubject(profile,event.target.value);
                     if(selected)setViewingDetailStudent(selected);
-                  }}>{studentRegistrations(studentProfiles.find(item=>item.id===viewingDetailStudent.id) || viewingDetailStudent).map(registration=><option key={registration.subject} value={registration.subject}>{subjectName(registration.subject)}</option>)}</select>
+                  }}>{studentRegistrations(studentProfiles.find(item=>item.id===viewingDetailStudent.id) || viewingDetailStudent).map(registration=><option key={registration.subject} value={registration.subject}>{subjectName(registration.subject)}</option>)}</ReportSelect>
                 </div>
                 <p className="text-xs text-slate-500">Chỉ hiển thị ghép, rời và chuyển lớp của môn đang chọn. Dòng hiện trạng ban đầu không xác nhận ngày ghép lịch sử.</p>
                 <div role="region" aria-label="Lịch sử lớp học" tabIndex={0}><PaginatedList key={viewingDetailStudent.id+viewingDetailStudent.subject} className="space-y-2 max-h-72 overflow-y-auto overscroll-contain pr-2 print:max-h-none print:overflow-visible">{(() => {
@@ -1884,9 +1888,9 @@ export const Module4_StudentsClasses: React.FC = () => {
               {classSaveError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">Chưa lưu được lớp học: {classSaveError}. Thông tin bạn nhập vẫn được giữ để thử lại.</p>}
               <fieldset disabled={savingClass} className="contents">
               {!editingClassId && <label className="block font-semibold text-slate-700">Năm học tạo lớp
-                <select aria-label="Năm học tạo lớp" value={clsSchoolYear} onChange={event => setClsSchoolYear(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">
+                <ReportSelect aria-label="Năm học tạo lớp" value={clsSchoolYear} onChange={event => setClsSchoolYear(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">
                   {Array.from({ length: 12 }, (_, index) => 2020 + index).map(year => <option key={year} value={String(year)}>{year} - {year + 1}</option>)}
-                </select>
+                </ReportSelect>
               </label>}
               <section className="border border-orange-200 rounded-xl p-3 bg-orange-50/40 space-y-2">
                 <div className="flex justify-between gap-2"><h4 className="font-semibold text-[#FF5C00]">Chọn học sinh chờ lớp</h4><span className="text-[11px] text-slate-500">Đã chọn: {clsSelectedStudentIds.length}/{models.find(item => item.code === clsModel)?.maxStudents || 0}</span></div>
@@ -1926,12 +1930,12 @@ export const Module4_StudentsClasses: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="font-semibold text-slate-700">Loại lớp<select required value={clsCategory} onChange={event => { const category = teachingCategories.find(item => item.id === event.target.value); setClsCategory(event.target.value); setClsGrade(category?.options[0]?.id || ''); }} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn loại lớp</option>{teachingCategories.filter(item => item.status !== false || item.id === clsCategory).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                <label className="font-semibold text-slate-700">Khối lớp<select required value={clsGrade} onChange={event => setClsGrade(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn khối lớp</option>{teachingCategories.find(item => item.id === clsCategory)?.options.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-                <label className="font-semibold text-slate-700">Môn học<select required value={clsSubject} onChange={event => setClsSubject(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{subjects.filter(item => item.status || item.code === clsSubject).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</select></label>
-                <label className="font-semibold text-slate-700">Mô hình lớp<select required value={clsModel} onChange={event => setClsModel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{models.filter(item => !isTeachingModelParent(item.code) && (item.status || item.code === clsModel)).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</select></label>
-                <label className="font-semibold text-slate-700">Trình độ<select required value={clsLevel} onChange={event => setClsLevel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{levels.filter(item => item.status || item.code === clsLevel).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</select></label>
-                <label className="font-semibold text-slate-700">Trạng thái<select value={clsStatus} onChange={event => setClsStatus(event.target.value as NonNullable<ClassItem['status']>)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{classStatuses.map(value => <option key={value}>{value}</option>)}</select></label>
+                <label className="font-semibold text-slate-700">Loại lớp<ReportSelect required value={clsCategory} onChange={event => { const category = teachingCategories.find(item => item.id === event.target.value); setClsCategory(event.target.value); setClsGrade(category?.options[0]?.id || ''); }} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn loại lớp</option>{teachingCategories.filter(item => item.status !== false || item.id === clsCategory).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportSelect></label>
+                <label className="font-semibold text-slate-700">Khối lớp<ReportSelect required value={clsGrade} onChange={event => setClsGrade(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn khối lớp</option>{teachingCategories.find(item => item.id === clsCategory)?.options.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label>
+                <label className="font-semibold text-slate-700">Môn học<ReportSelect required value={clsSubject} onChange={event => setClsSubject(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{subjects.filter(item => item.status || item.code === clsSubject).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</ReportSelect></label>
+                <label className="font-semibold text-slate-700">Mô hình lớp<ReportSelect required value={clsModel} onChange={event => setClsModel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{models.filter(item => !isTeachingModelParent(item.code) && (item.status || item.code === clsModel)).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</ReportSelect></label>
+                <label className="font-semibold text-slate-700">Trình độ<ReportSelect required value={clsLevel} onChange={event => setClsLevel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{levels.filter(item => item.status || item.code === clsLevel).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</ReportSelect></label>
+                <label className="font-semibold text-slate-700">Trạng thái<ReportSelect value={clsStatus} onChange={event => setClsStatus(event.target.value as NonNullable<ClassItem['status']>)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{classStatuses.map(value => <option key={value}>{value}</option>)}</ReportSelect></label>
               </div>
 
               {/* Link phòng học */}
@@ -1950,7 +1954,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
               {/* Lịch học & Giáo viên */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="font-semibold">Thời hạn lớp học<select required={!editingClassId} value={clsDurationMonths} onChange={event=>setClsDurationMonths(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"><option value="">{editingClassId?'Chưa có thời hạn':'Chọn thời hạn'}</option>{durationEntries.filter(row=>row.status||row.code===clsDurationMonths).map(row=><option key={row.id} value={row.code}>{row.name}</option>)}</select></label>
+                <label className="font-semibold">Thời hạn lớp học<ReportSelect required={!editingClassId} value={clsDurationMonths} onChange={event=>setClsDurationMonths(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"><option value="">{editingClassId?'Chưa có thời hạn':'Chọn thời hạn'}</option>{durationEntries.filter(row=>row.status||row.code===clsDurationMonths).map(row=><option key={row.id} value={row.code}>{row.name}</option>)}</ReportSelect></label>
                 <label className="font-semibold">Ngày kết thúc<input type="text" readOnly value={classEndDate(clsStartDate,Number(clsDurationMonths)).split('-').reverse().join('/')} className="block w-full mt-1 border rounded-lg bg-slate-50 p-2"/><span className="text-xs text-slate-500 font-normal">Tự tính từ ngày bắt đầu và thời hạn; không sinh buổi sau ngày này.</span></label>
               </div>
               <label className="block font-semibold text-slate-700">
@@ -1984,7 +1988,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     )}
                   </div>
 
-                  <select
+                  <ReportSelect
                     value={clsTeacher}
                     onChange={e => setClsTeacher(e.target.value)}
                     className={`w-full px-3 py-2 rounded-lg border font-medium text-xs focus:outline-none transition-all ${
@@ -2009,7 +2013,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         ))}
                       </>
                     )}
-                  </select>
+                  </ReportSelect>
 
                   {/* THÔNG BÁO RÕ RÀNG KHI KHÔNG TÌM THẤY GIÁO VIÊN PHÙ HỢP */}
                   {eligibleTeachersForClass.length === 0 && (
@@ -2087,7 +2091,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Tháng</label>
-                  <select
+                  <ReportSelect
                     value={batchMonth}
                     onChange={e => {
                       const month = e.target.value;
@@ -2098,11 +2102,11 @@ export const Module4_StudentsClasses: React.FC = () => {
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-bold text-slate-800"
                   >
                     {batchMonths.map(month => <option key={month} value={month}>{month}</option>)}
-                  </select>
+                  </ReportSelect>
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Tuần học &amp; ngày thực tế</label>
-                  <select
+                  <ReportSelect
                     value={batchWeek}
                     onChange={e => {
                       setBatchWeek(e.target.value);
@@ -2116,7 +2120,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         {w}
                       </option>
                     ))}
-                  </select>
+                  </ReportSelect>
                 </div>
                 </div>
               </div>}
@@ -2127,7 +2131,7 @@ export const Module4_StudentsClasses: React.FC = () => {
               </div> : <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
                 <label className="block font-semibold text-slate-700">
                   Loại lớp
-                  <select
+                  <ReportSelect
                     value={batchCategoryId}
                     onChange={event => {
                       const categoryId = event.target.value;
@@ -2141,14 +2145,14 @@ export const Module4_StudentsClasses: React.FC = () => {
                   >
                     <option value="">Chọn loại lớp</option>
                     {activeTeachingCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-                  </select>
+                  </ReportSelect>
                 </label>
                 <label className="block font-semibold text-slate-700">
                   Môn học
-                  <select value={batchSubject} onChange={event => { setBatchSubject(event.target.value); setBatchSelectedClassIds([]); }} required className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800">
+                  <ReportSelect value={batchSubject} onChange={event => { setBatchSubject(event.target.value); setBatchSelectedClassIds([]); }} required className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800">
                     <option value="">Chọn môn học</option>
                     {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
-                  </select>
+                  </ReportSelect>
                 </label>
                 <div ref={batchGradeDropdownRef} className="relative">
                   <span className="block font-semibold text-slate-700">Lớp/khối trong loại lớp</span>

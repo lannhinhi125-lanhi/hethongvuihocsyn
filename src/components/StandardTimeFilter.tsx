@@ -1,3 +1,4 @@
+import { ReportSelect } from './ReportSelect';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, Clock, ChevronRight } from 'lucide-react';
 
@@ -230,7 +231,7 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
           </label>
           <span className="text-[10px] text-slate-400 font-semibold">{academicYearLabel}</span>
         </div>
-        <select
+        <ReportSelect
           value={currentMonth}
           onChange={e => handleMonthChange(e.target.value)}
           className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 ${colorStyles.border} focus:outline-none cursor-pointer shadow-2xs`}
@@ -239,7 +240,7 @@ export const StandardTimeFilter: React.FC<StandardTimeFilterProps> = ({
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
           <option value="ALL">Tất cả các tháng</option>
-        </select>
+        </ReportSelect>
       </div>
 
       {/* 2. NGÀY BẮT ĐẦU & NGÀY KẾT THÚC */}

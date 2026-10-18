@@ -1,3 +1,4 @@
+import { ReportSelect } from './ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedTableBody, PaginatedTableGroups } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -69,8 +70,8 @@ export const IncidentCatalog: React.FC = () => {
     <div className="space-y-2 border-b border-slate-100 p-3">
       <div className="flex flex-wrap gap-2">
         <input aria-label="Tìm sự cố" placeholder="Tìm mã, tên sự cố..." value={query} onChange={event => setQuery(event.target.value)} className={input + ' min-w-40 flex-1'} />
-        <select aria-label="Lọc nhóm sự cố" value={group} onChange={event => setGroup(event.target.value)} className={input + ' sm:max-w-64'}><option value="">Tất cả nhóm ({incidents.length})</option>{incidents.map(parent => <option key={parent.id} value={parent.id}>{parent.name} ({parent.subIncidents.length})</option>)}</select>
-        <select aria-label="Lọc cấu hình sự cố" value={filter} onChange={event => setFilter(event.target.value)} className={input + ' sm:max-w-44'}><option value="all">Tất cả trạng thái</option><option value="missing">Chưa có hệ số</option><option value="active">Đang áp dụng</option><option value="inactive">Tạm dừng</option></select>
+        <ReportSelect aria-label="Lọc nhóm sự cố" value={group} onChange={event => setGroup(event.target.value)} className={input + ' sm:max-w-64'}><option value="">Tất cả nhóm ({incidents.length})</option>{incidents.map(parent => <option key={parent.id} value={parent.id}>{parent.name} ({parent.subIncidents.length})</option>)}</ReportSelect>
+        <ReportSelect aria-label="Lọc cấu hình sự cố" value={filter} onChange={event => setFilter(event.target.value)} className={input + ' sm:max-w-44'}><option value="all">Tất cả trạng thái</option><option value="missing">Chưa có hệ số</option><option value="active">Đang áp dụng</option><option value="inactive">Tạm dừng</option></ReportSelect>
       </div>
       <p className="text-[11px] text-slate-500"><strong className="text-slate-700">0</strong> = không tính công · <strong className="text-slate-700">0,5</strong> = nửa công · <strong className="text-slate-700">1</strong> = một công. Chưa thiết lập được hiển thị riêng, không mặc định thành 0.</p>
     </div>
@@ -142,15 +143,15 @@ export const IncidentCatalog: React.FC = () => {
         void confirmSave(()=>{setDialog(null); showToast('Đã lưu cấu hình danh mục sự cố.', 'success');});
       }}>
         <div className="flex items-center justify-between"><h3 id="incident-config-title" className="text-sm font-bold text-slate-800">{dialog === 'group' ? editingId ? 'Sửa nhóm sự cố' : 'Thêm nhóm sự cố' : editingId ? 'Sửa sự cố & Hệ số công' : 'Thêm sự cố & Hệ số công'}</h3><button type="button" aria-label="Đóng cấu hình sự cố" onClick={() => setDialog(null)}><X className="h-4 w-4" /></button></div>
-        {dialog === 'incident' && <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Nhóm sự cố *</span><select required disabled={!canConfigure} value={parentId} onChange={event => setParentId(event.target.value)} className={input}>{incidents.map(parent => <option key={parent.id} value={parent.id}>{parent.name}</option>)}</select></label>}
+        {dialog === 'incident' && <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Nhóm sự cố *</span><ReportSelect required disabled={!canConfigure} value={parentId} onChange={event => setParentId(event.target.value)} className={input}>{incidents.map(parent => <option key={parent.id} value={parent.id}>{parent.name}</option>)}</ReportSelect></label>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Mã *</span><input autoFocus required maxLength={40} disabled={!canConfigure} value={code} onChange={event => setCode(event.target.value)} className={input} /></label>
           <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Tên *</span><input required maxLength={150} disabled={!canConfigure} value={name} onChange={event => setName(event.target.value)} className={input} /></label>
         </div>
         {dialog === 'incident' && <>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Bên phát sinh</span><select disabled={!canConfigure} value={party} onChange={event => setParty(event.target.value as SubIncidentItem['targetParty'])} className={input}><option>Giáo viên</option><option>Học sinh</option><option>Khách quan</option></select></label>
-            <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Tình trạng báo trước</span><select disabled={!canConfigure} value={notice} onChange={event => setNotice(event.target.value as typeof notice)} className={input}>{Object.entries(notices).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Bên phát sinh</span><ReportSelect disabled={!canConfigure} value={party} onChange={event => setParty(event.target.value as SubIncidentItem['targetParty'])} className={input}><option>Giáo viên</option><option>Học sinh</option><option>Khách quan</option></ReportSelect></label>
+            <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Tình trạng báo trước</span><ReportSelect disabled={!canConfigure} value={notice} onChange={event => setNotice(event.target.value as typeof notice)} className={input}>{Object.entries(notices).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</ReportSelect></label>
           </div>
           <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Hệ số công cho loại sự cố này</span><input type="number" min="-999.999" max="999.999" step="0.001" disabled={!canCoefficient} value={coefficient} onChange={event => setCoefficient(event.target.value)} placeholder="Chưa thiết lập" className={input} /><span className="block text-[11px] font-normal text-slate-500">Ví dụ: học sinh không báo trước, gia sư đã chờ → 0,5 công; giáo viên nghỉ không báo trước: -1 công. Để trống nếu chưa quyết định quy tắc.</span></label>
           <p className="rounded-lg bg-orange-50 p-2.5 text-[11px] text-orange-800">Hệ số thuộc loại sự cố cụ thể bạn chọn. Nhóm chỉ dùng để phân loại; không có hệ số chung tự áp xuống các sự cố con.</p>

@@ -1,3 +1,4 @@
+import { ReportSelect } from '../components/ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { TeacherChatThread } from '../components/TeacherChatThread';
@@ -264,14 +265,14 @@ export const Module6_AIStudio: React.FC = () => {
                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs outline-none focus:border-orange-300"
               />
             </label>
-            <select
+            <ReportSelect
               value={documentCategoryFilter}
               onChange={event => setDocumentCategoryFilter(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
             >
               <option value="ALL">Tất cả phân loại</option>
               {documentCategories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}
-            </select>
+            </ReportSelect>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
@@ -421,13 +422,13 @@ export const Module6_AIStudio: React.FC = () => {
 
               <div>
                 <label htmlFor="ai-response-length" className="block font-semibold text-slate-700 mb-1">Độ dài câu trả lời</label>
-                <select id="ai-response-length" value={responseLength(ragBotConfig.systemPrompt)}
+                <ReportSelect id="ai-response-length" value={responseLength(ragBotConfig.systemPrompt)}
                   onChange={e=>setRagBotConfig(prev=>({...prev,systemPrompt:responseStylePrompt(e.target.value as ResponseLength,additionalAIInstructions(prev.systemPrompt))}))}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200">
                   <option value="short">Ngắn gọn — ưu tiên 2–4 câu</option>
                   <option value="balanced">Vừa phải — ý chính và giải thích ngắn</option>
                   <option value="detailed">Chi tiết — giải thích và hướng dẫn từng bước</option>
-                </select>
+                </ReportSelect>
                 <p className="mt-1 text-[11px] text-slate-500">AI vẫn giữ đủ điều kiện quan trọng trong tài liệu dù chọn trả lời ngắn.</p>
               </div>
               <div>
@@ -560,14 +561,14 @@ export const Module6_AIStudio: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Phân loại nghiệp vụ</label>
-                  <select
+                  <ReportSelect
                     required value={docCategory}
                     onChange={e => setDocCategory(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
                   >
                     <option value="" disabled>Chọn loại tài liệu</option>
                     {documentCategories.filter(category=>category.isActive || category.id===docCategory).map(category=><option key={category.id} value={category.id}>{category.name}{!category.isActive?' (ngừng sử dụng)':''}</option>)}
-                  </select>
+                  </ReportSelect>
                 </div>
               </div>
 

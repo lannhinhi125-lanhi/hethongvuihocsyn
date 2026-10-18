@@ -1,3 +1,7 @@
+import { PeriodToolbar } from '../components/PeriodToolbar';
+import { workbenchRange } from '../lib/workbenchTime';
+import { reportToday } from '../lib/customReports';
+import { ReportSelect } from '../components/ReportSelect';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { PaginatedList } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -42,8 +46,7 @@ export const TeacherEvaluationView: React.FC = () => {
   const currentTeacher = isTeacherAccount ? defaultTeacher : teachers.find(t => t.id === selectedTeacherId) || teachers[0];
 
   // Lọc thời gian biên bản
-  const [filterSchoolYear, setFilterSchoolYear] = useState('2026 - 2027');
-  const [filterMonth, setFilterMonth] = useState('ALL');
+  const [evaluationRange,setEvaluationRange]=useState(()=>workbenchRange(reportToday(),'month'));
 
   // Modal xem toàn văn biên bản
   const [viewingRecord, setViewingRecord] = useState<EvaluationRecord | null>(null);
@@ -73,9 +76,8 @@ export const TeacherEvaluationView: React.FC = () => {
   // Lọc theo tháng
   const filteredRecords = currentRecords.filter(r => {
     const iso = sessionDateISO({ date: r.evaluationDate } as any);
-    const startYear = Number(filterSchoolYear.split(' - ')[0]);
-    const inSchoolYear = iso >= `${startYear}-09-01` && iso <= `${startYear + 1}-08-31`;
-    return inSchoolYear && (filterMonth === 'ALL' || iso.slice(5, 7) === filterMonth.padStart(2, '0'));
+    return (!evaluationRange.start || iso >= evaluationRange.start) && (!evaluationRange.end || iso <= evaluationRange.end);
+
   });
 
   // Điểm trung bình các buổi dự giờ
@@ -153,7 +155,7 @@ export const TeacherEvaluationView: React.FC = () => {
               CHUYÊN MÔN SƯ PHẠM
             </span>
             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-              Năm học {filterSchoolYear}
+              {evaluationRange.start && evaluationRange.end ? `${evaluationRange.start.split('-').reverse().join('/')} – ${evaluationRange.end.split('-').reverse().join('/')}` : 'Toàn bộ thời gian'}
             </span>
             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               {filteredRecords.length} biên bản dự giờ
@@ -198,7 +200,7 @@ export const TeacherEvaluationView: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2.5">
             {!isTeacherAccount && <>
             <span className="text-slate-500 text-[11px]">Chọn hồ sơ:</span>
-            <select
+            <ReportSelect
               value={currentTeacher.id}
               onChange={e => setSelectedTeacherId(e.target.value)}
               className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
@@ -208,32 +210,11 @@ export const TeacherEvaluationView: React.FC = () => {
                   {t.name} - {t.id}
                 </option>
               ))}
-            </select>
+            </ReportSelect>
 
             </>}
-            <span className="text-slate-300">|</span>
+            <PeriodToolbar label="Thời gian đánh giá" range={evaluationRange} onChange={setEvaluationRange} initialPeriod="month"/>
 
-            <span className="text-slate-500 text-[11px]">Năm học:</span>
-            <select
-              value={filterSchoolYear}
-              onChange={e => setFilterSchoolYear(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="2026 - 2027">2026 - 2027 (Hiện tại)</option>
-              <option value="2025 - 2026">2025 - 2026</option>
-            </select>
-
-            <span className="text-slate-500 text-[11px]">Tháng:</span>
-            <select
-              value={filterMonth}
-              onChange={e => setFilterMonth(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="ALL">Tất cả các tháng</option>
-              <option value="09">Tháng 09/2026</option>
-              <option value="10">Tháng 10/2026</option>
-              <option value="11">Tháng 11/2026</option>
-            </select>
           </div>
         </div>
       </div>
@@ -547,7 +528,7 @@ export const TeacherEvaluationView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Chọn ca dạy dự giờ:</label>
-                  <select
+                  <ReportSelect
                     required
                     value={newSessionCode}
                     onChange={e => setNewSessionCode(e.target.value)}
@@ -559,7 +540,7 @@ export const TeacherEvaluationView: React.FC = () => {
                         {source.cls.code} · {source.lesson.date} · {source.session.slot}
                       </option>
                     ))}
-                  </select>
+                  </ReportSelect>
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Buổi số:</label>

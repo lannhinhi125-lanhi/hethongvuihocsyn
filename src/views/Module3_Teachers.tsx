@@ -1,3 +1,7 @@
+import { PeriodToolbar } from '../components/PeriodToolbar';
+import { workbenchRange } from '../lib/workbenchTime';
+import { reportToday } from '../lib/customReports';
+import { ReportSelect } from '../components/ReportSelect';
 import {useLessonCode} from '../hooks/useLessonCode';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
@@ -115,7 +119,7 @@ export const Module3_Teachers: React.FC = () => {
     const setModel = profile ? setColFilterModel : setAvailModel;
     const status = profile ? filterStatus : availStatus;
     const setStatus = profile ? setFilterStatus : setAvailStatus;
-    const select = (value: string, onChange: (value: string) => void, options: { value: string; label: string }[]) => <select aria-label={label} value={value} onChange={e => onChange(e.target.value)} className="w-full p-2 rounded-lg border border-slate-200"><option value="ALL">Tất cả</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>;
+    const select = (value: string, onChange: (value: string) => void, options: { value: string; label: string }[]) => <ReportSelect aria-label={label} value={value} onChange={e => onChange(e.target.value)} className="w-full p-2 rounded-lg border border-slate-200"><option value="ALL">Tất cả</option>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</ReportSelect>;
     const gradeOptions = Array.from(new Map(teachingCategories.flatMap(item => catalogTree(item.options)).map(option => [option.id, option])).values());
     const reset = () => {
       if (field === 'name') setValues(prev => ({ ...prev, id: '', name: '' }));
@@ -158,8 +162,8 @@ export const Module3_Teachers: React.FC = () => {
   const [availStatus, setAvailStatus] = useState('ALL');
 
   // Evaluation filters
-  const [evalDateFrom, setEvalDateFrom] = useState('');
-  const [evalDateTo, setEvalDateTo] = useState('');
+  const [evalRange,setEvalRange]=useState(()=>workbenchRange(reportToday(),'month'));
+  const evalDateFrom=evalRange.start,evalDateTo=evalRange.end;
   const [evalSubject, setEvalSubject] = useState('ALL');
   const [evalColSearchName, setEvalColSearchName] = useState('');
   const [evalColFilterSubject, setEvalColFilterSubject] = useState('ALL');
@@ -598,7 +602,7 @@ export const Module3_Teachers: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <select
+                          <ReportSelect
                             disabled={!canManageProfiles}
                             value={t.status}
                             onChange={e => handleQuickStatusChange(t.id, e.target.value as any)}
@@ -614,7 +618,7 @@ export const Module3_Teachers: React.FC = () => {
                             <option value="DANG_DAY">● Đang dạy</option>
                             <option value="CHO_LOP">● Chờ lớp</option>
                             <option value="TAM_NGUNG">● Tạm ngưng</option>
-                          </select>
+                          </ReportSelect>
                         </td>
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -748,16 +752,7 @@ export const Module3_Teachers: React.FC = () => {
       {/* ================= TAB 3: ĐÁNH GIÁ DỰ GIỜ ================= */}
       {activeTab === 'evaluation' && (
         <div className="space-y-5">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-end gap-4">
-            <label className="text-xs font-semibold text-slate-700">Từ ngày (ca dạy)
-              <input aria-label="Từ ngày ca dạy" type="date" value={evalDateFrom} onChange={e => setEvalDateFrom(e.target.value)} className="block mt-1 border border-slate-200 rounded-lg px-3 py-2" />
-            </label>
-            <label className="text-xs font-semibold text-slate-700">Đến ngày (ca dạy)
-              <input aria-label="Đến ngày ca dạy" type="date" min={evalDateFrom || undefined} value={evalDateTo} onChange={e => setEvalDateTo(e.target.value)} className="block mt-1 border border-slate-200 rounded-lg px-3 py-2" />
-            </label>
-            <button onClick={() => { setEvalDateFrom(''); setEvalDateTo(''); }} className="text-xs text-orange-600 py-2">Xóa lọc thời gian</button>
-            {evalDateFrom && evalDateTo && evalDateFrom > evalDateTo && <span role="alert" className="text-xs text-rose-600">Ngày kết thúc phải từ ngày bắt đầu trở đi.</span>}
-          </div>
+          <PeriodToolbar label="Thời gian ca dạy" range={evalRange} onChange={setEvalRange} initialPeriod="month"/>
 
           {/* Bảng danh sách giáo viên chuyên môn */}
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
@@ -785,7 +780,7 @@ export const Module3_Teachers: React.FC = () => {
                       />
                     </th>
                     <th className="py-2 px-2">
-                      <select
+                      <ReportSelect
                         value={evalColFilterSubject}
                         onChange={e => setEvalColFilterSubject(e.target.value)}
                         className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
@@ -793,10 +788,10 @@ export const Module3_Teachers: React.FC = () => {
                         <option value="ALL">Tất cả môn</option>
                         <option value="SUB-MATH">Toán</option>
                         <option value="SUB-ENG">Tiếng Anh</option>
-                      </select>
+                      </ReportSelect>
                     </th>
                     <th className="py-2 px-2">
-                      <select
+                      <ReportSelect
                         value={evalColFilterLevel}
                         onChange={e => setEvalColFilterLevel(e.target.value)}
                         className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
@@ -805,13 +800,13 @@ export const Module3_Teachers: React.FC = () => {
                         <option value="CAP-TH">Tiểu học</option>
                         <option value="CAP-THCS">THCS</option>
                         <option value="CAP-THPT">THPT</option>
-                      </select>
+                      </ReportSelect>
                     </th>
                     <th className="py-2 px-2 text-center">
                       <span className="text-[10px] text-slate-400">Số ca</span>
                     </th>
                     <th className="py-2 px-2 text-center">
-                      <select
+                      <ReportSelect
                         value={evalColFilterStatus}
                         onChange={e => setEvalColFilterStatus(e.target.value)}
                         className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
@@ -819,7 +814,7 @@ export const Module3_Teachers: React.FC = () => {
                         <option value="ALL">Tất cả</option>
                         <option value="UNSCORED">Chưa chấm</option>
                         <option value="SCORED">Đã chấm</option>
-                      </select>
+                      </ReportSelect>
                     </th>
                     <th className="py-2 px-2 text-center">
                       <span className="text-[10px] text-slate-400">Điểm</span>
@@ -970,10 +965,10 @@ export const Module3_Teachers: React.FC = () => {
               </div>
 
               <label className="block font-bold text-slate-700">Môn chuyên trách
-                <select required value={newTeacherSubject} onChange={e => setNewTeacherSubject(e.target.value)} className="mt-1 w-full p-2 border border-slate-200 rounded-xl">
+                <ReportSelect required value={newTeacherSubject} onChange={e => setNewTeacherSubject(e.target.value)} className="mt-1 w-full p-2 border border-slate-200 rounded-xl">
                   <option value="">Chọn môn từ danh mục</option>
                   {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
-                </select>
+                </ReportSelect>
               </label>
               {/* Cấp học & Khối lớp */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
@@ -981,7 +976,7 @@ export const Module3_Teachers: React.FC = () => {
                   <label className="block font-bold text-slate-800 mb-1">
                     Cấp học phụ trách <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <ReportSelect
                     value={newTeacherLevel}
                     onChange={e => {
                       setNewTeacherLevel(e.target.value);
@@ -991,7 +986,7 @@ export const Module3_Teachers: React.FC = () => {
                   >
                     <option value="">Chọn cấp học từ danh mục</option>
                     {activeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-                  </select>
+                  </ReportSelect>
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
@@ -1165,11 +1160,7 @@ export const Module3_Teachers: React.FC = () => {
             </div>
 
             <div className="mt-4 space-y-3 text-xs">
-              <div className="flex flex-wrap gap-3 items-center bg-slate-50 rounded-xl p-3">
-                <label>Từ ngày <input type="date" value={evalDateFrom} onChange={e => setEvalDateFrom(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
-                <label>Đến ngày <input type="date" value={evalDateTo} min={evalDateFrom || undefined} onChange={e => setEvalDateTo(e.target.value)} className="border rounded-lg p-2 ml-2" /></label>
-                <span>{completedLessonsForTeacher(datedLessons,gradingTeacher.id).length} ca đã dạy đến hiện tại</span>
-              </div>
+              <PeriodToolbar label="Thời gian ca dạy" range={evalRange} onChange={setEvalRange} initialPeriod="month"/>
               <PaginatedList className="space-y-2.5">
                 {eligibleSessions(gradingTeacher).length === 0 ? (
                   <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-xl">
@@ -1267,7 +1258,7 @@ export const Module3_Teachers: React.FC = () => {
                 {eligibleSessions(gradingTeacher).length > 1 && (
                   <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 text-xs">
                     <span className="text-slate-500 font-medium">Đổi ca:</span>
-                    <select
+                    <ReportSelect
                       value={selectedSessionForGrading.code}
                       onChange={e => {
                         const target = eligibleSessions(gradingTeacher).find(s => s.code === e.target.value);
@@ -1280,7 +1271,7 @@ export const Module3_Teachers: React.FC = () => {
                           {lessonCode(s.code)} - {s.name.slice(0, 30)}...
                         </option>
                       ))}
-                    </select>
+                    </ReportSelect>
                   </div>
                 )}
 
@@ -1575,7 +1566,7 @@ export const Module3_Teachers: React.FC = () => {
                   <label className="block font-bold text-slate-700 mb-1">
                     Trạng thái hoạt động <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <ReportSelect
                     value={editTeacherStatus}
                     onChange={e => setEditTeacherStatus(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 font-semibold focus:outline-none focus:border-[#FF5C00]"
@@ -1583,7 +1574,7 @@ export const Module3_Teachers: React.FC = () => {
                     <option value="DANG_DAY">● Đang dạy</option>
                     <option value="CHO_LOP">● Chờ lớp</option>
                     <option value="TAM_NGUNG">● Tạm ngưng</option>
-                  </select>
+                  </ReportSelect>
                 </div>
               </div>
 
@@ -1617,7 +1608,7 @@ export const Module3_Teachers: React.FC = () => {
                   <label className="block font-bold text-slate-700 mb-1">
                     Môn chuyên trách <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <ReportSelect
                     value={editTeacherSubject}
                     onChange={e => setEditTeacherSubject(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 font-semibold focus:outline-none focus:border-[#FF5C00]"
@@ -1625,13 +1616,13 @@ export const Module3_Teachers: React.FC = () => {
                     <option value="">Chọn môn từ danh mục</option>
                     {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
                     {!activeSubjects.some(subject => subject.code === editTeacherSubject) && <option value={editTeacherSubject} disabled>{editingTeacher?.subjectName} (ngừng sử dụng)</option>}
-                  </select>
+                  </ReportSelect>
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     Cấp học phụ trách <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <ReportSelect
                     value={editTeacherLevel}
                     onChange={e => {
                       setEditTeacherLevel(e.target.value);
@@ -1641,7 +1632,7 @@ export const Module3_Teachers: React.FC = () => {
                   >
                     <option value="">Chọn cấp học từ danh mục</option>
                     {activeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-                  </select>
+                  </ReportSelect>
                 </div>
               </div>
 
@@ -1842,29 +1833,29 @@ export const Module3_Teachers: React.FC = () => {
 
           <div>
             <label className="block font-bold text-slate-700 mb-1">Môn chuyên trách</label>
-            <select
+            <ReportSelect
               id="profile-filter-subject" value={filterSubject}
               onChange={e => setFilterSubject(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả môn học</option>
               {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
-            </select>
+            </ReportSelect>
           </div>
           <div>
             <label className="block font-bold text-slate-700 mb-1">Hình thức nhận lớp</label>
-            <select
+            <ReportSelect
               id="profile-filter-model" value={colFilterModel}
               onChange={e => setColFilterModel(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả hình thức</option>
               {modelFilterOptions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
+            </ReportSelect>
           </div>
           <div>
             <label className="block font-bold text-slate-700 mb-1">Trạng thái giáo viên</label>
-            <select
+            <ReportSelect
               id="profile-filter-status" value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
@@ -1873,7 +1864,7 @@ export const Module3_Teachers: React.FC = () => {
               <option value="DANG_DAY">Đang dạy</option>
               <option value="CHO_LOP">Chờ lớp</option>
               <option value="TAM_NGUNG">Tạm ngưng</option>
-            </select>
+            </ReportSelect>
           </div>
         </div>
       </FilterDrawer>
@@ -1916,30 +1907,30 @@ export const Module3_Teachers: React.FC = () => {
 
           <div>
             <label className="block font-bold text-slate-700 mb-1">Môn chuyên trách</label>
-            <select
+            <ReportSelect
               id="availability-filter-subject" value={availSubject}
               onChange={e => setAvailSubject(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả môn học</option>
               {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
-            </select>
+            </ReportSelect>
           </div>
           <div>
             <label className="block font-bold text-slate-700 mb-1">Hình thức nhận lớp</label>
-            <select
+            <ReportSelect
               id="availability-filter-model" value={availModel}
               onChange={e => setAvailModel(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5C00]"
             >
               <option value="ALL">Tất cả hình thức</option>
               {modelFilterOptions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
+            </ReportSelect>
           </div>
           <div><label className="block font-bold text-slate-700 mb-1">Tình trạng lịch</label>
-            <select aria-label="Tình trạng lịch" id="availability-filter-status" value={availStatus} onChange={e => setAvailStatus(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200">
+            <ReportSelect aria-label="Tình trạng lịch" id="availability-filter-status" value={availStatus} onChange={e => setAvailStatus(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200">
               <option value="ALL">Tất cả</option><option value="FREE">Vẫn còn ca rảnh</option><option value="FULL">Đã kín lịch dạy</option>
-            </select>
+            </ReportSelect>
           </div>
         </div>
       </FilterDrawer>

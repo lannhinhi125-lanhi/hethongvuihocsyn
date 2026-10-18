@@ -7,9 +7,13 @@ export const ColumnFilter: React.FC<{ label: string; active: boolean; onReset: (
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!position) return;
-    const outside = (event: PointerEvent) => { if (!panel.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setPosition(null); };
+    const ownedMenu = (target: EventTarget | null) => {
+      const menu=(target as Element)?.closest?.('[role="listbox"]');
+      return Boolean(menu && Array.from(panel.current?.querySelectorAll('[aria-controls]')||[]).some(control=>control.getAttribute('aria-controls')===menu.id));
+    };
+    const outside = (event: PointerEvent) => { if (!ownedMenu(event.target) && !panel.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setPosition(null); };
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setPosition(null); trigger.current?.focus(); } };
-    const scroll = (event: Event) => { if (!panel.current?.contains(event.target as Node)) setPosition(null); };
+    const scroll = (event: Event) => { if (!ownedMenu(event.target) && !panel.current?.contains(event.target as Node)) setPosition(null); };
     const resize = () => setPosition(null);
     document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape);
     window.addEventListener('resize', resize); window.addEventListener('scroll', scroll, true);

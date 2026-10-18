@@ -1,3 +1,4 @@
+import { ReportSelect } from './ReportSelect';
 import { confirmAction } from './ConfirmAction';
 import React from 'react';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
@@ -112,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
           {PORTAL_PREVIEW_MODE ? (
             <label className="flex items-center gap-2 text-xs text-slate-600">
               <span className="hidden sm:inline">Kiểm tra cổng:</span>
-              <select
+              <ReportSelect
                 aria-label="Chọn tài khoản kiểm tra cổng"
                 value={currentUser.id}
                 onChange={event => {
@@ -125,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
                 {users.filter(user => user.status === 'active').map(user => (
                   <option key={user.id} value={user.id}>{user.name} · {user.role}</option>
                 ))}
-              </select>
+              </ReportSelect>
             </label>
           ) : <button type="button" onClick={onLogout} className="px-3 py-2 text-xs border border-slate-200 rounded-lg">Đăng xuất</button>}
           {/* Avatar người dùng hiện tại */}

@@ -93,4 +93,6 @@ try {
  await db.exec(backfillBlock);
  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."LOP_HOC" WHERE ngayketthuc IS NOT NULL')).rows[0].n,12);
  console.log('PASS: standalone SQL Editor statement and rerun do not depend on a prior temp table');
+ assert.deepEqual((await db.query(file('supabase/diagnostics/json_storage_columns.sql'))).rows,[],'no JSON/JSONB table columns, including domains and arrays');
+ console.log('PASS: upgraded vuihoc schema has no JSON/JSONB storage columns');
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}

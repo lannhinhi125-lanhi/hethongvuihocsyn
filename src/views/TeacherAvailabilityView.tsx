@@ -1,3 +1,4 @@
+import { ReportSelect } from '../components/ReportSelect';
 import { usePermissions } from '../hooks/usePermissions';
 import {useSaveConfirmation} from '../hooks/useSaveConfirmation';
 import React, { useState, useEffect } from 'react';
@@ -285,19 +286,19 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
       <div className="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex flex-wrap items-end gap-2 text-[11px]">
           <label className="flex-1 sm:flex-none min-w-[105px] text-slate-500">Năm học
-            <select aria-label="Năm học" value={selectedSchoolYear} onChange={e => setSelectedSchoolYear(e.target.value)} className="block w-full sm:w-28 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
+            <ReportSelect aria-label="Năm học" value={selectedSchoolYear} onChange={e => setSelectedSchoolYear(e.target.value)} className="block w-full sm:w-28 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
               <option value="2026 - 2027">2026 - 2027</option><option value="2025 - 2026">2025 - 2026</option><option value="2027 - 2028">2027 - 2028</option>
-            </select>
+            </ReportSelect>
           </label>
           <label className="flex-1 sm:flex-none min-w-[95px] text-slate-500">Tháng
-            <select aria-label="Tháng" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="block w-full sm:w-24 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
+            <ReportSelect aria-label="Tháng" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="block w-full sm:w-24 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
               <option value="09/2026">09/2026</option><option value="10/2026">10/2026</option><option value="11/2026">11/2026</option><option value="12/2026">12/2026</option>
-            </select>
+            </ReportSelect>
           </label>
           <label className="flex-1 sm:flex-none min-w-[170px] text-slate-500">Tuần
-            <select aria-label="Tuần" value={selectedWeek} onChange={e => handleWeekChange(e.target.value)} className="block w-full sm:w-48 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
+            <ReportSelect aria-label="Tuần" value={selectedWeek} onChange={e => handleWeekChange(e.target.value)} className="block w-full sm:w-48 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
               {weekOptions.map(week => <option key={week.id} value={week.id}>{week.label}</option>)}
-            </select>
+            </ReportSelect>
           </label>
           <label className="flex-1 sm:flex-none text-slate-500">Từ ngày
             <input aria-label="Từ ngày" type="date" value={fromDate} max={toDate || undefined} onChange={e => setFromDate(e.target.value)} className="block w-full sm:w-32 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800" />

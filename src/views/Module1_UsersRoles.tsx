@@ -1,3 +1,4 @@
+import { ReportSelect } from '../components/ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { EmptyState } from '../components/EmptyState';
 import { confirmAction } from '../components/ConfirmAction';
@@ -341,16 +342,16 @@ export const Module1_UsersRoles: React.FC = () => {
                 />
               </div>
 
-              <select
+              <ReportSelect
                 value={filterRole}
                 onChange={e => setFilterRole(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white text-slate-600 focus:outline-none focus:border-[#FF5C00]"
               >
                 <option value="">Tất cả Nhóm quyền</option>
                 {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
-              </select>
+              </ReportSelect>
 
-              <select
+              <ReportSelect
                 value={filterStatus}
                 onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white text-slate-600 focus:outline-none focus:border-[#FF5C00]"
@@ -358,7 +359,7 @@ export const Module1_UsersRoles: React.FC = () => {
                 <option value="">Tất cả Trạng thái</option>
                 <option value="active">Đang hoạt động</option>
                 <option value="locked">Đã tạm khóa</option>
-              </select>
+              </ReportSelect>
             </div>
 
             <button
@@ -676,13 +677,13 @@ export const Module1_UsersRoles: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">
                   Gán Nhóm quyền áp dụng <span className="text-rose-500">*</span>
                 </label>
-                <select
+                <ReportSelect
                   value={newUserRole}
                   onChange={e => setNewUserRole(e.target.value as UserAccount['role'])}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                 >
                   {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
-                </select>
+                </ReportSelect>
               </div>
 
               {portal === 'TEACHER' && (
@@ -850,14 +851,14 @@ export const Module1_UsersRoles: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">
                   Gán Nhóm quyền áp dụng <span className="text-rose-500">*</span>
                 </label>
-                <select
+                <ReportSelect
                   disabled={!can('Tạo, sửa, xóa & Gán Nhóm quyền')}
                   value={editUserRole}
                   onChange={e => setEditUserRole(e.target.value as UserAccount['role'])}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                 >
                   {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
-                </select>
+                </ReportSelect>
               </div>
 
               {portal === 'TEACHER' && (

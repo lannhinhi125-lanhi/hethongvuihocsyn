@@ -1,3 +1,4 @@
+import { ReportSelect } from '../components/ReportSelect';
 import { useBusinessValue } from '../lib/businessPersistence';
 import type { WorkTeachingContext } from '../lib/workTeachingGroups';
 import { WorkHandoffDialog } from '../components/WorkHandoffDialog';
@@ -170,10 +171,10 @@ export const Module7_WorkReconciliation: React.FC = () => {
   );
   const columnSelectFilter = (label: string, value: string, onChange: (value: string) => void, options: Array<{ value: string; label: string }>) => (
     <ColumnFilter label={label} active={value !== 'ALL'} onReset={() => onChange('ALL')}>
-      <select aria-label={`Lọc ${label}`} value={value} onChange={event => onChange(event.target.value)} className="w-full rounded-lg border border-slate-200 p-2">
+      <ReportSelect aria-label={`Lọc ${label}`} value={value} onChange={event => onChange(event.target.value)} className="w-full rounded-lg border border-slate-200 p-2">
         <option value="ALL">Tất cả</option>
         {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+      </ReportSelect>
     </ColumnFilter>
   );
   const columnRangeFilter = (label: string, range: NumericRange, onChange: (range: NumericRange) => void, step = '1') => (
@@ -516,17 +517,17 @@ export const Module7_WorkReconciliation: React.FC = () => {
         <div className="flex items-center flex-wrap gap-1.5">
           <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
             <span className="text-[10px] font-semibold text-slate-500">Năm học</span>
-            <select
+            <ReportSelect
               value={selectedSchoolYear}
               onChange={e => setSelectedSchoolYear(e.target.value)}
               className="bg-transparent text-[11px] font-semibold text-slate-700 focus:outline-hidden cursor-pointer"
             >
               <option value="2026 - 2027">2026 - 2027</option>
               <option value="2025 - 2026">2025 - 2026</option>
-            </select>
+            </ReportSelect>
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <select
+            <ReportSelect
               value={selectedMonth}
               onChange={e => setSelectedMonth(e.target.value)}
               className="bg-transparent text-[11px] font-semibold text-slate-700 focus:outline-hidden cursor-pointer"
@@ -534,7 +535,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
               {payrollMonthOptions.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </select>
+            </ReportSelect>
             </div>
           </div>
 
@@ -1152,30 +1153,30 @@ export const Module7_WorkReconciliation: React.FC = () => {
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Phân loại nhân sự</label>
-                <select value={staffTypeFilter} onChange={event => setStaffTypeFilter(event.target.value as typeof staffTypeFilter)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={staffTypeFilter} onChange={event => setStaffTypeFilter(event.target.value as typeof staffTypeFilter)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả nhân sự</option>
                   <option value="GIAO_VIEN">Giáo viên</option>
                   <option value="GIA_SU">Gia sư</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Môn chuyên trách</label>
-                <select value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả môn</option>
                   <option value="TOAN">Toán</option>
                   <option value="ANH">Tiếng Anh</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Trạng thái đối soát</label>
-                <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="CHO_GUI">Chờ gửi đối soát</option>
                   <option value="DA_GUI">Đã gửi nhân sự</option>
                   <option value="CO_GIAI_TRINH">Có giải trình</option>
                   <option value="DA_XU_LY_GT">Đã xử lý giải trình</option>
                   <option value="DA_CHOT">Đã chốt công</option>
-                </select>
+                </ReportSelect>
               </div>
               {renderRangeFilter('Buổi chuẩn', summaryRanges.standardSessions, range => setSummaryRanges(previous => ({ ...previous, standardSessions: range })))}
               {renderRangeFilter('Số buổi sự cố', summaryRanges.incidentSessions, range => setSummaryRanges(previous => ({ ...previous, incidentSessions: range })))}
@@ -1210,19 +1211,19 @@ export const Module7_WorkReconciliation: React.FC = () => {
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Phân loại nhân sự</label>
-                <select value={staffTypeFilter} onChange={event => setStaffTypeFilter(event.target.value as typeof staffTypeFilter)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={staffTypeFilter} onChange={event => setStaffTypeFilter(event.target.value as typeof staffTypeFilter)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả nhân sự</option>
                   <option value="GIAO_VIEN">Giáo viên</option>
                   <option value="GIA_SU">Gia sư</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Môn học</label>
-                <select value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả môn</option>
                   <option value="TOAN">Toán</option>
                   <option value="ANH">Tiếng Anh</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Lớp học</label>
@@ -1248,21 +1249,21 @@ export const Module7_WorkReconciliation: React.FC = () => {
               {renderRangeFilter('Thời lượng (phút)', sessionRanges.durationMinutes, range => setSessionRanges(previous => ({ ...previous, durationMinutes: range })))}
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Trạng thái buổi học</label>
-                <select value={sessionClassificationFilter} onChange={event => setSessionClassificationFilter(event.target.value as SessionClassification)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={sessionClassificationFilter} onChange={event => setSessionClassificationFilter(event.target.value as SessionClassification)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả phân loại</option>
                   <option value="STANDARD">Buổi chuẩn</option>
                   <option value="INCIDENT">Buổi sự cố</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Trạng thái đối soát ca</label>
-                <select value={sessionReconcileFilter} onChange={event => setSessionReconcileFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={sessionReconcileFilter} onChange={event => setSessionReconcileFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="CHO_DOI_SOAT">Chờ đối soát</option>
                   <option value="DA_XAC_NHAN">Đã xác nhận</option>
                   <option value="CO_GIAI_TRINH">Có giải trình</option>
                   <option value="DA_CHOT">Đã chốt công</option>
-                </select>
+                </ReportSelect>
               </div>
               {renderRangeFilter('Hệ số công', sessionRanges.creditCoeff, range => setSessionRanges(previous => ({ ...previous, creditCoeff: range })), '0.1')}
               <div>
@@ -1276,19 +1277,19 @@ export const Module7_WorkReconciliation: React.FC = () => {
             <>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Phân loại nhân sự</label>
-                <select value={staffTypeFilter} onChange={event => setStaffTypeFilter(event.target.value as typeof staffTypeFilter)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={staffTypeFilter} onChange={event => setStaffTypeFilter(event.target.value as typeof staffTypeFilter)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả nhân sự</option>
                   <option value="GIAO_VIEN">Giáo viên</option>
                   <option value="GIA_SU">Gia sư</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Môn học</label>
-                <select value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả môn</option>
                   <option value="TOAN">Toán</option>
                   <option value="ANH">Tiếng Anh</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Mã đơn giải trình</label>
@@ -1296,12 +1297,12 @@ export const Module7_WorkReconciliation: React.FC = () => {
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Trạng thái đơn</label>
-                <select value={disputeStatusFilter} onChange={event => setDisputeStatusFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <ReportSelect value={disputeStatusFilter} onChange={event => setDisputeStatusFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="CHO_DUYET">Chờ duyệt</option>
                   <option value="DA_DUYET">Đã duyệt</option>
                   <option value="TU_CHOI">Đã từ chối</option>
-                </select>
+                </ReportSelect>
               </div>
               <div>
                 <label className="mb-1 block font-bold text-slate-700">Vấn đề giải trình</label>
@@ -1463,14 +1464,14 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 />
                 <p className="mb-3 text-[11px] text-slate-500">Hệ số này sẽ cập nhật trực tiếp vào công của buổi học và tổng công đối soát.</p>
                 <label className="block text-slate-600 font-semibold mb-1">Kết quả xử lý gửi cho giáo viên:</label>
-                <select
+                <ReportSelect
                   value={disputeDecision}
                   onChange={event => setDisputeDecision(event.target.value as 'DA_DUYET' | 'TU_CHOI')}
                   className="mb-2 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs"
                 >
                   <option value="DA_DUYET">Chấp nhận giải trình</option>
                   <option value="TU_CHOI">Từ chối giải trình</option>
-                </select>
+                </ReportSelect>
                 <label className="block text-slate-600 font-semibold mb-1">Ghi chú phản hồi cho giáo viên:</label>
                 <textarea
                   rows={3}

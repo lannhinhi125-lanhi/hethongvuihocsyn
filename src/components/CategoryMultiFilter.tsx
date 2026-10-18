@@ -1,3 +1,4 @@
+import { ReportSelect } from './ReportSelect';
 import React, { useState, useRef, useEffect } from 'react';
 import { catalogTree } from '../lib/catalogTree';
 import { ChevronDown, Check, X, Search, Filter, Layers, CheckSquare, Square } from 'lucide-react';
@@ -89,10 +90,10 @@ export const CategoryMultiFilter: React.FC<CategoryMultiFilterProps> = ({
     return (
       <div className="space-y-3 text-xs" ref={dropdownRef}>
         <label className="block font-bold text-slate-700">Danh mục
-          <select aria-label="Danh mục" value={selectedCategory} onChange={e => handleSelectCategoryClick(e.target.value)} className="mt-1 w-full p-2 rounded-xl border border-slate-200 bg-slate-50">
+          <ReportSelect aria-label="Danh mục" value={selectedCategory} onChange={e => handleSelectCategoryClick(e.target.value)} className="mt-1 w-full p-2 rounded-xl border border-slate-200 bg-slate-50">
             <option value="ALL">Tất cả danh mục</option>
             {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
+          </ReportSelect>
         </label>
         {currentCategoryGroup && <div>
           <button type="button" aria-expanded={isOpenDropdown} onClick={() => setIsOpenDropdown(!isOpenDropdown)} className="w-full p-2 border border-slate-200 rounded-xl flex items-center justify-between font-semibold">

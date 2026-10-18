@@ -1,3 +1,4 @@
+import { ReportSelect } from './ReportSelect';
 import React from 'react';
 import { catalogTree } from '../lib/catalogTree';
 import type { TeacherProfile } from '../types';
@@ -23,9 +24,9 @@ export const TeacherCategoryFields: React.FC<{ prefix: string; categories: Categ
   const options = Array.from(new Map(categories.filter(item => category === 'ALL' || item.id === category).flatMap(item => catalogTree(item.options)).map(option => [option.id, option])).values());
   return <>
     <label className="block font-bold text-slate-700">Cấp học / Danh mục
-      <select id={prefix + '-level'} value={category} onChange={e => { onCategory(e.target.value); onGrades([]); }} className="block w-full mt-1 p-2 rounded-xl border border-slate-200">
+      <ReportSelect id={prefix + '-level'} value={category} onChange={e => { onCategory(e.target.value); onGrades([]); }} className="block w-full mt-1 p-2 rounded-xl border border-slate-200">
         <option value="ALL">Tất cả cấp học</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select>
+      </ReportSelect>
     </label>
     <details id={prefix + '-grades'} tabIndex={-1} className="border border-slate-200 rounded-xl p-3">
       <summary className="font-bold text-slate-700 cursor-pointer">Khối / Lớp dạy ({grades.length ? grades.length + ' đã chọn' : 'Tất cả'})</summary>

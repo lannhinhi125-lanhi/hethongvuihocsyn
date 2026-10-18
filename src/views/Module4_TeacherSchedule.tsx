@@ -1,3 +1,4 @@
+import { ReportSelect } from '../components/ReportSelect';
 import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { TeacherChatThread } from '../components/TeacherChatThread';
@@ -342,7 +343,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-2xs">
         <label className="flex items-center gap-2">
           <span className="font-semibold text-slate-600">Năm học</span>
-          <select
+          <ReportSelect
             value={selectedSchoolYear}
             onChange={event => setSelectedSchoolYear(event.target.value)}
             className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-medium text-slate-800"
@@ -350,7 +351,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             <option value="2026 - 2027">2026 - 2027</option>
             <option value="2025 - 2026">2025 - 2026</option>
             <option value="2027 - 2028">2027 - 2028</option>
-          </select>
+          </ReportSelect>
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-slate-600">Khoảng thời gian</span>
@@ -389,13 +390,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
         {!isTeacherAccount && (
           <label className="flex items-center gap-2">
             <span className="font-semibold text-slate-600">Giáo viên</span>
-            <select
+            <ReportSelect
               value={selectedTeacherId}
               onChange={event => setSelectedTeacherId(event.target.value)}
               className="max-w-56 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
             >
               {teachers.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
-            </select>
+            </ReportSelect>
           </label>
         )}
       </div>
@@ -547,7 +548,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                                 </td>
                                 <td className="py-3 font-mono text-slate-600 font-medium">{sid}</td>
                                 <td className="py-3 text-center">
-                                  <select disabled={classLiveStatus === 'CHUA_DIEN_RA'} value={selectedClass.activeSessions?.[selectedSessionNum]?.attendance?.[sid] || ''}
+                                  <ReportSelect disabled={classLiveStatus === 'CHUA_DIEN_RA'} value={selectedClass.activeSessions?.[selectedSessionNum]?.attendance?.[sid] || ''}
                                     onChange={event => { const value=event.target.value as 'present'|'late'|'absent';
                                       if (!requirePermission('Giáo viên Check-in / Check-out vào ca dạy')) return;
                                       setClasses(previous=>previous.map(cls=>{const active=cls.activeSessions?.[selectedSessionNum];
@@ -558,7 +559,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                                     <option value="present">Có mặt</option>
                                     <option value="late">Đi muộn</option>
                                     <option value="absent">Vắng mặt</option>
-                                  </select>
+                                  </ReportSelect>
                                 </td>
                                 <td className="py-3 text-right">
                                   <button
@@ -585,9 +586,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
                       * Đến giờ kết thúc, hệ thống tự ghi checkout và mở nhận xét. Muốn kết thúc sớm, bấm Kết thúc lớp.
                     </div>
                     <div className="flex items-center gap-2">
-                      <select aria-label="Loại sự cố ca học" className="rounded-lg border border-amber-200 p-2 text-xs" value={reportedIncidentCode||reportableIncidents[0]?.code||''} onChange={event=>setReportedIncidentCode(event.target.value)}>
+                      <ReportSelect aria-label="Loại sự cố ca học" className="rounded-lg border border-amber-200 p-2 text-xs" value={reportedIncidentCode||reportableIncidents[0]?.code||''} onChange={event=>setReportedIncidentCode(event.target.value)}>
                         {reportableIncidents.map(item=><option key={item.id} value={item.code}>{item.name}</option>)}
-                      </select>
+                      </ReportSelect>
                       <button
                         type="button"
                         onClick={() => {

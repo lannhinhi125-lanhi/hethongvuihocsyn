@@ -13,7 +13,7 @@ const optionsFrom = (nodes: ReactNode): Choice[] => Children.toArray(nodes).flat
 });
 
 /** Styled single selection with native-equivalent keyboard navigation. */
-export function ReportSelect({ children, value, onChange, className = '', disabled, id, title, name, ...props }: Props) {
+export function ReportSelect({ children, value, onChange, className = '', disabled, id, title, name, required, ...props }: Props) {
   const choices = optionsFrom(children), selected = choices.findIndex(item => item.value === String(value ?? ''));
   const [open, setOpen] = useState(false), [active, setActive] = useState(0);
   const [position, setPosition] = useState({ left: 0, top: 0, width: 200, maxHeight: 280 });
@@ -45,15 +45,15 @@ export function ReportSelect({ children, value, onChange, className = '', disabl
   useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
   useEffect(() => { if (open) menu.current?.querySelector(`[data-option-index="${active}"]`)?.scrollIntoView({ block: 'nearest' }); }, [active, open]);
   return <>
-    {name && <input type="hidden" name={name} value={value ?? ''} />}
     <button type="button" ref={trigger} id={id} title={title || choices[selected]?.label} disabled={disabled} role="combobox"
       aria-label={props['aria-label']} aria-labelledby={props['aria-labelledby']} aria-describedby={props['aria-describedby']}
       aria-expanded={open} aria-haspopup="listbox" aria-controls={open ? listId : undefined} aria-activedescendant={open ? `${listId}-${active}` : undefined}
+      aria-required={required || undefined} aria-invalid={props['aria-invalid']} form={props.form}
       className={'report-select inline-flex items-center justify-between gap-2 text-left ' + className}
       onClick={() => open ? setOpen(false) : show()} onBlur={event => { if (!menu.current?.contains(event.relatedTarget as Node)) setOpen(false); }}
       onKeyDown={event => {
         const enabled = choices.map((item, index) => item.disabled ? -1 : index).filter(index => index >= 0);
-        if (event.key === 'Escape') { event.preventDefault(); setOpen(false); return; }
+        if (event.key === 'Escape') { event.preventDefault(); if(open)event.stopPropagation(); setOpen(false); return; }
         if (event.key === 'Tab') { setOpen(false); return; }
         if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
           event.preventDefault();
@@ -71,6 +71,10 @@ export function ReportSelect({ children, value, onChange, className = '', disabl
       <span className="min-w-0 flex-1 truncate">{choices[selected]?.label || choices[0]?.label || '—'}</span>
       <ChevronDown className={'h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ' + (open ? 'rotate-180' : '')} />
     </button>
+    <select aria-hidden="true" tabIndex={-1} className="sr-only pointer-events-none" name={name} form={props.form} disabled={disabled} required={required}
+      value={value ?? choices[0]?.value ?? ''} onChange={()=>{}} onInvalid={event=>{event.preventDefault();show();trigger.current?.focus();}}>
+      {choices.map(item=><option key={item.value} value={item.value} disabled={item.disabled}>{item.label}</option>)}
+    </select>
     {open && !disabled && createPortal(<div ref={menu} id={listId} role="listbox" aria-label={props['aria-label']} className="font-inter fixed z-[200] overflow-y-auto rounded-xl border border-orange-100 bg-white p-1.5 text-xs shadow-xl shadow-slate-900/10" style={position} onMouseDown={event => event.preventDefault()}>
       {choices.map((item, index) => <div key={item.value} id={`${listId}-${index}`} data-option-index={index} role="option" aria-selected={index === selected} aria-disabled={item.disabled || undefined}
         onPointerMove={() => { if (!item.disabled) setActive(index); }} onClick={() => choose(index)}

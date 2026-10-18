@@ -1,3 +1,4 @@
+import { ReportSelect } from '../components/ReportSelect';
 import {useLessonCode} from '../hooks/useLessonCode';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedTableBody } from '../components/Pagination';
@@ -207,7 +208,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
             <Calendar className="h-4 w-4" />
             Kỳ công
-            <select
+            <ReportSelect
               value={selectedMonth}
               onChange={event => setSelectedMonth(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800"
@@ -215,7 +216,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               {payrollMonthOptions.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </select>
+            </ReportSelect>
           </label>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500">
@@ -253,17 +254,17 @@ export const TeacherWorkReconciliationView: React.FC = () => {
         <div className="flex items-center flex-wrap gap-2.5">
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <span className="text-[11px] font-semibold text-slate-500 pl-1.5">Năm học:</span>
-            <select
+            <ReportSelect
               value={selectedSchoolYear}
               onChange={e => setSelectedSchoolYear(e.target.value)}
               className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-hidden pr-2 cursor-pointer"
             >
               <option value="2026 - 2027">2026 - 2027</option>
               <option value="2025 - 2026">2025 - 2026</option>
-            </select>
+            </ReportSelect>
             <span className="text-slate-300">|</span>
             <Calendar className="w-4 h-4 text-slate-500 ml-1" />
-            <select
+            <ReportSelect
               value={selectedMonth}
               onChange={e => setSelectedMonth(e.target.value)}
               className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-hidden pr-2 cursor-pointer"
@@ -271,7 +272,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               {payrollMonthOptions.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </select>
+            </ReportSelect>
           </div>
 
           {/* Nút xuất file đối soát công cá nhân */}
@@ -532,7 +533,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">Chọn ca dạy cần giải trình:</label>
-                <select
+                <ReportSelect
                   value={selectedSessionForDispute?.id || ''}
                   onChange={e => {
                     const found = completedSessions.find(s => s.id === e.target.value);
@@ -546,12 +547,12 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                       {lessonCode(s.lessonId||s.id)} - {s.dateStr} ({s.time}) - {s.className} ({s.creditCoeff} công)
                     </option>
                   ))}
-                </select>
+                </ReportSelect>
               </div>
 
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">Loại vấn đề giải trình:</label>
-                <select
+                <ReportSelect
                   value={disputeType}
                   onChange={e => setDisputeType(e.target.value)}
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-blue-500"
@@ -569,7 +570,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                     Ca dạy thay đồng nghiệp chưa được cập nhật hệ số công
                   </option>
                   <option value="Khác">Lý do khác...</option>
-                </select>
+                </ReportSelect>
               </div>
 
               <div>

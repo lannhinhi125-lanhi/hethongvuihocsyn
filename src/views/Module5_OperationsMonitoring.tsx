@@ -1,3 +1,4 @@
+import { ReportSelect } from '../components/ReportSelect';
 import { MultiSelectColumnFilter, CheckboxFilterOptions } from '../components/MultiSelectColumnFilter';
 import { canTeachClassModel } from '../lib/teachingModelGroups';
 import {MonitoringPeriodToolbar} from '../components/MonitoringPeriodToolbar';
@@ -1174,7 +1175,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     <label className="block font-bold text-slate-700 mb-1">
                       Sự cố liên quan đến <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <ReportSelect
                       value={incParent}
                       onChange={e => handleIncParentChange(e.target.value as 'GRP-TCH' | 'GRP-STU' | 'GRP-SYS')}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
@@ -1182,13 +1183,13 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       <option value="GRP-TCH">Giáo viên</option>
                       <option value="GRP-STU">Học sinh</option>
                       <option value="GRP-SYS">Kỹ thuật / Hệ thống</option>
-                    </select>
+                    </ReportSelect>
                   </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
                       Loại sự cố <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <ReportSelect
                       value={incChild}
                       onChange={e => setIncChild(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
@@ -1196,7 +1197,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       {(INCIDENT_MASTER_DATA[incParent] || []).map(item => (
                         <option key={item.code} value={item.code}>{item.name}</option>
                       ))}
-                    </select>
+                    </ReportSelect>
                     <p className="mt-1 text-xs text-orange-700">
                       Hệ số công áp dụng: {incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild)?.creditCoeff ?? 'Chưa thiết lập'}
                     </p>
@@ -1211,20 +1212,20 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     <label className="block font-bold text-slate-700 mb-1">
                       Thời điểm thông báo <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <ReportSelect
                       value={incUrgency}
                       onChange={e => setIncUrgency(e.target.value as 'EMERGENCY' | 'ADVANCED')}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
                       <option value="EMERGENCY">Đột xuất, báo trước dưới 2 giờ</option>
                       <option value="ADVANCED">Có báo trước từ 2 giờ</option>
-                    </select>
+                    </ReportSelect>
                   </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
                       Kết quả xử lý <span className="text-rose-500">*</span>
                     </label>
-                    <select
+                    <ReportSelect
                       value={incStatus}
                       onChange={e => {
                         const nextStatus = e.target.value as 'DA_GIAI_QUYET' | 'DANG_XU_LY' | 'HUY_CA';
@@ -1239,7 +1240,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       <option value="DANG_XU_LY">Đang xử lý / Chờ đối soát</option>
                       <option value="DA_GIAI_QUYET">Đã giải quyết</option>
                       <option value="HUY_CA">Hủy ca do sự cố (đã giải quyết)</option>
-                    </select>
+                    </ReportSelect>
                   </div>
                 </div>
                 <div>
@@ -1283,7 +1284,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                         <label className="block font-bold text-purple-900 text-[11px]">
                           Chọn giáo viên cùng môn đã đăng ký rảnh đúng ngày và khung giờ:
                         </label>
-                        <select
+                        <ReportSelect
                           value={incCoverTeacher}
                           onChange={e => setIncCoverTeacher(e.target.value)}
                           className="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-purple-600"
@@ -1294,7 +1295,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                               {teacher.name} - Mã {teacher.id}
                             </option>
                           ))}
-                        </select>
+                        </ReportSelect>
                         {coverCandidatesForSession(selectedIncidentSession).length === 0 ? (
                           <div className="text-[10px] text-rose-700">
                             Chưa có giáo viên đủ điều kiện. Giáo viên cần đăng ký rảnh đúng ca và không bị trùng lịch.
@@ -1429,7 +1430,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Chọn ca học muốn mô phỏng:</label>
-                <select
+                <ReportSelect
                   value={simSessionCode}
                   onChange={e => setSimSessionCode(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold text-slate-800 focus:outline-none focus:border-[#FF5C00]"
@@ -1439,7 +1440,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       {displaySessionCode(s)}: {s.classCode} ({s.timeSlot})
                     </option>
                   ))}
-                </select>
+                </ReportSelect>
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1501,27 +1502,27 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           <section className="space-y-3">
             <div className="font-semibold text-slate-800">Thông tin lớp</div>
             <label className="block font-medium text-slate-600">Loại lớp
-              <select value={filterCategory} onChange={event => setFilterCategory(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+              <ReportSelect value={filterCategory} onChange={event => setFilterCategory(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
                 <option value="ALL">Tất cả loại lớp</option>
                 {teachingCategories.filter(category => category.status !== false).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-              </select>
+              </ReportSelect>
             </label>
             <label className="block font-medium text-slate-600">Môn học
-              <select value={selectedSubjectCode} onChange={event => selectMonitoringSubject(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+              <ReportSelect value={selectedSubjectCode} onChange={event => selectMonitoringSubject(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
                 {subjects.filter(subject => subject.status !== false).map(subject => <option key={subject.code} value={subject.code}>{subject.name}</option>)}
-              </select>
+              </ReportSelect>
             </label>
             <label className="block font-medium text-slate-600">Khối / lớp
-              <select value={filterGrade} onChange={event => setFilterGrade(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+              <ReportSelect value={filterGrade} onChange={event => setFilterGrade(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
                 <option value="ALL">Tất cả khối / lớp</option>
                 {Array.from(new Map(teachingCategories.flatMap(category => category.options.map(option => [option.id, option.label] as const))).entries()).map(([gradeId, gradeLabel]) => <option key={gradeId} value={gradeId}>{gradeLabel}</option>)}
-              </select>
+              </ReportSelect>
             </label>
             <label className="block font-medium text-slate-600">Trình độ
-              <select value={filterLevel} onChange={event => setFilterLevel(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+              <ReportSelect value={filterLevel} onChange={event => setFilterLevel(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
                 <option value="ALL">Tất cả trình độ</option>
                 {levels.filter(level => level.status !== false).map(level => <option key={level.code} value={level.code}>{level.name}</option>)}
-              </select>
+              </ReportSelect>
             </label>
             <div className="space-y-2"><div className="font-medium text-slate-600">Khung giờ</div>
               <CheckboxFilterOptions label="Khung giờ" values={colFilterTime} onChange={setColFilterTime} options={options(sessions.map(session=>({value:session.timeSlot,label:session.timeSlot})))}/>
