@@ -82,7 +82,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
 
   // Phạm vi thời gian đang xem
-  const [monitoringPeriod,setMonitoringPeriod]=useState<'day'|'week'>('day');
+  const [monitoringPeriod,setMonitoringPeriod]=useState<'day'|'week'|'month'>('day');
   const [monitoringRange,setMonitoringRange]=useState(()=>workbenchRange(reportToday(),'day'));
   const dateFrom=monitoringRange.start,dateTo=monitoringRange.end;
   // Tab chính
@@ -99,140 +99,30 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   useEffect(() => {
-    const classCheckins = new Map<string, { checkinTime: string; attendance: 'ATTENDED' | 'LATE'; teacherName: string }>();
-    classes.forEach(cls => Object.values(cls.activeSessions || {}).forEach(activeSession => {
-      if (!activeSession.checkinTime) return;
-      const date = activeSession.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0];
-      const time = activeSession.dateStr.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0];
-      if (!date || !time) return;
-      classCheckins.set(`${cls.code}|${date}|${time}`, {
-        checkinTime: activeSession.checkinTime,
-        attendance: activeSession.teacherAttendance || 'ATTENDED',
-        teacherName: cls.teacherName
-      });
-    }));
-    if (!classCheckins.size) return;
-    setSessions(previous => previous.map(session => {
-      const checkin = classCheckins.get(`${session.classCode}|${session.sessionDate}|${session.timeSlot}`);
-      return checkin ? {
-        ...session,
-        primaryTeacher: checkin.teacherName,
-        attendance: checkin.attendance,
-        checkinTime: checkin.checkinTime,
-        isJustUpdated: true
-      } : session;
-    }));
-  }, [classes]);
-
-  useEffect(() => {
     const startDate=dateFrom,endDate=dateTo;
-    const start = new Date(`${startDate}T00:00:00`);
-    const end = new Date(`${endDate}T00:00:00`);
     const generated: MonitoringSession[] = [];
-    classes.forEach(cls => {
-      const scheduleEntries = Array.from(
-        cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
-        match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, timeSlot: (match[2] || match[4] || '').trim() })
-      ).sort((a, b) => a.dayIndex - b.dayIndex || a.timeSlot.localeCompare(b.timeSlot)).slice(0, 2);
-      for (let day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
-        const dayIndex = (day.getDay() + 6) % 7;
-        scheduleEntries.forEach((entry, index) => {
-          if (entry.dayIndex !== dayIndex) return;
-          const sessionDate = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-          if (cls.startDate && sessionDate < cls.startDate) return;
-          const sessionNum = index + 1;
-          const storedSession = cls.activeSessions?.[sessionNum];
-          const activeDate = storedSession?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0];
-          const activeSession = activeDate === sessionDate ? storedSession : undefined;
-          const coverAssignment = cls.coverAssignments?.find(assignment =>
-            assignment.sessionNum === sessionNum && assignment.dateStr === sessionDate
-          );
-          const local = sessions.find(session => session.classCode === cls.code && session.sessionDate === sessionDate && session.timeSlot === entry.timeSlot);
-          const stored = persistedLessons.find(l=>l.classId===cls.id&&l.date===sessionDate&&timeSlots.find(t=>t.id===l.timeSlotId)?.timeRange===entry.timeSlot);
-          if (['Tạm dừng','Đã kết thúc'].includes(cls.status || '') && !stored) return;
-          const existing = local && stored ? storedMonitoringSession(local,persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents,users) : undefined;
-          const assignedStudents = cls.studentIds.map(studentId => students.find(student => student.id === studentId)).filter((student): student is NonNullable<typeof student> => Boolean(student));
-          const sessionCode = existing?.sessionCode || `${cls.code}-${sessionDate}-${sessionNum}`;
-          const teacherAttendance = activeSession?.teacherAttendance || (activeSession?.checkinTime ? 'ATTENDED' : undefined);
-          generated.push(storedMonitoringSession({
-            ...(existing || {
-              sessionCode,
-              sessionDate,
-              classCode: cls.code,
-              className: cls.name,
-              levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
-              modelText: cls.model,
-              subject: cls.subject,
-              grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
-              timeSlot: entry.timeSlot,
-              room: cls.roomLink || 'Chưa gán phòng',
-              roomUrl: cls.roomLink,
-              recordingUrl: null,
-              primaryTeacher: cls.teacherName,
-              coverTeacher: null,
-              attendance: 'ABSENT',
-              checkinTime: null,
-              status: 'CHUA_HOC',
-              hasIncident: false,
-              incidentParent: null,
-              incidentChild: null,
-              incidentUrgency: null,
-              incidentStatus: null,
-              incidentNote: '',
-              handledByOpsId: null,
-              handledByName: null,
-              handledAt: null,
-              lessonDiary: '',
-              students: []
-            }),
-            className: cls.name,
-            primaryTeacher: cls.teacherName,
-            primaryTeacherId: existing?.primaryTeacherId || cls.teacherId,
-            levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
-            subject: cls.subject,
-            grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
-            room: cls.roomLink || 'Chưa gán phòng',
-            roomUrl: cls.roomLink,
-            attendance: teacherAttendance || 'ABSENT',
-            checkinTime: activeSession?.checkinTime || existing?.checkinTime || null,
-            checkinAt: activeSession?.checkinAt || existing?.checkinAt || null,
-            checkoutAt: activeSession?.checkoutAt || existing?.checkoutAt || null,
-            status: activeSession?.checkoutAt ? 'DA_HOC' : existing?.status || 'CHUA_DIEN_RA',
-            coverTeacherId: coverAssignment?.teacherId || activeSession?.coverTeacherId || existing?.coverTeacherId || null,
-            coverTeacher: coverAssignment
-              ? coverAssignment.teacherName
-              : activeSession
-                ? activeSession.coverTeacherName || null
-              : existing?.coverTeacher || null,
-            students: assignedStudents.map(student => ({
-              name: student.name,
-              code: student.id,
-              gradeText: `${student.grade} - ${levels.find(level => level.code === cls.level)?.name || cls.level}`,
-              attendance: activeSession?.attendance?.[student.id] || 'Chưa điểm danh',
-              aiComment: activeSession?.feedback?.[student.id] || '',
-              criteria: []
-            }))
-          },persistedLessons,persistedIncidents,classes,teachers,timeSlots,incidents,users));
-        });
-      }
+    persistedLessons.filter(lesson => lesson.date >= startDate && lesson.date <= endDate).forEach(lesson => {
+      const cls = classes.find(item => item.id === lesson.classId);
+      const slot = timeSlots.find(item => item.id === lesson.timeSlotId);
+      if (!cls || !slot) return;
+      generated.push(storedMonitoringSession({
+        sessionCode: lesson.id, sessionDate: lesson.date, classCode: cls.code,
+        room: '', roomUrl: '', recordingUrl: null, coverTeacher: null,
+        attendance: 'ABSENT', checkinTime: null, status: 'CHUA_DIEN_RA',
+        hasIncident: false, incidentParent: null, incidentChild: null, incidentUrgency: null,
+        incidentStatus: null, incidentNote: '', handledByOpsId: null, handledByName: null,
+        handledAt: null, lessonDiary: '',
+        className: cls.name, levelText: levels.find(level => level.code === cls.level)?.name || cls.level,
+        modelText: cls.model, subject: cls.subject, grade: Number(cls.grade.match(/\d+/)?.[0] || 0),
+        timeSlot: slot.timeRange, primaryTeacher: cls.teacherName,
+        students: (lesson.inspectionData?.studentIds ?? lesson.feedbackProgress?.studentIds ?? cls.studentIds).map((id: string) => ({name: students.find(student => student.id === id)?.name || id,
+          code: id, gradeText: cls.grade, attendance: lesson.inspectionData?.attendance?.[id] || 'Chưa điểm danh',
+          aiComment: lesson.inspectionData?.feedback?.[id] || '', criteria: []}))
+      } as MonitoringSession, persistedLessons, persistedIncidents, classes, teachers, timeSlots, incidents, users));
     });
-    setSessions(previous => {
-      const merged = previous.filter(session => {
-        const cls=classes.find(item=>item.code===session.classCode);
-        return cls && (!['Tạm dừng','Đã kết thúc'].includes(cls.status || '') || persistedLessons.some(lesson=>lesson.classId===cls.id&&lesson.date===session.sessionDate&&timeSlots.find(slot=>slot.id===lesson.timeSlotId)?.timeRange===session.timeSlot));
-      });
-      generated.forEach(session => {
-        const index = merged.findIndex(existing => existing.sessionCode === session.sessionCode);
-        if (index < 0) merged.push(session);
-        else {
-          merged[index] = session;
-        }
-      });
-      return merged;
-    });
-  }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users]);
+    setSessions(generated);
+  }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users, teachers, timeSlots, incidents]);
 
-  // Bộ lọc cột cho Tab 1 (Nhật ký & Giám sát buổi học)
   const [colFilterCode, setColFilterCode] = useState('');
   const [colFilterClass, setColFilterClass] = useState('');
   const [colFilterTeacher, setColFilterTeacher] = useState('');
@@ -1397,7 +1287,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               <button type="button" aria-label="Đóng" onClick={() => setSelectedClassViewSession(null)} className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100">✕</button>
             </div>
             {cls ? <TeachingSessionDetails cls={cls} session={entry?.session || 1} date={selectedClassViewSession.sessionDate} time={selectedClassViewSession.timeSlot} readOnly
-              onSelect={(session, date, time) => setSelectedClassViewSession(previous => previous ? { ...previous, sessionCode: cls.code + '-' + date + '-' + session, sessionDate: date, timeSlot: time } : previous)}
+              lessonId={selectedClassViewSession.sessionCode} hideWeekNavigation
+              onSelect={() => {}}
             /> : <div className="p-6 text-sm text-slate-500">Không còn thông tin lớp học.</div>}
           </div>
         </div>;
