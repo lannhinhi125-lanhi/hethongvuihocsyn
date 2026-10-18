@@ -1,4 +1,5 @@
 import { ReportSelect } from '../components/ReportSelect';
+import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
 import { PeriodToolbar } from '../components/PeriodToolbar';
 import { workbenchRange } from '../lib/workbenchTime';
 import { reportToday } from '../lib/customReports';
@@ -554,6 +555,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   }), [classes, materialFilters, materialRange]);
 
   const batchEligibleClasses = useMemo(() => classes.filter(item =>
+    canAssignClassMaterials(item) &&
     Boolean(batchCategoryId) &&
     classCategoryId(item) === batchCategoryId &&
     batchGradeIds.includes(item.grade) &&
@@ -1115,6 +1117,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const openEditMaterials = (item: ClassItem, month: string, week: string, materials: ClassItem['materials']) => {
     if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
+    if (!canAssignClassMaterials(item)) {showToast('Chỉ gắn học liệu cho lớp đang học, không tạm nghỉ và còn hạn.','warning');return;}
     const categoryId = classCategoryId(item);
     const sessionOne = materials.find(material => material.session === 1);
     const sessionTwo = materials.find(material => material.session === 2);
@@ -1545,7 +1548,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         <td className="py-3 px-4 text-center">
                           <div className="flex justify-center gap-2">
                             <button type="button" title="Chi tiết học liệu" aria-label={`Chi tiết học liệu lớp ${c.name}`} onClick={() => openMaterialDetails(c, month, week, materials)} className="rounded p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-3.5 w-3.5" /></button>
-                            <button type="button" title="Cập nhật học liệu trong tuần đã chọn" aria-label={`Cập nhật học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => openEditMaterials(c, month, week, materials)} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-[#FF5C00] hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"><Pencil className="h-3.5 w-3.5" /><span className="text-[11px] font-semibold">Cập nhật</span></button>
+                            <button type="button" title="Cập nhật học liệu trong tuần đã chọn" aria-label={`Cập nhật học liệu lớp ${c.name}`} disabled={!hasMat || !canAssignClassMaterials(c)} onClick={() => openEditMaterials(c, month, week, materials)} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-[#FF5C00] hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"><Pencil className="h-3.5 w-3.5" /><span className="text-[11px] font-semibold">Cập nhật</span></button>
                             <button type="button" title="Xóa học liệu trong tuần đang chọn" aria-label={`Xóa học liệu lớp ${c.name}`} disabled={!hasMat || deletingMaterials || isSavingChanges || !can('Thêm, sửa, xóa và nạp học liệu theo tuần')} onClick={() => setPendingMaterialDelete({ item: c, month, week })} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /><span className="whitespace-nowrap text-[11px] font-semibold">Xóa học liệu</span></button>
                           </div>
                         </td>

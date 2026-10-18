@@ -153,4 +153,16 @@ try {
  await db.exec(`SELECT vuihoc.dong_bo_ca_theo_lich('2091-01-01','2091-01-31');`);
  assert.deepEqual(await materialLessons(),published,'repeat scheduling does not duplicate lessons');
  console.log('PASS saving weekly material immediately generates matching lessons; no material means no new lessons, repeated scheduling is idempotent');
+ await db.exec(file('supabase/migrations/20261113_end_classes_material_guard.sql'));
+ await db.exec(file('supabase/migrations/20261113_end_classes_material_guard.sql'));
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=true WHERE madinhdanh='TEST-MATERIAL'`);
+ await assert.rejects(db.exec(`UPDATE vuihoc."HOC_LIEU_LOP" SET tieude='Blocked' WHERE malop='TEST-MATERIAL'`),/Chỉ gắn học liệu/);
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=false,trangthai='CHO_KHAI_GIANG' WHERE madinhdanh='TEST-MATERIAL'`);
+ await assert.rejects(db.exec(`UPDATE vuihoc."HOC_LIEU_LOP" SET tieude='Blocked' WHERE malop='TEST-MATERIAL'`),/Chỉ gắn học liệu/);
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET trangthai='DANG_HOC' WHERE madinhdanh='TEST-MATERIAL'; UPDATE vuihoc."HOC_LIEU_LOP" SET tieude='Allowed' WHERE malop='TEST-MATERIAL';
+ INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh','TEST-EXPIRED','malophoc','TEST-EXPIRED','trangthai','DANG_HOC','tamdunglich',false,'ngaybatdau','2020-01-01','thoihanthang',1))).* FROM vuihoc."LOP_HOC" l WHERE madinhdanh='TEST-MATERIAL';`);
+ await assert.rejects(db.exec(`INSERT INTO vuihoc."HOC_LIEU_LOP" VALUES('TEST-EXPIRED',1,'01/2091','Tuần 1: Từ ngày 01/01/2091 đến ngày 07/01/2091',1,'Blocked','','')`),/Chỉ gắn học liệu/);
+ await db.exec('SELECT vuihoc.dong_bo_trang_thai_ca()');
+ assert.equal((await db.query(`SELECT trangthai FROM vuihoc."LOP_HOC" WHERE madinhdanh='TEST-EXPIRED'`)).rows[0].trangthai,'DA_KET_THUC');
+ console.log('PASS expired classes end automatically; paused, waiting and expired classes cannot receive material; active classes remain eligible');
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}

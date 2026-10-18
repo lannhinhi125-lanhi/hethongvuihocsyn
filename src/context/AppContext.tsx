@@ -1,4 +1,5 @@
 import { ConfirmAction } from '../components/ConfirmAction';
+import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
 import {classBindingEditIssue,studentsNeedingScheduleValidation} from '../lib/classEditing';
 import {studentStudyEditIssue,teacherStudyEditIssue,teacherScheduleEditIssue} from '../lib/profileEditing';
 import { updateStudentRegistration, studentScheduleConflict } from '../lib/studentRegistrations';
@@ -365,6 +366,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const batchAssignMaterials = (classIds: string[], newMaterials: ClassItem['materials']) => {
     if (!permit("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
+    if (classIds.some(id=>!classes.some(cls=>cls.id===id && canAssignClassMaterials(cls)))) {
+      showToast('Chỉ gắn học liệu cho lớp đang học, không tạm nghỉ và còn hạn.','warning');return;
+    }
     setClasses(prev => prev.map(c => {
       if (classIds.includes(c.id)) {
         const targetMonth = newMaterials[0]?.month;
