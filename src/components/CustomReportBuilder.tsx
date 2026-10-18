@@ -1,4 +1,5 @@
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
+import {randomUUID} from '../lib/randomUUID';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -6,7 +7,7 @@ import { BarChart3, Table, Filter, Save, Download, Search, X, Trash2, ArrowUpRig
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from './FilterDrawer';
 import {
-  buildCustomReport, customReportCsv, defaultReportConfig, formatReportValue, normalizeReportConfig,
+  buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig,
   type CustomReportConfig, type ReportDataset, type ReportDatePreset, type SavedReportTemplate
 } from '../lib/customReports';
 
@@ -14,6 +15,7 @@ const control = 'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 
 const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40';
 import { PAGE_SIZE, PaginatedList } from './Pagination';
 const displayDate = (value: string) => value ? value.slice(8, 10) + '/' + value.slice(5, 7) + '/' + value.slice(0, 4) : '';
+const defaultReportConfig=(dataset:ReportDataset):CustomReportConfig=>({...baseReportConfig(dataset),datePreset:'all'});
 export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ datasets }) => {
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
@@ -90,7 +92,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
       showToast('Tên mẫu đã tồn tại. Hãy đặt tên khác hoặc cập nhật mẫu đang chọn.', 'warning'); return;
     }
     if (!overwrite && templates.length >= 20) { showToast('Đã có 20 mẫu. Hãy xóa một mẫu không dùng trước khi lưu thêm.', 'warning'); return; }
-    const saved = { id: overwrite && selectedTemplate ? templateId : crypto.randomUUID(), name, config };
+    const saved = { id: overwrite && selectedTemplate ? templateId : randomUUID(), name, config };
     const next = overwrite && selectedTemplate ? templates.map(item => item.id === templateId ? saved : item) : [saved, ...templates];
     if (persistTemplates(next)) {
       void confirmSave(()=>{setTemplateId(saved.id); setSaveOpen(false);});
@@ -112,8 +114,8 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
     <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">Báo cáo tùy chỉnh</h3>
-          <p className="mt-0.5 text-[11px] text-slate-500">Chọn dữ liệu, chỉ số và cách nhóm. Kết quả tự cập nhật.</p>
+          <h3 className="text-sm font-bold text-slate-900">Tự thiết lập báo cáo</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500">Chọn nguồn → chọn chỉ số → nhóm kết quả → lọc thời gian. Kết quả tự cập nhật bên phải.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" className={button + ' border-indigo-200 text-indigo-700 hover:bg-indigo-50'} onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" />Tạo báo cáo mới</button>
@@ -146,7 +148,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
             if (target) { setConfig({ ...defaultReportConfig(target), groupBy: item.group }); setTemplateId(''); setSearch(''); }
           }}>{item.name}</button>)}
       </div>
-      <p className="mt-2 text-[11px] text-slate-500">Các mẫu trên chỉ là gợi ý. Chọn “Tạo báo cáo mới” hoặc đổi dữ liệu, chỉ số và cách nhóm trong Thiết lập báo cáo, rồi lưu thành mẫu riêng.</p>
+      <p className="mt-2 text-[11px] text-slate-500">Các nút trên chỉ chọn sẵn cấu hình. Lưu mẫu chỉ lưu cách xem; số liệu luôn tính lại từ dữ liệu nghiệp vụ đã tải.</p>
       {templates.length > 0 && <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2.5">
         <span className="text-[11px] text-slate-500">Mẫu của tôi:</span>
         <PaginatedList className="flex flex-wrap gap-2">{templates.map(item => <button key={item.id} type="button" aria-pressed={templateId === item.id}
@@ -190,7 +192,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
         <section className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
-              Thời gian
+              4. Thời gian
               <select value={config.datePreset} disabled={dataset.dateKind === 'snapshot'} onChange={event => patch({ datePreset: event.target.value as ReportDatePreset })}
                 className={control + ' w-auto disabled:bg-slate-100 disabled:text-slate-400'}>
                 <option value="month">Tháng này đến hôm nay</option><option value="previous_month">Tháng trước</option>

@@ -12,7 +12,7 @@ export interface WorkbenchLesson {
 }
 export const localDay=(now:Date)=>new Date(now.getTime()+7*60*60_000).toISOString().slice(0,10);
 export function workbenchData(classes:ClassItem[],students:StudentRecord[],teachers:TeacherProfile[],lessons:WorkbenchLesson[],
- incidents:{status?:string}[],payroll:Record<string,MonthPayrollData>,slots:{id:string;timeRange:string}[],now:Date) {
+ incidents:{status?:string;lessonId?:string;reportedAt?:string}[],payroll:Record<string,MonthPayrollData>,slots:{id:string;timeRange:string}[],now:Date,range?:{start:string;end:string}) {
  const today=localDay(now);
  const monday=new Date(today+'T12:00:00+07:00');monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
  const weekStart=localDay(monday),weekEnd=localDay(new Date(monday.getTime()+6*86400000));
@@ -22,14 +22,21 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
   className:classes.find(c=>c.id===l.classId)?.name||l.classId,
   teacherName:teachers.find(t=>t.id===(l.coverTeacherId||l.primaryTeacherId))?.name||'Chưa phân công'
  })).sort((a,b)=>(a.lesson.startsAt||a.time).localeCompare(b.lesson.startsAt||b.time));
- const weekly=lessons.filter(l=>l.date>=weekStart&&l.date<=weekEnd);
- const days=Array.from({length:7},(_,i)=>{
-  const date=localDay(new Date(monday.getTime()+i*86400000));
-  const rows=weekly.filter(l=>l.date===date);
+ const start=range?.start||weekStart,end=range?.end||weekEnd;
+ const weekly=lessons.filter(l=>l.date>=start&&l.date<=end);
+ const periodLessons=weekly.map(l=>({lesson:l,state:state(l),time:time(l),className:classes.find(c=>c.id===l.classId)?.name||l.classId,
+  teacherName:teachers.find(t=>t.id===(l.coverTeacherId||l.primaryTeacherId))?.name||'Chưa phân công'}))
+  .sort((a,b)=>a.lesson.date.localeCompare(b.lesson.date)||(a.lesson.startsAt||a.time).localeCompare(b.lesson.startsAt||b.time));
+ const first=new Date(start+'T12:00:00+07:00'),span=Math.max(1,Math.round((Date.parse(end+'T12:00:00+07:00')-first.getTime())/86400000)+1);
+ const bucket=Math.max(1,Math.ceil(span/12));
+ const days=Array.from({length:Math.ceil(span/bucket)},(_,i)=>{
+  const date=localDay(new Date(first.getTime()+i*bucket*86400000));
+  const last=localDay(new Date(first.getTime()+Math.min(span-1,(i+1)*bucket-1)*86400000));
+  const rows=weekly.filter(l=>l.date>=date&&l.date<=last);
   const counts={done:0,warning:0,upcoming:0,cancelled:0};
   for(const l of rows){const s=state(l);if(s==='DA_HOC')counts.done++;else if(s==='NGHI_HOC')counts.cancelled++;
    else if(['CHUA_HOC','CHUA_HOAN_TAT'].includes(s))counts.warning++;else counts.upcoming++;}
-  return {date,label:i===6?'CN':'T'+(i+2),total:rows.length,...counts};
+  return {date,label:date.slice(8)+'/'+date.slice(5,7)+(bucket>1?'–'+last.slice(8)+'/'+last.slice(5,7):''),total:rows.length,...counts};
  });
  const missingMaterials=new Set(weekly.filter(l=>{
   if(state(l)==='NGHI_HOC')return false;
@@ -41,14 +48,14 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
  }).map(l=>l.classId));
  const workload=teachers.map(t=>({id:t.id,name:t.name,count:weekly.filter(l=>state(l)!=='NGHI_HOC'&&(l.coverTeacherId||l.primaryTeacherId)===t.id).length}))
   .filter(t=>t.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
- return {today,weekStart,weekEnd,todayLessons,days,workload,
+ return {today,weekStart:start,weekEnd:end,todayLessons,periodLessons,days,workload,
   ongoing:todayLessons.filter(r=>r.state==='DANG_HOC').length,
   warnings:todayLessons.filter(r=>['CHUA_HOC','CHUA_HOAN_TAT'].includes(r.state)).length,
-  pendingIncidents:incidents.filter(i=>i.status==='DANG_XU_LY').length,
-  pendingDisputes:Object.values(payroll).flatMap(p=>p.disputes||[]).filter(d=>d.status==='CHO_DUYET').length,
+  pendingIncidents:incidents.filter(i=>i.status==='DANG_XU_LY'&&(!range||(()=>{const date=i.reportedAt?.slice(0,10)||lessons.find(l=>l.id===i.lessonId)?.date||'';return date>=start&&date<=end;})())).length,
+  pendingDisputes:Object.entries(payroll).filter(([month])=>!range||(month>=start.slice(0,7)&&month<=end.slice(0,7))).flatMap(([,p])=>p.disputes||[]).filter(d=>d.status==='CHO_DUYET').length,
   waitingStudents:students.filter(s=>studentRegistrations(s).some(r=>r.status==='Chờ xếp lớp')).length,
   unassignedClasses:classes.filter(c=>!['Tạm dừng','Đã kết thúc'].includes(c.status||'')&&!c.teacherId).length,
   missingMaterials:missingMaterials.size,
-  missingFeedback:lessons.filter(l=>state(l)!=='NGHI_HOC'&&l.checkoutAt&&l.feedbackProgress&&l.feedbackProgress.completed<l.feedbackProgress.total).length
+  missingFeedback:weekly.filter(l=>state(l)!=='NGHI_HOC'&&l.checkoutAt&&l.feedbackProgress&&l.feedbackProgress.completed<l.feedbackProgress.total).length
  };
 }

@@ -1,7 +1,7 @@
 export type ReportDatePreset = 'month' | 'previous_month' | 'last_30_days' | 'all' | 'custom';
 export type ReportFormat = 'number' | 'percent' | 'score';
 export interface ReportMetric {
-  id: string; label: string; mode: 'count' | 'sum' | 'average' | 'ratio';
+  id: string; label: string; mode: 'count' | 'distinct' | 'sum' | 'average' | 'ratio';
   field?: string; denominator?: string; format?: ReportFormat;
 }
 export type ReportRecord = Record<string, string | number | undefined>;
@@ -82,6 +82,7 @@ const numeric = (record: ReportRecord, field?: string): number | null => {
 function aggregate(records: ReportRecord[], metrics: ReportMetric[]): Record<string, number | null> {
   return Object.fromEntries(metrics.map(metric => {
     if (metric.mode === 'count') return [metric.id, records.length];
+    if (metric.mode === 'distinct') return [metric.id, new Set(records.map(record => metric.field ? record[metric.field] : undefined).filter(value => value !== undefined && value !== '')).size];
     const values = records.map(record => numeric(record, metric.field)).filter((value): value is number => value !== null);
     const sum = values.reduce((total, value) => total + value, 0);
     if (metric.mode === 'average') return [metric.id, values.length ? sum / values.length : null];

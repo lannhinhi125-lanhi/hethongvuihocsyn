@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import { supabase } from '../src/config/supabase';
 import { loginAccount,logoutAccount } from '../src/lib/accountSession';
-import { loadBusinessData,setBusinessValue,getBusinessSnapshot,resetBusinessData,waitForBusinessSave } from '../src/lib/businessPersistence';
+import { loadBusinessData,refreshBusinessData,setBusinessValue,getBusinessSnapshot,resetBusinessData,waitForBusinessSave } from '../src/lib/businessPersistence';
 const actor={madinhdanh:'ADMIN',hoten:'Admin',tendangnhap:'admin',thudientu:'a@example.com',sodienthoai:'',vaitro:'Quản trị Toàn quyền',trangthai:'active',chucaiavatar:'A',manhomquyen:'ROLE'};
 const session={actor,users:[actor],role_groups:[{madinhdanh:'ROLE',tennhomquyen:'Admin',phanloai:'HỆ THỐNG',mota:'',soluongnguoidung:1,danhsachquyen:['ALL'],congtruycap:'ADMIN'}]};
 let data:any={subjects:[{madinhdanh:'S1',mamonhoc:'M1',tenviettat:'M',tenmonhoc:'Original',mota:'',danghoatdong:true}]};
-const calls:any[]=[];let release:(()=>void)|undefined;let fail=false;
+const calls:any[]=[];let release:(()=>void)|undefined;let fail=false;let readFail=false;
 (supabase as any).schema=()=>({rpc:async(name:string,args:any)=>{
  if(name==='vuihoc_login')return {data:{...session,token:'token'}};
  if(name==='vuihoc_session')return {data:session};
- if(name==='vuihoc_business_data')return {data:structuredClone(data)};
+ if(name==='vuihoc_business_data')return readFail?{error:{message:'read unavailable'}}:{data:structuredClone(data)};
  if(name==='vuihoc_save_business'){
   calls.push(structuredClone(args.p_changes));await new Promise<void>(resolve=>{release=resolve;});
   if(fail)return {error:{message:'forced save error'}};
@@ -21,6 +21,13 @@ const calls:any[]=[];let release:(()=>void)|undefined;let fail=false;
 }});
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 await loginAccount('admin','test');await loadBusinessData();
+assert.ok(getBusinessSnapshot().loadedAt,'successful RPC loads have a timestamp');
+const firstLoad=getBusinessSnapshot().loadedAt;
+readFail=true;await refreshBusinessData();
+assert.equal(getBusinessSnapshot().data.subjects[0].name,'Original','read failures preserve actual data');
+assert.equal(getBusinessSnapshot().loadedAt,firstLoad,'a failed refresh never claims a new successful load');
+assert.match(getBusinessSnapshot().refreshError||'',/read unavailable/);
+readFail=false;await refreshBusinessData();assert.equal(getBusinessSnapshot().refreshError,'');
 const edit=(name:string)=>setBusinessValue('subjects',(rows:any[])=>rows.map(r=>({...r,name})));
 edit('First');setBusinessValue('custom_catalogs',[{id:'CAT',code:'CAT',name:'Catalog',desc:'',entries:[]}]);await tick();
 let confirmedSave=false;const completion=waitForBusinessSave().then(()=>{confirmedSave=true;});

@@ -21,13 +21,14 @@ export interface ReportIncident {
 export function incidentReportPeriods(
   lessons: ReportLesson[],
   incidents: ReportIncident[],
-  range: { start: string; end: string } = { start: '', end: '' }
+  range: { start: string; end: string } = { start: '', end: '' },
+  dateBasis: 'reported' | 'lesson' = 'reported'
 ) {
   const lessonDates = new Map(lessons.map(lesson => [lesson.id, lesson.date]));
   const inRange = (date: string) => Boolean(date) && (!range.start || date >= range.start) && (!range.end || date <= range.end);
   const events = incidents.map(incident => ({
     ...incident,
-    date: incident.reportedAt ? reportCreationDate(incident.reportedAt) : lessonDates.get(incident.lessonId) || ''
+    date: dateBasis === 'lesson' ? lessonDates.get(incident.lessonId) || '' : incident.reportedAt ? reportCreationDate(incident.reportedAt) : lessonDates.get(incident.lessonId) || ''
   })).filter(event => inRange(event.date));
   const months = [...new Set([
     ...lessons.filter(lesson => inRange(lesson.date)).map(lesson => lesson.date.slice(0, 7)),

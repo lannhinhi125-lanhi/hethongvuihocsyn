@@ -35,7 +35,7 @@ const bySubject=new Map([['s',{created_at:'2026-08-01',registrations:[
  {...trace('ENG-A','2026-10-02T10:00:00+07:00',true),subject:'ENG'},
  {...trace('ENG-B','2026-10-10T10:00:00+07:00',false),subject:'ENG'}
 ]}]]);
-assert.equal(classifyClassGrowth(['s'],bySubject,range,'ENG-A','ENG').kind,'NEW','First English class is new despite older Math registration/profile');
+assert.equal(classifyClassGrowth(['s'],bySubject,range,'ENG-A','ENG').kind,'TRANSFER','New subject registration of an existing student is not a new student identity');
 assert.equal(classifyClassGrowth(['s'],bySubject,range,'ENG-B','ENG').kind,'TRANSFER','Another class of the same subject is a transfer');
 const sameDay=new Map([['s',{created_at:'2026-10-02',registrations:[
  {subject:'MATH',registeredAt:'2026-10-02'}, {subject:'ENG',registeredAt:'2026-10-02'}
@@ -44,4 +44,4 @@ const sameDay=new Map([['s',{created_at:'2026-10-02',registrations:[
  {...trace('ENG-A','2026-10-02T11:00:00+07:00',true),subject:'ENG'}
 ]}]]);
 assert.equal(['MATH','ENG'].filter(subject=>classifyClassGrowth(['s'],sameDay,range,subject+'-A',subject).kind==='NEW').length,2,'Both first classes count when registered on the same day');
-console.log('PASS: class growth counts independently by subject; new English is not a Math transfer');
+console.log('PASS: new subject registrations do not create new identities; first placements for genuinely new profiles can qualify by subject');

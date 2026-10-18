@@ -6,13 +6,15 @@ import { usePermissions } from '../hooks/usePermissions';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CustomReportBuilder } from '../components/CustomReportBuilder';
+import {ReportDataStatus} from '../components/ReportDataStatus';
 import { makeReportDatasets } from '../lib/reportDatasets';
+import { operationalReportDatasets } from '../lib/operationalReportDatasets';
 import { reportCreationDate } from '../lib/reportCreationDate';
+import { createdInReportRange } from '../lib/reportCohort';
 import { incidentReportPeriods, type ReportIncident, type ReportLesson } from '../lib/incidentReportPeriods';
-import { useBusinessValue } from '../lib/businessPersistence';
+import { useBusinessValue,useBusinessStatus } from '../lib/businessPersistence';
 import { inspectionDate, inspectionReportRows, type InspectionEvaluation } from '../lib/inspectionReport';
 import { FilterDrawer } from '../components/FilterDrawer';
-import { WorkbenchOperations } from '../components/WorkbenchOperations';
 import { refreshBusinessData } from '../lib/businessPersistence';
 import {
   PieChart,
@@ -194,6 +196,7 @@ const isDateInRange = (date: string, range: { start: string; end: string }) =>
   Boolean(date) && (!range.start || date >= range.start) && (!range.end || date <= range.end);
 
 export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='reports'}) => {
+  const {loadedAt}=useBusinessStatus();
   const [reportLessons] = useBusinessValue<ReportLesson[]>('dated_lessons');
   const [reportIncidents] = useBusinessValue<ReportIncident[]>('lesson_incidents');
   const [reportEvaluations] = useBusinessValue<InspectionEvaluation[]>('teacher_evaluations');
@@ -224,11 +227,8 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const [dashMonth, setDashMonth] = useState(() => toLocalIsoDate(new Date()).slice(0, 7));
   const [dashDateFrom, setDashDateFrom] = useState('');
   const [dashDateTo, setDashDateTo] = useState('');
-  const [detailDateFrom, setDetailDateFrom] = useState(() => {
-    const today = new Date();
-    return toLocalIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
-  });
-  const [detailDateTo, setDetailDateTo] = useState(() => toLocalIsoDate(new Date()));
+  const [detailDateFrom, setDetailDateFrom] = useState('');
+  const [detailDateTo, setDetailDateTo] = useState('');
 
   // =========================================================================
   // TAB 2 (BÁO CÁO CỐ ĐỊNH): NÚT CHỌN LOẠI BÁO CÁO & CHẾ ĐỘ XEM
@@ -240,8 +240,8 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const canCustom = can('Công cụ tạo báo cáo tùy biến (Dynamic Report)');
   useEffect(()=>{setCurrentMainTab(mode==='dashboard'?'dashboard':canFixed?'fixed':'custom');},[mode,canFixed,canCustom]);
   useEffect(()=>{
-    if(mode!=='dashboard')return;
     const refresh=()=>{if(document.visibilityState==='visible')void refreshBusinessData();};
+    refresh();
     const timer=window.setInterval(refresh,30_000);
     window.addEventListener('focus',refresh);
     return ()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);};
@@ -256,7 +256,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const [detailPage, setDetailPage] = useState(0);
 
   // Chế độ xem báo cáo: biểu đồ hoặc bảng
-  const [fixedViewMode, setFixedViewMode] = useState<'visual' | 'table'>('visual');
+  const [fixedViewMode, setFixedViewMode] = useState<'visual' | 'table'>('table');
 
   // =========================================================================
   // Bộ lọc riêng cho từng báo cáo
@@ -269,7 +269,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const [clsFilterSubject, setClsFilterSubject] = useState('ALL');
   const [clsFilterModel, setClsFilterModel] = useState('ALL');
   const [clsFilterStatus, setClsFilterStatus] = useState('ALL');
-  const [clsGrowthFilter,setClsGrowthFilter]=useState<ClassGrowthKind|'ALL'>('NEW');
+  const [clsGrowthFilter,setClsGrowthFilter]=useState<ClassGrowthKind|'ALL'>('ALL');
 
   // 2. Bộ lọc riêng cho Báo cáo Học sinh mới
   const [stuFilterCode, setStuFilterCode] = useState('');
@@ -336,9 +336,12 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const rawTutors = useMemo(() => sourceTeachers.map(t => ({
     id: t.id, name: t.name, date: creationDate(t), subject: subjectLabel(t.subject), subjectCode: subjectCode(t.subject),
     grades: t.grades.join(', '), gradeGroup: t.levelId === 'CAP-TH' ? 'PRIMARY' : t.levelId === 'CAP-THCS' ? 'THCS' : t.levelId === 'CAP-THPT' ? 'THPT' : 'IELTS',
-    status: t.status === 'DANG_DAY' ? 'Đang đứng lớp' : t.status === 'CHO_LOP' ? 'Sẵn sàng nhận lớp' : t.statusLabel, assigned: t.busySlots
-  })), [sourceTeachers, sourceSubjects]);
-  const rawIncidents = useMemo(() => incidentReportPeriods(reportLessons, reportIncidents), [reportLessons, reportIncidents]);
+    status: t.status === 'DANG_DAY' ? 'Đang đứng lớp' : t.status === 'CHO_LOP' ? 'Sẵn sàng nhận lớp' : t.statusLabel,
+    assigned: reportLessons.filter(lesson => (lesson.coverTeacherId || lesson.primaryTeacherId) === t.id &&
+      !['DA_HUY','HUY','NGHI_HOC'].includes(lesson.status || '') &&
+      isDateInRange(lesson.date, {start:detailDateFrom,end:detailDateTo})).length
+  })), [sourceTeachers, sourceSubjects, reportLessons, detailDateFrom, detailDateTo]);
+  const rawIncidents = useMemo(() => incidentReportPeriods(reportLessons, reportIncidents, {start:'',end:''}, 'lesson'), [reportLessons, reportIncidents]);
   const rawMatrix = useMemo(() => sourceSubjects.map(subject => {
     const completedLessons = reportLessons.filter(lesson => ['DA_HOC','HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status || '') &&
       isDateInRange(lesson.date, { start: detailDateFrom, end: detailDateTo }));
@@ -354,12 +357,24 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const rawTeachersInspection = useMemo(() => inspectionReportRows(sourceTeachers, reportEvaluations, reportLessons)
     .map(row => ({ ...row, subject: subjectLabel(row.subjectCode), subjectCode: subjectCode(row.subjectCode) })),
   [sourceTeachers, sourceSubjects, reportEvaluations, reportLessons]);
-  const customDatasets = useMemo(() => makeReportDatasets({
+  const customDatasets = useMemo(() => [...makeReportDatasets({
     classes: rawClasses, students: rawStudents, registrations: rawStudentRegistrations, teachers: rawTutors,
     incidents: rawIncidents, inspections: rawTeachersInspection
-  }), [rawClasses, rawStudents, rawStudentRegistrations, rawTutors, rawIncidents, rawTeachersInspection]);
+  }).filter(dataset=>!['incidents','inspection'].includes(dataset.id)),
+    ...operationalReportDatasets(reportLessons,reportIncidents,reportEvaluations,
+      sourceTeachers.map(t=>({id:t.id,name:t.name,subject:subjectLabel(t.subject)})),sourceClasses)],
+    [rawClasses, rawStudents, rawStudentRegistrations, rawTutors, rawIncidents, rawTeachersInspection, reportLessons,reportIncidents,reportEvaluations,sourceTeachers,sourceClasses,sourceSubjects]);
 
   const detailDateRange = { start: detailDateFrom, end: detailDateTo };
+  const cohortDates = (selectedFixedReport === 'fixed_new_classes' ? rawClasses :
+    selectedFixedReport === 'fixed_new_students' ? rawStudents :
+    selectedFixedReport === 'fixed_new_tutors' ? rawTutors : []).map(row => row.date);
+  const knownCohortDates = cohortDates.filter(Boolean).sort();
+  const reportScopeNote = ['fixed_new_classes','fixed_new_students','fixed_new_tutors'].includes(selectedFixedReport)
+    ? `Lọc theo ngày tạo hồ sơ, không theo ngày khai giảng hoặc ngày có ca học. Trạng thái là hiện trạng.${knownCohortDates.length ? ` Dữ liệu có ngày tạo từ ${knownCohortDates[0]} đến ${knownCohortDates[knownCohortDates.length-1]}.` : ''}${cohortDates.some(date=>!date) ? ' Hồ sơ thiếu ngày tạo chỉ xuất hiện khi chọn Toàn bộ.' : ''}`
+    : selectedFixedReport === 'fixed_matrix' ? 'Đếm buổi đã hoàn thành theo ngày học và môn của lớp, gồm cả ca dạy thay.'
+    : selectedFixedReport === 'fixed_inspection' ? 'Tổng hợp biên bản dự giờ đã duyệt theo ngày dự giờ; mỗi giáo viên là một dòng.'
+    : 'Tổng hợp theo ngày học, cùng cách tính với Bàn làm việc và Báo cáo động; mỗi buổi chỉ tính một lần dù có nhiều sự cố.';
   const clsDateRange = detailDateRange;
   const stuDateRange = detailDateRange;
   const tutDateRange = detailDateRange;
@@ -384,7 +399,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const filteredClasses = useMemo(() => {
     return classifiedClasses.filter(c => {
       if(clsGrowthFilter!=='ALL' && c.kind!==clsGrowthFilter)return false;
-      if (!isDateInRange(c.date, clsDateRange)) return false;
+      if (!createdInReportRange(c.date, clsDateRange)) return false;
 
       if (clsFilterCode && !c.code.toLowerCase().includes(clsFilterCode.toLowerCase())) return false;
       if (clsFilterName && !c.name.toLowerCase().includes(clsFilterName.toLowerCase())) return false;
@@ -402,7 +417,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   // 2. Dữ liệu lọc riêng cho Học sinh mới
   const filteredStudents = useMemo(() => {
     return rawStudents.filter(s => {
-      if (!isDateInRange(s.date, stuDateRange)) return false;
+      if (!createdInReportRange(s.date, stuDateRange)) return false;
 
       if (stuFilterCode && !s.id.toLowerCase().includes(stuFilterCode.toLowerCase())) return false;
       if (stuFilterName && !s.name.toLowerCase().includes(stuFilterName.toLowerCase())) return false;
@@ -417,7 +432,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   // 3. Dữ liệu lọc riêng cho Gia sư mới
   const filteredTutors = useMemo(() => {
     return rawTutors.filter(t => {
-      if (!isDateInRange(t.date, tutDateRange)) return false;
+      if (!createdInReportRange(t.date, tutDateRange)) return false;
 
       if (tutFilterCode && !t.id.toLowerCase().includes(tutFilterCode.toLowerCase())) return false;
       if (tutFilterName && !t.name.toLowerCase().includes(tutFilterName.toLowerCase())) return false;
@@ -433,7 +448,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
 
   // 4. Dữ liệu lọc riêng cho Sự cố
   const filteredIncidents = useMemo(() => {
-    return incidentReportPeriods(reportLessons, reportIncidents, incDateRange).filter(i => {
+    return incidentReportPeriods(reportLessons, reportIncidents, incDateRange, 'lesson').filter(i => {
       if (incFilterPeriod && !i.period.toLowerCase().includes(incFilterPeriod.toLowerCase())) return false;
       if (incFilterUrgent === 'URGENT' && i.urgent <= i.notice) return false;
       if (incFilterUrgent === 'NOTICE' && i.notice < i.urgent) return false;
@@ -751,12 +766,12 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
 
   const changeDetailStart = (value: string) => {
     setDetailDateFrom(value);
-    if (value > detailDateTo) setDetailDateTo(value);
+    if (detailDateTo && value > detailDateTo) setDetailDateTo(value);
   };
 
   const changeDetailEnd = (value: string) => {
     setDetailDateTo(value);
-    if (value < detailDateFrom) setDetailDateFrom(value);
+    if (detailDateFrom && value && value < detailDateFrom) setDetailDateFrom(value);
   };
 
   // Reset functions riêng cho từng phần
@@ -766,7 +781,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
     setClsFilterGrade('ALL');
     setClsFilterSubject('ALL');
     setClsFilterModel('ALL');
-    setClsFilterStatus('ALL');setClsGrowthFilter('NEW');
+    setClsFilterStatus('ALL');setClsGrowthFilter('ALL');
     showToast('Đã đặt lại bộ lọc Lớp học!', 'info');
   };
 
@@ -817,9 +832,9 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
     const availCount = total - fullCount;
     const fullRate = total > 0 ? Math.round((fullCount / total) * 100) : 0;
     const toanCount = filteredClasses.filter(c => c.subjectCode === 'TOAN').length;
-    const engCount = total - toanCount;
+    const engCount = filteredClasses.filter(c => c.subjectCode === 'ENG').length;
     const toanRate = total > 0 ? Math.round((toanCount / total) * 100) : 0;
-    const engRate = total > 0 ? 100 - toanRate : 0;
+    const engRate = total > 0 ? Math.round(engCount / total * 100) : 0;
     return { total, fullCount, availCount, fullRate, toanCount, engCount, toanRate, engRate };
   }, [filteredClasses]);
 
@@ -836,10 +851,10 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
   const tutStats = useMemo(() => {
     const total = filteredTutors.length;
     const readyCount = filteredTutors.filter(t => t.status.includes('Sẵn sàng')).length;
-    const activeCount = total - readyCount;
+    const activeCount = filteredTutors.filter(t => t.status === 'Đang đứng lớp').length;
     const readyRate = total > 0 ? Math.round((readyCount / total) * 100) : 0;
     const toanCount = filteredTutors.filter(t => t.subjectCode === 'TOAN').length;
-    const engCount = total - toanCount;
+    const engCount = filteredTutors.filter(t => t.subjectCode === 'ENG').length;
     const totalSessions = filteredTutors.reduce((acc, t) => acc + t.assigned, 0);
     const avgSessions = total > 0 ? (totalSessions / total).toFixed(1) : '0';
     return { total, readyCount, activeCount, readyRate, toanCount, engCount, totalSessions, avgSessions };
@@ -860,7 +875,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
     const toanSessions = filteredMatrix.find(m => m.code === 'TOAN')?.total || 0;
     const engSessions = filteredMatrix.find(m => m.code === 'ENG')?.total || 0;
     const toanRate = totalSessions > 0 ? Math.round((toanSessions / totalSessions) * 100) : 0;
-    const engRate = totalSessions > 0 ? 100 - toanRate : 0;
+    const engRate = totalSessions > 0 ? Math.round(engSessions / totalSessions * 100) : 0;
     const primaryTotal = filteredMatrix.reduce((acc, m) => acc + m.primary12 + m.primary35, 0);
     const primaryRate = totalSessions > 0 ? Math.round((primaryTotal / totalSessions) * 100) : 0;
     return { totalSessions, toanSessions, engSessions, toanRate, engRate, primaryTotal, primaryRate };
@@ -888,7 +903,6 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
 
   return (
     <div className="space-y-4">
-      {mode==='dashboard' && <WorkbenchOperations />}
       {/* ========================================================================= */}
       {/* 4 THẺ METRICS TỔNG QUAN HỆ THỐNG */}
       {/* ========================================================================= */}
@@ -946,12 +960,13 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
             <FolderOpen className="w-4 h-4" />
             <div className="text-left">
               <div className="font-semibold text-xs">Báo cáo chi tiết</div>
+              <div className="mt-0.5 text-[10px] font-normal">Tra cứu theo mẫu có sẵn</div>
             </div>
           </button>
           <button type="button" disabled={!canCustom} onClick={() => setCurrentMainTab('custom')}
             className={`px-4 py-2 border-b-2 flex items-center gap-2 text-xs transition-colors ${currentMainTab === 'custom' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
             <SlidersHorizontal className="h-4 w-4" />
-            Báo cáo tùy chỉnh
+            <div className="text-left"><div>Báo cáo động</div><div className="mt-0.5 text-[10px] font-normal">Tự chọn dữ liệu, chỉ số và cách nhóm</div></div>
           </button>
         </div>}
       </div>
@@ -959,7 +974,8 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
       {/* ========================================================================= */}
       {/* TAB 1: DASHBOARD TỶ LỆ & XU HƯỚNG TỔNG QUAN (CÓ BỘ LỌC THỜI GIAN TRÊN NÓC SỔ NGANG) */}
       {/* ========================================================================= */}
-      {mode==='reports' && canCustom && <div hidden={currentMainTab !== 'custom'}>
+      <ReportDataStatus/>
+      {mode==='reports' && loadedAt && canCustom && <div hidden={currentMainTab !== 'custom'}>
         <CustomReportBuilder datasets={customDatasets} />
       </div>}
 
@@ -1341,14 +1357,14 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
       {/* ========================================================================= */}
       {/* TAB 2: BÁO CÁO CHI TIẾT */}
       {/* ========================================================================= */}
-      {mode==='reports' && currentMainTab === 'fixed' && canFixed && (
+      {mode==='reports' && loadedAt && currentMainTab === 'fixed' && canFixed && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
             {detailUsesDateRange ? (
               <>
                 <div>
                   <div className="text-xs font-bold text-slate-800">Khoảng thời gian báo cáo</div>
-                  <div className="text-[10px] text-slate-500">Áp dụng cho báo cáo đang chọn</div>
+                  <div className="text-[10px] text-slate-500">{!detailDateFrom && !detailDateTo ? 'Toàn bộ thời gian' : 'Áp dụng cho báo cáo đang chọn'}</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -1391,6 +1407,10 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
+                  <button type="button" onClick={() => {setDetailDateFrom('');setDetailDateTo('');setDetailPage(0);}}
+                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Toàn bộ</button>
+                  <button type="button" onClick={() => void refreshBusinessData()}
+                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Làm mới</button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1421,6 +1441,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
             </button>
           </div>
 
+          <p className="px-1 text-xs text-slate-500">{reportScopeNote}</p>
           {/* Chọn báo cáo và chế độ hiển thị */}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -1651,7 +1672,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
                 </div>
               </div>
 
-              <p className="text-xs text-slate-500">Chỉ lớp tạo trong kỳ và toàn bộ học sinh có mã được tiếp nhận trong kỳ mới tính lớp mới. Có học sinh cũ, lớp trống hoặc thiếu ngày tiếp nhận không cộng tăng trưởng. Đối chiếu theo truy vết ghép/chuyển lớp đến cuối kỳ; chuyển lớp sau kỳ không làm mất số liệu cũ. {!clsDateRange.start && 'Chọn ngày bắt đầu kỳ báo cáo để phân loại.'}</p>
+              <p className="text-xs text-slate-500">Danh sách lấy tất cả lớp được tạo trong khoảng ngày đã chọn, kể cả lớp trống hoặc có học sinh cũ. Phân loại tăng trưởng là tiêu chí lọc riêng; chọn ngày bắt đầu và kết thúc để đối chiếu học sinh mới/cũ. Trạng thái và sĩ số là hiện trạng của lớp.</p>
               {/* Tỉ lệ trực quan */}
               {fixedViewMode === 'visual' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2119,7 +2140,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
                     </div>
                     <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
                       <div style={{ width: `${tutStats.readyRate}%` }} className="bg-purple-600 h-full" />
-                      <div style={{ width: `${100 - tutStats.readyRate}%` }} className="bg-indigo-500 h-full" />
+                      <div style={{ width: `${tutStats.total ? tutStats.activeCount / tutStats.total * 100 : 0}%` }} className="bg-indigo-500 h-full" />
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-purple-50 p-2 rounded-xl border border-purple-100">

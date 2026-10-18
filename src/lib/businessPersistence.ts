@@ -3,7 +3,7 @@ import { teacherSessionRequest } from './accountSession';
 import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset } from './supabaseMapper';
 import { recordChanges } from './recordChanges';
 type Row = Record<string, any>;
-type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number };
+type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number; loadedAt?:number;refreshError?:string };
 const emptyRag = { welcomeGreeting:'',personaTone:'',strictGroundingOnly:true,fallbackResponse:'',systemPrompt:'' };
 let state: Snapshot = {data:{},loading:false,saving:false,error:'',saved:0};
 let confirmed: Record<string,any> = {}, generation=0, flushing=false, scheduled=false, refreshing=false;
@@ -40,7 +40,7 @@ export function resetBusinessData(){generation++;raw={};confirmed={};publish({da
 export async function loadBusinessData(){
  if(state.saving) return;
  const version=++generation;publish({...state,loading:true,error:''});
- try {const result=await teacherSessionRequest('vuihoc_business_data');if(version!==generation)return;raw=result;confirmed=decode(result);publish({...state,data:confirmed,loading:false,error:''});}
+ try {const result=await teacherSessionRequest('vuihoc_business_data');if(version!==generation)return;raw=result;confirmed=decode(result);publish({...state,data:confirmed,loading:false,error:'',loadedAt:Date.now(),refreshError:''});}
  catch(error){if(version===generation)publish({...state,loading:false,error:(error as Error).message});}
 }
 export async function refreshBusinessData(){
@@ -51,8 +51,8 @@ export async function refreshBusinessData(){
   const result=await teacherSessionRequest('vuihoc_business_data');
   if(version!==generation || state.loading || state.saving || state.saved!==savedAt)return;
   raw=result;confirmed=decode(result);
-  publish({...state,data:confirmed,error:''});
- }catch { /* Keep the last available data and retry on the next refresh. */ }
+  publish({...state,data:confirmed,error:'',loadedAt:Date.now(),refreshError:''});
+ }catch(error) {if(version===generation)publish({...state,refreshError:(error as Error).message});}
  finally {refreshing=false;}
 }
 export function acceptBusinessTeacher(teacher:Row){
@@ -98,7 +98,7 @@ async function flush(){
      confirmed[key].sort((a:Row,b:Row)=>Number(positions.get(a.id)??Infinity)-Number(positions.get(b.id)??Infinity));
     }
    }
-   publish({...state,data:more?state.data:confirmed,saving:more,saved:state.saved+1});
+   publish({...state,data:more?state.data:confirmed,saving:more,saved:state.saved+1,...(!more&&receipt.data?{loadedAt:Date.now(),refreshError:''}:{})});
   }
  }catch(error){if(version===generation)publish({...state,data:confirmed,saving:false,error:(error as Error).message});}
  finally{flushing=false;if(state.saving)queueMicrotask(()=>void flush());}

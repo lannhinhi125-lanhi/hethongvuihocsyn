@@ -6,6 +6,7 @@ export interface InspectionTeacher {
 }
 
 export interface InspectionEvaluation {
+  status?: string;
   teacherId?: string;
   evaluationDate?: string;
   overallScore?: number;
@@ -37,7 +38,7 @@ export function inspectionReportRows(
     const records = (normalized.length ? normalized : teacher.evaluationReports || [])
       .filter(record => {
         const date = inspectionDate(record.evaluationDate);
-        return date && (!range.start || date >= range.start) && (!range.end || date <= range.end) &&
+        return (!record.status || record.status === 'DA_DUYET') && date && (!range.start || date >= range.start) && (!range.end || date <= range.end) &&
           record.overallScore!=null && Number.isFinite(Number(record.overallScore)) && Number(record.overallScore)>=0 && Number(record.overallScore)<=10;
       });
     if (!records.length) return [];

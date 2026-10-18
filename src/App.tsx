@@ -15,6 +15,7 @@ import { Module5_OperationsMonitoring } from './views/Module5_OperationsMonitori
 import { Module6_AIStudio } from './views/Module6_AIStudio';
 import { Module7_WorkReconciliation } from './views/Module7_WorkReconciliation';
 import { Module8_Reports } from './views/Module8_Reports';
+import { Workbench } from './views/Workbench';
 import { TeacherEvaluationView } from './views/TeacherEvaluationView';
 import { TeacherAvailabilityView } from './views/TeacherAvailabilityView';
 import { TeacherWorkReconciliationView } from './views/TeacherWorkReconciliationView';
@@ -80,7 +81,8 @@ const MainLayout: React.FC = () => {
                 {activeModule === 5 && canAccessModule(currentUser, roleGroups, 'PH5') && <Module5_OperationsMonitoring />}
                 {activeModule === 6 && canAccessModule(currentUser, roleGroups, 'PH6') && <Module6_AIStudio />}
                 {activeModule === 7 && canAccessModule(currentUser, roleGroups, 'PH7') && <Module7_WorkReconciliation />}
-                {(activeModule === 0 || activeModule === 8) && canAccessModule(currentUser, roleGroups, 'PH'+activeModule) && <Module8_Reports mode={activeModule === 0 ? 'dashboard' : 'reports'} />}
+                {activeModule === 0 && canAccessModule(currentUser, roleGroups, 'PH0') && <Workbench />}
+                {activeModule === 8 && canAccessModule(currentUser, roleGroups, 'PH8') && <Module8_Reports mode="reports" />}
               </>
             ) : (
               // ================= GIAO DIỆN CỔNG GIÁO VIÊN & GIA SƯ =================

@@ -55,11 +55,11 @@ export function makeReportDatasets(sources: Sources): ReportDataset[] {
     }] : []),
     {
       id: 'teachers', label: 'Giáo viên mới', dateKind: 'event',
-      note: 'Khoảng thời gian lọc theo ngày gia nhập. Số ca được giao phản ánh số liệu hiện có của giáo viên trong danh sách.',
-      records: sources.teachers.map(item => ({ id: item.id, name: item.name, date: item.date, subject: item.subject, grade: item.grades, status: item.status, assigned: item.assigned })),
-      metrics: [{ id: 'count', label: 'Số giáo viên', mode: 'count' }, { id: 'assigned', label: 'Ca được giao', mode: 'sum', field: 'assigned' }],
-      defaultMetricIds: ['count', 'assigned'], dimensions: [subject, grade, status, ...time], filters: [subject, grade, status],
-      detailFields: [dimension('id', 'Mã giáo viên'), dimension('name', 'Họ tên'), dimension('date', 'Ngày gia nhập'), subject, grade, status, dimension('assigned', 'Ca được giao')]
+      note: 'Lọc theo ngày tạo hồ sơ giáo viên. Trạng thái và khối phụ trách là hiện trạng, không phải lịch sử của kỳ đã chọn.',
+      records: sources.teachers.map(item => ({ id: item.id, name: item.name, date: item.date, subject: item.subject, grade: item.grades, status: item.status })),
+      metrics: [{ id: 'count', label: 'Số giáo viên', mode: 'count' }],
+      defaultMetricIds: ['count'], dimensions: [subject, grade, status, ...time], filters: [subject, grade, status],
+      detailFields: [dimension('id', 'Mã giáo viên'), dimension('name', 'Họ tên'), dimension('date', 'Ngày tạo hồ sơ'), subject, grade, status]
     },
     {
       id: 'incidents', label: 'Sự cố vận hành', dateKind: 'period',

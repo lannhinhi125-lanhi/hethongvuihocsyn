@@ -1,7 +1,7 @@
 import type {StudentClassTrace} from '../types';
 import {reportCreationDate} from './reportCreationDate';
 export type ClassGrowthKind='NEW'|'TRANSFER'|'MIXED'|'EMPTY'|'UNKNOWN';
-export const classGrowthLabels:Record<ClassGrowthKind,string>={NEW:'Lớp mới',TRANSFER:'Học sinh chuyển lớp',MIXED:'Có học sinh cũ — không tính lớp mới',EMPTY:'Chưa có học sinh',UNKNOWN:'Chưa đủ dữ liệu để phân loại'};
+export const classGrowthLabels:Record<ClassGrowthKind,string>={NEW:'Lớp mới tăng trưởng',TRANSFER:'Chỉ có học sinh cũ / đã chuyển lớp',MIXED:'Có cả học sinh mới và cũ / chuyển lớp',EMPTY:'Chưa có học sinh',UNKNOWN:'Chưa đủ dữ liệu để phân loại'};
 export function classifyClassGrowth(studentIds:string[],students:Map<string,{created_at?:string;subject?:string;registrations?:Array<{subject:string;registeredAt?:string}>;classHistory?:StudentClassTrace[]}>,range:{start:string;end:string},classId?:string,classSubject?:string) {
  let ids=[...new Set(studentIds)];let newStudents=0,oldStudents=0,unknownStudents=0;
  if(classId) {
@@ -14,8 +14,8 @@ export function classifyClassGrowth(studentIds:string[],students:Map<string,{cre
   for(const id of ids) {
    const events=arrivals.filter(item=>item.id===id).map(item=>item.event);
    const student=students.get(id);
-   const registration=classSubject ? student?.registrations?.find(item=>item.subject===classSubject) : undefined;
-   const date=reportCreationDate(classSubject && student?.registrations?.length ? registration?.registeredAt : student?.created_at);
+   // A new subject registration never creates a new student identity.
+   const date=reportCreationDate(student?.created_at);
    if(events.some(event=>event.isBaseline) || !date || !range.start)unknownStudents++;
    else if(events.some(event=>!event.isInitial) || date<range.start)oldStudents++;
    else if(range.end && date>range.end)unknownStudents++;
