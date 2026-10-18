@@ -17,15 +17,17 @@ import {
   Clock,
   ArrowRightLeft,
   ChevronRight,
-  LayoutDashboard
+  LayoutDashboard,
+  LogOut
 } from 'lucide-react';
 
 interface SidebarProps {
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
+  onLogout?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, onLogout }) => {
   const { canModule, can } = usePermissions();
   const [reportsOpen, setReportsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -236,6 +238,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                 <span>Online</span>
               </span>
             </div>
+            {!PORTAL_PREVIEW_MODE && <button
+              type="button"
+              onClick={onLogout}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Đăng xuất</span>
+            </button>}
           </div>
         </div>
       </aside>

@@ -12,11 +12,10 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  onLogout?: () => void;
   onToggleMobileMenu?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   const {
     activeModule,
     reportSection,
@@ -110,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
 
           <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
-          {PORTAL_PREVIEW_MODE ? (
+          {PORTAL_PREVIEW_MODE && (
             <label className="flex items-center gap-2 text-xs text-slate-600">
               <span className="hidden sm:inline">Kiểm tra cổng:</span>
               <ReportSelect
@@ -128,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
                 ))}
               </ReportSelect>
             </label>
-          ) : <button type="button" onClick={onLogout} className="px-3 py-2 text-xs border border-slate-200 rounded-lg">Đăng xuất</button>}
+          )}
           {/* Avatar người dùng hiện tại */}
           <div className="flex items-center gap-2 pl-1">
             <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-700 flex items-center justify-center font-semibold text-xs border border-orange-100">

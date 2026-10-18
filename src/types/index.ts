@@ -210,6 +210,7 @@ export interface ClassCoverAssignment {
 }
 
 export interface ClassItem {
+  paused?: boolean;
   durationMonths?: number | null;
   endDate?: string | null;
   created_at?: string;

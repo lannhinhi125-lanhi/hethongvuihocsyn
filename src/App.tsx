@@ -55,12 +55,12 @@ const MainLayout: React.FC = () => {
   return (
     <div className="workspace-ui flex h-screen overflow-hidden bg-[#f8f9fc] text-slate-800 antialiased font-sans">
       {/* Sidebar điều hướng thông minh theo phân quyền (Quản trị vs Giáo viên & Gia sư) */}
-      <Sidebar mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} />
+      <Sidebar mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} onLogout={() => { void logoutAccount(); setMobileMenuOpen(false); }} />
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Header với Breadcrumb, Switcher vai trò, Xóa & Reset dữ liệu */}
-        <Header onLogout={() => { void logoutAccount(); setMobileMenuOpen(false); }} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
+        <Header onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         {/* Scrollable Main Content */}
         <main className="workspace-content flex-1 overflow-y-auto p-3 sm:p-4 min-w-0">

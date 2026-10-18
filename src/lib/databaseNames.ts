@@ -596,6 +596,7 @@ export const APP_DATABASE_FIELDS = {
   "classes": {
     "categoryId": "macaphoc",
     "status": "trangthai",
+    "paused": "tamdunglich",
     "id": "madinhdanh",
     "code": "malophoc",
     "name": "tenlophoc",

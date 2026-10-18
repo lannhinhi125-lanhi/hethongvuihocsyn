@@ -22,9 +22,41 @@ try {
  await db.exec(file('supabase/migrations/20261109_reenrollment_class_duration.sql'));
  await db.exec(file('supabase/migrations/20261109_reenrollment_class_duration.sql'));
  console.log('PASS migration applies twice');
+ await db.exec(file('supabase/migrations/20261110_temporary_class_pause.sql'));
+ await db.exec(file('supabase/migrations/20261110_temporary_class_pause.sql'));
+ await db.exec('BEGIN; SAVEPOINT pause_test');
+ await db.exec(`INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh','TEST-PAUSE','malophoc','TEST-PAUSE','trangthai','DANG_HOC','ngaybatdau','2090-01-01','thoihanthang',1))).* FROM vuihoc."LOP_HOC" l WHERE magiaovien IS NOT NULL LIMIT 1;
+ INSERT INTO vuihoc."LICH_LOP"(malop,thutu,thutrongtuan,makhunggio) SELECT 'TEST-PAUSE',1,thutrongtuan,makhunggio FROM vuihoc."LICH_LOP" LIMIT 1;
+ SELECT vuihoc.dong_bo_ca_theo_lich('2090-01-01','2090-01-15');`);
+ const pauseLessons=async()=>(await db.query(`SELECT madinhdanh,trangthai,tamhoandolop FROM vuihoc."BUOI_HOC" WHERE malop='TEST-PAUSE' ORDER BY ngayhoc`)).rows;
+ let pauseRows=await pauseLessons();assert.ok(pauseRows.length>1);
+ await db.query(`UPDATE vuihoc."BUOI_HOC" SET trangthai='NGHI_HOC' WHERE madinhdanh=$1`,[pauseRows[0].madinhdanh]);
+ const teacherBefore=(await db.query(`SELECT magiaovien FROM vuihoc."LOP_HOC" WHERE madinhdanh='TEST-PAUSE'`)).rows[0].magiaovien;
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=true WHERE madinhdanh='TEST-PAUSE'; SELECT vuihoc.dong_bo_ca_theo_lich('2090-01-16','2090-01-31');`);
+ pauseRows=await pauseLessons();assert.equal(pauseRows.length,(await db.query(`SELECT count(*)::int n FROM vuihoc."BUOI_HOC" WHERE malop='TEST-PAUSE' AND ngayhoc<='2090-01-15'`)).rows[0].n);
+ assert.ok(pauseRows.every(r=>r.trangthai==='NGHI_HOC'));
+ assert.equal(pauseRows[0].tamhoandolop,false);
+ assert.equal((await db.query(`SELECT magiaovien FROM vuihoc."LOP_HOC" WHERE madinhdanh='TEST-PAUSE'`)).rows[0].magiaovien,teacherBefore);
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=false WHERE madinhdanh='TEST-PAUSE';`);
+ pauseRows=await pauseLessons();assert.equal(pauseRows[0].trangthai,'NGHI_HOC');assert.ok(pauseRows.slice(1).every(r=>r.trangthai==='CHUA_DIEN_RA'&&!r.tamhoandolop));
+ await db.exec(`SELECT vuihoc.dong_bo_ca_theo_lich('2090-01-16','2090-01-31');`);
+ assert.ok((await pauseLessons()).length>pauseRows.length);
+ await db.exec('ROLLBACK');
+ console.log('PASS temporary pause: no new lessons, teacher retained, future lessons resume, unrelated absence preserved');
  const login=(await db.query("SELECT public.vuihoc_login('admin.tong','234567') AS value")).rows[0].value;
  const token=login.token;
  const business=async()=>(await db.query('SELECT public.vuihoc_business_data($1) AS value',[token])).rows[0].value;
+ const activeClass=(await business()).classes.find(c=>c.trangthai==='DANG_HOC');
+ assert.ok(activeClass);
+ const registrationsBefore=(await db.query('SELECT * FROM vuihoc."DANG_KY_MON_HOC" WHERE malop=$1 ORDER BY mahocsinh',[activeClass.madinhdanh])).rows;
+ for(const paused of [true,false]) {
+  await db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify([{dataset:'classes',before:{madinhdanh:activeClass.madinhdanh,tamdunglich:!paused},after:{madinhdanh:activeClass.madinhdanh,tamdunglich:paused}}])]);
+  const savedClass=(await business()).classes.find(c=>c.madinhdanh===activeClass.madinhdanh);
+  assert.equal(savedClass.tamdunglich,paused);
+  assert.equal(savedClass.magiaovien,activeClass.magiaovien);
+  assert.deepEqual((await db.query('SELECT * FROM vuihoc."DANG_KY_MON_HOC" WHERE malop=$1 ORDER BY mahocsinh',[activeClass.madinhdanh])).rows,registrationsBefore);
+ }
+ console.log('PASS pause/resume through actual business RPC retains student registrations and teacher');
  const saveStudent=async(before,registrations)=>{
   await db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify([{dataset:'students',before:{madinhdanh:before.madinhdanh,dangkymonhoc:before.dangkymonhoc},after:{madinhdanh:before.madinhdanh,dangkymonhoc:registrations}}])]);
  };
