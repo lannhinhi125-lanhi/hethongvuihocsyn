@@ -26,7 +26,7 @@ const STATUS_CODES = {
   "classes": {
     "Chờ khai giảng": "CHO_KHAI_GIANG",
     "Đang học": "DANG_HOC",
-    "Tạm dừng": "TAM_DUNG",
+    "Dừng lớp": "TAM_DUNG",
     "Đã kết thúc": "DA_KET_THUC"
   }
 } as const;

@@ -20,7 +20,7 @@ assert.equal(studentForSubject(next,'ENG')?.currentClassCode,'E');
 assert.deepEqual(studentForSubject(next,'ENG')?.scheduleSlots,['T3 (18:00 - 19:00)']);
 assert.equal(studentScheduleConflict('HS-1',english,[math]),false);
 assert.equal(studentScheduleConflict('HS-1',{...english,schedule:'T2 (18:30 - 19:30)'},[math]),true);
-assert.equal(studentScheduleConflict('HS-1',{...english,schedule:math.schedule},[{...math,status:'Tạm dừng'}]),false);
+assert.equal(studentScheduleConflict('HS-1',{...english,schedule:math.schedule},[{...math,status:'Dừng lớp'}]),false);
 const encoded=toSupabaseRow('students',next);
 assert.equal((encoded.dangkymonhoc as any[])[0].status,'CHO_XEP_LOP');
 assert.deepEqual(fromSupabaseRow('students',encoded).registrations,next.registrations);

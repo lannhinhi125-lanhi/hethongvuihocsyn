@@ -101,7 +101,7 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
   const endingClasses:ReportDataset={
     id:'classes_ending',label:'Lớp sắp kết thúc',dateKind:'event',
     note:'Lớp đang học hoặc chờ khai giảng có ngày kết thúc trong 30 ngày tới (kể cả hôm nay). Lọc thời gian theo ngày kết thúc; lớp chưa có thời hạn không được suy đoán ngày kết thúc.',
-    records:classes.filter(row=>row.endDate && !['Đã kết thúc','Tạm dừng'].includes(row.status||'')).flatMap(row=>{
+    records:classes.filter(row=>row.endDate && !['Đã kết thúc','Dừng lớp'].includes(row.status||'')).flatMap(row=>{
       const remaining=Math.round((Date.parse(row.endDate!+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);
       return remaining>=0&&remaining<=30?[{id:row.code,name:row.name,date:row.endDate!,startDate:row.startDate||'',remaining,subject:subject(row.subject),grade:row.grade,model:model(row.model),status:row.status||'Đang học',teacher:row.teacherName,students:row.studentIds.length}]:[];
     }),metrics:[{id:'count',label:'Lớp sắp kết thúc',mode:'count'}],defaultMetricIds:['count'],

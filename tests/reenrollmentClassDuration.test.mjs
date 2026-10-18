@@ -95,6 +95,18 @@ try {
  assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."BUOI_HOC" WHERE malop='TEST-DURATION' AND ngayhoc>'2028-02-28'`)).rows[0].n,0);
  assert.ok((await db.query(`SELECT count(*)::int n FROM vuihoc."BUOI_HOC" WHERE malop='TEST-DURATION'`)).rows[0].n>0,'generator still creates lessons inside term');
  console.log('PASS: inclusive end date, leap-year month clamp, no lessons after end date');
+ await db.exec(file('supabase/migrations/20261111_custom_class_end_date.sql'));
+ await db.exec(file('supabase/migrations/20261111_custom_class_end_date.sql'));
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET thoihanthang=NULL,ngayketthuc='2028-03-03' WHERE madinhdanh='TEST-DURATION';`);
+ assert.equal((await db.query(`SELECT ngayketthuc::text d FROM vuihoc."LOP_HOC" WHERE madinhdanh='TEST-DURATION'`)).rows[0].d,'2028-03-03');
+ await assert.rejects(db.exec(`UPDATE vuihoc."LOP_HOC" SET ngayketthuc='2028-01-01' WHERE madinhdanh='TEST-DURATION'`),/Ngày kết thúc/);
+ await assert.rejects(db.exec(`UPDATE vuihoc."LOP_HOC" SET ngayketthuc=NULL WHERE madinhdanh='TEST-DURATION'`),/Chọn ngày kết thúc/);
+ await assert.rejects(db.exec(`UPDATE vuihoc."LOP_HOC" SET ngayketthuc='2028-02-01' WHERE madinhdanh='TEST-DURATION'`),/đã có buổi học/);
+ await db.exec(`SELECT vuihoc.dong_bo_ca_theo_lich('2028-02-29','2028-03-15');`);
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."BUOI_HOC" WHERE malop='TEST-DURATION' AND ngayhoc>'2028-03-03'`)).rows[0].n,0);
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET thoihanthang=3 WHERE madinhdanh='TEST-DURATION';`);
+ assert.equal((await db.query(`SELECT ngayketthuc::text d FROM vuihoc."LOP_HOC" WHERE madinhdanh='TEST-DURATION'`)).rows[0].d,'2028-04-29');
+ console.log('PASS custom dates: months/custom switching, invalid dates and existing lessons protected, generator respects custom end');
  await db.exec(file('supabase/reset_demo_dataset.sql'));
  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."LICH_SU_DANG_KY_HOC"')).rows[0].n,0);
  console.log('PASS: explicit demo reset remains compatible with new history tables');

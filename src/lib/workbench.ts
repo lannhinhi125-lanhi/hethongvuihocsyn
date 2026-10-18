@@ -65,7 +65,7 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
   pendingIncidents:incidents.filter(i=>i.status==='DANG_XU_LY'&&(!range||(()=>{const date=i.reportedAt?.slice(0,10)||lessons.find(l=>l.id===i.lessonId)?.date||'';return date>=start&&date<=end;})())).length,
   pendingDisputes:Object.entries(payroll).filter(([month])=>!range||(month>=start.slice(0,7)&&month<=end.slice(0,7))).flatMap(([,p])=>p.disputes||[]).filter(d=>d.status==='CHO_DUYET').length,
   waitingStudents:students.filter(s=>studentRegistrations(s).some(r=>r.status==='Chờ xếp lớp')).length,
-  unassignedClasses:classes.filter(c=>!['Tạm dừng','Đã kết thúc'].includes(c.status||'')&&!c.teacherId).length,
+  unassignedClasses:classes.filter(c=>!['Dừng lớp','Đã kết thúc'].includes(c.status||'')&&!c.teacherId).length,
   missingMaterials:missingMaterials.size,
   missingFeedback:weekly.filter(l=>state(l)!=='NGHI_HOC'&&l.checkoutAt&&l.feedbackProgress&&l.feedbackProgress.completed<l.feedbackProgress.total).length
  };

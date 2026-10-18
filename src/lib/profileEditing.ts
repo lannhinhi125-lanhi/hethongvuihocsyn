@@ -7,14 +7,14 @@ const sameSet=(a:string[]=[],b:string[]=[])=>JSON.stringify([...a].sort())===JSO
 const scheduleKey=(value:string)=>value.replace(/\s/g,'').toUpperCase();
 export function studentSlotAssignment(studentId:string,subject:string,slot:string,classes:ClassItem[]):ClassItem|undefined {
  return classes.find(cls=>cls.subject===subject&&cls.studentIds.includes(studentId)&&
-  !['Tạm dừng','Đã kết thúc'].includes(cls.status||'')&&schedulesOverlap(slot,cls.schedule));
+  !['Dừng lớp','Đã kết thúc'].includes(cls.status||'')&&schedulesOverlap(slot,cls.schedule));
 }
 export function studentStudyEditIssue(before:StudentRecord,after:StudentRecord,classes?:ClassItem[]):string|undefined {
  const previous=studentRegistrations(before),next=studentRegistrations(after);
  if(before.grade!==after.grade && previous.some(row=>(row.status!=='Chờ xếp lớp' && row.status!=='Đã thôi học')||row.currentClassCode))return 'Đưa các đăng ký môn về Chờ xếp lớp và lưu trước khi đổi khối.';
  for(const old of previous){
   const row=next.find(item=>item.subject===old.subject);
-  const linkedClass=classes?.find(cls=>cls.subject===old.subject&&cls.studentIds.includes(before.id)&&!['Tạm dừng','Đã kết thúc'].includes(cls.status||''));
+  const linkedClass=classes?.find(cls=>cls.subject===old.subject&&cls.studentIds.includes(before.id)&&!['Dừng lớp','Đã kết thúc'].includes(cls.status||''));
   const assigned=classes ? Boolean(linkedClass) : Boolean(old.currentClassCode);
   if(assigned && (!row || row.status!==old.status || row.currentClassCode!==old.currentClassCode))return `Chưa thể đổi trạng thái hoặc rút học sinh vì đang gắn với lớp ${linkedClass?.code||old.currentClassCode}. Dừng hoạt động lớp trước để chuyển về Chờ xếp lớp và giải phóng ca.`;
   const changed=!row || row.model!==old.model || row.level!==old.level;
@@ -29,7 +29,7 @@ export function studentStudyEditIssue(before:StudentRecord,after:StudentRecord,c
 }
 
 export function teacherStudyEditIssue(before:TeacherProfile,after:TeacherProfile,classes:ClassItem[]):string|undefined {
- const active=classes.filter(row=>row.teacherId===before.id&&!['Tạm dừng','Đã kết thúc'].includes(row.status||''));
+ const active=classes.filter(row=>row.teacherId===before.id&&!['Dừng lớp','Đã kết thúc'].includes(row.status||''));
  const affected=active.find(row=>(before.subject!==after.subject&&row.subject!==after.subject)||
   (before.levelId!==after.levelId&&row.categoryId!==after.levelId)||
   (!sameSet(before.grades,after.grades)&&!after.grades.includes(row.grade))||
@@ -39,7 +39,7 @@ export function teacherStudyEditIssue(before:TeacherProfile,after:TeacherProfile
 
 export function teacherScheduleEditIssue(before:TeacherProfile,after:TeacherProfile,classes:ClassItem[],slots:TimeSlotItem[]):string|undefined {
  const days=['T2','T3','T4','T5','T6','T7','CN'];
- for(const cls of classes.filter(row=>row.teacherId===before.id&&!['Tạm dừng','Đã kết thúc'].includes(row.status||''))){
+ for(const cls of classes.filter(row=>row.teacherId===before.id&&!['Dừng lớp','Đã kết thúc'].includes(row.status||''))){
   for(const slot of slots)for(let day=0;day<7;day++){
    if(!schedulesOverlap(cls.schedule,`${days[day]} (${slot.timeRange})`))continue;
    const old=before.schedule?.[slot.code]?.[day]??before.schedule?.[slot.id]?.[day]??'none';

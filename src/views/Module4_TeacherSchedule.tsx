@@ -251,7 +251,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
         .filter(entry => entry.time === time && entry.dayIndex === dayIndex)
         .flatMap(entry => {
           if (cls.startDate && dateStringForWeekDay(dayIndex) < cls.startDate) return [];
-          if (['Tạm dừng','Đã kết thúc'].includes(cls.status || '') && !datedLessons.some(lesson=>lesson.classId===cls.id&&lesson.date===dateStringForWeekDay(dayIndex)&&timeSlots.find(slot=>slot.id===lesson.timeSlotId)?.timeRange===entry.time)) return [];
+          if (['Dừng lớp','Đã kết thúc'].includes(cls.status || '') && !datedLessons.some(lesson=>lesson.classId===cls.id&&lesson.date===dateStringForWeekDay(dayIndex)&&timeSlots.find(slot=>slot.id===lesson.timeSlotId)?.timeRange===entry.time)) return [];
           const coverAssignment = cls.coverAssignments?.find(assignment =>
             assignment.sessionNum === entry.session && assignment.dateStr === dateStringForWeekDay(dayIndex)
           );

@@ -5,7 +5,7 @@ type StudentContext=TeachingContext & Pick<ClassItem,'level'|'studentIds'>;
 const normalizedSchedule=(value:string)=>value.replace(/\s/g,'').toLocaleLowerCase('vi');
 
 export function classBindingEditIssue(before:ClassItem,after:ClassItem):string|undefined {
- if(['Tạm dừng','Đã kết thúc'].includes(before.status||'') || ['Tạm dừng','Đã kết thúc'].includes(after.status||''))return;
+ if(['Dừng lớp','Đã kết thúc'].includes(before.status||'') || ['Dừng lớp','Đã kết thúc'].includes(after.status||''))return;
  if((before.teacherId && before.teacherId!==after.teacherId) ||
   before.studentIds.some(id=>!after.studentIds.includes(id)) ||
   ((before.teacherId || before.studentIds.length) && normalizedSchedule(before.schedule)!==normalizedSchedule(after.schedule))) {

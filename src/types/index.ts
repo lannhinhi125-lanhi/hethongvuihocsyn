@@ -215,7 +215,7 @@ export interface ClassItem {
   endDate?: string | null;
   created_at?: string;
   categoryId?: string;
-  status?: 'Chờ khai giảng' | 'Đang học' | 'Tạm dừng' | 'Đã kết thúc';
+  status?: 'Chờ khai giảng' | 'Đang học' | 'Dừng lớp' | 'Đã kết thúc';
   startDate?: string; // YYYY-MM-DD; legacy classes may not have one yet.
   id: string;
   code: string;

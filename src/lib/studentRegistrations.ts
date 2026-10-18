@@ -59,6 +59,6 @@ export function assignStudentToClass(student: StudentRecord, cls: ClassItem, ass
 
 export function studentScheduleConflict(studentId: string, target: ClassItem, classes: ClassItem[]): boolean {
   return classes.some(item => item.id !== target.id && item.subject !== target.subject &&
-    !['Tạm dừng', 'Đã kết thúc'].includes(item.status || '') && item.studentIds.includes(studentId) &&
+    !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') && item.studentIds.includes(studentId) &&
     schedulesOverlap(target.schedule, item.schedule));
 }

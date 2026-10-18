@@ -5,7 +5,7 @@ import {workbenchRange,shiftWorkbenchRange} from '../src/lib/workbenchTime';
 import {workbenchAnalytics} from '../src/lib/workbenchAnalytics';
 const classes=[{id:'c1',name:'Toán',teacherId:'t1',schedule:'T2 (10:00 - 11:00)',status:'Đang học',materials:[]},
  {id:'c2',name:'Anh',schedule:'T3 (10:00 - 11:00)',status:'Đang học',materials:[]},
- {id:'c3',name:'Dừng',status:'Tạm dừng',materials:[]}] as unknown as ClassItem[];
+ {id:'c3',name:'Dừng',status:'Dừng lớp',materials:[]}] as unknown as ClassItem[];
 const teachers=[{id:'t1',name:'Giáo viên chính'},{id:'t2',name:'Giáo viên cover'}] as TeacherProfile[];
 const students=[{id:'s1',status:'Đang học',registrations:[{status:'Chờ xếp lớp'},{status:'Chờ xếp lớp'}]},
  {id:'s2',status:'Bảo lưu'}] as StudentRecord[];

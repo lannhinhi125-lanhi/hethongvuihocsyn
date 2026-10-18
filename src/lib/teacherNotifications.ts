@@ -57,10 +57,10 @@ export const teacherNotifications = (
   const classNotices: TeacherNotification[] = classes
     .filter(cls => cls.teacherId === teacher.id)
     .map(cls => {
-      const stopped = ['Tạm dừng','Đã kết thúc'].includes(cls.status || '');
+      const stopped = ['Dừng lớp','Đã kết thúc'].includes(cls.status || '');
       return {
-        key: `class:${cls.id}:${teacher.id}:${stopped ? cls.status : 'assigned'}`,
-        title: stopped ? (cls.status === 'Tạm dừng' ? 'Lớp học đã tạm dừng' : 'Lớp học đã kết thúc') : 'Bạn được phân công lớp học',
+        key: `class:${cls.id}:${teacher.id}:${stopped ? (cls.status === 'Dừng lớp' ? 'Tạm dừng' : cls.status) : 'assigned'}`,
+        title: stopped ? (cls.status === 'Dừng lớp' ? 'Lớp học đã dừng' : 'Lớp học đã kết thúc') : 'Bạn được phân công lớp học',
         detail: `${cls.code} · ${cls.name}${cls.schedule ? ' · '+cls.schedule : ''}`,
         tab: 'schedule' as const,
         sortAt: (cls as ClassItem & {updated_at?:string}).updated_at || cls.created_at || cls.startDate || ''
@@ -75,7 +75,7 @@ export const teacherNotifications = (
   const coverNotices: TeacherNotification[] = lessons.flatMap(lesson => {
     if (lesson.coverTeacherId !== teacher.id || ['HUY','NGHI_HOC'].includes(lesson.status || '')) return [];
     const cls = classes.find(item => item.id === lesson.classId);
-    if (!cls || ['Tạm dừng','Đã kết thúc'].includes(cls.status || '')) return [];
+    if (!cls || ['Dừng lớp','Đã kết thúc'].includes(cls.status || '')) return [];
     const day = /^\d{4}-\d{2}-\d{2}$/.test(lesson.date) ? lesson.date.split('-').reverse().join('/') : lesson.date;
     const time = [clock(lesson.startsAt),clock(lesson.endsAt)].filter(Boolean).join('–');
     return [{

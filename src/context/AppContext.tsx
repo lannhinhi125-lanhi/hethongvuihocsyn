@@ -321,7 +321,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteStudent = (id: string) => {
     if (!permit("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
-    if(classes.some(cls=>cls.studentIds.includes(id)&&!['Tạm dừng','Đã kết thúc'].includes(cls.status||''))){showToast('Dừng hoạt động các lớp của học sinh trước khi xóa hồ sơ.','warning');return;}
+    if(classes.some(cls=>cls.studentIds.includes(id)&&!['Dừng lớp','Đã kết thúc'].includes(cls.status||''))){showToast('Dừng hoạt động các lớp của học sinh trước khi xóa hồ sơ.','warning');return;}
     setStudents(prev => prev.filter(s => s.id !== id));
     setClasses(prev => prev.map(c => ({
       ...c,
@@ -342,7 +342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateClass = (id: string, updates: Partial<ClassItem>, successMessage?: string) => {
     const existing = classes.find(item => item.id === id);
     if (!existing || !classChangeAllowed([existing], [{ ...existing, ...updates }], can, ownTeacher?.id, ownTeacher?.name)) { showToast('Bạn không có quyền sửa các trường lớp học đã chọn.', 'error'); return false; }
-    const releasing = updates.status === 'Tạm dừng' || updates.status === 'Đã kết thúc';
+    const releasing = updates.status === 'Dừng lớp' || updates.status === 'Đã kết thúc';
     if (releasing) updates = { ...updates, studentIds: [] };
     const next = { ...existing, ...updates };
     const bindingIssue=classBindingEditIssue(existing,next);
@@ -358,7 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteClass = (id: string) => {
     if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     const existing=classes.find(cls=>cls.id===id);
-    if(existing&&!['Tạm dừng','Đã kết thúc'].includes(existing.status||'')&&(existing.teacherId||existing.studentIds.length)){showToast('Dừng hoạt động lớp để giải phóng ca trước khi xóa.','warning');return;}
+    if(existing&&!['Dừng lớp','Đã kết thúc'].includes(existing.status||'')&&(existing.teacherId||existing.studentIds.length)){showToast('Dừng hoạt động lớp để giải phóng ca trước khi xóa.','warning');return;}
     setClasses(prev => prev.filter(c => c.id !== id));
     showToast('Đã xóa lớp học thành công! Học sinh đã được đưa về danh sách chờ xếp lớp.', 'info');
   };

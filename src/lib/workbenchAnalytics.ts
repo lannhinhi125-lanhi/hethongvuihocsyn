@@ -29,7 +29,7 @@ export function workbenchAnalytics(classes:ClassItem[],students:StudentRecord[],
    classes:classifiedClasses.filter(c=>c.kind==='NEW'&&c.date>=start&&c.date<=end).length};
  });
  const waiting=profiles.filter(s=>studentRegistrations(s).some(r=>r.status==='Chờ xếp lớp')).length;
- const noTeacher=uniqueClasses.filter(c=>!['Tạm dừng','Đã kết thúc'].includes(c.status||'')&&!c.teacherId).length;
+ const noTeacher=uniqueClasses.filter(c=>!['Dừng lớp','Đã kết thúc'].includes(c.status||'')&&!c.teacherId).length;
  const activeStudents=profiles.filter(s=>studentRegistrations(s).some(r=>r.status==='Đang học')).length;
  const activeClasses=uniqueClasses.filter(c=>c.status==='Đang học').length;
  const currentSubjects=[...new Set(uniqueClasses.map(c=>c.subject))].map(subject=>({subject,count:uniqueClasses.filter(c=>c.subject===subject).length}));

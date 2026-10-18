@@ -42,5 +42,5 @@ assert.match(classBindingEditIssue(existing,{...existing,studentIds:['S1']})!,/D
 assert.match(classBindingEditIssue(existing,{...existing,teacherId:'OTHER'})!,/Dừng hoạt động lớp/);
 assert.match(classBindingEditIssue(existing,{...existing,schedule:'T2 (12:50 - 13:50)'})!,/Dừng hoạt động lớp/);
 assert.equal(classBindingEditIssue(existing,{...existing,studentIds:['S1','S2','S3']}),undefined);
-assert.equal(classBindingEditIssue(existing,{...existing,status:'Tạm dừng',studentIds:[]}),undefined);
-assert.equal(classBindingEditIssue({...existing,status:'Tạm dừng'},{...existing,status:'Tạm dừng',schedule:'T2 (12:50 - 13:50)',teacherId:'OTHER',studentIds:[]}),undefined);
+assert.equal(classBindingEditIssue(existing,{...existing,status:'Dừng lớp',studentIds:[]}),undefined);
+assert.equal(classBindingEditIssue({...existing,status:'Dừng lớp'},{...existing,status:'Dừng lớp',schedule:'T2 (12:50 - 13:50)',teacherId:'OTHER',studentIds:[]}),undefined);

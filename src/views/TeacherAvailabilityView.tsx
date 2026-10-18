@@ -100,7 +100,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     const targetDateString=`${targetDate.getFullYear()}-${String(targetDate.getMonth()+1).padStart(2,'0')}-${String(targetDate.getDate()).padStart(2,'0')}`;
 
     return classes.find(cls => {
-      if(['Tạm dừng','Đã kết thúc'].includes(cls.status||''))return false;
+      if(['Dừng lớp','Đã kết thúc'].includes(cls.status||''))return false;
       const isTeacherMatch =
         cls.teacherId === activeTeacher.id ||
         (!cls.teacherId && cls.teacherName && activeTeacher.name && (

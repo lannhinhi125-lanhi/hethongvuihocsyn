@@ -404,7 +404,7 @@ try {
  const lessonsBefore:any=(await withDb<any>(()=>db.query('SELECT * FROM vuihoc."BUOI_HOC" WHERE malop=$1 AND vaolopluc IS NOT NULL ORDER BY madinhdanh',[occupiedClass.id]))).rows;
  const otherRegs=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId).registrations.filter((row:any)=>row.subject!==occupiedClass.subject);
  await business.loadBusinessData();
- business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id===occupiedClass.id?{...row,status:'Tạm dừng',studentIds:[]}:row));
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id===occupiedClass.id?{...row,status:'Dừng lớp',studentIds:[]}:row));
  await business.waitForBusinessSave();await business.loadBusinessData();
  const releasedPupil=business.getBusinessSnapshot().data.students.find((row:any)=>row.id===pupilId);
  const releasedRegistration=releasedPupil.registrations.find((row:any)=>row.subject===occupiedClass.subject);
@@ -422,7 +422,7 @@ try {
  }
  assert.equal(slotsAfter.find((row:any)=>row.makhunggio===releaseSlot.makhunggio&&row.thutrongtuan===releaseSlot.day).trangthai,'busy','overlapping live class retains busy state');
  const countBeforeFinalStop=business.getBusinessSnapshot().data.teachers.find((row:any)=>row.id===releaseTeacherId).busySlots;
- business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id==='REG-OVERLAP'?{...row,status:'Tạm dừng',studentIds:[]}:row));
+ business.setBusinessValue('classes',(rows:any[])=>rows.map(row=>row.id==='REG-OVERLAP'?{...row,status:'Dừng lớp',studentIds:[]}:row));
  await business.waitForBusinessSave();await business.loadBusinessData();
  const releasedSlot:any=(await withDb<any>(()=>db.query('SELECT trangthai FROM vuihoc."LICH_RANH_DINH_KY" WHERE magiaovien=$1 AND makhunggio=$2 AND thutrongtuan=$3',[releaseTeacherId,releaseSlot.makhunggio,releaseSlot.day]))).rows[0];
  assert.equal(releasedSlot.trangthai,'free','last active class stop frees the teacher');

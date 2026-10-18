@@ -22,7 +22,7 @@ assert.equal(studentStudyEditIssue(student,updateStudentRegistration(student,{su
 assert.match(studentStudyEditIssue(student,{...student,grade:'G4'})!,/đăng ký môn/);
 const released=updateStudentRegistration(student,{subject:'MATH',status:'Chờ xếp lớp',currentClassCode:undefined});
 assert.match(studentStudyEditIssue(student,released)!,/Dừng hoạt động lớp/);
-assert.equal(studentStudyEditIssue(student,released,[{...cls,studentIds:[],status:'Tạm dừng'}]),undefined);
+assert.equal(studentStudyEditIssue(student,released,[{...cls,studentIds:[],status:'Dừng lớp'}]),undefined);
 assert.equal(studentStudyEditIssue(released,updateStudentRegistration(released,{subject:'MATH',model:'1-1'})),undefined);
 assert.match(studentStudyEditIssue(student,updateStudentRegistration(student,{subject:'MATH',status:'Chờ xếp lớp',currentClassCode:undefined,model:'1-1'}))!,/Dừng hoạt động lớp/);
 assert.equal(canEditTeacherAvailability({id:'U1',status:'active',name:'Different name',email:'new@example.com'} as any,teacher),true);
@@ -35,5 +35,5 @@ assert.equal(studentStudyEditIssue(student,withExtra,[boundClass]),undefined);
 assert.equal(studentStudyEditIssue(withExtra,updateStudentRegistration(withExtra,{subject:'MATH',scheduleSlots:['T2 (18:00 - 19:30)','T4 (18:00 - 19:30)']}),[boundClass]),undefined);
 assert.match(studentStudyEditIssue(withExtra,updateStudentRegistration(withExtra,{subject:'MATH',scheduleSlots:['T3 (18:00 - 19:30)']}),[boundClass])!,/CLASS.*Dừng hoạt động lớp/);
 assert.equal(studentStudyEditIssue(student,updateStudentRegistration(student,{subject:'ENGLISH',scheduleSlots:['T2 (18:00 - 19:30)']}),[boundClass]),undefined);
-assert.equal(studentStudyEditIssue(student,updateStudentRegistration(student,{subject:'MATH',scheduleSlots:[]}),[{...boundClass,status:'Tạm dừng'}]),undefined);
+assert.equal(studentStudyEditIssue(student,updateStudentRegistration(student,{subject:'MATH',scheduleSlots:[]}),[{...boundClass,status:'Dừng lớp'}]),undefined);
 console.log('PASS: active students can add/remove unrelated availability and register another subject; only occupied slot removal requires class stop');

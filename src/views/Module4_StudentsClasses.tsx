@@ -116,6 +116,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const {
     students: studentProfiles,
     classes,
+    setClasses,
     teachers,
     timeSlots,
     subjects, levels, models, teachingCategories,
@@ -133,6 +134,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const students = useMemo(() => studentRegistrationRows(studentProfiles), [studentProfiles]);
 
   const [activeTab, setActiveTab] = useState<'students' | 'classes' | 'materials'>('students');
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [viewingClassId, setViewingClassId] = useState<string | null>(null);
   const viewingClass = classes.find(item => item.id === viewingClassId);
   const [isStudentFilterOpen, setIsStudentFilterOpen] = useState(false);
@@ -146,7 +148,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const subjectName = (code: string) => subjects.find(item => item.code === code)?.name || code;
   const levelName = (code: string) => levels.find(item => item.code === code)?.name || code;
   const gradeName = (id: string) => teachingCategories.flatMap(item => item.options).find(item => item.id === id)?.label || id;
-  const assignedClass = (student?: StudentRecord | null) => student ? classes.find(item => item.subject === student.subject && item.studentIds.includes(student.id) && !['Tạm dừng', 'Đã kết thúc'].includes(item.status || '')) : undefined;
+  const assignedClass = (student?: StudentRecord | null) => student ? classes.find(item => item.subject === student.subject && item.studentIds.includes(student.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '')) : undefined;
   const statusColor = (status: StudentRecord['status']) => status === 'Đang học' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : status === 'Chờ xếp lớp' ? 'bg-amber-50 text-amber-700 border-amber-200' : status === 'Bảo lưu' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200';
   const studentClassInfo = (student?: StudentRecord | null, compact = false) => {
     const item = assignedClass(student);
@@ -177,7 +179,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [clsFilters, setClsFilters] = useState<Partial<Record<ClassFilterKey, string[]>>>({});
   const classCategoryId = (item: ClassItem) => item.categoryId || teachingCategories.find(category => category.options.some(option => option.id === item.grade))?.id || 'UNSPECIFIED';
   const classCategoryName = (item: ClassItem) => teachingCategories.find(category => category.id === classCategoryId(item))?.name || 'Chưa phân loại';
-  const classStatuses: NonNullable<ClassItem['status']>[] = ['Chờ khai giảng', 'Đang học', 'Tạm dừng', 'Đã kết thúc'];
+  const classStatuses: NonNullable<ClassItem['status']>[] = ['Chờ khai giảng', 'Đang học', 'Dừng lớp', 'Đã kết thúc'];
   const classFieldValues = (item: ClassItem): Record<ClassFilterKey, string[]> => ({
     code: [item.code], name: [item.name], category: [classCategoryId(item)], grade: [item.grade], subject: [item.subject], model: [item.model], level: [item.level],
     schedule: item.schedule ? item.schedule.split(',').map(slot => slot.trim()).filter(Boolean) : ['UNSCHEDULED'],
@@ -186,7 +188,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   });
   const classFilterOptions = (key: ClassFilterKey): FilterOption[] => {
     const stored = classes.flatMap(item => classFieldValues(item)[key]).map(value => ({ value, label: value }));
-    const catalog: FilterOption[] = key === 'category' ? teachingCategories.map(item => ({value:item.id,label:item.name})) : key === 'grade' ? gradeOptions.map(item => ({value:item.id,label:item.label})) : key === 'subject' ? subjects.map(item => ({value:item.code,label:item.name})) : key === 'model' ? models.map(item => ({value:item.code,label:item.name})) : key === 'level' ? levels.map(item => ({value:item.code,label:item.name})) : key === 'status' ? classStatuses.map(value => ({value,label:value})) : key === 'occupancy' ? [{value:'EMPTY',label:'Chưa có học sinh'},{value:'AVAILABLE',label:'Còn chỗ'},{value:'FULL',label:'Đủ sĩ số'}] : key === 'teacher' ? teachers.map(item => ({value:item.id,label:item.name})) : [];
+    const catalog: FilterOption[] = key === 'category' ? teachingCategories.map(item => ({value:item.id,label:item.name})) : key === 'grade' ? gradeOptions.map(item => ({value:item.id,label:item.label})) : key === 'subject' ? subjects.map(item => ({value:item.code,label:item.name})) : key === 'model' ? models.map(item => ({value:item.code,label:item.name})) : key === 'level' ? levels.map(item => ({value:item.code,label:item.name})) : key === 'status' ? [...[...classStatuses.map(value => ({value,label:value})), {value:'Tạm nghỉ',label:'Tạm nghỉ'}], {value:'Tạm nghỉ',label:'Tạm nghỉ'}] : key === 'occupancy' ? [{value:'EMPTY',label:'Chưa có học sinh'},{value:'AVAILABLE',label:'Còn chỗ'},{value:'FULL',label:'Đủ sĩ số'}] : key === 'teacher' ? teachers.map(item => ({value:item.id,label:item.name})) : [];
     const result = Array.from(new Map([...stored, ...catalog, {value:'UNSPECIFIED',label:'Chưa phân loại'}, {value:'UNSCHEDULED',label:'Chưa có lịch'}, {value:'UNASSIGNED',label:'Chưa phân công'}].filter(option => stored.some(item => item.value === option.value) || catalog.some(item => item.value === option.value)).map(option => [option.value, option])).values());
     return key==='grade' && clsFilters.category?.length ? result.filter(option=>teachingCategories.some(category=>clsFilters.category!.includes(category.id)&&category.options.some(grade=>grade.id===option.value))) : result;
   };
@@ -235,6 +237,18 @@ export const Module4_StudentsClasses: React.FC = () => {
     const fields = classFieldValues(item);
     return (Object.entries(clsFilters) as [ClassFilterKey, string[]][]).every(([key, selected]) => !selected.length || selected.some(value => fields[key].includes(value)));
   }), [classes, clsSearch, clsFilters, teachingCategories]);
+
+  const selectableClasses = filteredClasses.filter(item => !['Dừng lớp', 'Đã kết thúc'].includes(item.status || ''));
+  const selectedClasses = selectableClasses.filter(item => selectedClassIds.includes(item.id));
+  const allClassesSelected = selectableClasses.length > 0 && selectedClasses.length === selectableClasses.length;
+  const bulkPauseClasses = (paused: boolean) => {
+    if (!requirePermission('Tạo, sửa, xóa lớp và cập nhật link phòng học')) return;
+    const ids = new Set(selectedClasses.filter(item => Boolean(item.paused) !== paused).map(item => item.id));
+    if (!ids.size) return;
+    setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? { ...item, paused } : item));
+    setSelectedClassIds([]);
+    showToast(paused ? `Đã tạm nghỉ ${ids.size} lớp, giữ nguyên giáo viên và học sinh.` : `Đã tiếp tục lịch của ${ids.size} lớp từ hôm nay.`, 'success');
+  };
 
   // Student Modal state
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -296,6 +310,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [clsSchedule, setClsSchedule] = useState('T3 (18:00 - 19:30), T5 (18:00 - 19:30)');
   const [clsStartDate, setClsStartDate] = useState('');
   const [clsDurationMonths,setClsDurationMonths]=useState('');
+  const [clsCustomEndDate,setClsCustomEndDate]=useState('');
   const [durationCatalogs]=useBusinessValue<ClassDurationCatalog[]>('custom_catalogs');
   const durationEntries=durationCatalogs.find(row=>row.code===CLASS_DURATION_CODE)?.entries||[];
   const [isReenrolling,setIsReenrolling]=useState(false);
@@ -351,7 +366,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       // 4. Kiểm tra xung đột lịch với các lớp khác mà giáo viên này đang dạy
       if (clsSchedule) {
         const otherClasses = classes.filter(
-          c => c.id !== editingClassId && c.status !== 'Đã kết thúc' && c.status !== 'Tạm dừng' &&
+          c => c.id !== editingClassId && c.status !== 'Đã kết thúc' && c.status !== 'Dừng lớp' &&
                c.teacherId === t.id
         );
 
@@ -740,7 +755,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       const isGrdMatch = c.grade === grade;
       const isLvlMatch = c.level === level;
       const isMdlMatch = c.model === model;
-      const hasAvailableSeat = c.studentIds.length < c.maxStudents && c.status !== 'Tạm dừng' && c.status !== 'Đã kết thúc';
+      const hasAvailableSeat = c.studentIds.length < c.maxStudents && c.status !== 'Dừng lớp' && c.status !== 'Đã kết thúc';
       return isSubMatch && isGrdMatch && isLvlMatch && isMdlMatch && hasAvailableSeat;
     });
   };
@@ -909,7 +924,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsCode(generateClassCode(targetSub, targetLvl));
     setClsRoomLink('');
     setClsSchedule(preStudent ? preStudent.scheduleSlots.join(', ') : '');
-    setClsStartDate(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));setClsDurationMonths('');
+    setClsStartDate(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));setClsDurationMonths('');setClsCustomEndDate('');
     setClsSelectedStudentIds(preStudent ? [preStudent.id] : []);
 
     setClsTeacher('');
@@ -929,7 +944,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsModel(c.model);
     setClsRoomLink(c.roomLink);
     setClsSchedule(c.schedule);
-    setClsStartDate(c.startDate || '');setClsDurationMonths(c.durationMonths?String(c.durationMonths):'');
+    setClsStartDate(c.startDate || '');setClsDurationMonths(c.durationMonths?String(c.durationMonths):c.endDate?'CUSTOM':'');setClsCustomEndDate(c.endDate || '');
     setClsTeacher(c.teacherId || '');
     setClsSelectedStudentIds(c.studentIds);
     setIsClassModalOpen(true);
@@ -960,7 +975,9 @@ export const Module4_StudentsClasses: React.FC = () => {
     if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     if (!clsName.trim()) return;
     const existingClass=classes.find(item=>item.id===editingClassId);
-    if ((!editingClassId || clsDurationMonths) && (!classEndDate(clsStartDate,Number(clsDurationMonths)) || !durationEntries.some(row=>row.code===clsDurationMonths&&(row.status||existingClass?.durationMonths===Number(clsDurationMonths))))) {showToast('Chọn ngày bắt đầu và thời hạn lớp hợp lệ từ danh mục.','error');return;}
+    const customTerm=clsDurationMonths==='CUSTOM';
+    const endDate=customTerm?clsCustomEndDate:classEndDate(clsStartDate,Number(clsDurationMonths));
+    if (customTerm ? (!clsStartDate || !endDate || endDate<clsStartDate) : ((!editingClassId || clsDurationMonths) && (!endDate || !durationEntries.some(row=>row.code===clsDurationMonths&&(row.status||existingClass?.durationMonths===Number(clsDurationMonths)))))) {showToast(customTerm?'Ngày kết thúc phải từ ngày bắt đầu lớp trở đi.':'Chọn ngày bắt đầu và thời hạn lớp hợp lệ từ danh mục.','error');return;}
     if(editingClassId && !existingClass){setClassSaveError('Lớp học không còn tồn tại. Hãy tải lại dữ liệu.');return;}
     const draft={subject:clsSubject,grade:clsGrade,model:clsModel,level:clsLevel,schedule:clsSchedule,studentIds:clsSelectedStudentIds};
     if (!editingClassId && !clsStartDate) { showToast('Chọn ngày bắt đầu lớp học.', 'error'); return; }
@@ -1011,8 +1028,8 @@ export const Module4_StudentsClasses: React.FC = () => {
           roomLink: clsRoomLink.trim(),
           schedule: clsSchedule.trim(),
           startDate: clsStartDate || undefined,
-          durationMonths: clsDurationMonths?Number(clsDurationMonths):null,
-          endDate: clsDurationMonths?classEndDate(clsStartDate,Number(clsDurationMonths)):null,
+          durationMonths: !customTerm&&clsDurationMonths?Number(clsDurationMonths):null,
+          endDate: endDate || null,
           teacherName: assignedTeacher?.name || '',
           teacherId: assignedTeacher?.id,
           studentIds: clsSelectedStudentIds
@@ -1033,8 +1050,8 @@ export const Module4_StudentsClasses: React.FC = () => {
           studentIds: clsSelectedStudentIds,
           schedule: clsSchedule.trim(),
           startDate: clsStartDate,
-          durationMonths: Number(clsDurationMonths),
-          endDate: classEndDate(clsStartDate,Number(clsDurationMonths)),
+          durationMonths: customTerm?null:Number(clsDurationMonths),
+          endDate: endDate || null,
           roomLink: clsRoomLink.trim(),
           teacherName: assignedTeacher?.name || '',
           teacherId: assignedTeacher?.id,
@@ -1360,6 +1377,12 @@ export const Module4_StudentsClasses: React.FC = () => {
       {/* ================= TAB 2: QUẢN LÝ LỚP HỌC ================= */}
       {activeTab === 'classes' && (
         <div className="space-y-4">
+          {can('Tạo, sửa, xóa lớp và cập nhật link phòng học') && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs">
+            <span className="mr-auto text-slate-600">Đã chọn {selectedClasses.length} lớp trong bộ lọc</span>
+            <button type="button" disabled={!selectedClasses.some(item => !item.paused) || isSavingChanges} onClick={() => bulkPauseClasses(true)} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800 disabled:opacity-40">Tạm ngưng lớp đã chọn</button>
+            <button type="button" disabled={!selectedClasses.some(item => item.paused) || isSavingChanges} onClick={() => bulkPauseClasses(false)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-800 disabled:opacity-40">Tiếp tục lớp đã chọn</button>
+            {selectedClassIds.length > 0 && <button type="button" onClick={() => setSelectedClassIds([])} className="px-2 py-1.5 text-slate-500">Bỏ chọn</button>}
+          </div>}
           <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <button
@@ -1397,18 +1420,20 @@ export const Module4_StudentsClasses: React.FC = () => {
 
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden"><div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn"><table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px]"><tr>
+              <th className="px-3 py-3"><input type="checkbox" aria-label="Chọn tất cả lớp có thể tạm ngưng trong bộ lọc, gồm mọi trang" title="Chọn tất cả lớp trong bộ lọc (mọi trang)" checked={allClassesSelected} disabled={!selectableClasses.length || !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onChange={event => setSelectedClassIds(event.target.checked ? selectableClasses.map(item => item.id) : [])} className="accent-orange-500" /></th>
               {([['Mã lớp','code'],['Tên lớp','name'],['Cấp học / lớp dạy','category'],['Khối lớp','grade'],['Môn học','subject'],['Mô hình','model'],['Trình độ','level'],['Lịch học','schedule'],['Sĩ số','occupancy'],['Trạng thái','status'],['Giáo viên','teacher']] as [string, ClassFilterKey][]).map(([label,key]) => <th key={key} className="py-3 px-3 whitespace-nowrap">{classColumn(label,key)}</th>)}
               <th className="py-3 px-3 text-center">Thao tác</th>
             </tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
-              {!filteredClasses.length && <tr><td colSpan={12} className="px-4 py-2 text-center"><EmptyState title="Không có lớp học phù hợp với bộ lọc." /></td></tr>}
+              {!filteredClasses.length && <tr><td colSpan={13} className="px-4 py-2 text-center"><EmptyState title="Không có lớp học phù hợp với bộ lọc." /></td></tr>}
               {filteredClasses.map(item => <tr key={item.id} className="hover:bg-slate-50">
+                <td className="px-3 py-3"><input type="checkbox" aria-label={'Chọn lớp ' + item.code} checked={selectedClasses.some(selected => selected.id === item.id)} disabled={['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') || !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onChange={event => setSelectedClassIds(previous => event.target.checked ? [...previous.filter(id => id !== item.id), item.id] : previous.filter(id => id !== item.id))} className="accent-orange-500" /></td>
                 <td className="px-3 py-3 font-mono font-semibold text-[#FF5C00] whitespace-nowrap">{item.code}</td><td className="px-3 py-3 font-semibold min-w-40">{item.name}</td>
                 <td className="px-3 py-3 whitespace-nowrap">{classCategoryName(item)}</td><td className="px-3 py-3 whitespace-nowrap">{gradeName(item.grade)}</td><td className="px-3 py-3 whitespace-nowrap text-[#FF5C00]">{subjectName(item.subject)}</td>
                 <td className="px-3 py-3"><span className="rounded bg-orange-50 text-[#FF5C00] px-2 py-1 font-semibold">{item.model}</span></td><td className="px-3 py-3 whitespace-nowrap"><span className="rounded bg-blue-50 text-blue-700 px-2 py-1">{levelName(item.level)}</span></td>
                 <td className="px-3 py-3 min-w-44 text-[11px]">{item.schedule || 'Chưa có lịch'}{item.startDate && <div className="mt-1 text-slate-500">Bắt đầu: {new Date(`${item.startDate}T00:00:00`).toLocaleDateString('vi-VN')}</div>}</td><td className="px-3 py-3 whitespace-nowrap"><span className={item.studentIds.length >= item.maxStudents ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-700'}>{item.studentIds.length}/{item.maxStudents}</span></td>
-                <td className="px-3 py-3 whitespace-nowrap"><span className={'px-2 py-1 rounded text-[10px] font-semibold ' + ((item.status || 'Đang học') === 'Đang học' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Tạm dừng' ? 'bg-amber-50 text-amber-700' : item.status === 'Đã kết thúc' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700')}>{item.paused ? 'Tạm nghỉ' : item.status || 'Đang học'}</span></td>
+                <td className="px-3 py-3 whitespace-nowrap"><span className={'px-2 py-1 rounded text-[10px] font-semibold ' + (item.paused ? 'bg-amber-50 text-amber-700' : (item.status || 'Đang học') === 'Đang học' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Dừng lớp' ? 'bg-amber-50 text-amber-700' : item.status === 'Đã kết thúc' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700')}>{item.paused ? 'Tạm nghỉ' : item.status || 'Đang học'}</span></td>
                 <td className="px-3 py-3 min-w-32">{item.teacherName || 'Chưa phân công'}</td>
-                <td className="px-3 py-3"><div className="flex items-center justify-center gap-1"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>{!['Tạm dừng', 'Đã kết thúc'].includes(item.status || '') && <RowActionMenu label={'Thao tác khác của lớp '+item.code} actions={[{label:item.paused ? 'Tiếp tục lớp' : 'Tạm dừng lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {paused:!item.paused}, item.paused ? 'Đã tiếp tục lịch lớp từ hôm nay.' : 'Đã tạm nghỉ lớp. Giữ nguyên giáo viên, học sinh và ngày kết thúc.')},{label:'Kết thúc lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {status:'Đã kết thúc',paused:false}, 'Đã kết thúc lớp và giải phóng ca giáo viên, học sinh. Học sinh về Chờ xếp lớp của môn này.')}]}/>}<button type="button" title="Xóa lớp" onClick={() => setPendingDelete({type:'class',id:item.id,name:item.name})} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
+                <td className="px-3 py-3"><div className="flex items-center justify-center gap-1"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>{!['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') && <RowActionMenu label={'Thao tác khác của lớp '+item.code} actions={[{label:item.paused ? 'Tiếp tục lớp' : 'Tạm ngưng lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {paused:!item.paused}, item.paused ? 'Đã tiếp tục lịch lớp từ hôm nay.' : 'Đã tạm nghỉ lớp. Giữ nguyên giáo viên, học sinh và ngày kết thúc.')},{label:'Dừng lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {status:'Dừng lớp',paused:false}, 'Đã dừng lớp và giải phóng ca giáo viên, học sinh. Học sinh về Chờ xếp lớp của môn này.')}]}/>}<button type="button" title="Xóa lớp" onClick={() => setPendingDelete({type:'class',id:item.id,name:item.name})} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
               </tr>)}
             </PaginatedTableBody></table></div></div>
         </div>
@@ -1954,8 +1979,8 @@ export const Module4_StudentsClasses: React.FC = () => {
 
               {/* Lịch học & Giáo viên */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="font-semibold">Thời hạn lớp học<ReportSelect required={!editingClassId} value={clsDurationMonths} onChange={event=>setClsDurationMonths(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"><option value="">{editingClassId?'Chưa có thời hạn':'Chọn thời hạn'}</option>{durationEntries.filter(row=>row.status||row.code===clsDurationMonths).map(row=><option key={row.id} value={row.code}>{row.name}</option>)}</ReportSelect></label>
-                <label className="font-semibold">Ngày kết thúc<input type="text" readOnly value={classEndDate(clsStartDate,Number(clsDurationMonths)).split('-').reverse().join('/')} className="block w-full mt-1 border rounded-lg bg-slate-50 p-2"/><span className="text-xs text-slate-500 font-normal">Tự tính từ ngày bắt đầu và thời hạn; không sinh buổi sau ngày này.</span></label>
+                <label className="font-semibold">Thời hạn lớp học<ReportSelect required={!editingClassId} value={clsDurationMonths} onChange={event=>setClsDurationMonths(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"><option value="">{editingClassId?'Chưa có thời hạn':'Chọn thời hạn'}</option><option value="CUSTOM">Ngày kết thúc tùy chỉnh</option>{durationEntries.filter(row=>row.status||row.code===clsDurationMonths).map(row=><option key={row.id} value={row.code}>{row.name}</option>)}</ReportSelect></label>
+                <label className="font-semibold">Ngày kết thúc{clsDurationMonths==='CUSTOM'?<input type="date" required min={clsStartDate || undefined} value={clsCustomEndDate} onChange={event=>setClsCustomEndDate(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"/>:<input type="text" readOnly value={classEndDate(clsStartDate,Number(clsDurationMonths)).split('-').reverse().join('/')} className="block w-full mt-1 border rounded-lg bg-slate-50 p-2"/>}<span className="text-xs text-slate-500 font-normal">{clsDurationMonths==='CUSTOM'?'Chọn ngày kết thúc theo nhu cầu.':'Tự tính từ ngày bắt đầu và thời hạn.'} Không sinh buổi sau ngày này.</span></label>
               </div>
               <label className="block font-semibold text-slate-700">
                 Ngày bắt đầu lớp học {!editingClassId && <span className="text-rose-500">*</span>}
