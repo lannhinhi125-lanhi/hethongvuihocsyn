@@ -1,4 +1,5 @@
 import type {workbenchData} from '../lib/workbench';
+import {InfoTitle} from './InfoTitle';
 
 const legend=[{key:'done',label:'Đã học',color:'bg-emerald-500'},
  {key:'warning',label:'Cần kiểm tra',color:'bg-rose-500'},
@@ -8,8 +9,7 @@ const legend=[{key:'done',label:'Đã học',color:'bg-emerald-500'},
 export function SessionStatusChart({days,onReview}:{days:ReturnType<typeof workbenchData>['days'];onReview:()=>void}){
  const max=Math.max(1,...days.map(day=>day.total));
  return <section className="rounded-2xl border border-slate-200 bg-white p-4">
-  <h2 className="text-sm font-bold text-slate-800">Trạng thái ca học theo thời gian</h2>
-  <p className="mt-1 text-xs leading-5 text-slate-500">Mỗi hàng là một ngày hoặc nhóm ngày trong kỳ. Độ dài thanh thể hiện tổng số ca; mỗi màu là một trạng thái.</p>
+  <h2 className="text-sm font-bold text-slate-800"><InfoTitle title="Trạng thái ca học theo thời gian"><p>Mỗi hàng là một ngày hoặc nhóm ngày trong kỳ. Độ dài thanh thể hiện tổng số ca; mỗi màu là một trạng thái.</p><p><strong>Cần kiểm tra:</strong> đến giờ chưa check-in; hết giờ chưa checkout; hoặc checkout sớm trên 5 phút.</p></InfoTitle></h2>
   <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">{legend.map(item=><span key={item.key} className="flex items-center gap-2 text-[11px] text-slate-600"><i className={`h-2.5 w-2.5 shrink-0 rounded ${item.color}`}/>{item.label}</span>)}</div>
   <div className="mt-5 space-y-4">{days.map(day=><div key={day.date}>
    <div className="mb-1.5 flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-700">{day.label}</span><strong className="whitespace-nowrap text-slate-600">{day.total} ca</strong></div>
@@ -18,8 +18,6 @@ export function SessionStatusChart({days,onReview}:{days:ReturnType<typeof workb
    </div>
    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">{day.total?legend.filter(item=>day[item.key]>0).map(item=><span key={item.key} className="inline-flex items-center gap-1"><i className={`h-1.5 w-1.5 rounded ${item.color}`}/>{day[item.key]} {item.label.toLocaleLowerCase('vi')}</span>):<span>Không có ca học</span>}</div>
   </div>)}</div>
-  <div className="mt-4 rounded-xl bg-rose-50 p-3 text-[11px] leading-5 text-rose-800"><strong>Cần kiểm tra:</strong> đến giờ chưa check-in; hết giờ chưa checkout; hoặc checkout sớm trên 5 phút.
-   <button type="button" onClick={onReview} className="mt-1 block font-semibold underline underline-offset-2">Xem các ca cần kiểm tra</button>
-  </div>
+  <button type="button" onClick={onReview} className="mt-4 text-[11px] font-semibold text-rose-700 hover:underline">Xem các ca cần kiểm tra →</button>
  </section>;
 }

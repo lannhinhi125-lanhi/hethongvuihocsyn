@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {workbenchData,type WorkbenchLesson} from '../src/lib/workbench';
+import type {TeacherProfile} from '../src/types';
 const date='2026-10-18';
 const base={classId:'C',date,timeSlotId:'S',primaryTeacherId:'T'};
 const lessons:WorkbenchLesson[]=[
@@ -21,3 +22,7 @@ assert.equal(data.periodLessons.find(row=>row.lesson.id==='within-tolerance')!.s
 const during=workbenchData([],[],[],[lessons[1]],[],{},[{id:'S',timeRange:'10:00 - 11:00'}],new Date(date+'T10:30:00+07:00'),{start:date,end:date});
 assert.equal(during.periodLessons[0].reviewReason,'','ongoing lessons without checkout are not warnings');
 console.log('PASS: review reasons match chart totals; early threshold, missing check-in/out, ongoing, future and cancelled lessons');
+const assigned=workbenchData([],[],[{id:'T',name:'Teacher'}] as TeacherProfile[],lessons,[],{},[{id:'S',timeRange:'10:00 - 11:00'}],new Date(date+'T12:00:00+07:00'),{start:date,end:'2026-10-19'}).workload[0];
+assert.equal(assigned.count,5,'cancelled lessons excluded from assignment list');
+assert.equal(assigned.review,3);
+assert.equal(assigned.completed,1);

@@ -54,8 +54,11 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
   const material=entry?materialForSessionDate(cls.materials||[],entry.session,l.date):undefined;
   return ![l.materials?.slide,l.materials?.lms,l.materials?.materialGv,l.materials?.exerciseLms,material?.slide,material?.lms].some(v=>v?.trim());
  }).map(l=>l.classId));
- const workload=teachers.map(t=>({id:t.id,name:t.name,count:weekly.filter(l=>state(l)!=='NGHI_HOC'&&(l.coverTeacherId||l.primaryTeacherId)===t.id).length}))
-  .filter(t=>t.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
+ const workload=teachers.map(t=>{
+  const assigned=periodLessons.filter(row=>row.state!=='NGHI_HOC'&&(row.lesson.coverTeacherId||row.lesson.primaryTeacherId)===t.id);
+  return {id:t.id,name:t.name,count:assigned.length,completed:assigned.filter(row=>row.state==='DA_HOC').length,
+   cover:assigned.filter(row=>row.lesson.coverTeacherId===t.id).length,review:assigned.filter(row=>row.reviewReason).length};
+ }).filter(t=>t.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'vi')||a.id.localeCompare(b.id));
  return {today,weekStart:start,weekEnd:end,todayLessons,periodLessons,days,workload,
   ongoing:todayLessons.filter(r=>r.state==='DANG_HOC').length,
   warnings:todayLessons.filter(r=>['CHUA_HOC','CHUA_HOAN_TAT'].includes(r.state)).length,

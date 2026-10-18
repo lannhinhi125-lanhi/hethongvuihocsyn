@@ -22,6 +22,11 @@ assert.equal(data.weekStart,'2026-10-19');assert.equal(data.weekEnd,'2026-10-25'
 assert.equal(data.todayLessons.length,2);assert.equal(data.days.reduce((n,d)=>n+d.total,0),3);
 assert.equal(data.days[0].done,1);assert.equal(data.days[0].cancelled,1);
 assert.equal(data.workload.find(t=>t.id==='t2')?.count,1);assert.equal(data.workload.find(t=>t.id==='t1')?.count,1,'cover counted for actual teacher and cancelled excluded');
+assert.equal(data.workload.find(t=>t.id==='t2')?.completed,1);
+assert.equal(data.workload.find(t=>t.id==='t2')?.cover,1);
+assert.equal(data.workload.find(t=>t.id==='t1')?.completed,0);
+assert.equal(data.workload.find(t=>t.id==='t1')?.cover,0);
+assert.ok(data.workload.every((row,index)=>index===0||data.workload[index-1].count>=row.count),'teachers sorted from most assigned lessons to least');
 assert.equal(data.waitingStudents,1,'one pupil with two pending subjects counted once');
 assert.equal(data.unassignedClasses,1);assert.equal(data.missingMaterials,2);
 assert.equal(data.pendingIncidents,1);assert.equal(data.pendingDisputes,1);assert.equal(data.missingFeedback,1);
