@@ -1,16 +1,18 @@
 import type {workbenchAnalytics} from '../lib/workbenchAnalytics';
 import type {WorkbenchRange} from '../lib/workbenchTime';
 import {PaginatedTableBody} from './Pagination';
+import {MetricComparison} from './MetricComparison';
+import type {workbenchComparison} from '../lib/workbenchComparison';
 
-export function WorkbenchGrowth({data,range}:{data:ReturnType<typeof workbenchAnalytics>;range:WorkbenchRange}){
- const metrics=[{label:'Hồ sơ học sinh mới',value:data.newStudents},
-  {label:'Học sinh cũ chuyển lớp',value:data.oldTransferred},
-  {label:'Lớp được tạo trong kỳ',value:data.newClasses},
-  {label:'Lớp mới tăng trưởng',value:data.growthClasses}];
+export function WorkbenchGrowth({data,previous,comparison,range}:{data:ReturnType<typeof workbenchAnalytics>;previous:ReturnType<typeof workbenchAnalytics>;comparison:ReturnType<typeof workbenchComparison>;range:WorkbenchRange}){
+ const metrics=[{label:'Hồ sơ học sinh mới',value:data.newStudents,previous:previous.newStudents},
+  {label:'Học sinh cũ chuyển lớp',value:data.oldTransferred,previous:previous.oldTransferred},
+  {label:'Lớp được tạo trong kỳ',value:data.newClasses,previous:previous.newClasses},
+  {label:'Lớp mới tăng trưởng',value:data.growthClasses,previous:previous.growthClasses}];
  return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
   <div><h3 className="text-sm font-bold text-slate-800">Học sinh mới, chuyển lớp & tăng trưởng lớp</h3>
    <p className="mt-1 text-xs text-slate-500">Trong kỳ {range.start} – {range.end}. Hồ sơ mới dựa trên mã học sinh và ngày tạo; chuyển lớp dựa trên lịch sử chuyển từ lớp này sang lớp khác.</p></div>
-  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{metrics.map(item=><div key={item.label} className="rounded-xl bg-slate-50 p-3"><span className="text-[11px] text-slate-600">{item.label}</span><strong className="mt-1 block text-2xl text-slate-900">{item.value}</strong></div>)}</div>
+  <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map(item=><div key={item.label} className="rounded-lg bg-slate-50 px-3 py-2"><span className="text-[11px] text-slate-600">{item.label}</span><strong className="mt-0.5 block text-xl text-slate-900">{item.value}</strong><MetricComparison current={item.label==='Lớp mới tăng trưởng'&&data.classKinds.some(k=>k.kind==='UNKNOWN'&&k.count>0)?null:item.value} previous={item.label==='Lớp mới tăng trưởng'&&previous.classKinds.some(k=>k.kind==='UNKNOWN'&&k.count>0)?null:item.previous} label={comparison.label}/></div>)}</div>
   <p className="text-xs text-slate-500">Học sinh cũ là hồ sơ tạo trước kỳ. Một người chuyển nhiều lần chỉ đếm một người. Đăng ký thêm môn không tạo hồ sơ mới. Có {data.newTransferred} học sinh mới trong kỳ cũng đã chuyển lớp; những bạn này vẫn nằm trong số hồ sơ mới.{data.unknownTransferred>0&&` Có ${data.unknownTransferred} học sinh chuyển lớp chưa đủ dữ liệu ngày tạo để xác định mới/cũ.`}</p>
   <div className="border-t border-slate-100 pt-4"><h4 className="text-xs font-bold text-slate-800">Phân loại {data.newClasses} lớp được tạo trong kỳ</h4>
    <p className="mt-1 text-xs text-slate-500">Chỉ tính lớp mới tăng trưởng khi có học sinh, toàn bộ là hồ sơ mới trong kỳ và được ghép lớp lần đầu theo môn. Lớp có học sinh cũ hoặc đã chuyển lớp không được cộng. Không có đủ lịch sử thì để chưa xác định.</p>

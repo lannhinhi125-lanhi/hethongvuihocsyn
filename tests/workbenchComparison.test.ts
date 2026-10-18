@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {workbenchComparison,comparisonText} from '../src/lib/workbenchComparison';
+assert.deepEqual(workbenchComparison({start:'2026-10-12',end:'2026-10-18'},'week'),{range:{start:'2026-10-05',end:'2026-10-11'},label:'tuần trước'});
+assert.deepEqual(workbenchComparison({start:'2024-03-01',end:'2024-03-31'},'month').range,{start:'2024-02-01',end:'2024-02-29'});
+assert.deepEqual(workbenchComparison({start:'2026-01-01',end:'2026-01-31'},'month').range,{start:'2025-12-01',end:'2025-12-31'});
+assert.deepEqual(workbenchComparison({start:'2026-10-12',end:'2026-10-14'},'custom').range,{start:'2026-10-09',end:'2026-10-11'});
+assert.match(comparisonText(5,0,'tuần trước'),/↑ 5/);
+assert.match(comparisonText(0,5,'tuần trước'),/↓ 5/);
+assert.match(comparisonText(0,0,'tuần trước'),/Không đổi/);
+assert.match(comparisonText(8,null,'tháng trước'),/Chưa đủ dữ liệu/);
+assert.match(comparisonText(10,7.5,'tuần trước','điểm %'),/2,5 điểm %/);
+console.log('PASS: previous calendar month/week, leap/year boundaries, custom spans, zero baselines and percentage-point differences');

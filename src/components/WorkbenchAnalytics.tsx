@@ -2,7 +2,9 @@ import React,{useMemo} from 'react';
 import {useApp} from '../context/AppContext';
 import {useBusinessValue} from '../lib/businessPersistence';
 import {workbenchAnalytics,type WorkbenchEvaluation} from '../lib/workbenchAnalytics';
-import type {WorkbenchRange} from '../lib/workbenchTime';
+import type {WorkbenchRange,WorkbenchPeriod} from '../lib/workbenchTime';
+import {workbenchComparison} from '../lib/workbenchComparison';
+import {MetricComparison} from './MetricComparison';
 import {reportCreationDate} from '../lib/reportCreationDate';
 import {WorkbenchGrowth} from './WorkbenchGrowth';
 
@@ -12,12 +14,18 @@ function Distribution({items}:{items:{label:string;count:number}[]}){
  const stops=items.map((item,i)=>{const from=offset;offset+=total?item.count/total*100:0;return `${colors[i%colors.length]} ${from}% ${offset}%`;});
  return <div className="mt-5 flex flex-wrap items-center justify-center gap-6"><div role="img" aria-label={items.map(i=>`${i.label}: ${i.count}`).join(', ')} className="relative h-36 w-36 shrink-0 rounded-full" style={{background:total?`conic-gradient(${stops.join(',')})`:'#f1f5f9'}}><div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white"><strong className="text-2xl text-slate-800">{total}</strong><span className="text-[10px] text-slate-500">{total?'Tổng cộng':'Chưa có dữ liệu'}</span></div></div><div className="min-w-40 space-y-3">{items.map((item,i)=><div key={item.label} className="flex items-center justify-between gap-4 text-xs"><span className="flex items-center gap-2 text-slate-600"><i className="h-2 w-2 rounded" style={{background:colors[i%colors.length]}}/>{item.label}</span><strong>{item.count}</strong></div>)}</div></div>;
 }
-export function WorkbenchAnalytics({section,range}:{section:'enrollment'|'quality';range:WorkbenchRange}){
+export function WorkbenchAnalytics({section,range,period}:{section:'enrollment'|'quality';range:WorkbenchRange;period:WorkbenchPeriod}){
  const {classes,students,subjects}=useApp();
  const [lessons]=useBusinessValue<{id:string;date:string}[]>('dated_lessons');
  const [incidents]=useBusinessValue<{lessonId:string}[]>('lesson_incidents');
  const [evaluations]=useBusinessValue<WorkbenchEvaluation[]>('teacher_evaluations');
  const data=useMemo(()=>workbenchAnalytics(classes,students,lessons,incidents,evaluations,range),[classes,students,lessons,incidents,evaluations,range]);
+ const comparison=workbenchComparison(range,period);
+ const previous=useMemo(()=>workbenchAnalytics(classes,students,lessons,incidents,evaluations,comparison.range),[classes,students,lessons,incidents,evaluations,comparison.range.start,comparison.range.end]);
+ const qualityComparison=[{current:data.affected,previous:previous.affected,unit:'ca'},
+  {current:data.totalLessons?data.incidentRate:null,previous:previous.totalLessons?previous.incidentRate:null,unit:'điểm %'},
+  {current:data.evaluationCount,previous:previous.evaluationCount,unit:'biên bản'},
+  {current:data.averageScore,previous:previous.averageScore,unit:'điểm'}];
  const metrics=section==='enrollment'?[{label:'Tổng hồ sơ học sinh',value:data.totalStudents},{label:'Học sinh đang học',value:data.activeStudents},{label:'Tổng lớp học',value:data.totalClasses},{label:'Lớp đang học',value:data.activeClasses}]:
   [{label:'Ca có ghi nhận sự cố',value:`${data.affected}/${data.totalLessons}`},{label:'Tỷ lệ ca có sự cố',value:data.totalLessons?data.incidentRate+'%':'—'},{label:'Biên bản dự giờ đã duyệt',value:data.evaluationCount},{label:'Điểm TB giáo viên được dự giờ',value:data.averageScore===null?'—':data.averageScore.toFixed(2)+'/10'}];
  const max=Math.max(1,...data.growth.flatMap(g=>[g.students,g.classes]));
@@ -26,10 +34,10 @@ export function WorkbenchAnalytics({section,range}:{section:'enrollment'|'qualit
  return <div className="space-y-4">
   <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="text-sm font-bold text-slate-800">{section==='enrollment'?'Học sinh & lớp học hiện tại':'Theo dõi chất lượng đào tạo'}</h2>
    <p className="mt-1 text-xs text-slate-500">{section==='enrollment'?'Tổng hợp toàn bộ hồ sơ hiện có từ dữ liệu đã tải, không lọc ngày tạo. Mỗi mã học sinh hoặc mã lớp chỉ tính một lần; tổng lớp gồm cả lớp chờ khai giảng, tạm dừng và đã kết thúc.':'Sự cố tính theo ngày buổi học; dự giờ theo ngày đánh giá và chỉ lấy biên bản đã duyệt.'}</p>
-   <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">{metrics.map(m=><div key={m.label} className="rounded-xl bg-slate-50 p-3"><span className="text-[11px] text-slate-600">{m.label}</span><strong className="mt-2 block text-2xl text-slate-900">{m.value}</strong></div>)}</div>
+   <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map((m,i)=><div key={m.label} className="rounded-lg bg-slate-50 px-3 py-2"><span className="text-[11px] text-slate-600">{m.label}</span><strong className="mt-0.5 block text-xl text-slate-900">{m.value}</strong>{section==='quality'&&<MetricComparison {...qualityComparison[i]} label={comparison.label}/>}</div>)}</div>
   </section>
   {section==='enrollment'?<>
-   <WorkbenchGrowth data={data} range={range}/>
+   <WorkbenchGrowth data={data} previous={previous} comparison={comparison} range={range}/>
    {!data.newStudents&&!data.newClasses&&<p className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">Không có hồ sơ học sinh hoặc lớp được tạo trong kỳ này.{creationDates.length?` Dữ liệu hiện có ngày tạo từ ${creationDates[0]} đến ${creationDates[creationDates.length-1]}; dùng thanh thời gian phía trên để xem kỳ tương ứng.`:' Chưa có dữ liệu ngày tạo để đối chiếu.'}</p>}
    <div className="grid gap-4 lg:grid-cols-2"><section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-bold text-slate-800">Xu hướng học sinh mới & lớp mới tăng trưởng</h3>
     <svg viewBox="0 0 600 175" role="img" aria-label="Biểu đồ hồ sơ học sinh mới và lớp mới tăng trưởng trong kỳ" className="mt-4 w-full"><line x1="30" y1="140" x2="570" y2="140" stroke="#e2e8f0"/>

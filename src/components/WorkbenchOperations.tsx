@@ -3,12 +3,14 @@ import {ArrowUpRight,CalendarDays} from 'lucide-react';
 import {useApp} from '../context/AppContext';
 import {usePermissions} from '../hooks/usePermissions';
 import {useBusinessValue} from '../lib/businessPersistence';
-import type {WorkbenchRange} from '../lib/workbenchTime';
+import type {WorkbenchRange,WorkbenchPeriod} from '../lib/workbenchTime';
+import {workbenchComparison} from '../lib/workbenchComparison';
+import {MetricComparison} from './MetricComparison';
 import {workbenchData,type WorkbenchLesson} from '../lib/workbench';
 import {PaginatedList,PaginatedTableBody} from './Pagination';
 import {SessionStatusChart} from './SessionStatusChart';
 
-export function WorkbenchOperations({range,section}:{range:WorkbenchRange;section:'operations'|'tasks'}){
+export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange;period:WorkbenchPeriod;section:'operations'|'tasks'}){
  const {classes,students,teachers,timeSlots,payrollStore,setActiveModule}=useApp();
  const {canModule}=usePermissions();
  const [lessons]=useBusinessValue<WorkbenchLesson[]>('dated_lessons');
@@ -19,6 +21,8 @@ export function WorkbenchOperations({range,section}:{range:WorkbenchRange;sectio
  const showReview=()=>{setReviewOnly(true);tableRef.current?.scrollIntoView({behavior:'smooth',block:'start'});};
  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),30_000);return()=>window.clearInterval(timer);},[]);
  const data=useMemo(()=>workbenchData(classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,range),[classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,range]);
+ const comparison=workbenchComparison(range,period);
+ const previous=useMemo(()=>workbenchData(classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,comparison.range),[classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,comparison.range.start,comparison.range.end]);
  const go=(id:number)=>{if(canModule('PH'+id))setActiveModule(id);};
  const queues=[
   {label:'Sự cố chờ xử lý',count:data.pendingIncidents,module:5},
@@ -36,10 +40,11 @@ export function WorkbenchOperations({range,section}:{range:WorkbenchRange;sectio
     <div><h2 className="text-sm font-bold text-slate-900">Điều hành ca dạy</h2>
      <p className="mt-1 text-xs text-slate-500">{dateLabel(range.start)} – {dateLabel(range.end)} · Theo dõi lịch học, tiến độ và phân bổ giáo viên.</p></div>
    </div>
-   <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-    {[{label:'Tổng ca trong kỳ',value:data.periodLessons.length},{label:'Đã học',value:data.periodLessons.filter(r=>r.state==='DA_HOC').length},{label:'Cần kiểm tra',value:data.periodLessons.filter(r=>['CHUA_HOC','CHUA_HOAN_TAT'].includes(r.state)).length},{label:'Sắp tới / đang học',value:data.periodLessons.filter(r=>['CHUA_DIEN_RA','DANG_HOC'].includes(r.state)).length}].map(item=>
-     <button key={item.label} type="button" disabled={item.label!=='Cần kiểm tra'&&!canModule('PH5')} onClick={()=>item.label==='Cần kiểm tra'?showReview():go(5)} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-left hover:border-orange-200 disabled:cursor-default"><span className="text-[11px] text-slate-600">{item.label}</span><strong className="mt-1 block text-2xl text-slate-900">{item.value}</strong></button>)}
+   <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+    {[{label:'Tổng ca trong kỳ',value:data.periodLessons.length,previous:previous.periodLessons.length},{label:'Đã học',value:data.periodLessons.filter(r=>r.state==='DA_HOC').length,previous:previous.periodLessons.filter(r=>r.state==='DA_HOC').length},{label:'Cần kiểm tra',value:data.periodLessons.filter(r=>r.reviewReason).length,previous:previous.periodLessons.filter(r=>r.reviewReason).length},{label:'Sắp tới / đang học',value:data.periodLessons.filter(r=>['CHUA_DIEN_RA','DANG_HOC'].includes(r.state)).length,previous:previous.periodLessons.filter(r=>['CHUA_DIEN_RA','DANG_HOC'].includes(r.state)).length}].map(item=>
+     <button key={item.label} type="button" disabled={item.label!=='Cần kiểm tra'&&!canModule('PH5')} onClick={()=>item.label==='Cần kiểm tra'?showReview():go(5)} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-orange-200 disabled:cursor-default"><span className="text-[11px] text-slate-600">{item.label}</span><strong className="mt-0.5 block text-xl text-slate-900">{item.value}</strong>{item.label!=='Sắp tới / đang học'&&<MetricComparison current={item.value} previous={item.previous} label={comparison.label}/>}</button>)}
    </div>
+   <p className="mt-2 text-[10px] text-slate-400">Đối chiếu {dateLabel(comparison.range.start)} – {dateLabel(comparison.range.end)}; trạng thái ca ở cả hai kỳ tính theo dữ liệu hiện tại.</p>
   </section>}
   {section==='tasks' && <section className="rounded-2xl border border-slate-200 bg-white p-4">
    <h2 className="text-sm font-bold text-slate-800">Việc cần xử lý trong kỳ</h2>

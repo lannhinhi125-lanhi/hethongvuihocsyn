@@ -4,10 +4,11 @@ import {workbenchRange,shiftWorkbenchRange,type WorkbenchRange,type WorkbenchPer
 import {reportToday} from '../lib/customReports';
 
 type Period=WorkbenchPeriod|'all';
-export function PeriodToolbar({range,onChange,allowAll=true,initialPeriod,onRefresh,disabled=false,label='Thời gian'}:{
- range:WorkbenchRange;onChange:(range:WorkbenchRange)=>void;allowAll?:boolean;initialPeriod?:Period;onRefresh?:()=>void;disabled?:boolean;label?:string;
+export function PeriodToolbar({range,onChange,allowAll=true,initialPeriod,onRefresh,onPeriodChange,disabled=false,label='Thời gian'}:{
+ range:WorkbenchRange;onChange:(range:WorkbenchRange)=>void;allowAll?:boolean;initialPeriod?:Period;onRefresh?:()=>void;onPeriodChange?:(period:Period)=>void;disabled?:boolean;label?:string;
 }){
  const [period,setPeriod]=useState<Period>(initialPeriod||(!range.start&&!range.end?'all':'custom'));
+ useEffect(()=>{onPeriodChange?.(period);},[period]);
  useEffect(()=>{
   if(!range.start&&!range.end){setPeriod('all');return;}
   if(period==='all'){setPeriod('custom');return;}
