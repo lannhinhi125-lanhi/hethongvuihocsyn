@@ -51,8 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   } = useApp();
   useEffect(() => { if (activeModule === 8) setReportsOpen(true); }, [activeModule]);
   const reportItems = [
-    { id: 'detail' as const, label: 'Báo cáo chi tiết', allowed: can('Xem báo cáo giáo viên, học sinh và lớp học') || can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') },
-    { id: 'custom' as const, label: 'Báo cáo tùy chỉnh', allowed: can('Công cụ tạo báo cáo tùy biến (Dynamic Report)') }
+    { id: 'detail' as const, label: 'Báo cáo chi tiết', allowed: can('Xem báo cáo giáo viên, học sinh và lớp học') || can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Công cụ tạo báo cáo tùy biến (Dynamic Report)') },
+    { id: 'custom' as const, label: 'Lập báo cáo', allowed: can('Xem báo cáo giáo viên, học sinh và lớp học') || can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Công cụ tạo báo cáo tùy biến (Dynamic Report)') }
   ].filter(item => item.allowed);
 
   // Menu Quản trị chuẩn theo mẫu hệ thống (có đối soát công, không có thù lao)

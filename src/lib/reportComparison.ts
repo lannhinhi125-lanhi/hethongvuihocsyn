@@ -1,4 +1,4 @@
-import { reportCsvCell, validReportDate, type ReportGroup, type ReportMetric } from './customReports';
+import { reportCsvCell, validReportDate, type CustomReportConfig, type ReportGroup, type ReportMetric, type ReportResult } from './customReports';
 
 export interface ComparisonRange { start: string; end: string }
 export interface ComparisonSettings { enabled: boolean; mode: 'previous' | 'year' | 'custom'; start: string; end: string }
@@ -65,6 +65,24 @@ const emptyValues = (metrics: ReportMetric[], outside = false) => Object.fromEnt
 const temporalGroups = ['day', 'week', 'month', 'period'];
 const monthIndex = (value: string) => Number(value.slice(0, 4)) * 12 + Number(value.slice(5, 7)) - 1;
 const weekStart = (value: string) => timestamp(value) - ((new Date(timestamp(value)).getUTCDay() + 6) % 7) * DAY;
+export function timeGroupKey(range: ComparisonRange, kind: string, index: number): string {
+  const start = new Date(timestamp(range.start));
+  return kind === 'month' || kind === 'period' ? iso(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + index, 1)).slice(0, 7)
+    : iso(kind === 'week' ? weekStart(range.start) + index * 7 * DAY : timestamp(range.start) + index * DAY);
+}
+export function selectionInPreviousPeriod(config: CustomReportConfig, current: ComparisonRange, previous: ComparisonRange): CustomReportConfig['selection'] {
+  const selected = config.selection;
+  if (!selected || !temporalGroups.includes(selected.by) || !finiteRange(current) || !finiteRange(previous)) return selected;
+  const key = selected.key, kind = selected.by;
+  if (!/^\d{4}-\d{2}(?:-\d{2})?$/.test(key)) return selected;
+  const index = slot(key, current, kind);
+  if (index > slot(previous.end, previous, kind)) return { by: kind, key: '__outside_period__' };
+  const mapped = timeGroupKey(previous, kind, index);
+  return { by: kind, key: mapped };
+}
+export function withMissingPeriod(result: ReportResult, selection: CustomReportConfig['selection']): ReportResult {
+  return selection?.key === '__outside_period__' ? { ...result, totals: Object.fromEntries(result.metrics.map(metric => [metric.id, null])) } : result;
+}
 const slot = (key: string, range: ComparisonRange, groupBy: string) => groupBy === 'month' || groupBy === 'period'
   ? monthIndex(key) - monthIndex(range.start)
   : groupBy === 'week' ? Math.round((weekStart(key) - weekStart(range.start)) / (7 * DAY))

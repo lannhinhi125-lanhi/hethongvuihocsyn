@@ -1,4 +1,5 @@
 import type { ComparisonSettings } from './reportComparison';
+import { reportChartNames, type ReportChartKind } from './reportPlot';
 export type ReportDatePreset = 'month' | 'previous_month' | 'last_30_days' | 'all' | 'custom';
 export type ReportFormat = 'number' | 'percent' | 'score';
 export interface ReportMetric {
@@ -21,6 +22,9 @@ export interface CustomReportConfig {
   datePreset: ReportDatePreset; from: string; to: string;
   filters: Record<string, string>; sort: 'value_desc' | 'label_asc' | 'label_desc';
   comparison?: ComparisonSettings;
+  selection?: { by: string; key: string };
+  chartType?: ReportChartKind;
+  chartMetricId?: string;
 }
 export interface ReportGroup { key: string; label: string; records: ReportRecord[]; values: Record<string, number | null> }
 export interface SavedReportTemplate { id: string; name: string; config: CustomReportConfig }
@@ -76,6 +80,10 @@ export function normalizeReportConfig(value: unknown, datasets: ReportDataset[])
     from: typeof raw.from === 'string' && validReportDate(raw.from) ? raw.from : '',
     to: typeof raw.to === 'string' && validReportDate(raw.to) ? raw.to : '',
     filters,
+    ...(raw.chartType && Object.hasOwn(reportChartNames, raw.chartType) ? { chartType: raw.chartType } : {}),
+    ...(typeof raw.chartMetricId === 'string' && dataset.metrics.some(metric => metric.id === raw.chartMetricId) ? { chartMetricId: raw.chartMetricId } : {}),
+    ...(raw.selection && typeof raw.selection.key === 'string' && raw.selection.by === raw.groupBy && (raw.groupBy === 'all' || dataset.dimensions.some(field => field.id === raw.groupBy))
+      ? { selection: { by: raw.selection.by, key: raw.selection.key } } : {}),
     ...(raw.comparison && typeof raw.comparison === 'object' ? { comparison: {
       enabled: raw.comparison.enabled === true,
       mode: (['previous', 'year', 'custom'].includes(raw.comparison.mode) ? raw.comparison.mode : 'previous') as ComparisonSettings['mode'],
@@ -157,9 +165,11 @@ export function buildCustomReport(dataset: ReportDataset, config: CustomReportCo
     const key = groupKey(record, config.groupBy);
     groups.set(key, [...(groups.get(key) || []), record]);
   });
+  const selected = config.selection?.by === config.groupBy ? config.selection : null;
+  const reportRecords = selected ? groups.get(selected.key) || [] : records;
   const rows: ReportGroup[] = Array.from(groups, ([key, items]) => ({
     key, label: groupLabel(key, config.groupBy), records: items, values: aggregate(items, metrics)
-  }));
+  })).filter(row => !selected || row.key === selected.key);
   rows.sort((a, b) => {
     if (config.sort === 'value_desc') {
       const difference = (b.values[metrics[0]?.id] ?? -Infinity) - (a.values[metrics[0]?.id] ?? -Infinity);
@@ -170,7 +180,7 @@ export function buildCustomReport(dataset: ReportDataset, config: CustomReportCo
     const comparison = a.key.localeCompare(b.key, 'vi', { numeric: true });
     return config.sort === 'label_desc' ? -comparison : comparison;
   });
-  return { rows, records, metrics, totals: aggregate(records, metrics), range, invalidRange };
+  return { rows, records: reportRecords, metrics, totals: aggregate(reportRecords, metrics), range, invalidRange };
 }
 export function formatReportValue(value: number | null | undefined, metric: ReportMetric): string {
   if (value == null || !Number.isFinite(value)) return '—';

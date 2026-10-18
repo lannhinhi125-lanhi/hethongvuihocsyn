@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
     5: { cat: 'Vận hành', title: 'Giám sát ca & sự cố' },
     6: { cat: 'Vận hành', title: 'Quản lý tri thức và cấu hình AI' },
     7: { cat: 'Vận hành & Đối soát', title: 'Đối soát công ca dạy' },
-    8: { cat: 'Báo cáo & thống kê', title: reportSection === 'custom' ? 'Báo cáo tùy chỉnh' : 'Báo cáo chi tiết' }
+    8: { cat: 'Báo cáo & thống kê', title: reportSection === 'custom' ? 'Lập báo cáo' : 'Báo cáo chi tiết' }
   };
 
   // Tiêu đề Cổng Giáo viên & Gia sư (chuẩn nghiệp vụ giảng dạy)

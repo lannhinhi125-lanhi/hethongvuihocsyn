@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AppProvider } from '../src/context/AppContext';
 import { CustomReportBuilder } from '../src/components/CustomReportBuilder';
+import { ReportComposer } from '../src/components/ReportComposer';
 import { operationalReportDatasets } from '../src/lib/operationalReportDatasets';
 import type { ReportDataset } from '../src/lib/customReports';
 
@@ -31,6 +32,23 @@ try {
   assert.ok(custom.includes('Sự cố theo mô hình'));
   assert.ok(custom.includes('Sự cố theo khung giờ'));
   assert.ok(custom.includes('Ca dạy theo giáo viên'));
+  const handoff = renderToStaticMarkup(<AppProvider><CustomReportBuilder datasets={operational} onCompose={() => {}} /></AppProvider>);
+  assert.ok(handoff.includes('Lập báo cáo từ kết quả này'));
+  const composer = renderToStaticMarkup(<AppProvider><ReportComposer datasets={operational} request={null} updatedAt={Date.now()} /></AppProvider>);
+  assert.ok(composer.includes('Mẫu tài liệu báo cáo'));
+  assert.ok(composer.includes('Tổng hợp vận hành'));
+  assert.ok(composer.includes('Nhận xét'));
+  assert.ok(composer.includes('Kiến nghị'));
+  assert.ok(composer.includes('In / Lưu PDF'));
+  assert.ok(composer.includes('Kèm phụ lục'));
+  assert.ok(composer.includes('Số báo cáo'));
+  assert.ok(composer.includes('Phạm vi phát hành'));
+  assert.ok(composer.includes('Báo cáo nội bộ'));
+  assert.ok(composer.includes('Phạm vi số liệu'));
+  assert.ok(composer.includes('Địa chỉ đơn vị'));
+  assert.ok(composer.includes('Họ tên người duyệt'));
+  assert.ok(composer.includes('Chức danh người duyệt'));
+  assert.ok(composer.includes('disabled=""')); // No printing before preview or without export permission.
   const classes: ReportDataset = { id: 'classes', label: 'Lớp học', dateKind: 'event',
     records: [{ id: 'L01', name: 'Lớp A', subject: 'Toán', grade: 'Khối 1', date: '2026-10-01', model: 'Một kèm một', enrolled: 1, capacity: 1, growthKind: 'Lớp mới tăng trưởng' }],
     metrics: [{ id: 'count', label: 'Số lớp', mode: 'count' }], defaultMetricIds: ['count'], dimensions: [{ id: 'subject', label: 'Môn học' }], filters: [], detailFields: [] };
