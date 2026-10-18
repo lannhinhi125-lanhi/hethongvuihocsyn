@@ -1,3 +1,4 @@
+import { VietnameseDatePicker } from './VietnameseDatePicker';
 import { ReportSelect } from './ReportSelect';
 import { reportFilterValues } from '../lib/customReports';
 import React, { useEffect, useRef, useState } from 'react';
@@ -128,7 +129,7 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
         <label className="text-xs text-slate-600">Loại báo cáo<input value={documentInfo.reportType} onChange={event => setDocumentInfo(info => ({ ...info, reportType: event.target.value }))} maxLength={160} className={input} /></label>
         <label className="text-xs text-slate-600">Nơi nhận<input value={documentInfo.recipients} onChange={event => setDocumentInfo(info => ({ ...info, recipients: event.target.value }))} maxLength={350} placeholder="Ví dụ: Ban giám đốc" className={input} /></label>
         <label className="text-xs text-slate-600">Địa danh lập báo cáo<input value={documentInfo.location} onChange={event => setDocumentInfo(info => ({ ...info, location: event.target.value }))} maxLength={100} placeholder="Ví dụ: Hà Nội" className={input} /></label>
-        <label className="text-xs text-slate-600">Ngày lập<input type="date" value={date} onChange={event => setDate(event.target.value)} className={input} /></label>
+        <label className="text-xs text-slate-600">Ngày lập<VietnameseDatePicker value={date} onChange={event => setDate(event.target.value)} className={input} /></label>
         <label className="text-xs text-slate-600">Người lập báo cáo<input value={author} onChange={event => setAuthor(event.target.value)} maxLength={120} className={input} /></label>
         <label className="text-xs text-slate-600">Chức vụ người lập<input value={documentInfo.authorRole} onChange={event => setDocumentInfo(info => ({ ...info, authorRole: event.target.value }))} maxLength={100} className={input} /></label>
         <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2"><input type="checkbox" checked={documentInfo.approvalEnabled} onChange={event => setDocumentInfo(info => ({ ...info, approvalEnabled: event.target.checked }))} className="accent-orange-600" />Có phần ký của giám đốc / người duyệt</label>

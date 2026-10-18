@@ -1,3 +1,4 @@
+import { VietnameseDatePicker } from './VietnameseDatePicker';
 import { ReportSelect } from './ReportSelect';
 import React, { useEffect, useState } from 'react';
 import { ReportChart } from './ReportChart';
@@ -18,7 +19,7 @@ export function ComparisonControls({ current, settings, onChange, disabled = fal
       <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800"><input type="checkbox" className="h-4 w-4 accent-orange-600" checked={settings.enabled && !disabled} disabled={disabled} onChange={event => onChange({ ...settings, enabled: event.target.checked })} /><ArrowLeftRight className="h-4 w-4 text-orange-600" />So sánh hai kỳ</label>
       {settings.enabled && !disabled && <><ReportSelect aria-label="Cách chọn kỳ đối chiếu" className={input} value={settings.mode} onChange={event => onChange({ ...settings, mode: event.target.value as ComparisonSettings['mode'] })}>
         <option value="previous">Kỳ liền trước</option><option value="year">Cùng kỳ năm trước</option><option value="custom">Tự chọn kỳ đối chiếu</option>
-      </ReportSelect>{settings.mode === 'custom' && <><input type="date" aria-label="Kỳ đối chiếu: từ ngày" className={input} value={settings.start} onChange={event => onChange({ ...settings, start: event.target.value })} /><span className="text-xs text-slate-500">đến</span><input type="date" aria-label="Kỳ đối chiếu: đến ngày" className={input} value={settings.end} onChange={event => onChange({ ...settings, end: event.target.value })} /></>}</>}
+      </ReportSelect>{settings.mode === 'custom' && <><VietnameseDatePicker aria-label="Kỳ đối chiếu: từ ngày" className={input} value={settings.start} onChange={event => onChange({ ...settings, start: event.target.value })} /><span className="text-xs text-slate-500">đến</span><VietnameseDatePicker aria-label="Kỳ đối chiếu: đến ngày" className={input} value={settings.end} onChange={event => onChange({ ...settings, end: event.target.value })} /></>}</>}
     </div>
     {disabled ? <p className="text-xs text-slate-500">Nguồn dữ liệu là hiện trạng, chưa có lịch sử để so sánh theo kỳ.</p>
       : settings.enabled ? <>
