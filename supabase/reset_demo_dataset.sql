@@ -289,11 +289,25 @@ INSERT INTO vuihoc."CHI_TIET_CA_LOP"(malop,khoaca,mabuoi,sobuoi,ngaygio,tieude,g
  CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END,x.day::text||' '||replace(x.hours,'-',' - '),b.tieude,
  to_char(b.vaolopluc AT TIME ZONE 'Asia/Bangkok','HH24:MI:SS'),g.hoten,b.magiaoviendaythay,b.vaolopluc IS NOT NULL,b.ketthucluc IS NOT NULL
  FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id LEFT JOIN vuihoc."GIAO_VIEN" g ON g.madinhdanh=coalesce(b.magiaoviendaythay,b.magiaovienchinh);
+WITH slots AS (
+ SELECT DISTINCT b.malop,date_trunc('week',b.ngayhoc)::date AS monday,l.thutu AS session
+ FROM vuihoc."BUOI_HOC" b JOIN vuihoc."LICH_LOP" l
+ ON l.malop=b.malop AND l.makhunggio=b.makhunggio AND l.thutrongtuan=extract(isodow FROM b.ngayhoc)
+ WHERE b.malop ~ '^DEMO-LOP-0(0[1-9]|1[0-2])$'
+), labeled AS (
+ SELECT *,to_char(monday,'MM/YYYY') AS month,
+ 'Tuần '||(floor((extract(day FROM monday)-1)/7)+1)::integer||': Từ ngày '||to_char(monday,'DD/MM/YYYY')||' đến ngày '||to_char(monday+6,'DD/MM/YYYY') AS week
+ FROM slots
+), missing AS (
+ SELECT x.* FROM labeled x WHERE NOT EXISTS(SELECT 1 FROM vuihoc."HOC_LIEU_LOP" h WHERE h.malop=x.malop AND h.tuan=x.week AND h.sobuoi=x.session)
+)
 INSERT INTO vuihoc."HOC_LIEU_LOP"(malop,thutu,thang,tuan,sobuoi,tieude,lienketslide,lienketlms)
- SELECT c.id,w.i,'Tháng '||extract(month FROM date '2026-09-01'+(w.i-1)*7),
- 'Tuần '||extract(week FROM date '2026-09-01'+(w.i-1)*7),1,'Bộ bài luyện tập tuần '||w.i,
- 'https://example.com/vuihoc/materials/'||c.id||'/'||w.i,'https://example.com/vuihoc/lms/'||c.id||'/'||w.i
- FROM demo_classes c CROSS JOIN generate_series(1,13) w(i);
+ SELECT x.malop,coalesce((SELECT max(h.thutu) FROM vuihoc."HOC_LIEU_LOP" h WHERE h.malop=x.malop),0)
+ +row_number() OVER(PARTITION BY x.malop ORDER BY x.monday,x.session),x.month,x.week,x.session,
+ 'Bài học và luyện tập – Buổi '||x.session||' – '||to_char(x.monday,'DD/MM/YYYY'),
+ 'https://example.com/vuihoc/materials/'||x.malop||'/'||x.monday||'/buoi-'||x.session,
+ 'https://example.com/vuihoc/lms/'||x.malop||'/'||x.monday||'/buoi-'||x.session
+ FROM missing x;
 
 INSERT INTO vuihoc."PHAN_CONG_DAY_THAY"(malop,thutu,sobuoi,ngaygio,magiaovien,mabuoi)
  SELECT x.class_id,row_number() OVER(PARTITION BY x.class_id ORDER BY x.day),

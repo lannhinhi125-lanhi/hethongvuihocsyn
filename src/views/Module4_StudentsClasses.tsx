@@ -1389,9 +1389,6 @@ export const Module4_StudentsClasses: React.FC = () => {
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded bg-orange-100 text-[#FF5C00] font-bold text-xs uppercase tracking-wider">
-                  NGHIỆP VỤ LÕI
-                </span>
                 <h2 className="text-base font-bold text-slate-800">Phân Phối Học Liệu Cho Các Lớp Học</h2>
               </div>
               <p className="text-xs text-slate-500 mt-1">
@@ -1424,11 +1421,35 @@ export const Module4_StudentsClasses: React.FC = () => {
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-2xs">
+            <label className="flex items-center gap-2 font-semibold text-slate-600">Tháng
+              <select aria-label="Tháng học liệu" value={materialMonthFilter} onChange={event => {
+                const month=event.target.value;
+                setMaterialMonthFilter(month);
+                setMaterialWeekFilter(month ? weeksForMonth(month)[0] || '' : '');
+              }} className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 font-normal text-slate-800">
+                <option value="">Tất cả tháng</option>
+                {batchMonths.map(month=><option key={month} value={month}>{month}</option>)}
+              </select>
+            </label>
+            <label className="flex min-w-0 max-w-full items-center gap-2 font-semibold text-slate-600">Tuần
+              <select aria-label="Tuần học liệu" value={materialWeekFilter} onChange={event => {
+                const week=event.target.value;
+                setMaterialWeekFilter(week);
+                if(week)setMaterialMonthFilter(monthFromTeachingWeek(week));
+              }} className="h-8 min-w-0 max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 font-normal text-slate-800">
+                <option value="">Tất cả tuần</option>
+                {weeksForFilterMonth.map(week=><option key={week} value={week}>{week}</option>)}
+              </select>
+            </label>
+            <button type="button" onClick={()=>applyMaterialWeek(0)} className="h-8 rounded-lg border border-orange-200 bg-orange-50 px-2.5 font-semibold text-orange-700 hover:bg-orange-100">Tuần này</button>
+          </div>
+
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-800">Tra cứu học liệu đã phân phối</h3>
-                <p className="mt-0.5 text-[11px] text-slate-500">Lọc theo từng cột hoặc mở bộ lọc nâng cao để tra cứu theo khối, trạng thái và thời gian.</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">Chọn thời gian ở trên; lọc theo cột hoặc mở bộ lọc nâng cao để tìm lớp, khối và trạng thái.</p>
               </div>
               <button type="button" onClick={() => setIsMaterialFilterOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                 <Filter className="h-4 w-4 text-[#FF5C00]" /> Bộ lọc nâng cao
@@ -1490,7 +1511,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         <td className="py-3 px-4 text-center">
                           <div className="flex justify-center gap-2">
                             <button type="button" title="Chi tiết học liệu" aria-label={`Chi tiết học liệu lớp ${c.name}`} onClick={() => openMaterialDetails(c, month, week, materials)} className="rounded p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-3.5 w-3.5" /></button>
-                            <button type="button" title="Sửa học liệu" aria-label={`Sửa học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => openEditMaterials(c, month, week, materials)} className="rounded p-1.5 text-[#FF5C00] hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button type="button" title="Cập nhật học liệu trong tuần đã chọn" aria-label={`Cập nhật học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => openEditMaterials(c, month, week, materials)} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-[#FF5C00] hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"><Pencil className="h-3.5 w-3.5" /><span className="text-[11px] font-semibold">Cập nhật</span></button>
                             <button type="button" title="Xóa học liệu" aria-label={`Xóa học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => setPendingMaterialDelete({ item: c, month, week })} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
                         </td>
@@ -2239,7 +2260,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   type="submit" disabled={isSavingChanges}
                   className="px-5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white font-semibold shadow-xs cursor-pointer"
                 >
-                  {editingMaterialClassId ? 'Lưu thay đổi' : 'Xác nhận lưu'}
+                  {isSavingChanges ? 'Đang lưu…' : editingMaterialClassId ? 'Cập nhật học liệu' : 'Xác nhận lưu'}
                 </button>
               </div>
             </form>
@@ -2317,37 +2338,6 @@ export const Module4_StudentsClasses: React.FC = () => {
         onApply={() => setIsMaterialFilterOpen(false)}
       >
         <div className="space-y-4 text-xs">
-          <section className="space-y-3">
-            <h4 className="font-semibold text-slate-700">Thời gian</h4>
-            <div className="grid grid-cols-3 gap-1.5">
-              {([-1, 0, 1] as const).map(offset => {
-                const quickWeek = shiftTeachingWeek(offset);
-                return <button key={offset} type="button" onClick={() => applyMaterialWeek(offset)} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${materialWeekFilter === quickWeek.label ? 'border-orange-500 bg-orange-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-orange-50'}`}>
-                  {offset === -1 ? 'Tuần trước' : offset === 0 ? 'Tuần này' : 'Tuần sau'}
-                </button>;
-              })}
-            </div>
-            <label className="block font-semibold text-slate-600">Tháng
-              <select value={materialMonthFilter} onChange={event => {
-                const month = event.target.value;
-                setMaterialMonthFilter(month);
-                setMaterialWeekFilter(month ? weeksForMonth(month)[0] || '' : '');
-              }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800">
-                <option value="">Tất cả tháng</option>
-                {batchMonths.map(month => <option key={month} value={month}>{month}</option>)}
-              </select>
-            </label>
-            <label className="block font-semibold text-slate-600">Tuần học
-              <select value={materialWeekFilter} onChange={event => {
-                const week = event.target.value;
-                setMaterialWeekFilter(week);
-                if (week) setMaterialMonthFilter(monthFromTeachingWeek(week));
-              }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal text-slate-800">
-                <option value="">Tất cả tuần</option>
-                {weeksForFilterMonth.map(week => <option key={week} value={week}>{week}</option>)}
-              </select>
-            </label>
-          </section>
           {([
             ['Loại lớp', 'category'],
             ['Trình độ', 'level'],

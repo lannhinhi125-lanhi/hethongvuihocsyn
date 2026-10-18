@@ -1403,7 +1403,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                     <th className="py-2.5 px-3 text-center">Hệ số công</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <PaginatedTableBody className="divide-y divide-slate-100">
                   {filteredSessions.map(({ teacherId, teacherName, staffRole, session }, idx) => (
                     <tr key={session.id} className="hover:bg-slate-50">
                       <td className="py-2 px-3 text-slate-500">{idx + 1}</td>
@@ -1427,7 +1427,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
 
@@ -1505,7 +1505,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                     <th className="p-2.5 text-right">Tổng công xác nhận</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <PaginatedTableBody className="divide-y divide-slate-100">
                   {filteredStaff.map((t, idx) => {
                     const sessions = t.sessions || [];
                     const totalCredit = sessions.reduce((acc, session) => acc + session.creditCoeff, 0);
@@ -1523,7 +1523,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       </tr>
                     );
                   })}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
 

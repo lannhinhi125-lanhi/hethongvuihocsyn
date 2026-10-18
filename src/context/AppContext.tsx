@@ -138,7 +138,7 @@ const EMPTY_RAG_CONFIG: RAGBotConfig = { welcomeGreeting: '',  personaTone: '', 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Không đọc cache hoặc tự sinh dữ liệu mẫu. Dữ liệu mẫu chỉ nằm trong SQL.
   const [currentUser, setCurrentUser] = useState<UserAccount>(PORTAL_PREVIEW_MODE ? PREVIEW_ACCOUNT : EMPTY_USER);
-  const [activeModule, setActiveModule] = useState<number>(1);
+  const [activeModule, setActiveModule] = useState<number>(0);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('ADMIN');
   const [teacherPortalTab, setTeacherPortalTab] = useState<'schedule' | 'availability' | 'payroll' | 'evaluation' | 'reconcile'>('availability');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -688,7 +688,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     runtimeStorage.clear();
     void logoutAccount();
     resetBusinessData();
-    setCurrentUser(EMPTY_USER); setActiveModule(1); setWorkspaceMode('ADMIN');
+    setCurrentUser(EMPTY_USER); setActiveModule(0); setWorkspaceMode('ADMIN');
     showToast('Đã xóa dữ liệu trong phiên làm việc.', 'info');
   };
   return (

@@ -1,4 +1,5 @@
 import React, { Children, isValidElement, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 export const PAGE_SIZE = 10;
 
@@ -61,9 +62,9 @@ type Page = ReturnType<typeof useChildPage>;
 function PageControls({ page }: { page: Page }) {
   if (page.total <= PAGE_SIZE) return null;
   const button = 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed';
-  return <nav aria-label="Phân trang danh sách" className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 print:hidden">
+  return <nav aria-label="Phân trang danh sách" className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 print:hidden">
     <span>{page.start + 1}–{page.end} / {page.total} bản ghi</span>
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button type="button" className={button} disabled={page.page === 0} onClick={() => page.onChange(0)} aria-label="Trang đầu">Đầu</button>
       <button type="button" className={button} disabled={page.page === 0} onClick={() => page.onChange(page.page - 1)}>Trước</button>
       <span aria-live="polite" className="rounded-lg bg-orange-50 px-3 py-1.5 font-semibold text-orange-700">Trang {page.page + 1}/{page.pages}</span>
@@ -73,9 +74,38 @@ function PageControls({ page }: { page: Page }) {
   </nav>;
 }
 
+/** Mount below the scroll container, so neither axis can hide the controls. */
+function TablePageFooter({page,anchor,columns,hidden}:{page:Page;anchor:React.RefObject<HTMLTableSectionElement|null>;columns:number;hidden?:boolean}) {
+  const [host,setHost] = useState<HTMLDivElement|null>(null);
+  const visible = page.total > PAGE_SIZE && !hidden;
+  useEffect(() => {
+    if (!visible) { setHost(null); return; }
+    const table = anchor.current?.closest('table');
+    if (!table) return;
+    let boundary: HTMLElement = table;
+    for (let parent=table.parentElement;parent && parent!==document.body;parent=parent.parentElement) {
+      const style=window.getComputedStyle(parent);
+      if (/(auto|scroll)/.test(`${style.overflowX} ${style.overflowY}`)) {
+        boundary=parent;
+        break;
+      }
+    }
+    const footer=document.createElement('div');
+    footer.dataset.tablePaginationFooter='true';
+    footer.className='min-w-0 w-full border-t border-slate-200 bg-white print:hidden';
+    boundary.insertAdjacentElement('afterend',footer);
+    setHost(footer);
+    return () => { footer.remove(); };
+  },[visible,anchor]);
+  if (!visible) return null;
+  return host ? createPortal(<PageControls page={page} />,host)
+    : <tr className="print:hidden"><td colSpan={columns} className="border-t border-slate-200 bg-slate-50"><PageControls page={page} /></td></tr>;
+}
+
 export function PaginatedTableBody({ children, ...props }: React.ComponentProps<'tbody'>) {
   const page = useChildPage(children);
-  return <tbody {...props}>{page.rows}{page.total > PAGE_SIZE && <tr><td colSpan={columnCount(children)} className="border-t border-slate-100 bg-slate-50/50"><PageControls page={page} /></td></tr>}</tbody>;
+  const anchor=useRef<HTMLTableSectionElement>(null);
+  return <tbody {...props} ref={anchor}>{page.rows}<TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} hidden={props.hidden} /></tbody>;
 }
 
 export function PaginatedList({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -85,5 +115,6 @@ export function PaginatedList({ children, className }: { children: React.ReactNo
 
 export function PaginatedTableGroups({ children }: { children: React.ReactNode }) {
   const page = useChildPage(children);
-  return <>{page.rows}{page.total > PAGE_SIZE && <tbody><tr><td colSpan={columnCount(children)}><PageControls page={page} /></td></tr></tbody>}</>;
+  const anchor=useRef<HTMLTableSectionElement>(null);
+  return <>{page.rows}<tbody ref={anchor} className="print:hidden"><TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} /></tbody></>;
 }

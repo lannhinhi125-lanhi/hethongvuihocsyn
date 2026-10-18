@@ -30,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onLogout }) 
 
   // Tiêu đề chức năng hệ thống (chuẩn nghiệp vụ, có đối soát công, không có thù lao)
   const adminModuleTitles: Record<number, { cat: string; title: string }> = {
+    0: { cat: 'Tổng quan', title: 'Bàn làm việc' },
     1: { cat: 'Hệ thống', title: 'Tài khoản & phân quyền' },
     2: { cat: 'Hệ thống', title: 'Danh mục dùng chung' },
     3: { cat: 'Chuyên môn', title: 'Hồ sơ & chuyên môn' },

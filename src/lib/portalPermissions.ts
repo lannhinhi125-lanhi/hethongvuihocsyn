@@ -5,6 +5,7 @@ export type PermissionModule = { id: string; name: string; features: string[]; r
 export const portalLabels: Record<AccountPortal, string> = { ADMIN: 'Cổng quản trị', TEACHER: 'Cổng giảng dạy' };
 export const permissionModules: Record<AccountPortal, PermissionModule[]> = {
   ADMIN: [
+    { id: 'PH0', name: 'Bàn làm việc', readFeatures: ['Xem Dashboard chỉ số KPI & Biểu đồ tổng quan'], features: ['Xem Dashboard chỉ số KPI & Biểu đồ tổng quan'] },
     { id: 'PH1', name: 'Tài khoản & Phân quyền', features: ['Xem danh sách tài khoản và nhóm quyền', 'Cấp tài khoản & Mật khẩu người dùng', 'Khóa / Mở khóa tài khoản nhân sự', 'Chỉnh sửa thông tin tài khoản & Mật khẩu', 'Tạo, sửa, xóa & Gán Nhóm quyền'] },
     { id: 'PH2', name: 'Danh mục dùng chung', readFeatures: ['Xem danh mục dùng chung'], features: ['Xem danh mục dùng chung', 'Quản lý danh mục môn học', 'Cấu hình Cấp học & Lớp dạy', 'Quản lý danh mục trình độ', 'Quản lý mô hình lớp và sĩ số tối đa', 'Cấu hình Khung giờ ca dạy chuẩn (Time Slot)', 'Cấu hình Danh mục Sự cố & Vi phạm ca học', 'Cấu hình hệ số công theo sự cố', 'Tạo danh mục bổ sung và danh mục con', 'Quản lý danh mục loại tài liệu'] },
     { id: 'PH3', name: 'Hồ sơ & Chuyên môn', readFeatures: ['Xem hồ sơ, lịch rảnh, thời khóa biểu và kết quả dự giờ giáo viên'], features: ['Xem hồ sơ, lịch rảnh, thời khóa biểu và kết quả dự giờ giáo viên', TEACHER_PROFILE_PERMISSION, 'Tạo hồ sơ và cấp tài khoản giáo viên', 'Chấm điểm và cập nhật báo cáo dự giờ'] },
@@ -12,7 +13,7 @@ export const permissionModules: Record<AccountPortal, PermissionModule[]> = {
     { id: 'PH5', name: 'Giám sát ca & Sự cố', readFeatures: ['Theo dõi thời khóa biểu toàn hệ thống (Calendar)'], features: ['Theo dõi thời khóa biểu toàn hệ thống (Calendar)', 'Ghi nhận và xử lý sự cố ca dạy', 'Tìm và phân công giáo viên dạy thay'] },
     { id: 'PH6', name: 'Quản lý tri thức và cấu hình AI', readFeatures: ['Xem cấu hình và tài liệu AI'], features: ['Xem cấu hình và tài liệu AI', 'Cấu hình Prompt văn phong & Tiêu chí nhận xét môn', 'Quản lý kho tài liệu tri thức SOP', 'Sử dụng AI sinh & tinh chỉnh nhận xét học sinh', 'Sử dụng chatbot tra cứu quy chế và nghiệp vụ'] },
     { id: 'PH7', name: 'Đối soát công ca dạy', readFeatures: ['Tổng hợp công dạy toàn bộ giáo viên theo kỳ'], features: ['Tổng hợp công dạy toàn bộ giáo viên theo kỳ', 'Điều chỉnh hệ số công từng buổi kèm lý do', 'Gửi bảng công cho giáo viên đối soát', 'Xử lý & phê duyệt đơn giải trình công dạy', 'Khóa, mở kỳ công và xuất CSV / in bảng công'] },
-    { id: 'PH8', name: 'Báo cáo & Thống kê', readFeatures: ['Xem Dashboard chỉ số KPI & Biểu đồ tổng quan'], features: ['Xem Dashboard chỉ số KPI & Biểu đồ tổng quan', 'Xem báo cáo giáo viên, học sinh và lớp học', 'Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn', 'Công cụ tạo báo cáo tùy biến (Dynamic Report)', 'Lưu và quản lý mẫu báo cáo tùy chỉnh', 'Xuất kết quả báo cáo CSV'] }
+    { id: 'PH8', name: 'Báo cáo & Thống kê', features: ['Xem báo cáo giáo viên, học sinh và lớp học', 'Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn', 'Công cụ tạo báo cáo tùy biến (Dynamic Report)', 'Lưu và quản lý mẫu báo cáo tùy chỉnh', 'Xuất kết quả báo cáo CSV'] }
   ],
   TEACHER: [
     { id: 'T_AVAILABILITY', name: 'Đăng ký lịch rảnh', features: ['Giáo viên đăng ký lịch rảnh theo tuần', 'Xem lịch rảnh cá nhân'] },
@@ -45,6 +46,11 @@ export function expandPermissions(permissions: string[], portal: AccountPortal):
   const modules = permissionModules[portal];
   const known = new Set(modules.flatMap(module => module.features));
   const selected = new Set(permissions.filter(value => known.has(value)));
+  // Previously PH8 included the dashboard. Preserve saved roles without expanding
+  // dashboard-only access into permission to read detailed reports.
+  if(portal==='ADMIN' && permissions.some(value=>['PH8_ALL','PH8_READ'].includes(value))) {
+    selected.add('Xem Dashboard chỉ số KPI & Biểu đồ tổng quan');
+  }
   for (const module of modules) {
     if (permissions.includes('ALL') || (portal === 'TEACHER' && permissions.includes('TEACHER_PORTAL')) || permissions.includes(module.id + '_ALL')) {
       module.features.forEach(value => selected.add(value));
@@ -59,7 +65,9 @@ export function expandPermissions(permissions: string[], portal: AccountPortal):
 export function serializePermissions(selected: string[], portal: AccountPortal): string[] {
   const modules = permissionModules[portal], result = new Set(selected);
   for (const module of modules) {
-    if (portal === 'ADMIN' && module.features.every(value => result.has(value))) {
+    // Persist these scopes as existing feature labels supported by SQL. This
+    // also lets administrators independently remove home access from old PH8 roles.
+    if (portal === 'ADMIN' && !['PH0','PH8'].includes(module.id) && module.features.every(value => result.has(value))) {
       module.features.forEach(value => result.delete(value)); result.add(module.id + '_ALL');
     }
   }

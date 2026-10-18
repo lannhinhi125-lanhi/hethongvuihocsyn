@@ -2,7 +2,7 @@ import { useBusinessStatus, loadBusinessData } from './lib/businessPersistence';
 import { useAccountSession, logoutAccount, refreshAccountSession } from './lib/accountSession';
 import { canAccessModule, teacherModuleIds, accountPortal } from './lib/accessControl';
 import { LoginView } from './views/LoginView';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -25,12 +25,20 @@ const MainLayout: React.FC = () => {
   const business = useBusinessStatus();
   const activeAccount = session.actor ? users.find(user => user.id === session.actor!.id && user.status === 'active') : undefined;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const openedAccount=useRef<string|null>(null);
   useEffect(() => {
-    if (!activeAccount) return;
+    if (!activeAccount) {openedAccount.current=null;return;}
     if (currentUser !== activeAccount) setCurrentUser(activeAccount);
+    if(openedAccount.current!==activeAccount.id){
+      openedAccount.current=activeAccount.id;
+      if(accountPortal(activeAccount,roleGroups)==='ADMIN'){
+        const first=[0,1,2,3,4,5,6,7,8].find(id=>canAccessModule(activeAccount,roleGroups,'PH'+id));
+        if(first!==undefined)setActiveModule(first);
+      }
+    }
     if (accountPortal(activeAccount,roleGroups)==='ADMIN' && !canAccessModule(activeAccount,roleGroups,'PH'+activeModule)) {
-      const first=[1,2,3,4,5,6,7,8].find(id=>canAccessModule(activeAccount,roleGroups,'PH'+id));
-      if(first)setActiveModule(first);
+      const first=[0,1,2,3,4,5,6,7,8].find(id=>canAccessModule(activeAccount,roleGroups,'PH'+id));
+      if(first!==undefined)setActiveModule(first);
     }
     if(accountPortal(activeAccount,roleGroups)==='TEACHER' && !canAccessModule(activeAccount,roleGroups,teacherModuleIds[teacherPortalTab])) {
       const first=['availability','schedule','evaluation','reconcile'].find(tab=>canAccessModule(activeAccount,roleGroups,teacherModuleIds[tab]));
@@ -72,7 +80,7 @@ const MainLayout: React.FC = () => {
                 {activeModule === 5 && canAccessModule(currentUser, roleGroups, 'PH5') && <Module5_OperationsMonitoring />}
                 {activeModule === 6 && canAccessModule(currentUser, roleGroups, 'PH6') && <Module6_AIStudio />}
                 {activeModule === 7 && canAccessModule(currentUser, roleGroups, 'PH7') && <Module7_WorkReconciliation />}
-                {activeModule === 8 && canAccessModule(currentUser, roleGroups, 'PH8') && <Module8_Reports />}
+                {(activeModule === 0 || activeModule === 8) && canAccessModule(currentUser, roleGroups, 'PH'+activeModule) && <Module8_Reports mode={activeModule === 0 ? 'dashboard' : 'reports'} />}
               </>
             ) : (
               // ================= GIAO DIỆN CỔNG GIÁO VIÊN & GIA SƯ =================

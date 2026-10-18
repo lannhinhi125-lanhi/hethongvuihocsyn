@@ -12,6 +12,8 @@ import { incidentReportPeriods, type ReportIncident, type ReportLesson } from '.
 import { useBusinessValue } from '../lib/businessPersistence';
 import { inspectionDate, inspectionReportRows, type InspectionEvaluation } from '../lib/inspectionReport';
 import { FilterDrawer } from '../components/FilterDrawer';
+import { WorkbenchOperations } from '../components/WorkbenchOperations';
+import { refreshBusinessData } from '../lib/businessPersistence';
 import {
   PieChart,
   TrendingUp,
@@ -191,15 +193,15 @@ const getDateFilterRange = (
 const isDateInRange = (date: string, range: { start: string; end: string }) =>
   Boolean(date) && (!range.start || date >= range.start) && (!range.end || date <= range.end);
 
-export const Module8_Reports: React.FC = () => {
+export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='reports'}) => {
   const [reportLessons] = useBusinessValue<ReportLesson[]>('dated_lessons');
   const [reportIncidents] = useBusinessValue<ReportIncident[]>('lesson_incidents');
   const [reportEvaluations] = useBusinessValue<InspectionEvaluation[]>('teacher_evaluations');
   const { can, requirePermission } = usePermissions();
-  const { showToast, classes: sourceClasses, students: sourceStudents, teachers: sourceTeachers, subjects: sourceSubjects, models: sourceModels } = useApp();
+  const { showToast, setActiveModule, classes: sourceClasses, students: sourceStudents, teachers: sourceTeachers, subjects: sourceSubjects, models: sourceModels } = useApp();
 
   // 2 Tab chính của hệ thống Báo cáo - Dashboard là mặc định khi vào báo cáo theo yêu cầu
-  const [currentMainTab, setCurrentMainTab] = useState<'dashboard' | 'fixed' | 'custom'>('dashboard');
+  const [currentMainTab, setCurrentMainTab] = useState<'dashboard' | 'fixed' | 'custom'>(mode==='dashboard'?'dashboard':'fixed');
 
   // Trạng thái mở/đóng dải lọc sổ ngang của từng tab/báo cáo độc lập ("trên nóc")
   const [isDashFilterOpen, setIsDashFilterOpen] = useState(false);
@@ -236,12 +238,20 @@ export const Module8_Reports: React.FC = () => {
   const canDashboard = can('Xem Dashboard chỉ số KPI & Biểu đồ tổng quan');
   const canFixed = can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Xem báo cáo giáo viên, học sinh và lớp học');
   const canCustom = can('Công cụ tạo báo cáo tùy biến (Dynamic Report)');
+  useEffect(()=>{setCurrentMainTab(mode==='dashboard'?'dashboard':canFixed?'fixed':'custom');},[mode,canFixed,canCustom]);
+  useEffect(()=>{
+    if(mode!=='dashboard')return;
+    const refresh=()=>{if(document.visibilityState==='visible')void refreshBusinessData();};
+    const timer=window.setInterval(refresh,30_000);
+    window.addEventListener('focus',refresh);
+    return ()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);};
+  },[mode]);
   useEffect(() => {
     if (currentMainTab === 'dashboard' && !canDashboard || currentMainTab === 'fixed' && !canFixed || currentMainTab === 'custom' && !canCustom) {
-      if (canDashboard) setCurrentMainTab('dashboard'); else if (canFixed) setCurrentMainTab('fixed'); else if (canCustom) setCurrentMainTab('custom');
+      if (mode==='dashboard' && canDashboard) setCurrentMainTab('dashboard'); else if (mode==='reports' && canFixed) setCurrentMainTab('fixed'); else if (mode==='reports' && canCustom) setCurrentMainTab('custom');
     }
     if (!can(reportPermission(selectedFixedReport))) setSelectedFixedReport(can('Xem báo cáo giáo viên, học sinh và lớp học') ? 'fixed_new_classes' : 'fixed_incident_trend');
-  }, [canDashboard, canFixed, canCustom, selectedFixedReport, currentMainTab]);
+  }, [mode,canDashboard, canFixed, canCustom, selectedFixedReport, currentMainTab]);
 
   const [detailPage, setDetailPage] = useState(0);
 
@@ -569,6 +579,7 @@ export const Module8_Reports: React.FC = () => {
 
   const openDashboardDetail = (report: FixedReportId, status?: 'AVAILABLE') => {
     if (!requirePermission(reportPermission(report))) return;
+    setActiveModule(8);
     const eventDates = [
       ...rawClasses.map(item => item.date),
       ...rawStudents.map(item => item.date),
@@ -877,10 +888,11 @@ export const Module8_Reports: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {mode==='dashboard' && <WorkbenchOperations />}
       {/* ========================================================================= */}
       {/* 4 THẺ METRICS TỔNG QUAN HỆ THỐNG */}
       {/* ========================================================================= */}
-      {currentMainTab === 'dashboard' && canDashboard && (
+      {mode==='dashboard' && currentMainTab === 'dashboard' && canDashboard && (
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <DashboardMetric label="Lớp còn chỗ" value={`${dashboardAvailableClasses.length} lớp`}
             description={showPeriodComparison ? compareCount(dashboardAvailableClasses.length, previousAvailableClassCount, 'lớp') : 'Trong khoảng thời gian đã chọn'}
@@ -905,10 +917,9 @@ export const Module8_Reports: React.FC = () => {
           <div>
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-indigo-600">
               <PieChart className="w-4 h-4" />
-              <span>Trung tâm Báo cáo &amp; Thống kê Vận hành</span>
-              <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">DỮ LIỆU MẪU</span>
+              <span>{mode==='dashboard'?'Tổng quan vận hành':'Báo cáo & thống kê'}</span>
             </div>
-            <h2 className="text-base font-bold text-slate-900 mt-0.5">Báo cáo &amp; Thống kê Vận hành Lớp học</h2>
+            <h2 className="text-base font-bold text-slate-900 mt-0.5">{mode==='dashboard'?'Xu hướng & chất lượng đào tạo':'Báo cáo chi tiết & thống kê'}</h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -923,21 +934,7 @@ export const Module8_Reports: React.FC = () => {
         </div>
 
         {/* Thanh 2 Tabs chính: Dashboard (đầu tiên theo yêu cầu) | Cố định */}
-        <div className="flex flex-wrap border-b border-slate-200 text-xs font-medium">
-          <button
-            disabled={!canDashboard} onClick={() => setCurrentMainTab('dashboard')}
-            className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
-              currentMainTab === 'dashboard'
-                ? 'border-indigo-600 text-indigo-600 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <div className="text-left">
-              <div className="font-semibold text-xs">Tổng quan</div>
-            </div>
-          </button>
-
+        {mode==='reports' && <div className="flex flex-wrap border-b border-slate-200 text-xs font-medium">
           <button
             disabled={!canFixed} onClick={() => setCurrentMainTab('fixed')}
             className={`px-4 py-2 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
@@ -956,17 +953,17 @@ export const Module8_Reports: React.FC = () => {
             <SlidersHorizontal className="h-4 w-4" />
             Báo cáo tùy chỉnh
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* ========================================================================= */}
       {/* TAB 1: DASHBOARD TỶ LỆ & XU HƯỚNG TỔNG QUAN (CÓ BỘ LỌC THỜI GIAN TRÊN NÓC SỔ NGANG) */}
       {/* ========================================================================= */}
-      {canCustom && <div hidden={currentMainTab !== 'custom'}>
+      {mode==='reports' && canCustom && <div hidden={currentMainTab !== 'custom'}>
         <CustomReportBuilder datasets={customDatasets} />
       </div>}
 
-      {currentMainTab === 'dashboard' && (
+      {mode==='dashboard' && currentMainTab === 'dashboard' && canDashboard && (
         <div className="space-y-4 animate-in fade-in duration-200">
           {/* Thanh trên nóc của Dashboard: Nút mở Bộ lọc cột bên phải + Chuyển đổi Biểu đồ / Bảng */}
           <div className="bg-white p-3 px-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -1344,7 +1341,7 @@ export const Module8_Reports: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 2: BÁO CÁO CHI TIẾT */}
       {/* ========================================================================= */}
-      {currentMainTab === 'fixed' && canFixed && (
+      {mode==='reports' && currentMainTab === 'fixed' && canFixed && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
             {detailUsesDateRange ? (

@@ -999,7 +999,7 @@ export const Module1_UsersRoles: React.FC = () => {
                               onChange={() => togglePermission(feat)}
                               className="accent-[#FF5C00]"
                             />
-                            <span>{feat}</span>
+                            <span>{feat==='Xem Dashboard chỉ số KPI & Biểu đồ tổng quan'?'Xem Bàn làm việc và biểu đồ tổng quan vận hành':feat}</span>
                           </label>
                         ))}
                       </div>

@@ -16,7 +16,8 @@ import {
   FileCheck,
   Clock,
   ArrowRightLeft,
-  ChevronRight
+  ChevronRight,
+  LayoutDashboard
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -48,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
 
   // Menu Quản trị chuẩn theo mẫu hệ thống (có đối soát công, không có thù lao)
   const adminNavItems = [
+    { id: 0, label: 'Bàn làm việc', icon: LayoutDashboard },
     { id: 1, label: 'Tài khoản & phân quyền', icon: ShieldCheck },
     { id: 2, label: 'Danh mục dùng chung', icon: SlidersHorizontal },
     { id: 3, label: 'Hồ sơ & chuyên môn', icon: UserCheck },
@@ -59,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   ];
 
   const adminNavGroups = [
+    { title: 'Tổng quan', ids: [0] },
     { title: 'Hệ thống & cấu hình', ids: [1, 2] },
     { title: 'Vận hành đào tạo', ids: [3, 4, 5] },
     { title: 'Đối soát & quản trị', ids: [6, 7, 8] }
