@@ -1,6 +1,6 @@
 import type {ClassItem,StudentRecord,TeacherProfile,MonthPayrollData} from '../types';
 import {studentRegistrations} from './studentRegistrations';
-import {monitoringSessionStatus} from './sessionAlerts';
+import {monitoringSessionStatus,isEarlyCheckout,minutesEndedEarly} from './sessionAlerts';
 import {materialForSessionDate} from './teacherScheduleMaterials';
 import {teachingScheduleEntries} from './teachingSessionDetails';
 
@@ -24,7 +24,15 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
  })).sort((a,b)=>(a.lesson.startsAt||a.time).localeCompare(b.lesson.startsAt||b.time));
  const start=range?.start||weekStart,end=range?.end||weekEnd;
  const weekly=lessons.filter(l=>l.date>=start&&l.date<=end);
- const periodLessons=weekly.map(l=>({lesson:l,state:state(l),time:time(l),className:classes.find(c=>c.id===l.classId)?.name||l.classId,
+ const reviewReason=(lesson:WorkbenchLesson)=>{
+  const current=state(lesson);
+  if(current==='CHUA_HOC')return 'Đã đến giờ học, chưa ghi nhận check-in';
+  if(current==='CHUA_HOAN_TAT')return isEarlyCheckout(lesson.date,time(lesson),lesson.checkoutAt)
+   ?`Checkout sớm ${Math.round(minutesEndedEarly(lesson.date,time(lesson),lesson.checkoutAt))} phút`
+   :'Đã hết giờ học, chưa ghi nhận checkout';
+  return '';
+ };
+ const periodLessons=weekly.map(l=>({lesson:l,state:state(l),reviewReason:reviewReason(l),time:time(l),className:classes.find(c=>c.id===l.classId)?.name||l.classId,
   teacherName:teachers.find(t=>t.id===(l.coverTeacherId||l.primaryTeacherId))?.name||'Chưa phân công'}))
   .sort((a,b)=>a.lesson.date.localeCompare(b.lesson.date)||(a.lesson.startsAt||a.time).localeCompare(b.lesson.startsAt||b.time));
  const first=new Date(start+'T12:00:00+07:00'),span=Math.max(1,Math.round((Date.parse(end+'T12:00:00+07:00')-first.getTime())/86400000)+1);

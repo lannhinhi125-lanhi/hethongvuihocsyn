@@ -1,5 +1,6 @@
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import {randomUUID} from '../lib/randomUUID';
+import {PeriodToolbar} from './PeriodToolbar';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -8,7 +9,7 @@ import { useApp } from '../context/AppContext';
 import { FilterDrawer } from './FilterDrawer';
 import {
   buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig,
-  type CustomReportConfig, type ReportDataset, type ReportDatePreset, type SavedReportTemplate
+  type CustomReportConfig, type ReportDataset, type SavedReportTemplate
 } from '../lib/customReports';
 
 const control = 'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500';
@@ -191,19 +192,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[] }> = ({ d
       <div className="min-w-0 space-y-3">
         <section className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
-              4. Thời gian
-              <select value={config.datePreset} disabled={dataset.dateKind === 'snapshot'} onChange={event => patch({ datePreset: event.target.value as ReportDatePreset })}
-                className={control + ' w-auto disabled:bg-slate-100 disabled:text-slate-400'}>
-                <option value="month">Tháng này đến hôm nay</option><option value="previous_month">Tháng trước</option>
-                <option value="last_30_days">30 ngày gần nhất</option><option value="all">Toàn thời gian</option><option value="custom">Tùy chỉnh</option>
-              </select>
-            </label>
-            {dataset.dateKind !== 'snapshot' && config.datePreset === 'custom' && <div className="flex flex-wrap items-center gap-1.5">
-              <input aria-label="Từ ngày báo cáo tùy chỉnh" type="date" value={config.from} max={config.to || undefined} onChange={event => patch({ from: event.target.value })} className={control + ' w-auto'} />
-              <span className="text-slate-400">–</span>
-              <input aria-label="Đến ngày báo cáo tùy chỉnh" type="date" value={config.to} min={config.from || undefined} onChange={event => patch({ to: event.target.value })} className={control + ' w-auto'} />
-            </div>}
+            <PeriodToolbar label="4. Thời gian" range={{start:result.range.from,end:result.range.to}} disabled={dataset.dateKind === 'snapshot'} onChange={value=>patch({datePreset:value.start||value.end?'custom':'all',from:value.start,to:value.end})}/>
             <button type="button" className={button + ' ml-auto'} disabled={!dataset.filters.length} onClick={() => setFilterOpen(true)}>
               <Filter className="h-3.5 w-3.5" />Lọc chi tiết{activeFilters.length > 0 && <span className="rounded bg-indigo-50 px-1.5 text-indigo-700">{activeFilters.length}</span>}
             </button>

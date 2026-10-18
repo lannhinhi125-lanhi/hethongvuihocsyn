@@ -7,6 +7,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CustomReportBuilder } from '../components/CustomReportBuilder';
 import {ReportDataStatus} from '../components/ReportDataStatus';
+import {PeriodToolbar} from '../components/PeriodToolbar';
 import { makeReportDatasets } from '../lib/reportDatasets';
 import { operationalReportDatasets } from '../lib/operationalReportDatasets';
 import { reportCreationDate } from '../lib/reportCreationDate';
@@ -39,8 +40,6 @@ import {
   GraduationCap,
   ShieldAlert,
   Grid,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   SlidersHorizontal,
   ArrowUpRight,
@@ -731,7 +730,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
             ? formatDateRangeLabel(dashDateFrom, dashDateTo)
             : 'Chọn khoảng ngày';
 
-  const detailUsesDateRange = true;
+
   const detailReportNames: Record<FixedReportId, string> = {
     fixed_new_classes: 'Lớp học mới',
     fixed_new_students: 'Học sinh mới',
@@ -756,24 +755,6 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
     };
     openers[selectedFixedReport](true);
   };
-  const shiftDetailRange = (direction: -1 | 1) => {
-    if (!detailDateFrom || !detailDateTo) return;
-    const duration = daysBetween(detailDateFrom, detailDateTo);
-    const shift = duration * direction;
-    setDetailDateFrom(current => shiftDate(current, shift));
-    setDetailDateTo(current => shiftDate(current, shift));
-  };
-
-  const changeDetailStart = (value: string) => {
-    setDetailDateFrom(value);
-    if (detailDateTo && value > detailDateTo) setDetailDateTo(value);
-  };
-
-  const changeDetailEnd = (value: string) => {
-    setDetailDateTo(value);
-    if (detailDateFrom && value && value < detailDateFrom) setDetailDateFrom(value);
-  };
-
   // Reset functions riêng cho từng phần
   const resetClsFilters = () => {
     setClsFilterCode('');
@@ -1360,76 +1341,7 @@ export const Module8_Reports: React.FC<{mode?:'dashboard'|'reports'}> = ({mode='
       {mode==='reports' && loadedAt && currentMainTab === 'fixed' && canFixed && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-            {detailUsesDateRange ? (
-              <>
-                <div>
-                  <div className="text-xs font-bold text-slate-800">Khoảng thời gian báo cáo</div>
-                  <div className="text-[10px] text-slate-500">{!detailDateFrom && !detailDateTo ? 'Toàn bộ thời gian' : 'Áp dụng cho báo cáo đang chọn'}</div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    aria-label="Khoảng thời gian trước"
-                    title="Lùi một khoảng tương đương"
-                    onClick={() => shiftDetailRange(-1)}
-                    disabled={!detailDateFrom || !detailDateTo}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-500">
-                    <span>Từ</span>
-                    <input
-                      type="date"
-                      value={detailDateFrom}
-                      max={detailDateTo}
-                      onChange={event => changeDetailStart(event.target.value)}
-                      className="min-w-0 bg-transparent text-xs text-slate-800 outline-none"
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-500">
-                    <span>Đến</span>
-                    <input
-                      type="date"
-                      value={detailDateTo}
-                      min={detailDateFrom}
-                      onChange={event => changeDetailEnd(event.target.value)}
-                      className="min-w-0 bg-transparent text-xs text-slate-800 outline-none"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    aria-label="Khoảng thời gian tiếp theo"
-                    title="Tiến một khoảng tương đương"
-                    onClick={() => shiftDetailRange(1)}
-                    disabled={!detailDateFrom || !detailDateTo}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <button type="button" onClick={() => {setDetailDateFrom('');setDetailDateTo('');setDetailPage(0);}}
-                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Toàn bộ</button>
-                  <button type="button" onClick={() => void refreshBusinessData()}
-                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Làm mới</button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const today = new Date();
-                      setDetailDateFrom(toLocalIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)));
-                      setDetailDateTo(toLocalIsoDate(today));
-                    }}
-                    className="rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
-                  >
-                    Tháng này
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-start gap-2 text-[11px] text-amber-800">
-                <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>Chọn khoảng ngày để lọc dữ liệu phát sinh trong kỳ.</span>
-              </div>
-            )}
+            <PeriodToolbar range={detailDateRange} onChange={value=>{setDetailDateFrom(value.start);setDetailDateTo(value.end);setDetailPage(0);}} onRefresh={()=>void refreshBusinessData()}/>
             <button type="button" onClick={openDetailFilters}
               className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 sm:self-center"
               title="Lọc môn, khối, trạng thái và các tiêu chí của báo cáo đang chọn">
