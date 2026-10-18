@@ -1,3 +1,6 @@
+import { ReportSelect } from './ReportSelect';
+import { ReportMultiFilter } from './ReportMultiFilter';
+import { reportFilterValues, reportFilterLabel } from '../lib/customReports';
 import { ReportChart } from './ReportChart';
 import { suggestReportTitle, type ReportDocumentRequest } from '../lib/reportDocument';
 import { CompactClassReportTable } from './CompactClassReportTable';
@@ -17,8 +20,8 @@ import {
   type CustomReportConfig, type ReportDataset, type SavedReportTemplate
 } from '../lib/customReports';
 
-const control = 'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500';
-const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40';
+const control = 'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500';
+const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-orange-200 hover:bg-orange-50 hover:text-[#FF5C00] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-40';
 import { PAGE_SIZE } from './Pagination';
 const displayDate = (value: string) => value ? value.slice(8, 10) + '/' + value.slice(5, 7) + '/' + value.slice(0, 4) : '';
 const defaultReportConfig=(dataset:ReportDataset):CustomReportConfig=>({...baseReportConfig(dataset),datePreset:'all'});
@@ -89,7 +92,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
   const chartRows = isTimeGroup ? [...overview.rows].sort((a, b) => a.key.localeCompare(b.key, 'vi', { numeric: true })) : overview.rows;
   const detailGroup = (detailPeriod === 'previous' ? previousResult?.rows : result.rows)?.find(row => row.key === detailKey);
   const detailRecords = detailGroup?.records.filter(record => dataset.id !== 'incidents' || !onlyIncidentSources || record.incidents === 1) || [];
-  const activeFilters = Object.entries(config.filters).filter(([, value]) => Boolean(value));
+  const activeFilters = Object.entries(config.filters).filter(([, value]) => reportFilterValues(value).length > 0);
   const showSourceCount = !result.metrics.some(metric => metric.mode === 'count' || metric.mode === 'sum' && ['total', 'sessions'].includes(metric.field || ''));
   const rangeLabel = dataset.dateKind === 'snapshot' ? 'Số liệu tổng hợp hiện có'
     : !result.range.from && !result.range.to ? 'Toàn thời gian'
@@ -97,8 +100,8 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
   const patch = (updates: Partial<CustomReportConfig>) => setConfig(previous => ({ ...previous, ...updates,
     ...(['filters', 'groupBy', 'from', 'to', 'datePreset'].some(key => Object.hasOwn(updates, key)) && !Object.hasOwn(updates, 'selection') ? { selection: undefined } : {}) }));
   const selectChartGroup = (key: string) => { patch({ selection: config.selection?.key === key ? undefined : { by: config.groupBy, key } }); setSearch(''); };
-  const primaryFilters = dataset.filters.filter(field => ['subject', 'model', 'grade', 'timeSlot', 'cause', 'rank', 'status'].includes(field.id)).slice(0, 5);
-  const filterOptions = (field: ReportDataset['filters'][number]) => field.options || [...new Set(dataset.records.map(record => String(record[field.id] ?? '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+  const primaryFilters = dataset.filters.filter(field => ['category', 'grade', 'subject', 'model', 'timeSlot', 'cause', 'rank', 'status'].includes(field.id)).slice(0, 7);
+  const filterOptions = (field: ReportDataset['filters'][number]) => field.choices || (field.options || [...new Set(dataset.records.map(record => String(record[field.id] ?? '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }))).map(value => ({ value, label: value }));
   const leadingRow = [...result.rows].filter(row => chartMetric && row.values[chartMetric.id] != null).sort((a, b) => (b.values[chartMetric!.id] ?? 0) - (a.values[chartMetric!.id] ?? 0))[0];
   const insight = !result.records.length ? 'Chưa có dữ liệu phù hợp. Hãy thử mở rộng thời gian hoặc bỏ bớt điều kiện lọc.'
     : dataset.id === 'incidents' && result.totals.incidents === 0 ? `Chưa ghi nhận buổi có sự cố phù hợp trong ${result.totals.total ?? result.records.length} buổi học sau lọc.`
@@ -165,13 +168,13 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
     document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   };
 
-  return <div className="space-y-3">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold text-slate-900">{suggestReportTitle(dataset, config.groupBy)}</h2>{onCompose && <button type="button" disabled={result.invalidRange || comparison.enabled && !compareActive} onClick={() => onCompose({ datasetId: dataset.id, config: structuredClone(config) })} className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-700 disabled:opacity-40">Lập báo cáo từ kết quả này</button>}</div>
-    {isDetail ? <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><label className="min-w-56 flex-1 text-xs font-medium text-slate-500">Báo cáo<select aria-label="Chọn báo cáo chi tiết" value={dataset.id} onChange={event => switchDataset(event.target.value)} className={control + ' mt-1'}>{datasets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="min-w-40 flex-1 text-xs font-medium text-slate-500">Xem theo<select aria-label="Cách nhóm báo cáo chi tiết" value={config.groupBy} onChange={event => patch({ groupBy: event.target.value, selection: undefined })} className={control + ' mt-1'}><option value="all">Toàn bộ</option>{dataset.dimensions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label></div> : <>
+  return <div className="report-interface font-inter space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold text-slate-900">{suggestReportTitle(dataset, config.groupBy)}</h2>{onCompose && <button type="button" disabled={result.invalidRange || comparison.enabled && !compareActive} onClick={() => onCompose({ datasetId: dataset.id, config: structuredClone(config) })} className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-[#FF5C00] transition-colors hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-40">Lập báo cáo từ kết quả này</button>}</div>
+    {isDetail ? <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><label className="min-w-56 flex-1 text-xs font-medium text-slate-500">Báo cáo<ReportSelect aria-label="Chọn báo cáo chi tiết" value={dataset.id} onChange={event => switchDataset(event.target.value)} className={control + ' mt-1'}>{datasets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label><label className="min-w-40 flex-1 text-xs font-medium text-slate-500">Xem theo<ReportSelect aria-label="Cách nhóm báo cáo chi tiết" value={config.groupBy} onChange={event => patch({ groupBy: event.target.value, selection: undefined })} className={control + ' mt-1'}><option value="all">Toàn bộ</option>{dataset.dimensions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label></div> : <>
     <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          {templates.length > 0 && <select aria-label="Mở mẫu báo cáo đã lưu" value={templateId} className={control + ' max-w-52'}
+          {templates.length > 0 && <ReportSelect aria-label="Mở mẫu báo cáo đã lưu" value={templateId} className={control + ' max-w-52'}
             onChange={event => {
               const item = templates.find(template => template.id === event.target.value);
               setTemplateId(event.target.value);
@@ -179,9 +182,9 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
             }}>
             <option value="">Mẫu đã lưu ({templates.length})</option>
             {templates.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>}
+          </ReportSelect>}
           {selectedTemplate && <button type="button" className={button} title="Xóa mẫu đang chọn" aria-label="Xóa mẫu đang chọn" onClick={() => setDeleteOpen(true)}><Trash2 className="h-3.5 w-3.5" /></button>}
-          <button type="button" disabled={result.invalidRange || !can('Lưu và quản lý mẫu báo cáo tùy chỉnh')} className={button + ' border-indigo-200 text-indigo-700 hover:bg-indigo-50'} onClick={() => {
+          <button type="button" disabled={result.invalidRange || !can('Lưu và quản lý mẫu báo cáo tùy chỉnh')} className={button + ' border-orange-200 text-orange-700 hover:bg-orange-50'} onClick={() => {
             setTemplateName(selectedTemplate?.name || dataset.label + ' theo ' + groupName.toLocaleLowerCase('vi')); setSaveOpen(true);
           }}><Save className="h-3.5 w-3.5" />Lưu mẫu{hasChanges ? ' •' : ''}</button>
         </div>
@@ -198,7 +201,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
           { name: 'Sự cố theo khung giờ', source: 'incidents', group: 'timeSlot' },
           { name: 'Ca dạy theo giáo viên', source: 'lessons', group: 'teacher' },
           { name: 'Đăng ký theo môn', source: 'student_registrations', group: 'subject' }
-        ].filter(item => datasets.some(dataset => dataset.id === item.source)).map(item => <button key={item.source + item.group} type="button" className="rounded-lg border border-indigo-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-400 hover:bg-indigo-50"
+        ].filter(item => datasets.some(dataset => dataset.id === item.source)).map(item => <button key={item.source + item.group} type="button" className="rounded-lg border border-orange-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-orange-400 hover:bg-orange-50"
           onClick={() => {
             const target = datasets.find(dataset => dataset.id === item.source);
             if (target) { setConfig({ ...defaultReportConfig(target), groupBy: item.group }); setTemplateId(''); setSearch(''); }
@@ -207,16 +210,16 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
       </details>
     </section>
     </>}
-    {!isDetail && <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2"><label className="text-xs font-medium text-slate-500">Dữ liệu cần xem<select aria-label="Dữ liệu báo cáo tùy chỉnh" value={dataset.id} onChange={event => switchDataset(event.target.value)} className={control + ' mt-1'}>{datasets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="text-xs font-medium text-slate-500">Xem theo<select aria-label="Cách nhóm báo cáo tùy chỉnh" value={config.groupBy} onChange={event => patch({ groupBy: event.target.value, selection: undefined })} className={control + ' mt-1'}><option value="all">Toàn bộ</option>{dataset.dimensions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label></div>}
+    {!isDetail && <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2"><label className="text-xs font-medium text-slate-500">Dữ liệu cần xem<ReportSelect aria-label="Dữ liệu báo cáo tùy chỉnh" value={dataset.id} onChange={event => switchDataset(event.target.value)} className={control + ' mt-1'}>{datasets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label><label className="text-xs font-medium text-slate-500">Xem theo<ReportSelect aria-label="Cách nhóm báo cáo tùy chỉnh" value={config.groupBy} onChange={event => patch({ groupBy: event.target.value, selection: undefined })} className={control + ' mt-1'}><option value="all">Toàn bộ</option>{dataset.dimensions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label></div>}
 
     <div className="grid items-start gap-3">
       {!isDetail && <details className="rounded-xl border border-slate-200 bg-white shadow-2xs">
-        <summary className="flex cursor-pointer items-center gap-2 border-b border-slate-100 p-3 text-xs font-semibold text-slate-800"><SlidersHorizontal className="h-4 w-4 text-indigo-600" />Tùy chỉnh thêm chỉ số</summary>
+        <summary className="flex cursor-pointer items-center gap-2 border-b border-slate-100 p-3 text-xs font-semibold text-slate-800"><SlidersHorizontal className="h-4 w-4 text-orange-600" />Tùy chỉnh thêm chỉ số</summary>
         <div className="space-y-4 p-3">
           <fieldset className="space-y-1.5">
             <legend className="mb-1 text-xs font-semibold text-slate-600">Chỉ số hiển thị</legend>
             {dataset.metrics.map(metric => <label key={metric.id} className="flex cursor-pointer items-start gap-2 rounded-lg p-1.5 text-xs text-slate-700 hover:bg-slate-50">
-              <input type="checkbox" checked={config.metricIds.includes(metric.id)} className="mt-0.5 accent-indigo-600"
+              <input type="checkbox" checked={config.metricIds.includes(metric.id)} className="mt-0.5 accent-orange-600"
                 disabled={config.metricIds.length === 1 && config.metricIds[0] === metric.id}
                 onChange={event => patch({ metricIds: event.target.checked ? [...config.metricIds, metric.id] : config.metricIds.filter(id => id !== metric.id) })} />
               {metric.label}
@@ -234,14 +237,14 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
           <div className="flex flex-wrap items-center gap-2">
             <PeriodToolbar label="Thời gian" range={{start:result.range.from,end:result.range.to}} disabled={dataset.dateKind === 'snapshot'} onChange={value=>patch({datePreset:value.start||value.end?'custom':'all',from:value.start,to:value.end})}/>
             <button type="button" className={button + ' ml-auto'} disabled={!dataset.filters.length} onClick={() => setFilterOpen(true)}>
-              <Filter className="h-3.5 w-3.5" />Lọc chi tiết{activeFilters.length > 0 && <span className="rounded bg-indigo-50 px-1.5 text-indigo-700">{activeFilters.length}</span>}
+              <Filter className="h-3.5 w-3.5" />Lọc chi tiết{activeFilters.length > 0 && <span className="rounded bg-orange-50 px-1.5 text-orange-700">{activeFilters.length}</span>}
             </button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{primaryFilters.map(field => <label key={field.id} className="text-xs font-medium text-slate-500">{field.label}<select aria-label={'Lọc ' + field.label.toLocaleLowerCase('vi')} value={config.filters[field.id] || ''} onChange={event => patch({ filters: { ...config.filters, [field.id]: event.target.value } })} className={control + ' mt-1'}><option value="">Tất cả</option>{filterOptions(field).map(value => <option key={value} value={value}>{value}</option>)}</select></label>)}</div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{primaryFilters.map(field => <div key={field.id} className="text-xs font-medium text-slate-500">{field.label}<ReportMultiFilter label={field.label} choices={filterOptions(field)} value={config.filters[field.id]} onChange={value => patch({ filters: { ...config.filters, [field.id]: value } })} /></div>)}</div>
           {activeFilters.some(([id]) => !primaryFilters.some(field => field.id === id)) && <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
             {activeFilters.filter(([id]) => !primaryFilters.some(field => field.id === id)).map(([id, value]) => <button type="button" key={id} onClick={() => patch({ filters: { ...config.filters, [id]: '' } })}
-              className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-indigo-700" title="Bỏ điều kiện lọc">
-              {dataset.filters.find(field => field.id === id)?.label}: {value}<X className="h-3 w-3" />
+              className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-2 py-1 text-orange-700" title="Bỏ điều kiện lọc">
+              {dataset.filters.find(field => field.id === id)?.label}: {reportFilterLabel(dataset.filters.find(field => field.id === id), value)}<X className="h-3 w-3" />
             </button>)}
           </div>}
           <ComparisonControls current={currentRange} settings={comparison} disabled={dataset.dateKind === 'snapshot'} onChange={value => patch({ comparison: value })} />
@@ -252,7 +255,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
           {compareActive && previousResult ? <ComparisonResults key={dataset.id + config.groupBy} datasetId={dataset.id} rows={comparedRows} metrics={result.metrics}
             totals={result.totals} previousTotals={previousResult.totals} currentRange={currentRange} previousRange={previousRange}
             temporal={isTimeGroup} canExport={can('Xuất kết quả báo cáo CSV')} onExport={exportComparison}
-            chartRows={overviewComparedRows} chartType={config.chartType} onChartTypeChange={chartType => patch({ chartType })}
+            onClearSelection={() => patch({ selection: undefined })} chartRows={overviewComparedRows} chartType={config.chartType} onChartTypeChange={chartType => patch({ chartType })}
             selectedMetricId={chartMetric?.id} onMetricChange={chartMetricId => patch({ chartMetricId })}
             selectedKey={config.selection ? overviewComparedRows.find(row => row.currentKey === config.selection?.key || row.previousKey === previousSelection?.key)?.key : undefined}
             onFilter={key => { const row = overviewComparedRows.find(item => item.key === key); if (!row) return;
@@ -260,19 +263,19 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
               const target = selected || (isTimeGroup && /^\d+$/.test(row.key) ? timeGroupKey(currentRange, config.groupBy, Number(row.key)) : undefined);
               if (target) selectChartGroup(target); }}
             onSelect={(key, period) => { setDetailPeriod(period); setDetailKey(key); }} /> : <>
-          <div className="flex flex-wrap items-center justify-between gap-2">{config.selection ? <button type="button" onClick={() => patch({ selection: undefined })} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700">Đang lọc {groupName.toLocaleLowerCase('vi')}: {overview.rows.find(row => row.key === config.selection?.key)?.label || config.selection.key} · Bỏ lọc ×</button> : <span />}{result.metrics.length > 1 && <select aria-label="Chỉ số trên biểu đồ" value={chartMetric?.id || ''} onChange={event => { setChartMetricId(event.target.value); patch({ chartMetricId: event.target.value }); }} className={control + ' w-auto'}>{result.metrics.map(metric => <option key={metric.id} value={metric.id}>{metric.label}</option>)}</select>}</div>
+          <div className="flex flex-wrap items-center justify-between gap-2">{config.selection ? <button type="button" onClick={() => patch({ selection: undefined })} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700">Đang lọc {groupName.toLocaleLowerCase('vi')}: {overview.rows.find(row => row.key === config.selection?.key)?.label || config.selection.key} · Bỏ lọc ×</button> : <span />}{result.metrics.length > 1 && <ReportSelect aria-label="Chỉ số trên biểu đồ" value={chartMetric?.id || ''} onChange={event => { setChartMetricId(event.target.value); patch({ chartMetricId: event.target.value }); }} className={control + ' w-auto'}>{result.metrics.map(metric => <option key={metric.id} value={metric.id}>{metric.label}</option>)}</ReportSelect>}</div>
           <ReportChart title={chartMetric?.label || dataset.label} data={chartRows.map(row => ({ key: row.key, label: row.label, value: chartMetric ? row.values[chartMetric.id] : null }))}
             temporal={isTimeGroup} additive={Boolean(chartMetric && ['count', 'sum'].includes(chartMetric.mode) && !dataset.nonAdditiveGroups?.includes(config.groupBy))}
             kind={config.chartType} onKindChange={chartType => patch({ chartType })} selectedKey={config.selection?.key}
-            format={value => chartMetric ? formatReportValue(value, chartMetric) : '—'} onSelect={selectChartGroup} />
-          {config.selection && result.rows.length > 0 && <div className="flex justify-end"><button type="button" onClick={() => { setDetailPeriod('current'); setDetailKey(result.rows[0].key); }} className="text-xs font-semibold text-indigo-700 hover:underline">Xem {result.records.length} bản ghi của nhóm đã chọn ↗</button></div>}
+            format={value => chartMetric ? formatReportValue(value, chartMetric) : '—'} onSelect={selectChartGroup} onClearSelection={() => patch({ selection: undefined })} />
+          {config.selection && result.rows.length > 0 && <div className="flex justify-end"><button type="button" onClick={() => { setDetailPeriod('current'); setDetailKey(result.rows[0].key); }} className="text-xs font-semibold text-orange-700 hover:underline">Xem {result.records.length} bản ghi của nhóm đã chọn ↗</button></div>}
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
             {result.metrics.map(metric => <div key={metric.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
               <div className="text-xs text-slate-500">{metric.label}</div>
               <div className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">{formatReportValue(result.totals[metric.id], metric)}</div>
             </div>)}
           </div>
-          <p className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">{insight}</p>
+          <p className="rounded-xl border border-orange-100 bg-orange-50/60 px-4 py-3 text-sm text-orange-900">{insight}</p>
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
             <div className="space-y-2.5 border-b border-slate-100 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -287,9 +290,9 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
               <div className="flex flex-wrap items-center gap-2">
                 <label className="relative min-w-40 flex-1"><Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <input aria-label={isDetail && dataset.id === 'classes' ? 'Tìm lớp học' : 'Tìm nhóm kết quả'} placeholder={isDetail && dataset.id === 'classes' ? 'Tìm mã hoặc tên lớp...' : 'Tìm trong kết quả...'} value={search} onChange={event => setSearch(event.target.value)} className={control + ' pl-8'} /></label>
-                <select aria-label="Sắp xếp kết quả" value={config.sort} onChange={event => patch({ sort: event.target.value as CustomReportConfig['sort'] })} className={control + ' w-auto max-w-60'}>
+                <ReportSelect aria-label="Sắp xếp kết quả" value={config.sort} onChange={event => patch({ sort: event.target.value as CustomReportConfig['sort'] })} className={control + ' w-auto max-w-60'}>
                   <option value="value_desc">{isDetail && dataset.id === 'classes' ? 'Ngày tạo: mới nhất' : result.metrics[0]?.label + ': giảm dần'}</option><option value="label_asc">Tên / thời gian: tăng dần</option><option value="label_desc">Tên / thời gian: giảm dần</option>
-                </select>
+                </ReportSelect>
               </div>
             </div>
             {noVisibleResults ? <div className="p-8 text-center">
@@ -305,7 +308,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
                     {showSourceCount && <th scope="col" className="px-3 py-2.5 text-right">Bản ghi nguồn</th>}
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">{pageRows.map(row => <tr key={row.key} className="hover:bg-slate-50">
-                    <th scope="row" className="px-3 py-2.5 font-medium"><button type="button" onClick={() => { setDetailPeriod('current'); setDetailKey(row.key); }} className="inline-flex items-center gap-1.5 text-indigo-700 hover:underline">{row.label}<ArrowUpRight className="h-3 w-3" /></button></th>
+                    <th scope="row" className="px-3 py-2.5 font-medium"><button type="button" onClick={() => { setDetailPeriod('current'); setDetailKey(row.key); }} className="inline-flex items-center gap-1.5 text-orange-700 hover:underline">{row.label}<ArrowUpRight className="h-3 w-3" /></button></th>
                     {result.metrics.map(metric => <td key={metric.id} className="px-3 py-2.5 text-right tabular-nums text-slate-800">{formatReportValue(row.values[metric.id], metric)}</td>)}
                     {showSourceCount && <td className="px-3 py-2.5 text-right tabular-nums text-slate-500">{row.records.length}</td>}
                   </tr>)}</tbody>
@@ -326,13 +329,10 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
     <FilterDrawer isOpen={filterOpen} onClose={() => setFilterOpen(false)} title={'Lọc ' + dataset.label.toLocaleLowerCase('vi')}
       subtitle="Khoảng thời gian đã chọn ở ngoài. Các tiêu chí dưới đây áp dụng cùng lúc." activeCount={activeFilters.length}
       onReset={() => patch({ filters: {} })} onApply={() => {}}>
-      <div className="space-y-4">{dataset.filters.map(field => <label key={field.id} className="block space-y-1.5">
+      <div className="space-y-4">{dataset.filters.map(field => <div key={field.id} className="block space-y-1.5">
         <span className="text-xs font-semibold text-slate-700">{field.label}</span>
-        <select value={config.filters[field.id] || ''} onChange={event => patch({ filters: { ...config.filters, [field.id]: event.target.value } })} className={control}>
-          <option value="">Tất cả</option>
-          {filterOptions(field).map(value => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </label>)}</div>
+        <ReportMultiFilter label={field.label} choices={filterOptions(field)} value={config.filters[field.id]} onChange={value => patch({ filters: { ...config.filters, [field.id]: value } })} />
+      </div>)}</div>
     </FilterDrawer>
 
     {saveOpen && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="save-report-title">
@@ -340,7 +340,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
         <div className="flex items-center justify-between"><h3 id="save-report-title" className="text-sm font-bold text-slate-800">Lưu mẫu báo cáo</h3><button type="button" aria-label="Đóng lưu mẫu" onClick={() => setSaveOpen(false)}><X className="h-4 w-4" /></button></div>
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600">Tên mẫu<input autoFocus required maxLength={80} value={templateName} onChange={event => setTemplateName(event.target.value)} placeholder="Ví dụ: Lớp còn chỗ theo môn" className={control} /></label>
         <p className="text-xs text-slate-500">Lưu thiết lập, không lưu bản sao dữ liệu. “Tháng này” và “30 ngày gần nhất” sẽ tính lại khi mở. Mẫu được lưu theo quyền tài khoản của bạn.</p>
-        <div className="flex flex-wrap justify-end gap-2"><button type="button" className={button} onClick={() => setSaveOpen(false)}>Hủy</button>{selectedTemplate && <button type="button" className={button} onClick={() => saveTemplate(true)}>Cập nhật mẫu</button>}<button type="submit" disabled={isSavingChanges} className={button + ' border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700'}>Lưu mẫu mới</button></div>
+        <div className="flex flex-wrap justify-end gap-2"><button type="button" className={button} onClick={() => setSaveOpen(false)}>Hủy</button>{selectedTemplate && <button type="button" className={button} onClick={() => saveTemplate(true)}>Cập nhật mẫu</button>}<button type="submit" disabled={isSavingChanges} className={button + ' border-[#FF5C00] bg-[#FF5C00] text-white hover:bg-[#e65300]'}>Lưu mẫu mới</button></div>
       </form>
     </div>}
     {deleteOpen && selectedTemplate && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-report-title">

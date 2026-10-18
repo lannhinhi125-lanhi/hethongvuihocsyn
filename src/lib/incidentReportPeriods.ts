@@ -18,6 +18,7 @@ export interface ReportIncident {
   id?: string;
   lessonId: string;
   incidentName?: string;
+  incidentCode?: string;
   urgency?: string | null;
   reportedAt?: string | null;
   status?: string | null;

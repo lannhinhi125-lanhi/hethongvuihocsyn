@@ -11,7 +11,7 @@ import { ReportComposer } from '../components/ReportComposer';
 import type { ReportDocumentRequest } from '../lib/reportDocument';
 
 export function ReportWorkspace() {
-  const { classes, students, teachers, subjects, models, timeSlots, reportSection, setReportSection, currentUser } = useApp();
+  const { classes, students, teachers, subjects, models, timeSlots, teachingCategories, levels, incidents: incidentCategories, reportSection, setReportSection, currentUser } = useApp();
   const [draft, setDraft] = useState<{ actorId: string; value: ReportDocumentRequest } | null>(null);
   const request = draft?.actorId === currentUser.id ? draft.value : null;
   const { can } = usePermissions();
@@ -23,8 +23,8 @@ export function ReportWorkspace() {
   const operational = can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn');
   const custom = can('Công cụ tạo báo cáo tùy biến (Dynamic Report)');
   const canView = general || operational || custom;
-  const datasets = useMemo(() => allReportDatasets({ classes, students, teachers, lessons, incidents, evaluations, lookups: { subjects, models, timeSlots } }),
-    [classes, students, teachers, lessons, incidents, evaluations, subjects, models, timeSlots]);
+  const datasets = useMemo(() => allReportDatasets({ classes, students, teachers, lessons, incidents, evaluations, lookups: { subjects, models, timeSlots, teachingCategories, levels, incidentCategories } }),
+    [classes, students, teachers, lessons, incidents, evaluations, subjects, models, timeSlots, teachingCategories, levels, incidentCategories]);
   const allowed = datasets.detail.filter(dataset => custom || (['classes', 'students', 'student_registrations', 'teachers'].includes(dataset.id) ? general : operational));
   return <div className="space-y-3"><ReportDataStatus showSuccess={false} />
     {loadedAt && canView && allowed.length > 0 && <>

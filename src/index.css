@@ -188,3 +188,52 @@
   .login-footer { margin-top: 12px; }
   .login-illustration { display: none; }
 }
+
+/* Report controls follow the workspace font and orange interaction palette. */
+.report-interface {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.report-interface select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Cpath d='m7 10 5 5 5-5' stroke='%2364748b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 36px;
+  border-radius: 12px;
+  min-height: 36px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
+  transition: border-color 150ms, box-shadow 150ms, background-color 150ms;
+}
+.report-interface select:not(:disabled):hover {
+  border-color: #fdba74;
+  background-color: #fffaf5;
+}
+.report-interface select:focus-visible {
+  outline: none;
+  border-color: #ff5c00;
+  box-shadow: 0 0 0 3px rgb(255 92 0 / 0.12);
+}
+.report-interface select option {
+  background: white;
+  color: #334155;
+  font-weight: 400;
+}
+.report-interface select option:disabled { color: #94a3b8; }
+.report-interface select:disabled { cursor: not-allowed; }
+@media (forced-colors: active) {
+  .report-interface select { appearance: auto; background-image: none; }
+}
+
+.report-select {
+  min-height: 36px;
+  border-radius: 12px;
+  background-color: white;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
+  transition: border-color 150ms, box-shadow 150ms, background-color 150ms;
+}
+.report-select:not(:disabled):hover { border-color: #fdba74; background-color: #fffaf5; }
+.report-select:focus-visible, .report-select[aria-expanded='true'] {
+  outline: none; border-color: #ff5c00; box-shadow: 0 0 0 3px rgb(255 92 0 / 0.12);
+}
+.report-select:disabled { cursor: not-allowed; opacity: .45; }

@@ -6,7 +6,8 @@ import { studentProfileRows, studentRegistrationRows, studentRegistrations } fro
 import { classifyClassGrowth, classGrowthLabels } from './classGrowth';
 import { inspectionReportRows, type InspectionEvaluation } from './inspectionReport';
 import type { ReportIncident, ReportLesson } from './incidentReportPeriods';
-import type { ReportDataset, ReportRecord } from './customReports';
+import { matchesReportFilter, matchesReportField, reportFilterValues, type ReportDataset, type ReportRecord } from './customReports';
+import { attachReportCatalogs, reportGradeKey } from './reportCatalogs';
 
 const unknown = 'Chưa xác định';
 const multiGroups = (records: ReportRecord[], groupBy: string, values: (record: ReportRecord) => string[]) => {
@@ -55,7 +56,7 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
   const profileDataset = basics.find(dataset => dataset.id === 'students')!;
   profileDataset.records = profileDataset.records.map(record => {
     const student = profiles.find(row => row.id === record.id)!;
-    return { ...record, __registrations: JSON.stringify(studentRegistrations(student).map(reg => ({ subject: subject(reg.subject), model: model(reg.model), status: reg.status || unknown }))) };
+    return { ...record, __registrations: JSON.stringify(studentRegistrations(student).map(reg => ({ subject: lookups.subjects?.length ? reg.subject : subject(reg.subject), model: lookups.models?.length ? reg.model : model(reg.model), program: reg.level || unknown, status: reg.status || unknown }))) };
   });
   const regs = (record: ReportRecord): Array<Record<string, string>> => JSON.parse(String(record.__registrations || '[]'));
   ['subject', 'model', 'status'].forEach(id => {
@@ -63,22 +64,22 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
     item.options = [...new Set(profileDataset.records.flatMap(record => regs(record).map(reg => reg[id])))].sort();
   });
   profileDataset.filterRecords = (records, filters) => records.flatMap(record => {
-    if (filters.grade && record.grade !== filters.grade) return [];
-    const selected = regs(record).filter(reg => ['subject', 'model', 'status'].every(id => !filters[id] || reg[id] === filters[id]));
-    if (!selected.length && ['subject', 'model', 'status'].some(id => filters[id])) return [];
-    return [{ ...record, __registrations: JSON.stringify(selected), ...Object.fromEntries(['subject', 'model', 'status'].map(id => [id, [...new Set(selected.map(reg => reg[id]))].join(', ') || unknown])) }];
+    if (!profileDataset.filters.filter(field => !['subject', 'model', 'status', 'program'].includes(field.id)).every(field => matchesReportField(record, field, filters[field.id]))) return [];
+    const selected = regs(record).filter(reg => ['subject', 'model', 'status', 'program'].every(id => matchesReportFilter(reg[id], filters[id])));
+    if (!selected.length && ['subject', 'model', 'status', 'program'].some(id => reportFilterValues(filters[id]).length)) return [];
+    return [{ ...record, __registrations: JSON.stringify(selected), ...Object.fromEntries(['subject', 'model', 'status'].map(id => [id, [...new Set(selected.map(reg => profileDataset.filters.find(field => field.id === id)?.choices?.find(choice => choice.value === reg[id])?.label || reg[id]))].join(', ') || unknown])) }];
   });
-  profileDataset.groupRecords = (records, groupBy) => ['subject', 'model', 'status'].includes(groupBy)
+  profileDataset.groupRecords = (records, groupBy) => ['subject', 'model', 'status', 'program'].includes(groupBy)
     ? multiGroups(records, groupBy, record => regs(record).length ? regs(record).map(reg => reg[groupBy]) : [unknown]) : null;
-  profileDataset.nonAdditiveGroups = ['subject', 'model', 'status'];
+  profileDataset.nonAdditiveGroups = ['subject', 'model', 'status', 'program'];
   profileDataset.note += ' Khi lọc môn, mô hình và trạng thái, các điều kiện phải cùng một đăng ký. Một hồ sơ có thể xuất hiện ở nhiều nhóm môn nhưng tổng vẫn đếm một người.';
 
   const teacherDataset = basics.find(dataset => dataset.id === 'teachers')!;
-  const teacherGrades = new Map(teachers.map(row => [row.id, row.grades.length ? row.grades : [unknown]]));
+  const teacherGrades = new Map(teachers.map(row => [row.id, row.grades.length ? row.grades.map(grade => reportGradeKey(grade, row.levelId, lookups)) : [unknown]]));
   teacherDataset.filters.find(field => field.id === 'grade')!.options = [...new Set([...teacherGrades.values()].flat())].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
-  teacherDataset.filterRecords = (records, filters) => records.filter(record => (!filters.grade || teacherGrades.get(String(record.id))?.includes(filters.grade))
-    && ['subject', 'status'].every(id => !filters[id] || record[id] === filters[id]));
-  teacherDataset.groupRecords = (records, groupBy) => groupBy === 'grade' ? multiGroups(records, groupBy, record => teacherGrades.get(String(record.id)) || [unknown]) : null;
+  teacherDataset.filterRecords = (records, filters) => records.filter(record => (!reportFilterValues(filters.grade).length || teacherGrades.get(String(record.id))?.some(grade => matchesReportFilter(grade, filters.grade)))
+    && teacherDataset.filters.filter(field => field.id !== 'grade').every(field => matchesReportField(record, field, filters[field.id])));
+  teacherDataset.groupRecords = (records, groupBy, filters) => groupBy === 'grade' ? multiGroups(records, groupBy, record => (teacherGrades.get(String(record.id)) || [unknown]).filter(grade => matchesReportFilter(grade, filters.grade))) : null;
   teacherDataset.nonAdditiveGroups = ['grade'];
   teacherDataset.note += ' Một giáo viên phụ trách nhiều khối có thể có mặt ở nhiều nhóm; tổng hồ sơ không cộng trùng.';
 
@@ -95,5 +96,7 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
     records: inspectionReportRows(teachers.map(row => ({ ...row, evaluationReports: undefined })), evaluations.filter(row => row.status === 'DA_DUYET'), lessons, range)
       .map(row => ({ id: row.id, name: row.name, subject: subject(row.subjectCode), rank: row.rank, score: row.avg, sessions: row.total })) });
   teacherInspection.records = teacherInspection.prepareRange({ start: '', end: '' }).records;
-  return { custom: [...basics, ...operational], detail: [...basics, ...operational, teacherInspection] };
+  const detail = [...basics, ...operational, teacherInspection];
+  attachReportCatalogs(detail, { classes, students, teachers, lookups });
+  return { custom: [...basics, ...operational], detail };
 }

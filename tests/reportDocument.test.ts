@@ -30,7 +30,7 @@ const formal = buildReportDocument([section], { ...options, title: 'Báo cáo th
 assert.ok(formal.includes('Địa chỉ: 12 Nguyễn Trãi, Hà Nội'));
 assert.ok(formal.includes('Số: 01/2026/BC-VH'));
 assert.ok(formal.includes('BÁO CÁO NỘI BỘ'));
-assert.ok(formal.includes('Hà Nội, ngày 18 tháng 10 năm 2026'));
+assert.ok(formal.includes('Hà Nội, Ngày 18 tháng 10 năm 2026'));
 assert.ok(formal.includes('Loại báo cáo'));
 assert.ok(formal.includes('Tổng hợp vận hành'));
 assert.ok(formal.includes('Tất cả bản ghi được phép truy cập trong kỳ'));

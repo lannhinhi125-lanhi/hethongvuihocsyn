@@ -1,3 +1,4 @@
+import { ReportSelect } from './ReportSelect';
 import {useEffect,useState} from 'react';
 import {ChevronLeft,ChevronRight,RefreshCw} from 'lucide-react';
 import {workbenchRange,shiftWorkbenchRange,type WorkbenchRange,type WorkbenchPeriod} from '../lib/workbenchTime';
@@ -19,9 +20,9 @@ export function PeriodToolbar({range,onChange,allowAll=true,initialPeriod,onRefr
  const input='h-8 rounded-lg border border-slate-200 bg-white px-2 disabled:opacity-40';
  return <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-2 text-[11px]">
   <span className="px-1 font-semibold text-slate-600">{label}</span>
-  <select aria-label={`${label}: kỳ xem`} value={period} disabled={disabled} onChange={e=>changePeriod(e.target.value as Period)} className={input}>
+  <ReportSelect aria-label={`${label}: kỳ xem`} value={period} disabled={disabled} onChange={e=>changePeriod(e.target.value as Period)} className={input}>
    <option value="day">Ngày</option><option value="week">Tuần</option><option value="month">Tháng</option><option value="custom">Tùy chọn</option>{allowAll&&<option value="all">Toàn bộ</option>}
-  </select>
+  </ReportSelect>
   <button type="button" aria-label={`${label}: kỳ trước`} disabled={disabled||period==='all'||!range.start||!range.end} onClick={()=>shift(-1)} className="rounded-lg border border-slate-200 bg-white p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4"/></button>
   <input type="date" aria-label={`${label}: từ ngày`} value={range.start} disabled={disabled||period==='all'} max={period==='custom'?range.end||undefined:undefined} onChange={e=>{const value=e.target.value;if(!value)return;if(period==='day'||period==='week'||period==='month')onChange(workbenchRange(value,period));else onChange({start:value,end:range.end&&range.end>=value?range.end:value});}} className={input}/>
   <span className="text-slate-400">–</span>

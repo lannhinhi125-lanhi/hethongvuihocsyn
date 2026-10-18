@@ -7,20 +7,27 @@ export interface ReportMetric {
   field?: string; denominator?: string; format?: ReportFormat;
 }
 export type ReportRecord = Record<string, string | number | undefined>;
-export interface ReportDimension { id: string; label: string; options?: string[] }
+export type ReportFilterValue = string | string[];
+export type ReportFilters = Record<string, ReportFilterValue>;
+export interface ReportChoice { value: string; label: string; group?: string; depth?: number }
+export interface ReportDimension { id: string; label: string; options?: string[]; choices?: ReportChoice[]; recordField?: string }
+export const reportFilterValues = (value: ReportFilterValue | undefined): string[] => Array.isArray(value) ? value.filter(Boolean) : value ? [value] : [];
+export const matchesReportFilter = (actual: unknown, selected: ReportFilterValue | undefined): boolean => !reportFilterValues(selected).length || reportFilterValues(selected).includes(String(actual ?? ''));
+export const reportFilterLabel = (field: ReportDimension | undefined, value: ReportFilterValue): string => reportFilterValues(value).map(key => field?.choices?.find(item => item.value === key)?.label || key).join(', ');
+export const matchesReportField = (record: ReportRecord, field: ReportDimension, selected: ReportFilterValue | undefined): boolean => matchesReportFilter(record[field.recordField || field.id], selected);
 export interface ReportDataset {
   id: string; label: string; dateKind: 'event' | 'period' | 'snapshot'; note?: string;
   records: ReportRecord[]; metrics: ReportMetric[]; defaultMetricIds: string[];
   dimensions: ReportDimension[]; filters: ReportDimension[]; detailFields: ReportDimension[];
-  filterRecords?: (records: ReportRecord[], filters: Record<string, string>) => ReportRecord[];
-  groupRecords?: (records: ReportRecord[], groupBy: string, filters: Record<string, string>) => Map<string, ReportRecord[]> | null;
+  filterRecords?: (records: ReportRecord[], filters: ReportFilters) => ReportRecord[];
+  groupRecords?: (records: ReportRecord[], groupBy: string, filters: ReportFilters) => Map<string, ReportRecord[]> | null;
   prepareRange?: (range: { start: string; end: string }) => ReportDataset;
   nonAdditiveGroups?: string[];
 }
 export interface CustomReportConfig {
   datasetId: string; metricIds: string[]; groupBy: string;
   datePreset: ReportDatePreset; from: string; to: string;
-  filters: Record<string, string>; sort: 'value_desc' | 'label_asc' | 'label_desc';
+  filters: ReportFilters; sort: 'value_desc' | 'label_asc' | 'label_desc';
   comparison?: ComparisonSettings;
   selection?: { by: string; key: string };
   chartType?: ReportChartKind;
@@ -68,9 +75,14 @@ export function normalizeReportConfig(value: unknown, datasets: ReportDataset[])
   const metricIds = Array.isArray(raw.metricIds)
     ? [...new Set(raw.metricIds.filter(id => typeof id === 'string' && dataset.metrics.some(metric => metric.id === id)))]
     : [];
-  const filters = Object.fromEntries(dataset.filters.flatMap(field => {
+  const filters = Object.fromEntries(dataset.filters.flatMap<[string, ReportFilterValue]>(field => {
     const selected = raw.filters && typeof raw.filters === 'object' ? raw.filters[field.id] : undefined;
-    return typeof selected === 'string' && selected !== '' ? [[field.id, selected]] : [];
+    const resolve = (key: string) => {
+      if (field.choices?.some(item => item.value === key)) return key;
+      const matches = field.choices?.filter(item => item.label === key) || [];
+      return matches.length === 1 ? matches[0].value : key;
+    };
+    return typeof selected === 'string' && selected !== '' ? [[field.id, resolve(selected)]] : Array.isArray(selected) && selected.some(item => typeof item === 'string' && item) ? [[field.id, [...new Set(selected.filter(item => typeof item === 'string' && item).map(resolve))]]] : [];
   }));
   return {
     ...fallback, metricIds: metricIds.length ? metricIds : fallback.metricIds,
@@ -141,6 +153,15 @@ function groupLabel(key: string, groupBy: string): string {
 }
 export interface ReportResult { rows: ReportGroup[]; records: ReportRecord[]; metrics: ReportMetric[]; totals: Record<string, number | null>; range: { from: string; to: string }; invalidRange: boolean }
 export function buildCustomReport(dataset: ReportDataset, config: CustomReportConfig, now = new Date()): ReportResult {
+  config = { ...config, filters: Object.fromEntries(Object.entries(config.filters).map(([id, value]) => {
+    const choices = dataset.filters.find(field => field.id === id)?.choices;
+    const resolve = (key: string) => {
+      if (choices?.some(item => item.value === key)) return key;
+      const matches = choices?.filter(item => item.label === key) || [];
+      return matches.length === 1 ? matches[0].value : key;
+    };
+    return [id, Array.isArray(value) ? value.map(resolve) : resolve(value)];
+  })) };
   const range = reportRange(config, now);
   const invalidRange = dataset.dateKind !== 'snapshot' && (
     (config.datePreset === 'custom' && (!validReportDate(range.from) || !validReportDate(range.to))) ||
@@ -158,17 +179,18 @@ export function buildCustomReport(dataset: ReportDataset, config: CustomReportCo
     return true;
   });
   const records = dataset.filterRecords ? dataset.filterRecords(datedRecords, config.filters) : datedRecords.filter(record =>
-    dataset.filters.every(field => !config.filters[field.id] || String(record[field.id] ?? '') === config.filters[field.id]));
+    dataset.filters.every(field => matchesReportField(record, field, config.filters[field.id])));
   const customGroups = dataset.groupRecords?.(records, config.groupBy, config.filters);
   const groups = customGroups || new Map<string, ReportRecord[]>();
   if (!customGroups) records.forEach(record => {
-    const key = groupKey(record, config.groupBy);
+    const dimension = dataset.dimensions.find(field => field.id === config.groupBy);
+    const key = dimension?.recordField ? String(record[dimension.recordField] ?? 'Chưa xác định') : groupKey(record, config.groupBy);
     groups.set(key, [...(groups.get(key) || []), record]);
   });
   const selected = config.selection?.by === config.groupBy ? config.selection : null;
   const reportRecords = selected ? groups.get(selected.key) || [] : records;
   const rows: ReportGroup[] = Array.from(groups, ([key, items]) => ({
-    key, label: groupLabel(key, config.groupBy), records: items, values: aggregate(items, metrics)
+    key, label: dataset.dimensions.find(field => field.id === config.groupBy)?.choices?.find(item => item.value === key)?.label || groupLabel(key, config.groupBy), records: items, values: aggregate(items, metrics)
   })).filter(row => !selected || row.key === selected.key);
   rows.sort((a, b) => {
     if (config.sort === 'value_desc') {
@@ -177,7 +199,7 @@ export function buildCustomReport(dataset: ReportDataset, config: CustomReportCo
       if (a.values[metrics[0]?.id] == null && b.values[metrics[0]?.id] != null) return 1;
       if (b.values[metrics[0]?.id] == null && a.values[metrics[0]?.id] != null) return -1;
     }
-    const comparison = a.key.localeCompare(b.key, 'vi', { numeric: true });
+    const comparison = a.label.localeCompare(b.label, 'vi', { numeric: true });
     return config.sort === 'label_desc' ? -comparison : comparison;
   });
   return { rows, records: reportRecords, metrics, totals: aggregate(reportRecords, metrics), range, invalidRange };
