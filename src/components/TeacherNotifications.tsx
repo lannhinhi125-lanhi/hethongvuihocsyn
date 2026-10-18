@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { refreshBusinessData } from '../lib/businessPersistence';
-import { teacherNotifications } from '../lib/teacherNotifications';
+import { refreshBusinessData, useBusinessValue } from '../lib/businessPersistence';
+import { teacherNotifications, type NotificationLesson } from '../lib/teacherNotifications';
 
 const readKeysFor = (storageKey: string): string[] => {
   try {
@@ -14,20 +14,22 @@ const readKeysFor = (storageKey: string): string[] => {
 };
 
 export const TeacherNotifications: React.FC = () => {
-  const { currentUser, users, teachers, payrollStore, setTeacherPortalTab } = useApp();
+  const { currentUser, users, teachers, classes, payrollStore, setTeacherPortalTab } = useApp();
+  const [lessons] = useBusinessValue<NotificationLesson[]>('dated_lessons');
   const storageKey = `vuihoc:teacher-notifications:${currentUser.id}`;
   const [readKeys, setReadKeys] = useState<string[]>(() => readKeysFor(storageKey));
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const notifications = teacherNotifications(currentUser, teachers, users, payrollStore);
+  const notifications = teacherNotifications(currentUser, teachers, users, payrollStore, classes, lessons);
   const unread = notifications.filter(notification => !readKeys.includes(notification.key));
 
   useEffect(() => setReadKeys(readKeysFor(storageKey)), [storageKey]);
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === 'visible') void refreshBusinessData(); };
-    const timer = window.setInterval(refresh, 60_000);
+    const timer = window.setInterval(refresh, 15_000);
     window.addEventListener('focus', refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, []);
   useEffect(() => {
     if (!isOpen) return;
@@ -47,7 +49,7 @@ export const TeacherNotifications: React.FC = () => {
   return <div ref={containerRef} className="relative">
     <button
       type="button"
-      onClick={() => setIsOpen(open => !open)}
+      onClick={() => { setIsOpen(open => !open); void refreshBusinessData(); }}
       aria-label={`Thông báo giáo viên${unread.length ? `, ${unread.length} chưa xem` : ''}`}
       aria-expanded={isOpen}
       className="relative rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
@@ -77,7 +79,7 @@ export const TeacherNotifications: React.FC = () => {
             <span className="mt-1 block text-xs text-slate-600">{notification.detail}</span>
           </button>;
         })}
-      </div> : <p className="py-3 text-xs text-slate-500">Chưa có kết quả đánh giá hoặc giải trình.</p>}
+      </div> : <p className="py-3 text-xs text-slate-500">Bạn chưa có thông báo nào.</p>}
       {notifications.length > 0 && unread.length === 0 && <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-500"><Check className="h-3 w-3" /> Đã xem hết thông báo</p>}
     </div>}
   </div>;
