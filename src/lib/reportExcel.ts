@@ -3,7 +3,7 @@ import { reportFilterLabel, reportFilterValues, type ReportResult } from './cust
 import { alignComparisonRows, comparisonRange, defaultComparison } from './reportComparison';
 
 export type ExcelCell = string | number | null;
-export interface ReportExcelSheet { name: string; rows: ExcelCell[][] }
+export interface ReportExcelSheet { name: string; rows: ExcelCell[][]; columnWidths?: number[]; autoFilter?: boolean }
 export interface ReportExcelData { sheets: ReportExcelSheet[]; filename: string }
 
 /** Capture the same computed results as the preview, without requerying on download. */
@@ -81,7 +81,7 @@ export function reportExcelBytes(data: ReportExcelData): Uint8Array<ArrayBuffer>
   data.sheets.forEach((sheet, index) => {
     if (sheet.rows.length > 1048576 || sheet.rows.some(row => row.length > 16384)) throw new Error('Số liệu vượt giới hạn Excel. Hãy chọn kỳ báo cáo ngắn hơn.');
     const width = Math.max(1, ...sheet.rows.slice(0, 1).map(row => row.length));
-    files.push([`xl/worksheets/sheet${index + 1}.xml`, `<worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${Array.from({ length: width }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${index === 0 && i === 1 ? 85 : i === 0 ? 32 : 24}" customWidth="1"/>`).join('')}</cols><sheetData>${sheet.rows.map((row, r) => `<row r="${r + 1}">${row.map((value, c) => value == null ? '' : `<c r="${column(c)}${r + 1}" s="${r === 0 ? 1 : 0}"${typeof value === 'number' && Number.isFinite(value) ? `><v>${value}</v>` : ` t="inlineStr"><is><t xml:space="preserve">${xml(value)}</t></is>`}</c>`).join('')}</row>`).join('')}</sheetData>${index > 0 ? `<autoFilter ref="A1:${column(width - 1)}${sheet.rows.length}"/>` : ''}</worksheet>`]);
+    files.push([`xl/worksheets/sheet${index + 1}.xml`, `<worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${Array.from({ length: width }, (_, i) => `<col min="${i + 1}" max="${i + 1}" width="${sheet.columnWidths?.[i] ?? (index === 0 && i === 1 ? 85 : i === 0 ? 32 : 24)}" customWidth="1"/>`).join('')}</cols><sheetData>${sheet.rows.map((row, r) => `<row r="${r + 1}">${row.map((value, c) => value == null ? '' : `<c r="${column(c)}${r + 1}" s="${r === 0 ? 1 : 0}"${typeof value === 'number' && Number.isFinite(value) ? `><v>${value}</v>` : ` t="inlineStr"><is><t xml:space="preserve">${xml(value)}</t></is>`}</c>`).join('')}</row>`).join('')}</sheetData>${(sheet.autoFilter ?? index > 0) ? `<autoFilter ref="A1:${column(width - 1)}${sheet.rows.length}"/>` : ''}</worksheet>`]);
   });
   const parts: Uint8Array[] = [], directory: Uint8Array[] = [];
   let offset = 0;

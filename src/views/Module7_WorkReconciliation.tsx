@@ -1,3 +1,8 @@
+import { useBusinessValue } from '../lib/businessPersistence';
+import type { WorkTeachingContext } from '../lib/workTeachingGroups';
+import { WorkHandoffDialog } from '../components/WorkHandoffDialog';
+import { reportExcelBytes } from '../lib/reportExcel';
+import { workHandoffExcel, workCreditText, isIncidentWorkSession as isIncidentSession, workCreditBreakdown as getCreditBreakdown, type WorkHandoffInfo } from '../lib/workReconciliationExport';
 import {useLessonCode} from '../hooks/useLessonCode';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedList } from '../components/Pagination';
@@ -40,26 +45,18 @@ type NumericRange = { min: string; max: string };
 type SessionClassification = 'ALL' | 'STANDARD' | 'INCIDENT';
 type SessionWithStaff = { teacherId: string; teacherName: string; staffRole: 'GIAO_VIEN' | 'GIA_SU'; subject: string; session: SessionPayrollRecord };
 
-const isIncidentSession = (session: SessionPayrollRecord) =>
-  session.type !== 'STANDARD' && session.type !== 'COVER';
-
-const getCreditBreakdown = (sessions: SessionPayrollRecord[]) => sessions.reduce(
-  (totals, session) => {
-    if (isIncidentSession(session)) totals.incidentCredit += session.creditCoeff;
-    else totals.standardCredit += session.creditCoeff;
-    return totals;
-  },
-  { standardCredit: 0, incidentCredit: 0 }
-);
-
 const getSessionStudentNames = (session: SessionPayrollRecord) =>
   session.studentNames?.length ? session.studentNames.join(', ') : session.studentName;
 
 export const Module7_WorkReconciliation: React.FC = () => {
   const lessonCode=useLessonCode();
+  const [handoffScope, setHandoffScope] = useState<'staff' | 'sessions'>('staff');
+  const [handoffDetails, setHandoffDetails] = useState({ organization: 'VUIHOC TUTOR', address: '', reportNumber: '', receiver: 'Bộ phận tính lương', operationsSigner: '', receivingSigner: '', author: '' });
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
+    classes, subjects, models, levels, teachingCategories,
+    currentUser,
     payrollStore,
     updateSessionCredit,
     sendPayrollToTeachers,
@@ -68,6 +65,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
     unlockPayrollMonth,
     showToast
   } = useApp();
+
+  const [handoffLessons] = useBusinessValue<{ id: string; classId?: string }[]>('dated_lessons');
+  const teachingContext: WorkTeachingContext = useMemo(() => ({ classes, subjects, models, levels, teachingCategories, lessons: handoffLessons }), [classes, subjects, models, levels, teachingCategories, handoffLessons]);
 
   // State bộ lọc
   const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
@@ -389,9 +389,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
     return {
       totalSessions,
-      totalCredit: Number(totalCredit.toFixed(1)),
-      teacherCredit: Number(teacherCredit.toFixed(1)),
-      tutorCredit: Number(tutorCredit.toFixed(1)),
+      totalCredit: Number(totalCredit.toFixed(6)),
+      teacherCredit: Number(teacherCredit.toFixed(6)),
+      tutorCredit: Number(tutorCredit.toFixed(6)),
       coverCount,
       incidentCount,
       pendingDisputes,
@@ -399,71 +399,28 @@ export const Module7_WorkReconciliation: React.FC = () => {
     };
   }, [monthData]);
 
-  // Hàm xuất CSV / Excel UTF-8 kèm BOM
-  const handleDownloadCsv = () => {
+  // Shared scope for the Excel workbook and handoff document.
+  const handoffStaff = useMemo(() => {
+    if (handoffScope === 'staff') return filteredStaff;
+    const sessions = detailTeacherId ? filteredSessions.filter(item => item.teacherId === detailTeacherId) : filteredSessions;
+    const selected = new Map<string, SessionPayrollRecord[]>();
+    sessions.forEach(item => selected.set(item.teacherId, [...(selected.get(item.teacherId) || []), item.session]));
+    return monthData.teachers.filter(person => selected.has(person.teacherId)).map(person => ({ ...person, sessions: selected.get(person.teacherId)! }));
+  }, [handoffScope, filteredStaff, filteredSessions, detailTeacherId, monthData.teachers]);
+  const handoffInfo: WorkHandoffInfo = useMemo(() => ({ ...handoffDetails, author: handoffDetails.author || currentUser.name,
+    month: selectedMonth, isLocked: monthData.isLocked, lockedAt: monthData.locked_at,
+    scope: handoffScope === 'staff' ? 'Nhân sự theo bộ lọc bảng tổng hợp; toàn bộ buổi trong kỳ' : 'Buổi học theo bộ lọc' + (detailTeacherId ? ' / ' + (detailTeacher?.teacherName || detailTeacherId) : ''),
+    createdAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' })
+  }), [handoffDetails, currentUser.name, selectedMonth, monthData.isLocked, monthData.locked_at, handoffScope, detailTeacherId, detailTeacher?.teacherName, showExportModal, showPrintModal]);
+  const handleDownloadExcel = () => {
     if (!requirePermission("Khóa, mở kỳ công và xuất CSV / in bảng công")) return;
-    const headers = [
-      'STT',
-      'Mã nhân sự',
-      'Họ và tên',
-      'Phân loại nhân sự',
-      'Môn học',
-      'Mã buổi học',
-      'Ngày dạy',
-      'Thứ',
-      'Khung giờ',
-      'Mã lớp',
-      'Tên lớp',
-      'Học sinh / Nhóm',
-      'Mô hình',
-      'Sĩ số thực tế',
-      'Check-in',
-      'Check-out',
-      'Thời lượng (phút)',
-      'Trạng thái buổi học',
-      'Hệ số công',
-      'Số công tính',
-      'Ghi chú đối soát',
-      'Trạng thái đối soát'
-    ];
-
-    const rows = filteredSessions.map((item, index) => [
-      index + 1,
-      item.teacherId,
-      `"${item.teacherName}"`,
-      item.staffRole === 'GIA_SU' ? 'Gia sư' : 'Giáo viên',
-      item.session.classCode.startsWith('ENG') ? 'Tiếng Anh' : 'Toán',
-      lessonCode(item.session.lessonId||item.session.id),
-      item.session.dateStr,
-      item.session.dayOfWeek,
-      `"${item.session.time}"`,
-      item.session.classCode,
-      `"${item.session.className}"`,
-      `"${getSessionStudentNames(item.session)}"`,
-      item.session.model || '1-3',
-      item.session.studentCount ?? 3,
-      `"${item.session.checkin}"`,
-      `"${item.session.checkout}"`,
-      item.session.durationMinutes ?? 90,
-      `"${item.session.statusText}"`,
-      item.session.creditCoeff,
-      item.session.creditCoeff,
-      `"${item.session.hrPayNote}"`,
-      item.session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : 'Chờ đối soát'
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Bang_doi_soat_cong_${selectedMonth}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    showToast(`Đã xuất file đối soát công kỳ ${selectedMonth} thành công để gửi bộ phận tính công!`, 'success');
+    try {
+      const workbook = workHandoffExcel(handoffStaff, handoffInfo, teachingContext);
+      const url = URL.createObjectURL(new Blob([reportExcelBytes(workbook)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a'); link.href = url; link.download = workbook.filename;
+      document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('Đã xuất bảng tổng hợp và công theo nhóm dạy (.xlsx).', 'success');
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Không xuất được file Excel.', 'error'); }
   };
 
   // Lưu điều chỉnh hệ số công
@@ -583,7 +540,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
           {/* Nút Xuất Excel gửi bộ phận tính công */}
           <button
-            onClick={() => setShowExportModal(true)}
+            onClick={() => { setHandoffScope(activeTab === 'sessions' ? 'sessions' : 'staff'); setShowExportModal(true); }}
             title="Xuất Excel gửi bộ phận tính công"
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
           >
@@ -593,7 +550,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
           {/* Nút In biên bản đối soát */}
           <button
-            onClick={() => setShowPrintModal(true)}
+            onClick={() => { setHandoffScope(activeTab === 'sessions' ? 'sessions' : 'staff'); setShowPrintModal(true); }}
             title="In biên bản đối soát"
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg border border-slate-200 transition-colors cursor-pointer"
           >
@@ -856,11 +813,11 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       <td className="py-3 px-3 font-medium text-slate-600">{t.subjectName}</td>
                       <td className="py-3 px-3 text-center font-semibold text-slate-700">{standardSessionCount}</td>
                       <td className="py-3 px-3 text-center font-semibold text-amber-700">{incidentSessionCount}</td>
-                      <td className="py-3 px-3 text-center font-semibold text-emerald-700">{standardCredit.toFixed(1)}</td>
-                      <td className="py-3 px-3 text-center font-semibold text-amber-700">{incidentCredit.toFixed(1)}</td>
+                      <td className="py-3 px-3 text-center font-semibold text-emerald-700">{workCreditText(standardCredit)}</td>
+                      <td className="py-3 px-3 text-center font-semibold text-amber-700">{workCreditText(incidentCredit)}</td>
                       <td className="py-3 px-3 text-right">
                         <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                          {totalCredit.toFixed(1)}
+                          {workCreditText(totalCredit)}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-center">
@@ -1367,215 +1324,10 @@ export const Module7_WorkReconciliation: React.FC = () => {
         </div>
       </FilterDrawer>
 
-      {/* Modal Xuất Excel gửi bộ phận tính công */}
-      {showExportModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-                  <span>Xuất Bảng Đối Soát Công Gửi Bộ Phận Tính Công</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Kỳ đối soát: {selectedMonth} • Số dòng dữ liệu: {filteredSessions.length} buổi học
-                </p>
-              </div>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Preview dữ liệu */}
-            <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="sticky top-0 bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="py-2.5 px-3">STT</th>
-                    <th className="py-2.5 px-3">Mã NS</th>
-                    <th className="py-2.5 px-3">Họ và tên</th>
-                    <th className="py-2.5 px-3">Loại</th>
-                    <th className="py-2.5 px-3">Mã buổi học</th>
-                    <th className="py-2.5 px-3">Ngày dạy</th>
-                    <th className="py-2.5 px-3">Lớp học</th>
-                    <th className="py-2.5 px-3">Sĩ số</th>
-                    <th className="py-2.5 px-3 text-center">Hệ số công</th>
-                  </tr>
-                </thead>
-                <PaginatedTableBody className="divide-y divide-slate-100">
-                  {filteredSessions.map(({ teacherId, teacherName, staffRole, session }, idx) => (
-                    <tr key={session.id} className="hover:bg-slate-50">
-                      <td className="py-2 px-3 text-slate-500">{idx + 1}</td>
-                      <td className="py-2 px-3 font-mono font-medium">{teacherId}</td>
-                      <td className="py-2 px-3 font-semibold text-slate-800">{teacherName}</td>
-                      <td className="py-2 px-3">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            staffRole === 'GIA_SU' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                          }`}
-                        >
-                          {staffRole === 'GIA_SU' ? 'Gia sư' : 'GV'}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 font-mono text-[11px]">{lessonCode(session.lessonId||session.id)}</td>
-                      <td className="py-2 px-3">{session.dateStr}</td>
-                      <td className="py-2 px-3 font-mono text-[11px]">{session.classCode}</td>
-                      <td className="py-2 px-3">{session.studentCount ?? 3} HS</td>
-                      <td className="py-2 px-3 text-center font-bold text-emerald-600">
-                        {session.creditCoeff}
-                      </td>
-                    </tr>
-                  ))}
-                </PaginatedTableBody>
-              </table>
-            </div>
-
-            {/* Footer Modal */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-              <div className="text-xs text-slate-500">
-                * Dữ liệu file xuất được định dạng UTF-8 có dấu BOM tiếng Việt chuẩn, không chứa thông tin thù lao tiền mặt.
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowExportModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
-                >
-                  Đóng
-                </button>
-                <button
-                  onClick={() => {
-                    handleDownloadCsv();
-                    setShowExportModal(false);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-2xs cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Tải file Excel (.csv)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal In biên bản đối soát bàn giao */}
-      {showPrintModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            {/* Header Biên bản */}
-            <div className="text-center space-y-1 border-b pb-4">
-              <div className="text-xs font-bold uppercase text-slate-600">HỆ THỐNG ĐÀO TẠO TRỰC TUYẾN VUIHOC TUTOR</div>
-              <div className="text-base font-extrabold text-slate-900 uppercase">
-                BIÊN BẢN NGHIỆM THU &amp; ĐỐI SOÁT CÔNG CA DẠY
-              </div>
-              <div className="text-xs text-slate-500">
-                Kỳ nghiệm thu: Tháng {selectedMonth.split('-')[1]}/{selectedMonth.split('-')[0]} • Ngày lập:{' '}
-                {new Date().toLocaleDateString('vi-VN')}
-              </div>
-            </div>
-
-            {/* Tóm tắt */}
-            <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl text-xs">
-              <div>
-                <span className="text-slate-500">Tổng nhân sự đối soát:</span>
-                <span className="font-bold text-slate-800 ml-1">{filteredStaff.length} người</span>
-              </div>
-              <div>
-                <span className="text-slate-500">Tổng số buổi dạy:</span>
-                <span className="font-bold text-slate-800 ml-1">{stats.totalSessions} ca</span>
-              </div>
-              <div>
-                <span className="text-slate-500">Tổng số công quy chuẩn:</span>
-                <span className="font-bold text-emerald-600 ml-1">{stats.totalCredit}</span>
-              </div>
-            </div>
-
-            {/* Bảng danh sách ký nhận */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 font-semibold text-slate-700">
-                  <tr>
-                    <th className="p-2.5">STT</th>
-                    <th className="p-2.5">Mã NS</th>
-                    <th className="p-2.5">Họ và tên</th>
-                    <th className="p-2.5">Vai trò</th>
-                    <th className="p-2.5 text-center">Buổi chuẩn</th>
-                    <th className="p-2.5 text-center">Buổi Cover</th>
-                    <th className="p-2.5 text-right">Tổng công xác nhận</th>
-                  </tr>
-                </thead>
-                <PaginatedTableBody className="divide-y divide-slate-100">
-                  {filteredStaff.map((t, idx) => {
-                    const sessions = t.sessions || [];
-                    const totalCredit = sessions.reduce((acc, session) => acc + session.creditCoeff, 0);
-                    const standardSessionCount = sessions.filter(session => !isIncidentSession(session)).length;
-                    const coverSessionCount = sessions.filter(session => session.type === 'COVER').length;
-                    return (
-                      <tr key={t.teacherId}>
-                        <td className="p-2 text-slate-500">{idx + 1}</td>
-                        <td className="p-2 font-mono font-medium">{t.teacherId}</td>
-                        <td className="p-2 font-semibold text-slate-800">{t.teacherName}</td>
-                        <td className="p-2">{(t.staffRole || 'GIAO_VIEN') === 'GIA_SU' ? 'Gia sư' : 'Giáo viên'}</td>
-                        <td className="p-2 text-center">{standardSessionCount}</td>
-                        <td className="p-2 text-center">{coverSessionCount}</td>
-                        <td className="p-2 text-right font-bold text-emerald-600">{totalCredit.toFixed(1)}</td>
-                      </tr>
-                    );
-                  })}
-                </PaginatedTableBody>
-              </table>
-            </div>
-
-            {/* Phần chữ ký bàn giao */}
-            <div className="grid grid-cols-3 text-center text-xs pt-6 gap-4">
-              <div>
-                <div className="font-bold text-slate-800">NGƯỜI LẬP BIÊN BẢN</div>
-                <div className="text-[11px] text-slate-400 italic mt-0.5">(Ký và ghi rõ họ tên)</div>
-                <div className="h-16"></div>
-                <div className="font-medium text-slate-700">Trần Quản Trị</div>
-              </div>
-
-              <div>
-                <div className="font-bold text-slate-800">BAN VẬN HÀNH ĐÀO TẠO</div>
-                <div className="text-[11px] text-slate-400 italic mt-0.5">(Ký và ghi rõ họ tên)</div>
-                <div className="h-16"></div>
-                <div className="font-medium text-slate-700">Lê Tuấn Quang</div>
-              </div>
-
-              <div>
-                <div className="font-bold text-slate-800">BỘ PHẬN TÍNH CÔNG TIẾP NHẬN</div>
-                <div className="text-[11px] text-slate-400 italic mt-0.5">(Ký và ghi rõ họ tên)</div>
-                <div className="h-16"></div>
-                <div className="font-medium text-slate-700">Nguyễn Kế Toán</div>
-              </div>
-            </div>
-
-            {/* Nút hành động */}
-            <div className="flex items-center justify-end gap-2 border-t pt-4">
-              <button
-                onClick={() => setShowPrintModal(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
-              >
-                Đóng
-              </button>
-              <button
-                onClick={() => {
-                  if (!requirePermission("Khóa, mở kỳ công và xuất CSV / in bảng công")) return;
-                  window.print();
-                  setShowPrintModal(false);
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-2xs cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>In biên bản bàn giao</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {(showExportModal || showPrintModal) && <WorkHandoffDialog mode={showPrintModal ? 'print' : 'export'} staff={handoffStaff} info={handoffInfo} teachingContext={teachingContext}
+        scope={handoffScope} onScopeChange={setHandoffScope} onInfoChange={patch => setHandoffDetails(previous => ({ ...previous, ...patch }))}
+        onClose={() => { setShowExportModal(false); setShowPrintModal(false); }} onExport={handleDownloadExcel}
+        authorizePrint={() => requirePermission("Khóa, mở kỳ công và xuất CSV / in bảng công")} />}
 
       {viewingSession && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">

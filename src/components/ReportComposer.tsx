@@ -29,6 +29,7 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
   const [title, setTitle] = useState('BÁO CÁO TỔNG HỢP VẬN HÀNH');
   const [autoTitle, setAutoTitle] = useState(true);
   const [chartType, setChartType] = useState<ReportChartKind>('column');
+  const [showCharts, setShowCharts] = useState(true);
   const [organization, setOrganization] = useState('VUIHOC TUTOR');
   const [documentInfo, setDocumentInfo] = useState({ address: '', reportNumber: '', reportType: 'Tổng hợp vận hành', circulation: 'internal' as 'internal' | 'external',
     location: '', recipients: '', authorRole: '', approvalEnabled: true, approverRole: 'Giám đốc', approverName: '' });
@@ -71,7 +72,7 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
     setRemarks(''); setRecommendations(''); setPreview(''); setReady(false); setError('');
   }, [request]);
   // Editing invalidates the preview; a printed document always matches the reviewed snapshot.
-  useEffect(() => { setPreview(''); setReady(false); }, [template, selected, title, organization, author, date, range, comparison, remarks, recommendations, appendix, documentInfo, scopeMode, chartType]);
+  useEffect(() => { setPreview(''); setReady(false); }, [template, selected, title, organization, author, date, range, comparison, remarks, recommendations, appendix, documentInfo, scopeMode, chartType, showCharts]);
   const generate = () => {
     setError('');
     try {
@@ -83,7 +84,7 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
         return prepareDocumentSection(dataset, { ...base, filters: scopeMode === 'all' ? {} : base.filters, selection: scopeMode === 'all' ? undefined : base.selection, chartType: activeChartType,
           datePreset: range.start || range.end ? 'custom' : 'all', from: range.start, to: range.end }, comparison);
       });
-      const info = { ...documentInfo, title: title.trim(), organization: organization.trim(), author: author.trim(), date,
+      const info = { ...documentInfo, showCharts, title: title.trim(), organization: organization.trim(), author: author.trim(), date,
         updatedAt: updatedAt ? new Date(updatedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' }) : 'Chưa xác định', remarks, recommendations, appendix };
       const html = buildReportDocument(sections, info);
       setExcelSnapshot(reportExcelData(sections, info));
@@ -116,7 +117,8 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
         const chosen = templates.find(item => item.id === value)!;
         if (value !== 'custom') { setSelected(chosen.ids.filter(id => datasets.some(dataset => dataset.id === id))); setAutoTitle(true); setDocumentInfo(info => ({ ...info, reportType: chosen.name })); setScopeMode('all'); }
       }}>{templates.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportSelect></label><label className="text-xs font-medium text-slate-600">Tên báo cáo<input value={title} onChange={event => { setTitle(event.target.value); setAutoTitle(false); }} maxLength={180} className={input} />{!autoTitle && <button type="button" onClick={() => setAutoTitle(true)} className="mt-1 text-xs text-orange-700">Dùng tên gợi ý</button>}</label></div>
-      <label className="block text-xs font-medium text-slate-600">Biểu đồ trong bản in<ReportSelect aria-label="Biểu đồ trong bản in" value={activeChartType} onChange={event => setChartType(event.target.value as ReportChartKind)} className={input}>{(Object.keys(reportChartNames) as ReportChartKind[]).map(key => <option key={key} value={key} disabled={!chartOptions.includes(key)}>{reportChartNames[key]}{!chartOptions.includes(key) ? key === 'line' || key === 'area' ? ' — cần nhóm theo ngày/tuần/tháng ở mọi nội dung' : ' — không phù hợp số liệu đã chọn' : ''}</option>)}</ReportSelect></label>
+      <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={showCharts} onChange={event => setShowCharts(event.target.checked)} className="h-4 w-4 accent-orange-600" />Hiển thị biểu đồ trong báo cáo</label>
+      {showCharts && <label className="block text-xs font-medium text-slate-600">Biểu đồ trong bản in<ReportSelect aria-label="Biểu đồ trong bản in" value={activeChartType} onChange={event => setChartType(event.target.value as ReportChartKind)} className={input}>{(Object.keys(reportChartNames) as ReportChartKind[]).map(key => <option key={key} value={key} disabled={!chartOptions.includes(key)}>{reportChartNames[key]}{!chartOptions.includes(key) ? key === 'line' || key === 'area' ? ' — cần nhóm theo ngày/tuần/tháng ở mọi nội dung' : ' — không phù hợp số liệu đã chọn' : ''}</option>)}</ReportSelect></label>}
       <PeriodToolbar label="Kỳ báo cáo" range={range} onChange={setRange} />
       <div className="grid gap-3 sm:grid-cols-3"><label className="text-xs font-medium text-slate-600">Số báo cáo<input aria-label="Số báo cáo" value={documentInfo.reportNumber} onChange={event => setDocumentInfo(info => ({ ...info, reportNumber: event.target.value }))} placeholder="Ví dụ: 01/2026/BC-VH" maxLength={80} className={input} /></label><label className="text-xs font-medium text-slate-600">Phạm vi phát hành<ReportSelect aria-label="Phạm vi phát hành" value={documentInfo.circulation} onChange={event => setDocumentInfo(info => ({ ...info, circulation: event.target.value as 'internal' | 'external' }))} className={input}><option value="internal">Báo cáo nội bộ</option><option value="external">Báo cáo gửi bên ngoài</option></ReportSelect></label><label className="text-xs font-medium text-slate-600">Phạm vi số liệu<ReportSelect aria-label="Phạm vi số liệu" value={scopeMode} onChange={event => setScopeMode(event.target.value as 'all' | 'filtered')} className={input}><option value="all">Tất cả trong kỳ đã chọn</option><option value="filtered" disabled={!request || template !== 'custom'}>Theo bộ lọc từ báo cáo chi tiết</option></ReportSelect></label></div>
       <ComparisonControls current={range} settings={comparison} onChange={setComparison} />

@@ -14,6 +14,12 @@ const config = { ...defaultReportConfig(dataset), datePreset: 'custom' as const,
 const options: ReportDocumentOptions = { title: '<img src=x onerror=alert(1)>', organization: 'Đơn vị A', author: 'Người lập', date: '2026-10-18', updatedAt: '18/10/2026', remarks: 'Nhận xét dòng 1\nDòng 2', recommendations: 'Kiến nghị', appendix: true };
 const section = prepareDocumentSection(dataset, config);
 const html = buildReportDocument([section], options);
+const withoutCharts = buildReportDocument([section], { ...options, showCharts: false });
+assert.ok(html.includes('<figure>')); // Charts remain enabled by default.
+assert.ok(!withoutCharts.includes('<figure>'));
+assert.ok(!withoutCharts.includes('<svg '));
+assert.equal(withoutCharts, html.replace(/<figure>[\s\S]*?<\/figure>/g, '')); // Tables, metadata and appendix stay intact.
+assert.equal(buildReportDocument([section], { ...options, showCharts: true }), html);
 assert.ok(html.includes('Nhóm 24')); // Full group table, not the chart's eight-row subset or current UI page.
 assert.ok(html.includes('R24')); // Full source appendix, not its UI page.
 assert.ok(html.includes('Trường cuối cùng')); // Wide appendices are split into panels without dropping fields.

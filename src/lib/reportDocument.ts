@@ -7,6 +7,7 @@ import { vuihocReportLogo } from './reportBrand';
 export interface ReportDocumentRequest { datasetId: string; config: CustomReportConfig }
 export interface DocumentSection { dataset: ReportDataset; config: CustomReportConfig; result: ReportResult; previous: ReportResult | null }
 export interface ReportDocumentOptions {
+  showCharts?: boolean;
   title: string; organization: string; author: string; date: string; updatedAt: string;
   remarks: string; recommendations: string; appendix: boolean;
   address?: string; reportNumber?: string; reportType?: string; circulation?: 'internal' | 'external';
@@ -78,7 +79,7 @@ export function buildReportDocument(sections: DocumentSection[], options: Report
       tables.push(table([group, ...metrics.map(metric => metric.label)], result.rows.map(row => [row.label, ...metrics.map(metric => formatReportValue(row.values[metric.id], metric))])));
       return tables;
     }, []).join('');
-    return `<section class="report-section"><h2>${index + 1}. ${esc(dataset.label)}</h2><p class="scope">Kỳ báo cáo: ${esc(rangeLabel)}${previous ? `<br/>Kỳ đối chiếu: ${esc(formatComparisonRange(previousRange))}` : ''}${filters ? `<br/>Phạm vi: ${esc(filters)}` : '<br/>Phạm vi: tất cả bản ghi được phép truy cập'}</p>${chart(section)}${summaries}<h3>Bảng tổng hợp theo ${esc(group.toLocaleLowerCase('vi'))}</h3>${groupTables}${dataset.note ? `<p class="method">Cách tính: ${esc(dataset.note)}</p>` : ''}</section>`;
+    return `<section class="report-section"><h2>${index + 1}. ${esc(dataset.label)}</h2><p class="scope">Kỳ báo cáo: ${esc(rangeLabel)}${previous ? `<br/>Kỳ đối chiếu: ${esc(formatComparisonRange(previousRange))}` : ''}${filters ? `<br/>Phạm vi: ${esc(filters)}` : '<br/>Phạm vi: tất cả bản ghi được phép truy cập'}</p>${options.showCharts === false ? '' : chart(section)}${summaries}<h3>Bảng tổng hợp theo ${esc(group.toLocaleLowerCase('vi'))}</h3>${groupTables}${dataset.note ? `<p class="method">Cách tính: ${esc(dataset.note)}</p>` : ''}</section>`;
   }).join('');
   const appendices = options.appendix ? sections.map((section, index) => {
     const { dataset, result, previous } = section;
