@@ -24,6 +24,7 @@ export function workTeachingGroups(staff: TeacherPayrollSummary[], context: Work
   for (const person of staff) {
     const map = new Map<string, { sessions: SessionPayrollRecord[]; subjectCode: string; modelCode?: string; programCode?: string; categoryId?: string }>();
     for (const session of person.sessions || []) {
+      if(session.isPendingCredit||session.creditCoeff===null)continue;
       const lesson = lessonsById.get(session.lessonId || session.id);
       // A saved lesson link is authoritative; don't guess from another class if its class is missing.
       const matches = context.classes?.filter(row => row.code === session.classCode) || [];

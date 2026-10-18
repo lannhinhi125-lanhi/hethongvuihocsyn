@@ -1,4 +1,7 @@
 import { ReportSelect } from '../components/ReportSelect';
+import { workNoteDisplay } from '../lib/workNoteDisplay';
+import {pendingLessonWork,lessonWorkDetails,lessonWorkStatus} from '../lib/pendingLessonWork';
+import type {TeachingLesson} from '../lib/teachingSessionDetails';
 import { useBusinessValue } from '../lib/businessPersistence';
 import type { WorkTeachingContext } from '../lib/workTeachingGroups';
 import { WorkHandoffDialog } from '../components/WorkHandoffDialog';
@@ -56,7 +59,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
-    classes, subjects, models, levels, teachingCategories,
+    classes, subjects, models, levels, teachingCategories,teachers,students,timeSlots,
     currentUser,
     payrollStore,
     updateSessionCredit,
@@ -67,7 +70,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     showToast
   } = useApp();
 
-  const [handoffLessons] = useBusinessValue<{ id: string; classId?: string }[]>('dated_lessons');
+  const [handoffLessons] = useBusinessValue<(TeachingLesson & {id:string})[]>('dated_lessons');
   const teachingContext: WorkTeachingContext = useMemo(() => ({ classes, subjects, models, levels, teachingCategories, lessons: handoffLessons }), [classes, subjects, models, levels, teachingCategories, handoffLessons]);
 
   // State bộ lọc
@@ -227,7 +230,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const allSessionsWithStaff = useMemo(() => {
     const list: SessionWithStaff[] = [];
     (monthData.teachers || []).forEach(t => {
-      (t.sessions || []).forEach(s => {
+      lessonWorkDetails(t.sessions || [],handoffLessons).forEach(s => {
         list.push({
           teacherId: t.teacherId,
           teacherName: t.teacherName,
@@ -237,8 +240,13 @@ export const Module7_WorkReconciliation: React.FC = () => {
         });
       });
     });
+    const credited=list.map(item=>({...item.session,teacherId:item.teacherId}));
+    pendingLessonWork({lessons:handoffLessons,credited,classes,teachers,students,slots:timeSlots,month:selectedMonth}).forEach(session=>{
+      const teacher=teachers.find(row=>row.id===session.teacherId)!;
+      list.push({teacherId:teacher.id,teacherName:teacher.name,staffRole:'GIAO_VIEN',subject:teacher.subject==='SUB-ENG'?'ANH':'TOAN',session});
+    });
     return list;
-  }, [monthData.teachers]);
+  }, [monthData.teachers,handoffLessons,classes,teachers,students,timeSlots,selectedMonth]);
 
   // Buổi học sau khi lọc
   const filteredSessions = useMemo(() => {
@@ -263,8 +271,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
       const sessionMetrics: Record<SessionRangeKey, number> = {
         studentCount: item.session.studentCount ?? 3,
         durationMinutes: item.session.durationMinutes ?? 90,
-        creditCoeff: item.session.creditCoeff
+        creditCoeff: item.session.creditCoeff??0
       };
+      if(item.session.isPendingCredit&&(sessionRanges.creditCoeff.min||sessionRanges.creditCoeff.max))return false;
       if (Object.entries(sessionRanges).some(([key, range]) => !matchesRange(sessionMetrics[key as SessionRangeKey], range))) return false;
       if (subjectFilter !== 'ALL' && item.subject !== subjectFilter) return false;
       if (searchTerm.trim()) {
@@ -378,9 +387,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
       const isTutor = (t.staffRole || 'GIAO_VIEN') === 'GIA_SU';
       (t.sessions || []).forEach(s => {
         totalSessions += 1;
-        totalCredit += s.creditCoeff;
-        if (isTutor) tutorCredit += s.creditCoeff;
-        else teacherCredit += s.creditCoeff;
+        totalCredit += s.creditCoeff??0;
+        if (isTutor) tutorCredit += s.creditCoeff??0;
+        else teacherCredit += s.creditCoeff??0;
         if (s.type === 'COVER') coverCount += 1;
         if (isIncidentSession(s)) incidentCount += 1;
       });
@@ -405,7 +414,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     if (handoffScope === 'staff') return filteredStaff;
     const sessions = detailTeacherId ? filteredSessions.filter(item => item.teacherId === detailTeacherId) : filteredSessions;
     const selected = new Map<string, SessionPayrollRecord[]>();
-    sessions.forEach(item => selected.set(item.teacherId, [...(selected.get(item.teacherId) || []), item.session]));
+    sessions.filter(item=>!item.session.isPendingCredit).forEach(item => selected.set(item.teacherId, [...(selected.get(item.teacherId) || []), item.session]));
     return monthData.teachers.filter(person => selected.has(person.teacherId)).map(person => ({ ...person, sessions: selected.get(person.teacherId)! }));
   }, [handoffScope, filteredStaff, filteredSessions, detailTeacherId, monthData.teachers]);
   const handoffInfo: WorkHandoffInfo = useMemo(() => ({ ...handoffDetails, author: handoffDetails.author || currentUser.name,
@@ -931,7 +940,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
                   return (
                     <tr
-                      key={session.id}
+                      key={teacherId+'|'+session.id}
                       className={`transition-colors duration-700 ${
                         highlightedSessionId === session.id
                           ? 'bg-slate-200/90 shadow-[inset_0_0_0_1px_rgb(203_213_225)]'
@@ -965,12 +974,13 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       </td>
                       <td className="py-3 px-3">
                         <span className="text-[11px] text-slate-700">
-                          {session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : session.reconcileStatus === 'CO_GIAI_TRINH' ? 'Có giải trình' : session.reconcileStatus === 'DA_CHOT' ? 'Đã chốt' : 'Chờ đối soát'}
+                          {session.isPendingCredit?lessonWorkStatus(session.lessonStatus):session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : session.reconcileStatus === 'CO_GIAI_TRINH' ? 'Có giải trình' : session.reconcileStatus === 'DA_CHOT' ? 'Đã chốt' : 'Chờ đối soát'}
                         </span>
+                        {session.feedbackProgress&&<div className="mt-1 text-[11px] text-slate-500">{!session.isPendingCredit?lessonWorkStatus(session.lessonStatus)+' · ':''}Nhận xét {session.feedbackProgress.completed}/{session.feedbackProgress.total}</div>}
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span className="font-black text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md text-xs border border-slate-200">
-                          {session.creditCoeff}
+                          {session.isPendingCredit?'—':session.creditCoeff}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-center">
@@ -981,14 +991,15 @@ export const Module7_WorkReconciliation: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
+                              if(session.isPendingCredit||session.creditCoeff===null)return;
                               highlightSessionRow(session.id);
                               setEditingSession({ teacherId, session });
                               setNewCoeff(session.creditCoeff);
                               setEditNote(session.hrPayNote);
                             }}
-                            disabled={monthData.isLocked}
+                            disabled={monthData.isLocked||session.isPendingCredit}
                             className="rounded-md p-1.5 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
-                            title={monthData.isLocked ? 'Mở khóa kỳ để sửa hệ số công' : 'Sửa hệ số công'}
+                            title={session.isPendingCredit?'Buổi học chưa được ghi công':monthData.isLocked ? 'Mở khóa kỳ để sửa hệ số công' : 'Sửa hệ số công'}
                             aria-label={`Sửa hệ số công buổi ${lessonCode(session.lessonId||session.id)}`}
                           >
                             <Edit3 className="w-4 h-4" />
@@ -1352,11 +1363,11 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <div><dt className="text-slate-500">Phân loại</dt><dd className="mt-1 font-semibold text-slate-800">{isIncidentSession(viewingSession.session) ? 'Buổi sự cố' : 'Buổi chuẩn'}{viewingSession.session.type === 'COVER' ? ' · Cover' : ''}</dd></div>
                 <div><dt className="text-slate-500">Điểm danh vào / ra</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.checkin} / {viewingSession.session.checkout}</dd></div>
                 <div><dt className="text-slate-500">Thời lượng</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.durationMinutes ?? 90} phút</dd></div>
-                <div><dt className="text-slate-500">Trạng thái buổi</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.statusText}</dd></div>
-                <div><dt className="text-slate-500">Trạng thái đối soát</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : viewingSession.session.reconcileStatus === 'CO_GIAI_TRINH' ? 'Có giải trình' : viewingSession.session.reconcileStatus === 'DA_CHOT' ? 'Đã chốt công' : 'Chờ đối soát'}</dd></div>
-                <div><dt className="text-slate-500">Hệ số ghi nhận</dt><dd className="mt-1 font-bold text-emerald-700">{viewingSession.session.creditCoeff}</dd></div>
+                <div><dt className="text-slate-500">Trạng thái buổi</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.lessonStatus?lessonWorkStatus(viewingSession.session.lessonStatus):viewingSession.session.statusText}</dd></div>
+                <div><dt className="text-slate-500">Trạng thái đối soát</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.isPendingCredit?'—':viewingSession.session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : viewingSession.session.reconcileStatus === 'CO_GIAI_TRINH' ? 'Có giải trình' : viewingSession.session.reconcileStatus === 'DA_CHOT' ? 'Đã chốt công' : 'Chờ đối soát'}</dd></div>
+                <div><dt className="text-slate-500">Hệ số ghi nhận</dt><dd className="mt-1 font-bold text-emerald-700">{viewingSession.session.isPendingCredit?'—':viewingSession.session.creditCoeff}</dd></div>
                 <div><dt className="text-slate-500">AI rà soát</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.hasAiReview ? 'Đã rà soát' : 'Chưa rà soát'}</dd></div>
-                <div className="sm:col-span-2"><dt className="text-slate-500">Ghi chú đối soát</dt><dd className="mt-1 rounded-lg bg-slate-50 p-3 text-slate-700">{viewingSession.session.hrPayNote || 'Không có ghi chú'}</dd></div>
+                <div className="sm:col-span-2"><dt className="text-slate-500">Ghi chú đối soát</dt><dd className="mt-1 rounded-lg bg-slate-50 p-3 text-slate-700">{workNoteDisplay(viewingSession.session,lessonCode(viewingSession.session.lessonId||viewingSession.session.id)) || 'Không có ghi chú'}</dd></div>
                 {viewingSession.session.dispute && (
                   <div className="sm:col-span-2"><dt className="text-slate-500">Giải trình liên quan</dt><dd className="mt-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-slate-700">{viewingSession.session.dispute.content}</dd></div>
                 )}

@@ -279,6 +279,10 @@ export interface RAGBotConfig {
 
 // Phân hệ 7: Chốt công & Đối soát (Dành cho Giáo viên & Gia sư)
 export interface SessionPayrollRecord {
+  isPendingCredit?: boolean;
+  lessonStatus?: string;
+  feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
+  incidentId?: string | null;
   id: string;
   lessonId?: string;
   week: string;
@@ -295,7 +299,7 @@ export interface SessionPayrollRecord {
   checkin: string;
   checkout: string;
   hasAiReview: boolean;
-  creditCoeff: number;
+  creditCoeff: number | null;
   hrPayNote: string;
   dispute: DisputeItem | null;
   teacherId?: string;

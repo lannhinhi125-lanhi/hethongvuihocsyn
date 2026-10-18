@@ -12,7 +12,7 @@ export const workHandoffFilename = (month: string) => `Doi-soat-cong-${month}.xl
 export function workHandoffExcel(staff: TeacherPayrollSummary[], info: WorkHandoffInfo, context: WorkTeachingContext = {}): ReportExcelData {
   const rows = workHandoffRows(staff);
   for (const person of rows) for (const session of person.sessions) {
-    if (!Number.isFinite(session.creditCoeff) || session.creditCoeff < 0) throw new Error('Có hệ số công không hợp lệ. Vui lòng kiểm tra trước khi bàn giao.');
+    if (session.creditCoeff===null || !Number.isFinite(session.creditCoeff) || session.creditCoeff < 0) throw new Error('Có hệ số công không hợp lệ. Vui lòng kiểm tra trước khi bàn giao.');
   }
   const state = info.isLocked ? 'Đã khóa kỳ' : 'Chưa khóa kỳ';
   return { filename: workHandoffFilename(info.month), sheets: [

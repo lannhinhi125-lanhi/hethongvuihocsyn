@@ -1,4 +1,8 @@
 import { ReportSelect } from '../components/ReportSelect';
+import {MultiSelectColumnFilter} from '../components/MultiSelectColumnFilter';
+import {isIncidentWorkSession} from '../lib/workCredits';
+import { workNoteDisplay } from '../lib/workNoteDisplay';
+import {pendingLessonWork,lessonWorkDetails,lessonWorkStatus} from '../lib/pendingLessonWork';
 import {useLessonCode} from '../hooks/useLessonCode';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedTableBody } from '../components/Pagination';
@@ -19,7 +23,8 @@ import {
   Calendar,
   X,
   HelpCircle,
-  ChevronRight
+  ChevronRight,
+  Eye
 } from 'lucide-react';
 import { SessionPayrollRecord, DisputeItem } from '../types';
 import { getCurrentPayrollMonth, getPayrollMonthOptions } from '../lib/payrollPeriods';
@@ -32,7 +37,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const { can, requirePermission } = usePermissions();
-  const { currentUser, payrollStore, submitDispute, showToast, teachers, users } = useApp();
+  const { currentUser, payrollStore, submitDispute, showToast, teachers, users,classes,students,timeSlots } = useApp();
   const [clockNow,setClockNow] = useState(()=>new Date());
   useEffect(()=>{
     const refresh=()=>{if(document.visibilityState==='visible'){setClockNow(new Date());void refreshBusinessData();}};
@@ -51,6 +56,11 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   const [disputeContent, setDisputeContent] = useState<string>('');
   const [disputeAttachment, setDisputeAttachment] = useState<string>('');
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  type ColumnKey='lesson'|'date'|'time'|'class'|'students'|'attendance'|'kind'|'status'|'credit';
+  const [columnFilters,setColumnFilters]=useState<Partial<Record<ColumnKey,string[]>>>({});
+  const [viewingSessionId,setViewingSessionId]=useState<string|null>(null);
+  useEffect(()=>{setColumnFilters({});setViewingSessionId(null);},[selectedMonth,currentUser.id]);
+  useEffect(()=>{if(!viewingSessionId)return;const escape=(event:KeyboardEvent)=>{if(event.key==='Escape')setViewingSessionId(null);};document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape);},[viewingSessionId]);
 
   // Tìm hồ sơ đối soát của nhân sự đang đăng nhập
   const monthData = payrollStore[selectedMonth] || {
@@ -61,13 +71,24 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   };
 
   const ownTeacher = resolveAccountTeacher(currentUser, teachers, users);
-  const myRecord = ownTeacher
+  const savedRecord = ownTeacher
     ? monthData.teachers.find(record => record.teacherId === ownTeacher.id)
     : undefined;
 
+  const pendingSessions=useMemo(()=>ownTeacher?pendingLessonWork({lessons:datedLessons,credited:(savedRecord?.sessions||[]).map(row=>({...row,teacherId:ownTeacher.id})),classes,teachers,students,slots:timeSlots,month:selectedMonth,now:clockNow}).filter(row=>row.teacherId===ownTeacher.id):[],[datedLessons,savedRecord,classes,teachers,students,timeSlots,selectedMonth,ownTeacher?.id,clockNow]);
+  const myRecord=savedRecord||(ownTeacher&&pendingSessions.length?{teacherId:ownTeacher.id,teacherName:ownTeacher.name,staffRole:'GIAO_VIEN' as const,subject:ownTeacher.subject==='SUB-ENG'?'ANH' as const:'TOAN' as const,subjectName:ownTeacher.subjectName,reconcileStatus:undefined,payrollSent:false,sessions:[]}:undefined);
   const completedSessions = useMemo(() => ownTeacher
-    ? visibleTeacherWork(myRecord?.sessions || [],datedLessons,ownTeacher.id,clockNow) : [],
-    [myRecord,datedLessons,ownTeacher?.id,clockNow]);
+    ? visibleTeacherWork([...lessonWorkDetails(savedRecord?.sessions || [],datedLessons),...pendingSessions],datedLessons,ownTeacher.id,clockNow) : [],
+    [savedRecord,datedLessons,ownTeacher?.id,clockNow,pendingSessions]);
+  const reconcileLabel=(session:SessionPayrollRecord)=>session.isPendingCredit?'—':({DA_XAC_NHAN:'Đã xác nhận',CO_GIAI_TRINH:'Có giải trình',DA_CHOT:'Đã chốt'} as Record<string,string>)[session.reconcileStatus||'']||'Chờ đối soát';
+  const rowFields=(session:SessionPayrollRecord):Record<ColumnKey,string[]>=>({
+    lesson:[lessonCode(session.lessonId||session.id)],date:[session.dateStr],time:[session.time],class:[session.classCode],students:session.studentNames?.length?session.studentNames:[session.studentName],attendance:[`Vào: ${session.checkin} · Ra: ${session.checkout}`],
+    kind:[isIncidentWorkSession(session)?'Buổi sự cố':'Buổi chuẩn',...(session.type==='COVER'?['Cover']:[])],
+    status:[reconcileLabel(session),lessonWorkStatus(session.lessonStatus),...(session.feedbackProgress?[`Nhận xét ${session.feedbackProgress.completed}/${session.feedbackProgress.total}`]:[])],credit:[session.isPendingCredit?'—':String(session.creditCoeff)]
+  });
+  const filteredSessions=completedSessions.filter(session=>Object.entries(columnFilters).every(([key,values])=>!values?.length||values.some(value=>rowFields(session)[key as ColumnKey].includes(value))));
+  const column=(label:string,key:ColumnKey)=><MultiSelectColumnFilter label={label} values={columnFilters[key]||[]} onChange={values=>setColumnFilters(previous=>({...previous,[key]:values}))} options={Array.from(new Set(completedSessions.flatMap(session=>rowFields(session)[key]))).filter(Boolean).map(value=>({value,label:value}))}/>;
+  const viewingSession=completedSessions.find(session=>session.id===viewingSessionId);
 
   // Các đơn giải trình của bản thân
   const myDisputes = useMemo(() => {
@@ -78,8 +99,8 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   // Thống kê cá nhân
   const stats = useMemo(() => {
     if (!myRecord) return { totalSessions: 0, totalCredit: 0, standard: 0, cover: 0, canceled: 0, late: 0 };
-    const sessions = completedSessions;
-    const totalCredit = sessions.reduce((acc, s) => acc + s.creditCoeff, 0);
+    const sessions = completedSessions.filter(session=>!session.isPendingCredit);
+    const totalCredit = sessions.reduce((acc, s) => acc + (s.creditCoeff??0), 0);
     return {
       totalSessions: sessions.length,
       totalCredit: Number(totalCredit.toFixed(1)),
@@ -111,12 +132,14 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       'Check-out',
       'Thời lượng (phút)',
       'Trạng thái ca dạy',
+      'Trạng thái buổi học',
+      'Nhận xét học sinh',
       'Hệ số công',
       'Số công tính',
       'Ghi chú đối soát'
     ];
 
-    const rows = completedSessions.map((s, idx) => [
+    const rows = filteredSessions.map((s, idx) => [
       idx + 1,
       myRecord.teacherId,
       `"${myRecord.teacherName}"`,
@@ -133,9 +156,11 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       `"${s.checkout}"`,
       s.durationMinutes ?? 90,
       `"${s.statusText}"`,
-      s.creditCoeff,
-      s.creditCoeff,
-      `"${s.hrPayNote}"`
+      `"${lessonWorkStatus(s.lessonStatus)}"`,
+      s.feedbackProgress?`${s.feedbackProgress.completed}/${s.feedbackProgress.total}`:'',
+      s.isPendingCredit?'':s.creditCoeff,
+      s.isPendingCredit?'':s.creditCoeff,
+      `"${workNoteDisplay(s,lessonCode(s.lessonId||s.id)).replaceAll('"','""')}"`
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
@@ -229,7 +254,6 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   const isTutor = myRecord.staffRole === 'GIA_SU';
   const canDisputeSession = (session: SessionPayrollRecord) =>
     canDisputeTeacherWork(session,monthData.isLocked,Boolean(myRecord.payrollSent),can('Gửi giải trình / khiếu nại sai lệch ca dạy'),myDisputes);
-  const hasDisputableSessions = completedSessions.some(canDisputeSession);
 
   return (
     <div className="space-y-6">
@@ -237,12 +261,6 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md bg-orange-100 text-[#FF5C00] font-bold text-xs uppercase tracking-wide">
-              {isTutor ? 'CỔNG GIA SƯ' : 'CỔNG GIÁO VIÊN'}
-            </span>
-            <span className="px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-700 font-bold text-xs uppercase tracking-wide">
-              ĐỐI SOÁT CÔNG CA DẠY
-            </span>
             <h1 className="text-xl font-bold text-slate-800">Bảng Đối Soát Công Giảng Dạy</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -294,15 +312,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
           </button>
 
           {/* Nút Gửi giải trình */}
-          <button
-            disabled={!hasDisputableSessions}
-            title={hasDisputableSessions ? 'Gửi giải trình công' : 'Chờ quản trị gửi yêu cầu đối soát'}
-            onClick={() => setShowDisputeModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Send className="w-4 h-4" />
-            <span>Gửi giải trình công</span>
-          </button>
+
         </div>
       </div>
 
@@ -387,7 +397,9 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             </p>
           </div>
           <div className="text-xs text-slate-500">
-            Tổng cộng: <span className="font-bold text-slate-800">{completedSessions.length}</span> ca dạy
+            Hiển thị: <span className="font-bold text-slate-800">{filteredSessions.length}/{completedSessions.length}</span> ca dạy
+            {Object.values(columnFilters).some(values=>values?.length)&&<button type="button" onClick={()=>setColumnFilters({})} className="ml-2 text-orange-600 hover:underline">Xóa lọc</button>}
+            {pendingSessions.length>0&&<span className="ml-2 text-amber-700">· {pendingSessions.length} buổi chưa có công, nhận xét chưa đầy đủ</span>}
           </div>
         </div>
 
@@ -395,19 +407,21 @@ export const TeacherWorkReconciliationView: React.FC = () => {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
-                <th className="py-3 px-4">Mã ca</th>
-                <th className="py-3 px-4">Ngày dạy</th>
-                <th className="py-3 px-4">Khung giờ</th>
-                <th className="py-3 px-4">Lớp học &amp; Mô hình</th>
-                <th className="py-3 px-4">Học sinh / Nhóm</th>
-                <th className="py-3 px-4">Vào / Ra</th>
-                <th className="py-3 px-4">Trạng thái ca</th>
-                <th className="py-3 px-4 text-center">Hệ số công</th>
-                <th className="py-3 px-4 text-center">Khiếu nại</th>
+                <th className="py-3 px-4">{column('Mã buổi','lesson')}</th>
+                <th className="py-3 px-4">{column('Ngày dạy','date')}</th>
+                <th className="py-3 px-4">{column('Khung giờ','time')}</th>
+                <th className="py-3 px-4">{column('Lớp học','class')}</th>
+                <th className="py-3 px-4">{column('Học sinh / Nhóm','students')}</th>
+                <th className="py-3 px-4">{column('Vào / Ra','attendance')}</th>
+                <th className="py-3 px-4">{column('Loại buổi','kind')}</th>
+                <th className="py-3 px-4">{column('Trạng thái','status')}</th>
+                <th className="py-3 px-4 text-center">{column('Công','credit')}</th>
+                <th className="py-3 px-4 text-center">Thao tác</th>
               </tr>
             </thead>
             <PaginatedTableBody className="divide-y divide-slate-100">
-              {completedSessions.map(session => (
+              {!filteredSessions.length&&<tr><td colSpan={10} className="p-6 text-center text-slate-500">Không có buổi học phù hợp với bộ lọc.</td></tr>}
+              {filteredSessions.map(session => (
                 <tr key={session.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3 px-4 font-mono font-bold text-slate-700">{lessonCode(session.lessonId||session.id)}</td>
                   <td className="py-3 px-4">
@@ -424,32 +438,18 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                     <div>Vào: {session.checkin}</div>
                     <div>Ra: {session.checkout}</div>
                   </td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-md font-semibold text-[11px] ${
-                        session.type === 'STANDARD'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : session.type === 'COVER'
-                          ? 'bg-blue-100 text-blue-700'
-                          : session.type === 'STUDENT_CANCELED'
-                          ? 'bg-amber-100 text-amber-700'
-                          : session.type === 'LATE'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-rose-100 text-rose-700'
-                      }`}
-                    >
-                      {session.statusText}
-                    </span>
-                  </td>
+                  <td className="py-3 px-4"><span className={'inline-block rounded-md px-2 py-0.5 text-[10px] font-bold '+(isIncidentWorkSession(session)?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-800')}>{isIncidentWorkSession(session)?'Buổi sự cố':'Buổi chuẩn'}</span>{session.type==='COVER'&&<span className="ml-1 inline-block rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Cover</span>}</td>
+                  <td className="py-3 px-4"><span className="text-[11px] text-slate-700">{session.isPendingCredit?lessonWorkStatus(session.lessonStatus):reconcileLabel(session)}</span><div className="mt-1 text-[11px] text-slate-500">{!session.isPendingCredit?lessonWorkStatus(session.lessonStatus):''}{session.feedbackProgress?((session.isPendingCredit?'':' · ')+`Nhận xét ${session.feedbackProgress.completed}/${session.feedbackProgress.total}`):''}</div></td>
                   <td className="py-3 px-4 text-center">
                     <span className="font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md text-xs border border-emerald-200">
-                      {session.creditCoeff} công
+                      {session.isPendingCredit?'—':session.creditCoeff}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
+                    <button type="button" onClick={()=>setViewingSessionId(session.id)} aria-label={'Xem chi tiết buổi '+lessonCode(session.lessonId||session.id)} title="Xem chi tiết" className="mr-2 inline-flex rounded-md p-1.5 text-slate-600 hover:bg-slate-100"><Eye className="h-4 w-4"/></button>
                     <button
                       disabled={!canDisputeSession(session) || myDisputes.some(dispute => dispute.sessionId === session.id && dispute.status === 'CHO_DUYET')}
-                      title={monthData.isLocked ? 'Kỳ công đã khóa' : !canDisputeSession(session) ? 'Chờ quản trị gửi yêu cầu đối soát' : 'Gửi giải trình ca dạy'}
+                      title={session.isPendingCredit?'Buổi học chưa được ghi công':monthData.isLocked ? 'Kỳ công đã khóa' : !canDisputeSession(session) ? 'Chờ quản trị gửi yêu cầu đối soát' : 'Gửi giải trình ca dạy'}
                       onClick={() => {
                         setSelectedSessionForDispute(session);
                         setShowDisputeModal(true);
@@ -515,6 +515,29 @@ export const TeacherWorkReconciliationView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {viewingSession&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={event=>{if(event.target===event.currentTarget)setViewingSessionId(null);}}>
+        <div role="dialog" aria-modal="true" aria-label="Chi tiết buổi dạy" className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-200 p-4"><div><h3 className="font-bold text-slate-800">Chi tiết buổi dạy</h3><p className="mt-1 font-mono text-xs text-slate-500">{lessonCode(viewingSession.lessonId||viewingSession.id)}</p></div><button type="button" aria-label="Đóng chi tiết buổi dạy" onClick={()=>setViewingSessionId(null)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5"/></button></div>
+          <dl className="grid grid-cols-1 gap-4 overflow-y-auto p-5 text-xs sm:grid-cols-2">{[
+            ['Nhân sự',`${myRecord.teacherName} (${myRecord.teacherId})`],
+            ['Ngày & giờ',`${viewingSession.dateStr} · ${viewingSession.time}`],
+            ['Lớp học',`${viewingSession.classCode} · ${viewingSession.className}`],
+            ['Học sinh / sĩ số',`${viewingSession.studentNames?.join(', ')||viewingSession.studentName} · ${viewingSession.studentCount??viewingSession.studentNames?.length??'—'} HS`],
+            ['Phân loại',(isIncidentWorkSession(viewingSession)?'Buổi sự cố':'Buổi chuẩn')+(viewingSession.type==='COVER'?' · Cover':'')],
+            ['Điểm danh vào / ra',`${viewingSession.checkin} / ${viewingSession.checkout}`],
+            ['Thời lượng',viewingSession.durationMinutes!=null?`${viewingSession.durationMinutes} phút`:'—'],
+            ['Trạng thái buổi',lessonWorkStatus(viewingSession.lessonStatus)],
+            ['Trạng thái đối soát',reconcileLabel(viewingSession)],
+            ['Nhận xét học sinh',viewingSession.feedbackProgress?`${viewingSession.feedbackProgress.completed}/${viewingSession.feedbackProgress.total}`:'—'],
+            ['Hệ số ghi nhận',viewingSession.isPendingCredit?'—':String(viewingSession.creditCoeff)],
+            ...(isIncidentWorkSession(viewingSession)?[['Sự cố',viewingSession.statusText]]:[]),
+            ['Ghi chú đối soát',workNoteDisplay(viewingSession,lessonCode(viewingSession.lessonId||viewingSession.id))||'Không có ghi chú'],
+            ...(viewingSession.dispute?[['Giải trình liên quan',viewingSession.dispute.content]]:[])
+          ].map(([label,value])=><div key={label}><dt className="text-slate-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap font-semibold text-slate-800">{value}</dd></div>)}</dl>
+          <div className="flex justify-end border-t border-slate-200 p-4"><button type="button" onClick={()=>setViewingSessionId(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Đóng</button></div>
+        </div>
+      </div>}
 
       {/* Modal Gửi giải trình */}
       {showDisputeModal && (
@@ -667,7 +690,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                       <td className="p-2 font-mono font-medium">{lessonCode(s.lessonId||s.id)}</td>
                       <td className="p-2 font-mono">{s.classCode}</td>
                       <td className="p-2">{s.statusText}</td>
-                      <td className="p-2 text-right font-bold text-emerald-600">{s.creditCoeff}</td>
+                      <td className="p-2 text-right font-bold text-emerald-600">{s.isPendingCredit?'—':s.creditCoeff}</td>
                     </tr>
                   ))}
                 </tbody>

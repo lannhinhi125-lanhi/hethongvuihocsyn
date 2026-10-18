@@ -3,8 +3,9 @@ import type { SessionPayrollRecord, TeacherPayrollSummary } from '../types';
 export const isIncidentWorkSession = (session: SessionPayrollRecord) => session.type !== 'STANDARD' && session.type !== 'COVER';
 const round = (value: number) => Number(value.toFixed(6));
 export function workCreditBreakdown(sessions: SessionPayrollRecord[]) {
-  const standardCredit = round(sessions.filter(session => !isIncidentWorkSession(session)).reduce((total, session) => total + session.creditCoeff, 0));
-  const incidentCredit = round(sessions.filter(isIncidentWorkSession).reduce((total, session) => total + session.creditCoeff, 0));
+  const recorded=sessions.filter(session=>!session.isPendingCredit&&session.creditCoeff!==null);
+  const standardCredit = round(recorded.filter(session => !isIncidentWorkSession(session)).reduce((total, session) => total + (session.creditCoeff??0), 0));
+  const incidentCredit = round(recorded.filter(isIncidentWorkSession).reduce((total, session) => total + (session.creditCoeff??0), 0));
   return { standardCredit, incidentCredit };
 }
 export const workCreditText = (value: number) => value.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 6 });
@@ -16,9 +17,9 @@ export interface WorkHandoffInfo {
 }
 export function workHandoffRows(staff: TeacherPayrollSummary[]) {
   return staff.map(person => {
-    const sessions = person.sessions || [], standardSessions = sessions.filter(session => !isIncidentWorkSession(session)).length;
+    const sessions = (person.sessions || []).filter(session=>!session.isPendingCredit&&session.creditCoeff!==null), standardSessions = sessions.filter(session => !isIncidentWorkSession(session)).length;
     const { standardCredit, incidentCredit } = workCreditBreakdown(sessions);
-    return { ...person, standardSessions, incidentSessions: sessions.length - standardSessions, standardCredit, incidentCredit, totalCredit: round(standardCredit + incidentCredit) };
+    return { ...person,sessions, standardSessions, incidentSessions: sessions.length - standardSessions, standardCredit, incidentCredit, totalCredit: round(standardCredit + incidentCredit) };
   });
 }
 export function workHandoffTotals(staff: TeacherPayrollSummary[]) {

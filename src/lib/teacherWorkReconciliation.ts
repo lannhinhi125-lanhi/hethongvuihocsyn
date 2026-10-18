@@ -19,6 +19,6 @@ export function visibleTeacherWork(sessions:SessionPayrollRecord[],lessons:Teach
 }
 
 export function canDisputeTeacherWork(session:SessionPayrollRecord,isLocked:boolean,payrollSent:boolean,hasPermission:boolean,disputes:DisputeItem[]) {
-  return hasPermission && !isLocked && Boolean(session.reconciliationSent ?? payrollSent) &&
+  return !session.isPendingCredit && hasPermission && !isLocked && Boolean(session.reconciliationSent ?? payrollSent) &&
     !disputes.some(dispute=>dispute.sessionId===session.id&&dispute.status==='CHO_DUYET');
 }
