@@ -10,7 +10,7 @@ export function availableReportCharts(temporal: boolean, additive: boolean, data
 
 /** Shared, escaped SVG for on-screen charts and the isolated print document. */
 export function renderReportPlot(data: PlotDatum[], kind: ReportChartKind, format: (value: number | null) => string,
-  options: { title: string; interactive?: boolean; selectedKey?: string; comparison?: boolean; idPrefix?: string } ): string {
+  options: { title: string; groupLabel?: string; metricLabel?: string; interactive?: boolean; selectedKey?: string; comparison?: boolean; idPrefix?: string } ): string {
   const gradientId = (options.idPrefix || 'report-plot').replace(/[^a-zA-Z0-9_-]/g, '');
   const interaction = (row: PlotDatum) => options.interactive ? ` data-report-key="${esc(row.key)}" role="button" tabindex="0" aria-label="${esc(row.label + ': ' + format(row.value))}" aria-pressed="${row.key === options.selectedKey}" style="cursor:pointer;${options.selectedKey && row.key !== options.selectedKey ? 'opacity:.45' : ''}"` : '';
   const tip = (row: PlotDatum) => `<title>${esc(row.label + ': ' + format(row.value) + (options.comparison ? ' / Đối chiếu: ' + format(row.previous ?? null) : ''))}</title>`;
@@ -73,5 +73,10 @@ export function renderReportPlot(data: PlotDatum[], kind: ReportChartKind, forma
     }).join('')}<text x="${x(index)}" y="270" text-anchor="middle" font-size="10" fill="#475569">${label(row, 13)}</text></g>`).join('');
   }
   const gradients = kind === 'area' ? `<defs>${['#4f46e5', '#d97706'].map((color, index) => `<linearGradient id="${gradientId}-${index}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".35"/><stop offset="100%" stop-color="${color}" stop-opacity=".03"/></linearGradient>`).join('')}</defs>` : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 ${height}" role="${options.interactive ? 'group' : 'img'}" aria-label="${esc(options.title)}" style="display:block;width:100%;height:auto;font-family:Arial,sans-serif;color:#0f172a">${gradients}${body}</svg>`;
+  const cartesian=!['pie','donut','treemap'].includes(kind);
+  const horizontal=kind==='bar'||kind==='lollipop';
+  const xLabel=horizontal ? options.metricLabel || options.title : options.groupLabel || 'Nhóm';
+  const yLabel=horizontal ? options.groupLabel || 'Nhóm' : options.metricLabel || options.title;
+  const axes=cartesian ? `<text aria-label="Trục tung" x="10" y="${height/2+8}" transform="rotate(-90 10 ${height/2+8})" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">${esc(yLabel)}</text><text aria-label="Trục hoành" x="390" y="${height+25}" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">${esc(xLabel)}</text>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cartesian?755:720} ${height+(cartesian?38:0)}" role="${options.interactive ? 'group' : 'img'}" aria-label="${esc(options.title)}" style="display:block;width:100%;height:auto;font-family:Arial,sans-serif;color:#0f172a">${gradients}${cartesian?'<g transform="translate(30 8)">':''}${body}${cartesian?'</g>':''}${axes}</svg>`;
 }

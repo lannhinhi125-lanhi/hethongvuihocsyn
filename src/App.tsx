@@ -53,17 +53,17 @@ const MainLayout: React.FC = () => {
   if(business.error && !Object.keys(business.data).length)return <main className="p-8" role="alert">{business.error} <button className="underline" onClick={()=>void loadBusinessData()}>Thử tải lại</button> <button className="underline" onClick={()=>void logoutAccount()}>Đăng xuất</button></main>;
 
   return (
-    <div className="workspace-ui flex h-screen overflow-hidden bg-[#f8f9fc] text-slate-800 antialiased font-sans">
+    <div className="workspace-ui flex h-dvh min-h-0 overflow-hidden bg-[#f8f9fc] text-slate-800 antialiased font-sans">
       {/* Sidebar điều hướng thông minh theo phân quyền (Quản trị vs Giáo viên & Gia sư) */}
       <Sidebar mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} onLogout={() => { void logoutAccount(); setMobileMenuOpen(false); }} />
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden">
         {/* Header với Breadcrumb, Switcher vai trò, Xóa & Reset dữ liệu */}
         <Header onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         {/* Scrollable Main Content */}
-        <main className="workspace-content flex-1 overflow-y-auto p-3 sm:p-4 min-w-0">
+        <main className="workspace-content relative flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-3 sm:p-4 min-w-0">
           {business.loading && <p role="status" className="mb-4 rounded-lg bg-blue-50 p-3 text-sm">Đang tải dữ liệu…</p>}
           {business.error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm">{business.error} <button className="underline" onClick={()=>void loadBusinessData()}>Tải lại dữ liệu</button></p>}
           {session.saving && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm">Đang lưu…</p>}

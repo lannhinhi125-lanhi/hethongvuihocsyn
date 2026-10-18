@@ -38,13 +38,14 @@ function ChangeValue({ current, previous, metric, datasetId }: { current: number
 
 
 export function ComparisonResults({ rows, metrics, totals, previousTotals, currentRange, previousRange, datasetId, temporal = false,
-  onSelect, onExport, canExport = false, chartRows = rows, onFilter, onClearSelection, selectedKey, chartType, onChartTypeChange, selectedMetricId, onMetricChange }: {
+  onSelect, onExport, canExport = false, chartRows = rows, onFilter, onClearSelection, selectedKey, chartType, onChartTypeChange, selectedMetricId, onMetricChange, groupLabel }: {
   rows: ComparisonRow[]; metrics: ReportMetric[]; totals: Record<string, number | null>; previousTotals: Record<string, number | null>;
   currentRange: ComparisonRange; previousRange: ComparisonRange; datasetId: string; temporal?: boolean;
   onSelect?: (key: string, period: 'current' | 'previous') => void; onExport?: (csv: string) => void; canExport?: boolean;
   chartRows?: ComparisonRow[]; onFilter?: (key: string) => void; onClearSelection?: () => void; selectedKey?: string;
   chartType?: ReportChartKind; onChartTypeChange?: (kind: ReportChartKind) => void;
   selectedMetricId?: string; onMetricChange?: (id: string) => void;
+  groupLabel?: string;
 }) {
   const [metricId, setMetricId] = useState('');
   const [search, setSearch] = useState('');
@@ -69,6 +70,7 @@ export function ComparisonResults({ rows, metrics, totals, previousTotals, curre
   };
   return <div className="space-y-4">
     <ReportChart title={`So sánh ${metric.label} giữa hai kỳ`} data={chartRows.map(row => ({ key: row.key, label: row.label, value: row.current[metric.id], previous: row.previous[metric.id] }))}
+      groupLabel={groupLabel} metricLabel={metric.label}
       comparison temporal={temporal} format={value => formatReportValue(value, metric)} onSelect={onFilter} onClearSelection={onClearSelection} selectedKey={selectedKey} kind={chartType} onKindChange={onChartTypeChange} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{metrics.map(item => <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs font-medium text-slate-500">{item.label}</p><p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{formatReportValue(totals[item.id], item)}</p><p className="mb-2 mt-1 text-xs text-slate-500">Kỳ đối chiếu: {formatReportValue(previousTotals[item.id], item)}</p><ChangeValue current={totals[item.id]} previous={previousTotals[item.id]} metric={item} datasetId={datasetId} /></div>)}</div>
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">

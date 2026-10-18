@@ -5,6 +5,14 @@ import { suggestReportTitle, prepareDocumentSection, buildReportDocument } from 
 import { selectionInPreviousPeriod, withMissingPeriod } from '../src/lib/reportComparison';
 const data = [{ key: '<bad"key>', label: '<img src=x onerror=alert(1)>', value: 2 }, { key: 'B', label: 'Nhóm B', value: 3 }, { key: 'missing', label: 'Thiếu', value: null }];
 const format = (value: number | null) => value === null ? '—' : String(value);
+const axes=renderReportPlot(data,'column',format,{title:'Học sinh',metricLabel:'Số học sinh',groupLabel:'Số môn đang học'});
+assert.ok(axes.includes('aria-label="Trục tung"'));
+assert.ok(axes.includes('>Số học sinh</text>'));
+assert.ok(axes.includes('>Số môn đang học</text>'));
+const horizontal=renderReportPlot(data,'bar',format,{title:'Học sinh',metricLabel:'Số học sinh',groupLabel:'Khối'});
+assert.match(horizontal,/aria-label="Trục tung"[^>]*>Khối<\/text>/);
+assert.match(horizontal,/aria-label="Trục hoành"[^>]*>Số học sinh<\/text>/);
+assert.ok(!renderReportPlot(data,'pie',format,{title:'Học sinh'}).includes('aria-label="Trục tung"'));
 for (const kind of Object.keys(reportChartNames) as Array<keyof typeof reportChartNames>) {
   const html = renderReportPlot(data, kind, format, { title: 'Biểu đồ', interactive: true, selectedKey: 'B' });
   assert.ok(!html.includes('NaN'));
@@ -13,6 +21,7 @@ for (const kind of Object.keys(reportChartNames) as Array<keyof typeof reportCha
   assert.ok(html.includes('tabindex="0"'));
   assert.ok(html.includes('data-report-key='));
   assert.ok(html.includes('aria-pressed="true"'));
+  assert.ok(!html.includes('aria-label="Chú giải biểu đồ"'));
   const printable = renderReportPlot(data, kind, format, { title: 'Bản in' });
   assert.ok(!printable.includes('data-report-key='));
 }

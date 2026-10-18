@@ -51,7 +51,7 @@ function chart(section: DocumentSection) {
   const additive = ['count', 'sum'].includes(metric.mode) && !dataset.nonAdditiveGroups?.includes(config.groupBy);
   const allowed = availableReportCharts(temporal, additive, rows, Boolean(previous));
   const kind = config.chartType && allowed.includes(config.chartType) ? config.chartType : 'column';
-  return `<figure><figcaption>${esc(metric.label)}${previous ? ' · Hiện tại (tím xanh) / Đối chiếu (cam)' : ''}</figcaption>${renderReportPlot(rows, kind, value => formatReportValue(value, metric), { title: metric.label, comparison: Boolean(previous), idPrefix: 'print-' + dataset.id })}<small>${rows.length}/${points.length} nhóm theo thứ tự đang chọn; bảng bên dưới có đầy đủ kết quả.</small></figure>`;
+  return `<figure><figcaption>${esc(metric.label)}${previous ? ' · Hiện tại (tím xanh) / Đối chiếu (cam)' : ''}</figcaption>${renderReportPlot(rows, kind, value => formatReportValue(value, metric), { title: metric.label, groupLabel: dataset.dimensions.find(field => field.id === config.groupBy)?.label || config.groupBy, comparison: Boolean(previous), idPrefix: 'print-' + dataset.id })}<small>${rows.length}/${points.length} nhóm theo thứ tự đang chọn; bảng bên dưới có đầy đủ kết quả.</small></figure>`;
 }
 
 export function buildReportDocument(sections: DocumentSection[], options: ReportDocumentOptions): string {

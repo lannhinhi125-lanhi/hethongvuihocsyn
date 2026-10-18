@@ -253,6 +253,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
         {result.invalidRange ? <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">Chọn đủ ngày bắt đầu và kết thúc, với ngày bắt đầu không sau ngày kết thúc.</div> : <>
           {compareActive && config.selection && <button type="button" onClick={() => patch({ selection: undefined })} className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">Đang lọc {groupName.toLocaleLowerCase('vi')}: {overview.rows.find(row => row.key === config.selection?.key)?.label || config.selection.key} · Bỏ lọc ×</button>}
           {compareActive && previousResult ? <ComparisonResults key={dataset.id + config.groupBy} datasetId={dataset.id} rows={comparedRows} metrics={result.metrics}
+            groupLabel={groupName}
             totals={result.totals} previousTotals={previousResult.totals} currentRange={currentRange} previousRange={previousRange}
             temporal={isTimeGroup} canExport={can('Xuất kết quả báo cáo CSV')} onExport={exportComparison}
             onClearSelection={() => patch({ selection: undefined })} chartRows={overviewComparedRows} chartType={config.chartType} onChartTypeChange={chartType => patch({ chartType })}
@@ -265,6 +266,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
             onSelect={(key, period) => { setDetailPeriod(period); setDetailKey(key); }} /> : <>
           <div className="flex flex-wrap items-center justify-between gap-2">{config.selection ? <button type="button" onClick={() => patch({ selection: undefined })} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700">Đang lọc {groupName.toLocaleLowerCase('vi')}: {overview.rows.find(row => row.key === config.selection?.key)?.label || config.selection.key} · Bỏ lọc ×</button> : <span />}{result.metrics.length > 1 && <ReportSelect aria-label="Chỉ số trên biểu đồ" value={chartMetric?.id || ''} onChange={event => { setChartMetricId(event.target.value); patch({ chartMetricId: event.target.value }); }} className={control + ' w-auto'}>{result.metrics.map(metric => <option key={metric.id} value={metric.id}>{metric.label}</option>)}</ReportSelect>}</div>
           <ReportChart title={chartMetric?.label || dataset.label} data={chartRows.map(row => ({ key: row.key, label: row.label, value: chartMetric ? row.values[chartMetric.id] : null }))}
+            groupLabel={groupName}
             temporal={isTimeGroup} additive={Boolean(chartMetric && ['count', 'sum'].includes(chartMetric.mode) && !dataset.nonAdditiveGroups?.includes(config.groupBy))}
             kind={config.chartType} onKindChange={chartType => patch({ chartType })} selectedKey={config.selection?.key}
             format={value => chartMetric ? formatReportValue(value, chartMetric) : '—'} onSelect={selectChartGroup} onClearSelection={() => patch({ selection: undefined })} />
