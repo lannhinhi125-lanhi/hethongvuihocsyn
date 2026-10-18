@@ -9,14 +9,19 @@ export interface ReportLesson {
   primaryTeacherId?: string;
   coverTeacherId?: string | null;
   startsAt?: string;
+  endsAt?: string;
+  timeSlotId?: string;
   checkinAt?: string | null;
 }
 
 export interface ReportIncident {
+  id?: string;
   lessonId: string;
   incidentName?: string;
   urgency?: string | null;
   reportedAt?: string | null;
+  status?: string | null;
+  categoryId?: string | null;
 }
 
 export function incidentReportPeriods(

@@ -1,3 +1,4 @@
+import type { ComparisonSettings } from './reportComparison';
 export type ReportDatePreset = 'month' | 'previous_month' | 'last_30_days' | 'all' | 'custom';
 export type ReportFormat = 'number' | 'percent' | 'score';
 export interface ReportMetric {
@@ -5,16 +6,21 @@ export interface ReportMetric {
   field?: string; denominator?: string; format?: ReportFormat;
 }
 export type ReportRecord = Record<string, string | number | undefined>;
-export interface ReportDimension { id: string; label: string }
+export interface ReportDimension { id: string; label: string; options?: string[] }
 export interface ReportDataset {
   id: string; label: string; dateKind: 'event' | 'period' | 'snapshot'; note?: string;
   records: ReportRecord[]; metrics: ReportMetric[]; defaultMetricIds: string[];
   dimensions: ReportDimension[]; filters: ReportDimension[]; detailFields: ReportDimension[];
+  filterRecords?: (records: ReportRecord[], filters: Record<string, string>) => ReportRecord[];
+  groupRecords?: (records: ReportRecord[], groupBy: string, filters: Record<string, string>) => Map<string, ReportRecord[]> | null;
+  prepareRange?: (range: { start: string; end: string }) => ReportDataset;
+  nonAdditiveGroups?: string[];
 }
 export interface CustomReportConfig {
   datasetId: string; metricIds: string[]; groupBy: string;
   datePreset: ReportDatePreset; from: string; to: string;
   filters: Record<string, string>; sort: 'value_desc' | 'label_asc' | 'label_desc';
+  comparison?: ComparisonSettings;
 }
 export interface ReportGroup { key: string; label: string; records: ReportRecord[]; values: Record<string, number | null> }
 export interface SavedReportTemplate { id: string; name: string; config: CustomReportConfig }
@@ -70,6 +76,12 @@ export function normalizeReportConfig(value: unknown, datasets: ReportDataset[])
     from: typeof raw.from === 'string' && validReportDate(raw.from) ? raw.from : '',
     to: typeof raw.to === 'string' && validReportDate(raw.to) ? raw.to : '',
     filters,
+    ...(raw.comparison && typeof raw.comparison === 'object' ? { comparison: {
+      enabled: raw.comparison.enabled === true,
+      mode: (['previous', 'year', 'custom'].includes(raw.comparison.mode) ? raw.comparison.mode : 'previous') as ComparisonSettings['mode'],
+      start: typeof raw.comparison.start === 'string' && validReportDate(raw.comparison.start) ? raw.comparison.start : '',
+      end: typeof raw.comparison.end === 'string' && validReportDate(raw.comparison.end) ? raw.comparison.end : ''
+    } } : {}),
     sort: ['value_desc', 'label_asc', 'label_desc'].includes(raw.sort || '') ? raw.sort! : fallback.sort
   };
 }
@@ -119,24 +131,29 @@ function groupLabel(key: string, groupBy: string): string {
   }
   return key;
 }
-export function buildCustomReport(dataset: ReportDataset, config: CustomReportConfig, now = new Date()) {
+export interface ReportResult { rows: ReportGroup[]; records: ReportRecord[]; metrics: ReportMetric[]; totals: Record<string, number | null>; range: { from: string; to: string }; invalidRange: boolean }
+export function buildCustomReport(dataset: ReportDataset, config: CustomReportConfig, now = new Date()): ReportResult {
   const range = reportRange(config, now);
   const invalidRange = dataset.dateKind !== 'snapshot' && (
     (config.datePreset === 'custom' && (!validReportDate(range.from) || !validReportDate(range.to))) ||
     Boolean(range.from && range.to && range.from > range.to)
   );
+  if (dataset.prepareRange && !invalidRange) return buildCustomReport(dataset.prepareRange({ start: range.from, end: range.to }), config, now);
   const metrics = config.metricIds.map(id => dataset.metrics.find(metric => metric.id === id)).filter((metric): metric is ReportMetric => Boolean(metric));
-  const records = invalidRange ? [] : dataset.records.filter(record => {
+  const datedRecords = invalidRange ? [] : dataset.records.filter(record => {
     if (dataset.dateKind !== 'snapshot' && (range.from || range.to)) {
       const start = String(record.date || '');
       const end = dataset.dateKind === 'period' ? String(record.dateTo || start) : start;
       if (!validReportDate(start) || !validReportDate(end)) return false;
       if (range.from && end < range.from || range.to && start > range.to) return false;
     }
-    return dataset.filters.every(field => !config.filters[field.id] || String(record[field.id] ?? '') === config.filters[field.id]);
+    return true;
   });
-  const groups = new Map<string, ReportRecord[]>();
-  records.forEach(record => {
+  const records = dataset.filterRecords ? dataset.filterRecords(datedRecords, config.filters) : datedRecords.filter(record =>
+    dataset.filters.every(field => !config.filters[field.id] || String(record[field.id] ?? '') === config.filters[field.id]));
+  const customGroups = dataset.groupRecords?.(records, config.groupBy, config.filters);
+  const groups = customGroups || new Map<string, ReportRecord[]>();
+  if (!customGroups) records.forEach(record => {
     const key = groupKey(record, config.groupBy);
     groups.set(key, [...(groups.get(key) || []), record]);
   });

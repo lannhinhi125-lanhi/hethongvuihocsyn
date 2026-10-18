@@ -1,0 +1,99 @@
+import type { ClassItem, StudentRecord, TeacherProfile } from '../types';
+import { makeReportDatasets } from './reportDatasets';
+import { operationalReportDatasets, type ReportLookups } from './operationalReportDatasets';
+import { reportCreationDate } from './reportCreationDate';
+import { studentProfileRows, studentRegistrationRows, studentRegistrations } from './studentRegistrations';
+import { classifyClassGrowth, classGrowthLabels } from './classGrowth';
+import { inspectionReportRows, type InspectionEvaluation } from './inspectionReport';
+import type { ReportIncident, ReportLesson } from './incidentReportPeriods';
+import type { ReportDataset, ReportRecord } from './customReports';
+
+const unknown = 'Chưa xác định';
+const multiGroups = (records: ReportRecord[], groupBy: string, values: (record: ReportRecord) => string[]) => {
+  const groups = new Map<string, ReportRecord[]>();
+  records.forEach(record => [...new Set(values(record))].forEach(key => groups.set(key, [...(groups.get(key) || []), record])));
+  return groups;
+};
+export function allReportDatasets({ classes, students, teachers, lessons, incidents, evaluations, lookups }: {
+  classes: ClassItem[]; students: StudentRecord[]; teachers: TeacherProfile[]; lessons: ReportLesson[];
+  incidents: ReportIncident[]; evaluations: InspectionEvaluation[]; lookups: ReportLookups;
+}) {
+  const subject = (code?: string) => lookups.subjects?.find(row => row.code === code)?.name || code || unknown;
+  const model = (code?: string) => lookups.models?.find(row => row.code === code)?.name || code || unknown;
+  const mappedClasses = classes.map(row => ({ code: row.code, name: row.name, date: reportCreationDate(row.created_at), subject: subject(row.subject), grade: row.grade || unknown,
+    model: model(row.model), students: `${row.studentIds.length} / ${row.maxStudents}`, status: row.studentIds.length >= row.maxStudents ? 'Đã đủ sĩ số' : 'Còn chỗ' }));
+  const profiles = studentProfileRows(students);
+  const registrationRows = studentRegistrationRows(students).map(row => ({ id: row.id, registrationKey: row.registrationKey, name: row.name,
+    date: reportCreationDate(row.created_at), subject: subject(row.subject), grade: row.grade || unknown, model: model(row.model), status: row.status || unknown }));
+  const basics = makeReportDatasets({ classes: mappedClasses,
+    students: profiles.map(row => ({ id: row.id, name: row.name, date: reportCreationDate(row.created_at), grade: row.grade || unknown,
+      subject: [...new Set(studentRegistrations(row).map(reg => subject(reg.subject)))].join(', '),
+      model: [...new Set(studentRegistrations(row).map(reg => model(reg.model)))].join(', '),
+      status: [...new Set(studentRegistrations(row).map(reg => reg.status))].join(', ') })), registrations: registrationRows,
+    teachers: teachers.map(row => ({ id: row.id, name: row.name, date: reportCreationDate(row.created_at), subject: subject(row.subject), grades: row.grades.join(', ') || unknown,
+      status: row.statusLabel || row.status || unknown, assigned: 0 })), incidents: [], inspections: []
+  }).filter(dataset => !['incidents', 'inspection'].includes(dataset.id)).map(dataset => ({ ...dataset,
+    metrics: dataset.metrics.map(metric => ({ ...metric })), dimensions: dataset.dimensions.map(item => ({ ...item })),
+    filters: dataset.filters.map(item => ({ ...item })), detailFields: dataset.detailFields.map(item => ({ ...item })) }));
+  const studentsById = new Map(students.map(row => [row.id, row]));
+  const classesByCode = new Map(classes.map(row => [row.code, row]));
+  const classesDataset = basics.find(dataset => dataset.id === 'classes')!;
+  const growthField = { id: 'growthKind', label: 'Phân loại tăng trưởng', options: Object.values(classGrowthLabels) };
+  classesDataset.metrics.push({ id: 'growth', label: 'Lớp mới tăng trưởng', mode: 'sum', field: 'growth' });
+  classesDataset.defaultMetricIds = ['count', 'growth', 'available'];
+  classesDataset.dimensions.push(growthField);
+  classesDataset.filters.push(growthField);
+  classesDataset.detailFields.push(growthField, { id: 'newStudents', label: 'Học sinh mới trong kỳ' }, { id: 'oldStudents', label: 'Học sinh cũ / chuyển lớp' }, { id: 'unknownStudents', label: 'Học sinh chưa đủ dữ liệu' });
+  classesDataset.note += ' Phân loại tăng trưởng dùng lịch sử ghép/chuyển lớp trong kỳ; thiếu lịch sử thì ghi chưa đủ dữ liệu. Chọn một kỳ cụ thể để phân loại học sinh mới/cũ.';
+  classesDataset.prepareRange = range => ({ ...classesDataset, prepareRange: undefined, records: classesDataset.records.map(record => {
+    const cls = classesByCode.get(String(record.id));
+    const growth = cls ? classifyClassGrowth(cls.studentIds, studentsById, range, cls.id, cls.subject) : null;
+    return { ...record, growthKind: growth?.label || classGrowthLabels.UNKNOWN, growth: growth?.kind === 'NEW' ? 1 : 0,
+      newStudents: growth?.newStudents, oldStudents: growth?.oldStudents, unknownStudents: growth?.unknownStudents };
+  }) });
+
+  const profileDataset = basics.find(dataset => dataset.id === 'students')!;
+  profileDataset.records = profileDataset.records.map(record => {
+    const student = profiles.find(row => row.id === record.id)!;
+    return { ...record, __registrations: JSON.stringify(studentRegistrations(student).map(reg => ({ subject: subject(reg.subject), model: model(reg.model), status: reg.status || unknown }))) };
+  });
+  const regs = (record: ReportRecord): Array<Record<string, string>> => JSON.parse(String(record.__registrations || '[]'));
+  ['subject', 'model', 'status'].forEach(id => {
+    const item = profileDataset.filters.find(field => field.id === id)!;
+    item.options = [...new Set(profileDataset.records.flatMap(record => regs(record).map(reg => reg[id])))].sort();
+  });
+  profileDataset.filterRecords = (records, filters) => records.flatMap(record => {
+    if (filters.grade && record.grade !== filters.grade) return [];
+    const selected = regs(record).filter(reg => ['subject', 'model', 'status'].every(id => !filters[id] || reg[id] === filters[id]));
+    if (!selected.length && ['subject', 'model', 'status'].some(id => filters[id])) return [];
+    return [{ ...record, __registrations: JSON.stringify(selected), ...Object.fromEntries(['subject', 'model', 'status'].map(id => [id, [...new Set(selected.map(reg => reg[id]))].join(', ') || unknown])) }];
+  });
+  profileDataset.groupRecords = (records, groupBy) => ['subject', 'model', 'status'].includes(groupBy)
+    ? multiGroups(records, groupBy, record => regs(record).length ? regs(record).map(reg => reg[groupBy]) : [unknown]) : null;
+  profileDataset.nonAdditiveGroups = ['subject', 'model', 'status'];
+  profileDataset.note += ' Khi lọc môn, mô hình và trạng thái, các điều kiện phải cùng một đăng ký. Một hồ sơ có thể xuất hiện ở nhiều nhóm môn nhưng tổng vẫn đếm một người.';
+
+  const teacherDataset = basics.find(dataset => dataset.id === 'teachers')!;
+  const teacherGrades = new Map(teachers.map(row => [row.id, row.grades.length ? row.grades : [unknown]]));
+  teacherDataset.filters.find(field => field.id === 'grade')!.options = [...new Set([...teacherGrades.values()].flat())].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+  teacherDataset.filterRecords = (records, filters) => records.filter(record => (!filters.grade || teacherGrades.get(String(record.id))?.includes(filters.grade))
+    && ['subject', 'status'].every(id => !filters[id] || record[id] === filters[id]));
+  teacherDataset.groupRecords = (records, groupBy) => groupBy === 'grade' ? multiGroups(records, groupBy, record => teacherGrades.get(String(record.id)) || [unknown]) : null;
+  teacherDataset.nonAdditiveGroups = ['grade'];
+  teacherDataset.note += ' Một giáo viên phụ trách nhiều khối có thể có mặt ở nhiều nhóm; tổng hồ sơ không cộng trùng.';
+
+  const operational = operationalReportDatasets(lessons, incidents, evaluations, teachers.map(row => ({ id: row.id, name: row.name, subject: row.subject })), classes, lookups);
+  const teacherInspection: ReportDataset = {
+    id: 'inspection_teachers', label: 'Giáo viên & xếp hạng dự giờ', dateKind: 'event',
+    note: 'Chỉ tính biên bản đã duyệt theo ngày dự giờ. Mỗi giáo viên một dòng, điểm và xếp hạng tính lại trong kỳ. Điểm tổng hợp là trung bình theo giáo viên, khác trung bình theo biên bản.',
+    records: [], metrics: [{ id: 'count', label: 'Giáo viên được dự giờ', mode: 'count' }, { id: 'score', label: 'Điểm trung bình giáo viên', mode: 'average', field: 'score', format: 'score' },
+      { id: 'sessions', label: 'Biên bản đã duyệt', mode: 'sum', field: 'sessions' }], defaultMetricIds: ['count', 'score', 'sessions'],
+    dimensions: [{ id: 'rank', label: 'Xếp hạng giáo viên' }, { id: 'subject', label: 'Môn học' }], filters: [{ id: 'subject', label: 'Môn học' }, { id: 'rank', label: 'Xếp hạng giáo viên', options: ['Hạng A', 'Hạng B', 'Hạng C', 'Hạng D'] }],
+    detailFields: [{ id: 'id', label: 'Mã giáo viên' }, { id: 'name', label: 'Giáo viên' }, { id: 'subject', label: 'Môn học' }, { id: 'rank', label: 'Xếp hạng' }, { id: 'score', label: 'Điểm trung bình' }, { id: 'sessions', label: 'Biên bản đã duyệt' }]
+  };
+  teacherInspection.prepareRange = range => ({ ...teacherInspection, prepareRange: undefined, dateKind: 'snapshot',
+    records: inspectionReportRows(teachers.map(row => ({ ...row, evaluationReports: undefined })), evaluations.filter(row => row.status === 'DA_DUYET'), lessons, range)
+      .map(row => ({ id: row.id, name: row.name, subject: subject(row.subjectCode), rank: row.rank, score: row.avg, sessions: row.total })) });
+  teacherInspection.records = teacherInspection.prepareRange({ start: '', end: '' }).records;
+  return { custom: [...basics, ...operational], detail: [...basics, ...operational, teacherInspection] };
+}

@@ -51,6 +51,8 @@ interface AppContextType {
   setCurrentUser: (user: UserAccount) => void;
   activeModule: number; // 1 -> 8 cho Admin
   setActiveModule: (mod: number) => void;
+  reportSection: 'detail' | 'custom';
+  setReportSection: React.Dispatch<React.SetStateAction<'detail' | 'custom'>>;
   workspaceMode: WorkspaceMode;
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   teacherPortalTab: 'schedule' | 'availability' | 'payroll' | 'evaluation' | 'reconcile';
@@ -139,6 +141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Không đọc cache hoặc tự sinh dữ liệu mẫu. Dữ liệu mẫu chỉ nằm trong SQL.
   const [currentUser, setCurrentUser] = useState<UserAccount>(PORTAL_PREVIEW_MODE ? PREVIEW_ACCOUNT : EMPTY_USER);
   const [activeModule, setActiveModule] = useState<number>(0);
+  const [reportSection, setReportSection] = useState<'detail' | 'custom'>('detail');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('ADMIN');
   const [teacherPortalTab, setTeacherPortalTab] = useState<'schedule' | 'availability' | 'payroll' | 'evaluation' | 'reconcile'>('availability');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -698,6 +701,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser,
         activeModule,
         setActiveModule,
+        reportSection,
+        setReportSection,
         workspaceMode,
         setWorkspaceMode,
         teacherPortalTab,

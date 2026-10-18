@@ -6,6 +6,8 @@ export interface InspectionTeacher {
 }
 
 export interface InspectionEvaluation {
+  id?: string;
+  lessonId?: string;
   status?: string;
   teacherId?: string;
   evaluationDate?: string;

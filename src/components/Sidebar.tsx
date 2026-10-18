@@ -26,7 +26,8 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
-  const { canModule } = usePermissions();
+  const { canModule, can } = usePermissions();
+  const [reportsOpen, setReportsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 30_000);
@@ -36,6 +37,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
   const {
     activeModule,
     setActiveModule,
+    reportSection,
+    setReportSection,
     currentUser,
     users,
     teachers,
@@ -46,6 +49,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
     setTeacherPortalTab,
     showToast
   } = useApp();
+  useEffect(() => { if (activeModule === 8) setReportsOpen(true); }, [activeModule]);
+  const reportItems = [
+    { id: 'detail' as const, label: 'Báo cáo chi tiết', allowed: can('Xem báo cáo giáo viên, học sinh và lớp học') || can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') },
+    { id: 'custom' as const, label: 'Báo cáo tùy chỉnh', allowed: can('Công cụ tạo báo cáo tùy biến (Dynamic Report)') }
+  ].filter(item => item.allowed);
 
   // Menu Quản trị chuẩn theo mẫu hệ thống (có đối soát công, không có thù lao)
   const adminNavItems = [
@@ -154,6 +162,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                     {items.map(item => {
                       const isActive = activeModule === item.id;
                       const Icon = item.icon;
+                      if (item.id === 8) return <div key={item.id}>
+                        <button type="button" aria-expanded={reportsOpen} aria-controls="report-sidebar-menu" onClick={() => {
+                          setReportsOpen(activeModule === 8 ? !reportsOpen : true);
+                          if (activeModule !== 8) { if (!reportItems.some(entry => entry.id === reportSection)) setReportSection(reportItems[0]?.id || 'detail'); setActiveModule(8); }
+                        }} className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs ${isActive ? 'bg-[#FF5C00] font-semibold text-white' : 'text-[#A9BDE2] hover:bg-white/5'}`}>
+                          <Icon className="h-4 w-4 shrink-0" /><span className="flex-1 leading-5">{item.label}</span><ChevronRight className={`h-4 w-4 transition-transform ${reportsOpen ? 'rotate-90' : ''}`} />
+                        </button>
+                        {reportsOpen && <div id="report-sidebar-menu" className="ml-5 mt-1 space-y-1 border-l border-white/15 pl-3">{reportItems.map(entry => <button key={entry.id} type="button" aria-current={isActive && reportSection === entry.id ? 'page' : undefined} onClick={() => { setReportSection(entry.id); handleAdminNavClick(8); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs ${isActive && reportSection === entry.id ? 'bg-white/10 font-semibold text-orange-300' : 'text-[#A9BDE2] hover:bg-white/5 hover:text-white'}`}>{entry.label}</button>)}</div>}
+                      </div>;
                       return <button type="button" key={item.id} aria-current={isActive ? 'page' : undefined} title={item.label}
                         onClick={() => handleAdminNavClick(item.id)}
                         className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${isActive ? 'bg-[#FF5C00] text-white font-semibold shadow-sm' : 'text-[#A9BDE2] hover:bg-white/5 hover:text-white'}`}>
