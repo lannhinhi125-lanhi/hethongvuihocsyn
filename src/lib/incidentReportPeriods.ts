@@ -2,6 +2,7 @@ import { reportCreationDate } from './reportCreationDate';
 
 export interface ReportLesson {
   id: string;
+  displayCode?: string;
   date: string;
   classId?: string;
   status?: string;

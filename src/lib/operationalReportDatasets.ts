@@ -13,7 +13,7 @@ export function operationalReportDatasets(lessons:ReportLesson[],incidents:Repor
     note:'Lọc theo ngày học. Mỗi buổi là một bản ghi; nhiều sự cố trong cùng buổi chỉ tính một buổi có sự cố. Có thể mở từng nhóm để đối chiếu mã buổi.',
     records:lessons.map(lesson=>{
       const events=incidentsByLesson.get(lesson.id)||[],urgent=events.some(event=>event.urgency==='EMERGENCY');
-      return {id:lesson.id,date:lesson.date,period:lesson.date.slice(0,7),name:classes.find(c=>c.id===lesson.classId)?.name||lesson.classId,
+      return {id:lesson.id,code:lesson.displayCode||'Chưa cấp mã',date:lesson.date,period:lesson.date.slice(0,7),name:classes.find(c=>c.id===lesson.classId)?.name||lesson.classId,
         total:1,incidents:events.length?1:0,urgent:urgent?1:0,notice:events.length&&!urgent?1:0,
         cause:[...new Set(events.map(e=>e.incidentName).filter(Boolean))].sort().join('; ')||'Chưa ghi nhận sự cố'};
     }),
@@ -23,7 +23,7 @@ export function operationalReportDatasets(lessons:ReportLesson[],incidents:Repor
       {id:'urgent',label:'Buổi có sự cố khẩn cấp',mode:'sum',field:'urgent'},
       {id:'notice',label:'Buổi có sự cố không khẩn cấp',mode:'sum',field:'notice'}],
     defaultMetricIds:['incidents','rate'],dimensions:[{id:'period',label:'Tháng'},{id:'cause',label:'Sự cố ghi nhận'},{id:'day',label:'Ngày'},{id:'week',label:'Tuần'}],
-    filters:[{id:'cause',label:'Sự cố ghi nhận'}],detailFields:[{id:'id',label:'Mã buổi'},{id:'name',label:'Lớp học'},{id:'date',label:'Ngày học'},{id:'incidents',label:'Có sự cố (1/0)'},{id:'cause',label:'Sự cố ghi nhận'}]
+    filters:[{id:'cause',label:'Sự cố ghi nhận'}],detailFields:[{id:'code',label:'Mã buổi'},{id:'name',label:'Lớp học'},{id:'date',label:'Ngày học'},{id:'incidents',label:'Có sự cố (1/0)'},{id:'cause',label:'Sự cố ghi nhận'}]
   },{
     id:'inspection',label:'Biên bản dự giờ đã duyệt',dateKind:'event',
     note:'Lọc theo ngày dự giờ trên từng biên bản đã duyệt. Điểm trung bình tính theo biên bản; số giáo viên đếm theo mã và không cộng trùng.',

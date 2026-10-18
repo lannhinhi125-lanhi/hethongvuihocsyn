@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {fromSupabaseRow,toSupabaseRow} from '../src/lib/supabaseMapper';
+import {operationalReportDatasets} from '../src/lib/operationalReportDatasets';
+const id='2d363823-14bc-4e33-9eb4-12498bc096dd';
+const row=fromSupabaseRow('dated_lessons',{madinhdanh:id,mabuoihienthi:'BH-000123',ngayhoc:'2026-10-18'});
+assert.equal(row.id,id);
+assert.equal(row.displayCode,'BH-000123');
+assert.deepEqual(toSupabaseRow('dated_lessons',row),{madinhdanh:id,ngayhoc:'2026-10-18'},'server-generated code never enters save payloads');
+const [report]=operationalReportDatasets([{id,displayCode:'BH-000123',date:'2026-10-18'}],[],[],[],[]);
+assert.equal(report.records[0].id,id,'internal report identity stays unchanged');
+assert.equal(report.records[0].code,'BH-000123');
+assert.ok(report.detailFields.some(field=>field.id==='code'));
+assert.ok(!report.detailFields.some(field=>field.id==='id'),'reports display the code rather than UUID');
+console.log('PASS: lesson codes map from Supabase, stay read-only, and display in reports without changing IDs');

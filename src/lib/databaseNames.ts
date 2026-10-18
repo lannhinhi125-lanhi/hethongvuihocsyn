@@ -319,6 +319,7 @@ export const DATABASE_NAMES = {
   "dated_lessons": {
     "table": "BUOI_HOC",
     "columns": {
+      "displayCode": "mabuoihienthi",
       "id": "madinhdanh",
       "classId": "malop",
       "date": "ngayhoc",
@@ -708,6 +709,7 @@ export const APP_DATABASE_FIELDS = {
     "updated_at": "ngaycapnhat"
   },
   "dated_lessons": {
+    "displayCode": "mabuoihienthi",
     "id": "madinhdanh",
     "classId": "malop",
     "date": "ngayhoc",

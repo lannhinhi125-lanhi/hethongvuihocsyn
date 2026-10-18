@@ -13,7 +13,7 @@ export function storedMonitoringSession(base:MonitoringSession,lessons:Row[],inc
  const cls=classes.find(c=>c.code===base.classCode),slot=slots.find(s=>s.timeRange===base.timeSlot);
  const lesson=lessons.find(l=>l.classId===cls?.id&&l.date===base.sessionDate&&l.timeSlotId===slot?.id);if(!lesson)return base;
  const incident=incidents.find(i=>i.lessonId===lesson.id);
- return {...base,checkinTime:lesson.checkinAt?new Date(lesson.checkinAt).toLocaleTimeString('en-GB',{timeZone:'Asia/Bangkok'}):base.checkinTime,attendance:lesson.teacherAttendance||base.attendance||'ABSENT',
+ return {...base,displayCode:lesson.displayCode,checkinTime:lesson.checkinAt?new Date(lesson.checkinAt).toLocaleTimeString('en-GB',{timeZone:'Asia/Bangkok'}):base.checkinTime,attendance:lesson.teacherAttendance||base.attendance||'ABSENT',
  checkinAt:lesson.checkinAt||base.checkinAt||null,checkoutAt:lesson.checkoutAt||base.checkoutAt||null,
  hasPersistedStatus:true,feedbackProgress:lesson.feedbackProgress,
  status:['HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status)?'DA_HOC':['HUY','NGHI_HOC'].includes(lesson.status)?'NGHI_HOC':lesson.status as MonitoringSessionState,

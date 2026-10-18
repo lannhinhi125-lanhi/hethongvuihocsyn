@@ -1,3 +1,4 @@
+import {useLessonCode} from '../hooks/useLessonCode';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -26,6 +27,7 @@ import { visibleTeacherWork, canDisputeTeacherWork } from '../lib/teacherWorkRec
 import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
 export const TeacherWorkReconciliationView: React.FC = () => {
+  const lessonCode=useLessonCode();
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const { can, requirePermission } = usePermissions();
@@ -118,7 +120,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       myRecord.teacherId,
       `"${myRecord.teacherName}"`,
       myRecord.staffRole === 'GIA_SU' ? 'Gia sư' : 'Giáo viên',
-      s.id,
+      lessonCode(s.lessonId||s.id),
       s.dateStr,
       s.dayOfWeek,
       `"${s.time}"`,
@@ -406,7 +408,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             <PaginatedTableBody className="divide-y divide-slate-100">
               {completedSessions.map(session => (
                 <tr key={session.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-slate-700">{session.id}</td>
+                  <td className="py-3 px-4 font-mono font-bold text-slate-700">{lessonCode(session.lessonId||session.id)}</td>
                   <td className="py-3 px-4">
                     <div className="font-semibold text-slate-800">{session.dateStr}</div>
                     <div className="text-[11px] text-slate-400">{session.dayOfWeek}</div>
@@ -476,7 +478,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800">Ca {d.sessionId}</span>
+                    <span className="font-bold text-slate-800">Ca {lessonCode(d.sessionId)}</span>
                     <span className="text-slate-500">• {d.sessionTime}</span>
                   </div>
                   <div>
@@ -541,7 +543,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                   <option value="">-- Chọn ca học --</option>
                   {completedSessions.filter(canDisputeSession).map(s => (
                     <option key={s.id} value={s.id}>
-                      {s.id} - {s.dateStr} ({s.time}) - {s.className} ({s.creditCoeff} công)
+                      {lessonCode(s.lessonId||s.id)} - {s.dateStr} ({s.time}) - {s.className} ({s.creditCoeff} công)
                     </option>
                   ))}
                 </select>
@@ -661,7 +663,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                     <tr key={s.id}>
                       <td className="p-2 text-slate-500">{idx + 1}</td>
                       <td className="p-2">{s.dateStr}</td>
-                      <td className="p-2 font-mono font-medium">{s.id}</td>
+                      <td className="p-2 font-mono font-medium">{lessonCode(s.lessonId||s.id)}</td>
                       <td className="p-2 font-mono">{s.classCode}</td>
                       <td className="p-2">{s.statusText}</td>
                       <td className="p-2 text-right font-bold text-emerald-600">{s.creditCoeff}</td>

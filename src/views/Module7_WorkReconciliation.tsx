@@ -1,3 +1,4 @@
+import {useLessonCode} from '../hooks/useLessonCode';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
@@ -55,6 +56,7 @@ const getSessionStudentNames = (session: SessionPayrollRecord) =>
   session.studentNames?.length ? session.studentNames.join(', ') : session.studentName;
 
 export const Module7_WorkReconciliation: React.FC = () => {
+  const lessonCode=useLessonCode();
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
@@ -244,7 +246,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       const sessionDate = item.session.date;
       if (staffIdFilter && !item.teacherId.toLocaleLowerCase('vi').includes(staffIdFilter.trim().toLocaleLowerCase('vi'))) return false;
       if (staffNameFilter && !item.teacherName.toLocaleLowerCase('vi').includes(staffNameFilter.trim().toLocaleLowerCase('vi'))) return false;
-      if (sessionIdFilter && !item.session.id.toLocaleLowerCase('vi').includes(sessionIdFilter.trim().toLocaleLowerCase('vi'))) return false;
+      if (sessionIdFilter && !`${item.session.id} ${lessonCode(item.session.lessonId||item.session.id)}`.toLocaleLowerCase('vi').includes(sessionIdFilter.trim().toLocaleLowerCase('vi'))) return false;
       if (sessionDateFrom && sessionDate < sessionDateFrom) return false;
       if (sessionDateTo && sessionDate > sessionDateTo) return false;
       if (sessionTimeFilter && !`${item.session.dayOfWeek} ${item.session.time}`.toLocaleLowerCase('vi').includes(sessionTimeFilter.trim().toLocaleLowerCase('vi'))) return false;
@@ -269,7 +271,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
         const matchStaff = `${item.teacherName} ${item.teacherId}`.toLowerCase().includes(term);
         const matchClass = item.session.classCode.toLowerCase().includes(term);
         const matchStudent = getSessionStudentNames(item.session).toLowerCase().includes(term);
-        const matchId = item.session.id.toLowerCase().includes(term);
+        const matchId = `${item.session.id} ${lessonCode(item.session.lessonId||item.session.id)}`.toLowerCase().includes(term);
         return matchStaff || matchClass || matchStudent || matchId;
       }
       return true;
@@ -278,23 +280,23 @@ export const Module7_WorkReconciliation: React.FC = () => {
     allSessionsWithStaff, staffTypeFilter, subjectFilter, staffIdFilter, staffNameFilter, sessionIdFilter,
     sessionDateFrom, sessionDateTo, sessionTimeFilter, sessionClassFilter, sessionStudentFilter, sessionModelFilter,
     sessionCheckinFilter, sessionCheckoutFilter, sessionClassificationFilter, sessionReconcileFilter, sessionNoteFilter,
-    sessionRanges, searchTerm
+    sessionRanges, searchTerm, lessonCode
   ]);
 
   const filteredDisputes = useMemo(() => (monthData.disputes || []).filter(dispute => {
     if (staffTypeFilter !== 'ALL' && dispute.staffRole !== staffTypeFilter) return false;
     if (subjectFilter !== 'ALL' && dispute.subject !== subjectFilter) return false;
-    if (searchTerm.trim() && ![dispute.id, dispute.teacherName, dispute.sessionId, dispute.classCode, dispute.incidentType, dispute.content, dispute.adminNote].filter(Boolean).join(' ').toLowerCase().includes(searchTerm.trim().toLowerCase())) return false;
+    if (searchTerm.trim() && ![dispute.id, dispute.teacherName, dispute.sessionId, lessonCode(dispute.sessionId),dispute.classCode, dispute.incidentType, dispute.content, dispute.adminNote].filter(Boolean).join(' ').toLowerCase().includes(searchTerm.trim().toLowerCase())) return false;
     if (disputeIdFilter && !dispute.id.toLocaleLowerCase('vi').includes(disputeIdFilter.trim().toLocaleLowerCase('vi'))) return false;
     if (disputeStatusFilter !== 'ALL' && dispute.status !== disputeStatusFilter) return false;
     if (disputeTypeFilter && !dispute.incidentType.toLocaleLowerCase('vi').includes(disputeTypeFilter.trim().toLocaleLowerCase('vi'))) return false;
-    if (disputeSessionFilter && !`${dispute.sessionId || ''} ${dispute.classCode || ''} ${dispute.teacherName || ''}`.toLocaleLowerCase('vi').includes(disputeSessionFilter.trim().toLocaleLowerCase('vi'))) return false;
+    if (disputeSessionFilter && !`${dispute.sessionId || ''} ${lessonCode(dispute.sessionId)} ${dispute.classCode || ''} ${dispute.teacherName || ''}`.toLocaleLowerCase('vi').includes(disputeSessionFilter.trim().toLocaleLowerCase('vi'))) return false;
     if (disputeContentFilter && !dispute.content.toLocaleLowerCase('vi').includes(disputeContentFilter.trim().toLocaleLowerCase('vi'))) return false;
     if (disputeAdminNoteFilter && !(dispute.adminNote || '').toLocaleLowerCase('vi').includes(disputeAdminNoteFilter.trim().toLocaleLowerCase('vi'))) return false;
     return true;
   }).sort((left, right) => Number(right.status === 'CHO_DUYET') - Number(left.status === 'CHO_DUYET')), [
     monthData.disputes, staffTypeFilter, subjectFilter, disputeIdFilter, disputeStatusFilter,
-    disputeTypeFilter, disputeSessionFilter, disputeContentFilter, disputeAdminNoteFilter, searchTerm
+    disputeTypeFilter, disputeSessionFilter, disputeContentFilter, disputeAdminNoteFilter, searchTerm, lessonCode
   ]);
 
   const detailTeacher = monthData.teachers.find(teacher => teacher.teacherId === detailTeacherId);
@@ -431,7 +433,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       `"${item.teacherName}"`,
       item.staffRole === 'GIA_SU' ? 'Gia sư' : 'Giáo viên',
       item.session.classCode.startsWith('ENG') ? 'Tiếng Anh' : 'Toán',
-      item.session.id,
+      lessonCode(item.session.lessonId||item.session.id),
       item.session.dateStr,
       item.session.dayOfWeek,
       `"${item.session.time}"`,
@@ -978,7 +980,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                           : 'hover:bg-slate-50/80'
                       }`}
                     >
-                      <td className="py-3 px-3 font-mono font-semibold text-slate-700">{session.id}</td>
+                      <td className="py-3 px-3 font-mono font-semibold text-slate-700">{lessonCode(session.lessonId||session.id)}</td>
                       <td className="py-3 px-3">
                         <div className="font-semibold text-slate-800">{session.dateStr}</div>
                         <div className="text-[11px] text-slate-400">
@@ -1015,7 +1017,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       </td>
                       <td className="py-3 px-3 text-center">
                         <div className="flex justify-center gap-1">
-                          <button type="button" onClick={() => { highlightSessionRow(session.id); setViewingSession({ teacherId, teacherName, staffRole, subject, session }); }} className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100 cursor-pointer" title="Xem chi tiết" aria-label={`Xem chi tiết buổi ${session.id}`}>
+                          <button type="button" onClick={() => { highlightSessionRow(session.id); setViewingSession({ teacherId, teacherName, staffRole, subject, session }); }} className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100 cursor-pointer" title="Xem chi tiết" aria-label={`Xem chi tiết buổi ${lessonCode(session.lessonId||session.id)}`}>
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
@@ -1029,7 +1031,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                             disabled={monthData.isLocked}
                             className="rounded-md p-1.5 text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
                             title={monthData.isLocked ? 'Mở khóa kỳ để sửa hệ số công' : 'Sửa hệ số công'}
-                            aria-label={`Sửa hệ số công buổi ${session.id}`}
+                            aria-label={`Sửa hệ số công buổi ${lessonCode(session.lessonId||session.id)}`}
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -1093,7 +1095,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       </span>
                       <span className="font-bold text-slate-800">{dispute.teacherName}</span>
                       <span className="text-xs text-slate-500">
-                        • Buổi {dispute.sessionId} ({dispute.sessionTime})
+                        • Buổi {lessonCode(dispute.sessionId)} ({dispute.sessionTime})
                       </span>
                     </div>
 
@@ -1418,7 +1420,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                           {staffRole === 'GIA_SU' ? 'Gia sư' : 'GV'}
                         </span>
                       </td>
-                      <td className="py-2 px-3 font-mono text-[11px]">{session.id}</td>
+                      <td className="py-2 px-3 font-mono text-[11px]">{lessonCode(session.lessonId||session.id)}</td>
                       <td className="py-2 px-3">{session.dateStr}</td>
                       <td className="py-2 px-3 font-mono text-[11px]">{session.classCode}</td>
                       <td className="py-2 px-3">{session.studentCount ?? 3} HS</td>
@@ -1581,7 +1583,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-200 p-5">
               <div>
                 <h3 className="text-sm font-bold text-slate-800">Chi tiết buổi học</h3>
-                <p className="mt-1 font-mono text-xs text-slate-500">{viewingSession.session.id}</p>
+                <p className="mt-1 font-mono text-xs text-slate-500">{lessonCode(viewingSession.session.lessonId||viewingSession.session.id)}</p>
               </div>
               <button onClick={closeSessionDetails} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Đóng chi tiết">
                 <X className="h-4 w-4" />
@@ -1628,7 +1630,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
             <div className="space-y-3 text-xs">
               <div>
                 <span className="text-slate-500">Mã buổi học:</span>
-                <span className="font-mono font-bold text-slate-800 ml-1">{editingSession.session.id}</span>
+                <span className="font-mono font-bold text-slate-800 ml-1">{lessonCode(editingSession.session.lessonId||editingSession.session.id)}</span>
               </div>
               <div>
                 <span className="text-slate-500">Lớp:</span>
@@ -1695,7 +1697,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
               <div>
                 <span className="text-slate-500">Buổi học:</span>
                 <span className="font-mono text-slate-800 ml-1">
-                  {reviewingDispute.sessionId} ({reviewingDispute.sessionTime})
+                  {lessonCode(reviewingDispute.sessionId)} ({reviewingDispute.sessionTime})
                 </span>
               </div>
               <div className="p-3 bg-slate-50 rounded-lg border text-slate-700">"{reviewingDispute.content}"</div>

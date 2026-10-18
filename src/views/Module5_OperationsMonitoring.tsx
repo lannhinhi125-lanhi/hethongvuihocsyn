@@ -32,6 +32,7 @@ export interface MonitoringSessionStudent {
 }
 
 export interface MonitoringSession {
+  displayCode?: string;
   sessionCode: string;
   sessionDate: string; // 'YYYY-MM-DD'
   classCode: string;
@@ -70,6 +71,7 @@ export interface MonitoringSession {
 }
 
 export const Module5_OperationsMonitoring: React.FC = () => {
+  const displaySessionCode=(session:Pick<MonitoringSession,'displayCode'>)=>session.displayCode||'Chưa cấp mã';
   const { can, requirePermission } = usePermissions();
   const { showToast, currentUser, classes, setClasses, teachers, timeSlots, students, levels, subjects, teachingCategories, incidents, users } = useApp();
   const INCIDENT_MASTER_DATA: Record<string, { code: string; name: string }[]> = Object.fromEntries(incidents.map(group => [group.code, group.subIncidents.filter(item => item.status).map(item => ({ code: item.code, name: item.name }))]));
@@ -387,7 +389,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Lọc Tab 1
   const diaryFilteredSessions = dateFilteredSessions.filter(s => {
     if (!matchesCatalogFilters(s)) return false;
-    if (colFilterCode && !s.sessionCode.toLowerCase().includes(colFilterCode.toLowerCase())) return false;
+    if (colFilterCode && !`${s.sessionCode} ${s.displayCode||''}`.toLowerCase().includes(colFilterCode.toLowerCase())) return false;
     if (colFilterClass && !(s.className.toLowerCase().includes(colFilterClass.toLowerCase()) || s.classCode.toLowerCase().includes(colFilterClass.toLowerCase()))) return false;
     if (colFilterTeacher) {
       const q = colFilterTeacher.toLowerCase();
@@ -406,7 +408,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const incidentFilteredSessions = dateFilteredSessions.filter(s => {
     if (!matchesCatalogFilters(s)) return false;
     if (!s.hasIncident) return false;
-    if (incColFilterCode && !s.sessionCode.toLowerCase().includes(incColFilterCode.toLowerCase())) return false;
+    if (incColFilterCode && !`${s.sessionCode} ${s.displayCode||''}`.toLowerCase().includes(incColFilterCode.toLowerCase())) return false;
     if (incColFilterClass && !(s.className.toLowerCase().includes(incColFilterClass.toLowerCase()) || s.classCode.toLowerCase().includes(incColFilterClass.toLowerCase()))) return false;
     if (incColFilterTarget !== 'ALL' && s.incidentParent !== incColFilterTarget) return false;
     if (incColFilterType) {
@@ -596,7 +598,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     setSavingIncident(true);
     try {
       await waitForBusinessSave();
-      showToast(`Đã lưu biên bản ca ${selectedIncidentSession.sessionCode} và cập nhật bảng công. Người xử lý: ${currentOps.name}.`, 'success');
+      showToast(`Đã lưu biên bản ca ${displaySessionCode(selectedIncidentSession)} và cập nhật bảng công. Người xử lý: ${currentOps.name}.`, 'success');
       setSelectedIncidentSession(null);
     } catch (error) {
       showToast((error as Error).message, 'error');
@@ -627,7 +629,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           : { ...s, isJustUpdated: false }
       )
     );
-    showToast(`Đã xác nhận Giáo viên vào lớp ca [${sessionCode}] lúc ${curTime}:15. Trạng thái cảnh báo đỏ đã được gỡ bỏ!`, 'success');
+    showToast(`Đã xác nhận Giáo viên vào lớp ca [${sessions.find(s=>s.sessionCode===sessionCode)?.displayCode||'Chưa cấp mã'}] lúc ${curTime}:15. Trạng thái cảnh báo đỏ đã được gỡ bỏ!`, 'success');
   };
 
   // Đặt lại trạng thái chưa vào lớp để kiểm thử lại
@@ -645,7 +647,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           : { ...s, isJustUpdated: false }
       )
     );
-    showToast(`Đã đặt lại ca [${sessionCode}] về trạng thái CHƯA VÀO LỚP để thử nghiệm báo động đỏ!`, 'warning');
+    showToast(`Đã đặt lại ca [${sessions.find(s=>s.sessionCode===sessionCode)?.displayCode||'Chưa cấp mã'}] về trạng thái CHƯA VÀO LỚP để thử nghiệm báo động đỏ!`, 'warning');
   };
 
   // Kích hoạt mô phỏng Check-in
@@ -886,7 +888,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                               {isOverdue && (
                                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
                               )}
-                              <span>{s.sessionCode}</span>
+                              <span>{displaySessionCode(s)}</span>
                             </div>
                           </td>
 
@@ -1227,7 +1229,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                         <tr key={s.sessionCode} className={`transition-colors ${highlightClass}`}>
                           {/* Mã buổi */}
                           <td className="py-3.5 px-3 font-bold text-slate-800 font-mono">
-                            {s.sessionCode}
+                            {displaySessionCode(s)}
                           </td>
 
                           {/* Lớp học & Ngày */}
@@ -1410,7 +1412,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-md bg-rose-100 text-rose-700 font-bold text-xs font-mono">
-                    {selectedIncidentSession.sessionCode}
+                    {displaySessionCode(selectedIncidentSession)}
                   </span>
                   <h3 className="font-bold text-base text-slate-800">
                     Biên bản sự cố ca học
@@ -1648,7 +1650,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-800 text-xs font-mono">{s.sessionCode} &bull; {s.classCode}</span>
+                            <span className="font-bold text-slate-800 text-xs font-mono">{displaySessionCode(s)} &bull; {s.classCode}</span>
                             {isCover ? (
                               <span className="px-2 py-0.5 rounded font-bold bg-purple-600 text-white text-[10px]">Ca Dạy Thay</span>
                             ) : (
@@ -1712,7 +1714,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 >
                   {sessions.map(s => (
                     <option key={s.sessionCode} value={s.sessionCode}>
-                      {s.sessionCode}: {s.classCode} ({s.timeSlot})
+                      {displaySessionCode(s)}: {s.classCode} ({s.timeSlot})
                     </option>
                   ))}
                 </select>

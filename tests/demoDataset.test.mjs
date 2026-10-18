@@ -100,9 +100,20 @@ try {
   const login=async(username,password)=>(await db.query('SELECT public.vuihoc_login($1,$2) value',[username,password])).rows[0].value;
   const adminSession=await login('admin.tong','234567');assert.ok(adminSession.token);
   const business=(await db.query('SELECT public.vuihoc_business_data($1) value',[adminSession.token])).rows[0].value;
+  const originalLessonIds=business.dated_lessons.map(row=>row.madinhdanh).sort();
+  await db.exec(file('supabase/migrations/20261029_lesson_display_codes.sql'));
+  const coded=(await db.query('SELECT public.vuihoc_business_data($1) value',[adminSession.token])).rows[0].value;
+  assert.deepEqual(coded.dated_lessons.map(row=>row.madinhdanh).sort(),originalLessonIds,'display codes preserve original lesson UUIDs');
+  assert.ok(coded.dated_lessons.every(row=>/^BH-\d{6,}$/.test(row.mabuoihienthi)),'authorized RPC returns server-generated short codes');
+  assert.equal(new Set(coded.dated_lessons.map(row=>row.mabuoihienthi)).size,originalLessonIds.length,'codes are unique');
+  await assert.rejects(db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[adminSession.token,JSON.stringify([{dataset:'dated_lessons',before:{madinhdanh:originalLessonIds[0]},after:{madinhdanh:originalLessonIds[0],mabuoihienthi:'BH-FAKE'}}])]),/Trường không|không.*phép/i,'display codes are not writable through the RPC');
+  await db.exec(file('supabase/migrations/20261029_lesson_display_codes.sql'));
+  const repeated=(await db.query('SELECT public.vuihoc_business_data($1) value',[adminSession.token])).rows[0].value;
+  assert.deepEqual(new Map(repeated.dated_lessons.map(row=>[row.madinhdanh,row.mabuoihienthi])),new Map(coded.dated_lessons.map(row=>[row.madinhdanh,row.mabuoihienthi])),'rerun keeps every code unchanged');
   assert.equal(business.teachers.length,12);assert.equal(business.students.length,40);assert.equal(business.classes.length,12);
   const teacherSession=await login('gv.minhanh','246810');assert.ok(teacherSession.token);
   const own=(await db.query('SELECT public.vuihoc_business_data($1) value',[teacherSession.token])).rows[0].value;
+  assert.ok(own.dated_lessons.every(row=>/^BH-\d{6,}$/.test(row.mabuoihienthi)),'teacher portal receives codes only for its authorized lessons');
   assert.ok(own.dated_lessons.length>0);assert.ok(own.dated_lessons.every(b=>b.magiaovienchinh==='DEMO-GV-001'||b.magiaoviendaythay==='DEMO-GV-001'));
   // Home uses the existing dashboard feature, recognized by server read guards.
   await db.exec(`INSERT INTO vuihoc."NHOM_QUYEN"(madinhdanh,tennhomquyen,phanloai,mota,soluongnguoidung,macdinh,congtruycap) VALUES('HOME-ONLY','Chỉ Bàn làm việc','VẬN HÀNH','',0,false,'ADMIN');
