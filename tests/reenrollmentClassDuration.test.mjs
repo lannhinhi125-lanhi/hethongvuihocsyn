@@ -139,4 +139,18 @@ try {
  console.log('PASS: standalone SQL Editor statement and rerun do not depend on a prior temp table');
  assert.deepEqual((await db.query(file('supabase/diagnostics/json_storage_columns.sql'))).rows,[],'no JSON/JSONB table columns, including domains and arrays');
  console.log('PASS: upgraded vuihoc schema has no JSON/JSONB storage columns');
+ await db.exec(file('supabase/migrations/20261112_require_weekly_materials.sql'));
+ await db.exec(file('supabase/migrations/20261112_require_weekly_materials.sql'));
+ await db.exec(`INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh','TEST-MATERIAL','malophoc','TEST-MATERIAL','trangthai','DANG_HOC','tamdunglich',false,'ngaybatdau','2091-01-01','thoihanthang',1))).* FROM vuihoc."LOP_HOC" l WHERE magiaovien IS NOT NULL LIMIT 1;
+ INSERT INTO vuihoc."LICH_LOP"(malop,thutu,thutrongtuan,makhunggio) SELECT 'TEST-MATERIAL',1,thutrongtuan,makhunggio FROM vuihoc."LICH_LOP" LIMIT 1;
+ SELECT vuihoc.dong_bo_ca_theo_lich('2091-01-01','2091-01-31');`);
+ const materialLessons=async()=>(await db.query(`SELECT ngayhoc::text d FROM vuihoc."BUOI_HOC" WHERE malop='TEST-MATERIAL' ORDER BY ngayhoc`)).rows;
+ assert.equal((await materialLessons()).length,0,'assigned teacher alone cannot generate lessons');
+ await db.exec(`INSERT INTO vuihoc."HOC_LIEU_LOP" VALUES('TEST-MATERIAL',1,'01/2091','Tuần 1: Từ ngày 01/01/2091 đến ngày 07/01/2091',2,'Other session','',''); SELECT vuihoc.dong_bo_ca_theo_lich('2091-01-01','2091-01-31');`);
+ assert.equal((await materialLessons()).length,0,'material for another session does not qualify');
+ await db.exec(`UPDATE vuihoc."HOC_LIEU_LOP" SET sobuoi=1 WHERE malop='TEST-MATERIAL';`);
+ const published=await materialLessons();assert.equal(published.length,1);assert.ok(published[0].d<='2091-01-07');
+ await db.exec(`SELECT vuihoc.dong_bo_ca_theo_lich('2091-01-01','2091-01-31');`);
+ assert.deepEqual(await materialLessons(),published,'repeat scheduling does not duplicate lessons');
+ console.log('PASS saving weekly material immediately generates matching lessons; no material means no new lessons, repeated scheduling is idempotent');
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}

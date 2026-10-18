@@ -1,4 +1,7 @@
 import { ReportSelect } from '../components/ReportSelect';
+import { PeriodToolbar } from '../components/PeriodToolbar';
+import { workbenchRange } from '../lib/workbenchTime';
+import { reportToday } from '../lib/customReports';
 import { RowActionMenu } from '../components/RowActionMenu';
 import { classEndDate, CLASS_DURATION_CODE, type ClassDurationCatalog } from '../lib/classDuration';
 import { useBusinessValue } from '../lib/businessPersistence';
@@ -409,8 +412,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   type MaterialFilterKey = 'code' | 'name' | 'subject' | 'gradeSubject' | 'category' | 'grade' | 'level' | 'model' | 'status' | 'materialStatus' | 'lessonOne' | 'lessonTwo';
   const [materialFilters, setMaterialFilters] = useState<Partial<Record<MaterialFilterKey, string[]>>>({});
   const [isMaterialFilterOpen, setIsMaterialFilterOpen] = useState(false);
-  const [materialMonthFilter, setMaterialMonthFilter] = useState(INITIAL_TEACHING_WEEK.month);
-  const [materialWeekFilter, setMaterialWeekFilter] = useState(INITIAL_TEACHING_WEEK.label);
+  const [materialRange,setMaterialRange]=useState(()=>workbenchRange(reportToday(),'week'));
   const [isBatchGradeDropdownOpen, setIsBatchGradeDropdownOpen] = useState(false);
   const [isBatchLevelDropdownOpen, setIsBatchLevelDropdownOpen] = useState(false);
   const [isBatchClassDropdownOpen, setIsBatchClassDropdownOpen] = useState(false);
@@ -446,6 +448,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [materialDetails, setMaterialDetails] = useState<{ item: ClassItem; month: string; week: string; materials: ClassItem['materials'] } | null>(null);
   const [editingMaterialClassId, setEditingMaterialClassId] = useState<string | null>(null);
   const [pendingMaterialDelete, setPendingMaterialDelete] = useState<{ item: ClassItem; month: string; week: string } | null>(null);
+  const [deletingMaterials,setDeletingMaterials]=useState(false);
 
   // Import Room Excel Modal state
   const [isImportRoomModalOpen, setIsImportRoomModalOpen] = useState(false);
@@ -477,13 +480,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       .filter(material => material.month === month)
       .map(material => material.week))
   ]);
-  const materialWeeks = useMemo(() => sortTeachingWeekLabels(
-    classes.flatMap(item => (item.materials || [])
-      .filter(material => !materialMonthFilter || material.month === materialMonthFilter)
-      .map(material => material.week))
-  ), [classes, materialMonthFilter]);
   const weeksForBatchMonth = weeksForMonth(batchMonth);
-  const weeksForFilterMonth = materialMonthFilter ? weeksForMonth(materialMonthFilter) : materialWeeks;
 
   const activeTeachingCategories = teachingCategories.filter(category => category.status !== false);
   const materialFilterOptions: Record<MaterialFilterKey, FilterOption[]> = {
@@ -512,10 +509,9 @@ export const Module4_StudentsClasses: React.FC = () => {
     />
   );
   const activeMaterialFilterCount =
-    Object.values(materialFilters).filter(values => values?.length).length +
-    Number(Boolean(materialMonthFilter)) + Number(Boolean(materialWeekFilter));
+    Object.values(materialFilters).filter(values => values?.length).length;
 
-  const materialRowsForView = useMemo(() => classes.map(item => {
+  const materialRowsForView = useMemo(() => classes.flatMap(item => {
     const allMaterials = item.materials || [];
     const groupMap = new Map<string, ClassItem['materials']>();
     allMaterials.forEach(material => {
@@ -530,12 +526,13 @@ export const Module4_StudentsClasses: React.FC = () => {
         Number(week.match(/Từ ngày (\d{2})\//)?.[1] || '1')
       )).start };
     }).sort((a, b) => b.start.getTime() - a.start.getTime());
-    const selectedGroup = groups.find(group =>
-      (!materialMonthFilter || group.month === materialMonthFilter) &&
-      (!materialWeekFilter || group.week === materialWeekFilter)
-    );
-    const row = selectedGroup || { month: '', week: '', materials: [] as ClassItem['materials'] };
-    return { item, ...row };
+    const selectedGroups = groups.filter(group => {
+      const dates=group.week.match(/Từ ngày (\d{2})\/(\d{2})\/(\d{4}) đến ngày (\d{2})\/(\d{2})\/(\d{4})/);
+      if (!dates) return !materialRange.start && !materialRange.end;
+      const start=`${dates[3]}-${dates[2]}-${dates[1]}`,end=`${dates[6]}-${dates[5]}-${dates[4]}`;
+      return (!materialRange.start || end>=materialRange.start) && (!materialRange.end || start<=materialRange.end);
+    });
+    return selectedGroups.length ? selectedGroups.map(group=>({item,...group})) : [{item,month:'',week:'',materials:[] as ClassItem['materials']}];
   }).filter(({ item, materials }) => {
       const selected = (key: MaterialFilterKey) => materialFilters[key] || [];
       const categoryId = classCategoryId(item);
@@ -554,13 +551,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         (!selected('lessonOne').length || selected('lessonOne').includes(titleOne)) &&
         (!selected('lessonTwo').length || selected('lessonTwo').includes(titleTwo)) &&
         (!selected('materialStatus').length || selected('materialStatus').includes(hasMaterials ? 'assigned' : 'missing'));
-  }), [classes, materialFilters, materialMonthFilter, materialWeekFilter]);
-
-  const applyMaterialWeek = (offset: number) => {
-    const week = shiftTeachingWeek(offset);
-    setMaterialMonthFilter(week.month);
-    setMaterialWeekFilter(week.label);
-  };
+  }), [classes, materialFilters, materialRange]);
 
   const batchEligibleClasses = useMemo(() => classes.filter(item =>
     Boolean(batchCategoryId) &&
@@ -1073,8 +1064,9 @@ export const Module4_StudentsClasses: React.FC = () => {
   const openBatchMaterials = () => {
     if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     setEditingMaterialClassId(null);
-    const week = materialWeekFilter || INITIAL_TEACHING_WEEK.label;
-    const month = materialMonthFilter || monthFromTeachingWeek(week) || INITIAL_TEACHING_WEEK.month;
+    const selectedWeek=teachingWeekForDate(new Date(`${materialRange.start || reportToday()}T12:00:00`));
+    const week = selectedWeek.label;
+    const month = selectedWeek.month;
     const categoryId = materialFilters.category?.[0] ||
       teachingCategories.find(category => category.options.some(option => option.id === materialFilters.grade?.[0]))?.id ||
       activeTeachingCategories[0]?.id || '';
@@ -1143,14 +1135,20 @@ export const Module4_StudentsClasses: React.FC = () => {
     setIsBatchMaterialModalOpen(true);
   };
 
-  const handleDeleteMaterials = () => {
+  const handleDeleteMaterials = async () => {
+    if (deletingMaterials || isSavingChanges) return;
     if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
     if (!pendingMaterialDelete) return;
     const { item, month, week } = pendingMaterialDelete;
-    updateClass(item.id, {
-      materials: (item.materials || []).filter(material => material.month !== month || material.week !== week)
-    }, 'Đã xóa học liệu của lớp trong tuần đã chọn.');
-    setPendingMaterialDelete(null);
+    if (!classes.some(cls=>cls.id===item.id)) {showToast('Lớp học không còn tồn tại.','warning');setPendingMaterialDelete(null);return;}
+    setDeletingMaterials(true);
+    try {
+      setClasses(previous=>previous.map(cls=>cls.id===item.id?{...cls,materials:(cls.materials || []).filter(material=>material.month!==month || material.week!==week)}:cls));
+      await waitForBusinessSave();
+      setPendingMaterialDelete(null);
+      showToast('Đã xóa học liệu trong tuần đã chọn. Các buổi tương ứng không còn hiển thị trên lịch.','success');
+    } catch(error) {showToast((error as Error).message || 'Không thể xóa học liệu. Vui lòng thử lại.','error');}
+    finally {setDeletingMaterials(false);}
   };
 
   const applyBatchQuickWeek = (offset: number) => {
@@ -1477,29 +1475,7 @@ export const Module4_StudentsClasses: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-2xs">
-            <label className="flex items-center gap-2 font-semibold text-slate-600">Tháng
-              <ReportSelect aria-label="Tháng học liệu" value={materialMonthFilter} onChange={event => {
-                const month=event.target.value;
-                setMaterialMonthFilter(month);
-                setMaterialWeekFilter(month ? weeksForMonth(month)[0] || '' : '');
-              }} className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2 font-normal text-slate-800">
-                <option value="">Tất cả tháng</option>
-                {batchMonths.map(month=><option key={month} value={month}>{month}</option>)}
-              </ReportSelect>
-            </label>
-            <label className="flex min-w-0 max-w-full items-center gap-2 font-semibold text-slate-600">Tuần
-              <ReportSelect aria-label="Tuần học liệu" value={materialWeekFilter} onChange={event => {
-                const week=event.target.value;
-                setMaterialWeekFilter(week);
-                if(week)setMaterialMonthFilter(monthFromTeachingWeek(week));
-              }} className="h-8 min-w-0 max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2 font-normal text-slate-800">
-                <option value="">Tất cả tuần</option>
-                {weeksForFilterMonth.map(week=><option key={week} value={week}>{week}</option>)}
-              </ReportSelect>
-            </label>
-            <button type="button" onClick={()=>applyMaterialWeek(0)} className="h-8 rounded-lg border border-orange-200 bg-orange-50 px-2.5 font-semibold text-orange-700 hover:bg-orange-100">Tuần này</button>
-          </div>
+          <PeriodToolbar label="Thời gian học liệu" range={materialRange} onChange={setMaterialRange} initialPeriod="week"/>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1513,8 +1489,8 @@ export const Module4_StudentsClasses: React.FC = () => {
               </button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-              <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-slate-600">Số lớp: <strong className="text-slate-800">{materialRowsForView.length}</strong></span>
-              <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-blue-700">Lớp có học liệu: <strong>{materialRowsForView.filter(({ materials }) => materials.length > 0).length}</strong></span>
+              <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-slate-600">Số lớp: <strong className="text-slate-800">{new Set(materialRowsForView.map(row=>row.item.id)).size}</strong></span>
+              <span className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-blue-700">Lớp có học liệu: <strong>{new Set(materialRowsForView.filter(({ materials }) => materials.length > 0).map(row=>row.item.id)).size}</strong></span>
               <span className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-emerald-700">Số buổi đã gắn: <strong>{materialRowsForView.reduce((total, { materials }) => total + materials.length, 0)}</strong></span>
             </div>
           </section>
@@ -1530,6 +1506,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <th className="py-3.5 px-4">{materialColumnFilter('Khối / Môn', 'gradeSubject')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Mô hình', 'model')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Trình độ', 'level')}</th>
+                    <th className="py-3.5 px-4">Tuần học liệu</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 1', 'lessonOne')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 2', 'lessonTwo')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Trạng thái', 'materialStatus')}</th>
@@ -1542,7 +1519,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     const sessionOne = materials.find(material => material.session === 1);
                     const sessionTwo = materials.find(material => material.session === 2);
                     return (
-                      <tr key={c.id} className="hover:bg-slate-50/80">
+                      <tr key={`${c.id}-${month}-${week}`} className="hover:bg-slate-50/80">
                         <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{c.code}</td>
                         <td className="py-3 px-4 font-bold text-slate-800">{c.name}</td>
                         <td className="py-3 px-4 font-medium text-slate-700">
@@ -1551,6 +1528,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 whitespace-nowrap text-slate-700">{models.find(model => model.code === c.model)?.name || c.model}</td>
                         <td className="py-3 px-4 whitespace-nowrap"><span className="rounded bg-blue-50 px-2 py-1 text-blue-700">{levelName(c.level)}</span></td>
+                        <td className="py-3 px-4 min-w-52 text-[11px] text-slate-600">{week || 'Chưa có học liệu trong khoảng đã chọn'}</td>
                         <td className="py-3 px-4 min-w-44 text-slate-700">{sessionOne?.title || <span className="text-slate-400">Chưa gắn</span>}</td>
                         <td className="py-3 px-4 min-w-44 text-slate-700">{sessionTwo?.title || <span className="text-slate-400">Chưa gắn</span>}</td>
                         <td className="py-3 px-4 whitespace-nowrap">
@@ -1568,13 +1546,13 @@ export const Module4_StudentsClasses: React.FC = () => {
                           <div className="flex justify-center gap-2">
                             <button type="button" title="Chi tiết học liệu" aria-label={`Chi tiết học liệu lớp ${c.name}`} onClick={() => openMaterialDetails(c, month, week, materials)} className="rounded p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-3.5 w-3.5" /></button>
                             <button type="button" title="Cập nhật học liệu trong tuần đã chọn" aria-label={`Cập nhật học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => openEditMaterials(c, month, week, materials)} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-[#FF5C00] hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"><Pencil className="h-3.5 w-3.5" /><span className="text-[11px] font-semibold">Cập nhật</span></button>
-                            <button type="button" title="Xóa học liệu" aria-label={`Xóa học liệu lớp ${c.name}`} disabled={!hasMat} onClick={() => setPendingMaterialDelete({ item: c, month, week })} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <button type="button" title="Xóa học liệu trong tuần đang chọn" aria-label={`Xóa học liệu lớp ${c.name}`} disabled={!hasMat || deletingMaterials || isSavingChanges || !can('Thêm, sửa, xóa và nạp học liệu theo tuần')} onClick={() => setPendingMaterialDelete({ item: c, month, week })} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /><span className="whitespace-nowrap text-[11px] font-semibold">Xóa học liệu</span></button>
                           </div>
                         </td>
                       </tr>
                     );
                   })}
-                  {!materialRowsForView.length && <tr><td colSpan={9} className="px-4 py-2 text-center"><EmptyState title="Không có lớp nào khớp với bộ lọc hiện tại." /></td></tr>}
+                  {!materialRowsForView.length && <tr><td colSpan={10} className="px-4 py-2 text-center"><EmptyState title="Không có lớp nào khớp với bộ lọc hiện tại." /></td></tr>}
                 </PaginatedTableBody>
               </table>
             </div>
@@ -1597,9 +1575,10 @@ export const Module4_StudentsClasses: React.FC = () => {
         <div role="alertdialog" aria-modal="true" aria-labelledby="material-delete-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={event => event.stopPropagation()}>
           <h3 id="material-delete-title" className="text-base font-bold text-slate-800">Xác nhận xóa học liệu</h3>
           <p className="mt-3 text-sm text-slate-600">Xóa toàn bộ học liệu của lớp <strong>{pendingMaterialDelete.item.name}</strong> trong tuần <strong>{pendingMaterialDelete.week}</strong>?</p>
+          <p className="mt-2 text-xs text-slate-500">Các buổi của tuần này sẽ không còn hiển thị trên lịch giáo viên và danh sách buổi học. Dữ liệu buổi học, nhận xét và công đã lưu vẫn được giữ.</p>
           <div className="mt-5 flex justify-end gap-2">
             <button type="button" autoFocus onClick={() => setPendingMaterialDelete(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
-            <button type="button" disabled={!can("Thêm, sửa, xóa và nạp học liệu theo tuần")} onClick={handleDeleteMaterials} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Xóa học liệu</button>
+            <button type="button" disabled={deletingMaterials || isSavingChanges || !can("Thêm, sửa, xóa và nạp học liệu theo tuần")} onClick={()=>void handleDeleteMaterials()} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40">{deletingMaterials?'Đang xóa…':'Xóa học liệu'}</button>
           </div>
         </div>
       </div>}
@@ -2397,8 +2376,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         activeCount={activeMaterialFilterCount}
         onReset={() => {
           setMaterialFilters({});
-          setMaterialMonthFilter(INITIAL_TEACHING_WEEK.month);
-          setMaterialWeekFilter(INITIAL_TEACHING_WEEK.label);
+          setMaterialRange(workbenchRange(reportToday(),'week'));
         }}
         onApply={() => setIsMaterialFilterOpen(false)}
       >
