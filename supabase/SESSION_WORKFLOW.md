@@ -1,5 +1,9 @@
 # Luồng ca học, nhận xét và tính công
 
+**Bổ sung tự checkout:** Nếu đã cài luồng ca học (kể cả đã chạy các migration mới hơn), chỉ chạy toàn bộ [20261018_auto_checkout.sql](migrations/20261018_auto_checkout.sql). File này đã được hoàn thiện, chạy lại được và không cập nhật ngược dữ liệu lịch sử/công trong lúc cài đặt. Không cần chạy lại migration 20261017, schema hoặc seed.
+
+Sau khi chạy, kiểm tra hàm `vuihoc.tu_dong_checkout(timestamptz)` và job `vuihoc-session-lifecycle` bên dưới. Nếu có NOTICE chưa có Cron, cần bật Supabase Cron rồi chạy lại file; chưa có Cron thì không tự checkout khi không ai thao tác. Job chạy mỗi phút, lưu giờ checkout theo giờ kết thúc dự kiến của buổi. Lần chạy tiếp theo chỉ xử lý ca từ hôm qua trở đi, bỏ qua ca nghỉ, ca chưa check-in, ca đã checkout và kỳ công khóa.
+
 Chạy migrations/20261017_session_workflow.sql rồi migrations/20261018_auto_checkout.sql trong Supabase SQL Editor, sau 20261016_complete_foreign_keys.sql. Đây là bản thay thế bản nháp persist_monitoring_status chưa chạy. Không chạy lại schema/seed hoặc bản nháp.
 
 ## Dữ liệu
@@ -37,6 +41,7 @@ Các điều chỉnh công do sự cố của vận hành vẫn dùng luồng s�
 ## Kiểm tra sau khi chạy
 
 ```sql
+SELECT to_regprocedure('vuihoc.tu_dong_checkout(timestamptz)') AS ham_tu_checkout;
 SELECT madinhdanh,ngayhoc,trangthai,magiaovienchinh,magiaoviendaythay,
        vuihoc.tien_do_nhan_xet_ca(madinhdanh)
 FROM vuihoc."BUOI_HOC" ORDER BY ngayhoc DESC,batdau;

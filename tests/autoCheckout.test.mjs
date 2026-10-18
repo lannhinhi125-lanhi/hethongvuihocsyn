@@ -27,7 +27,7 @@ try {
  await db.exec(migration);await db.exec(migration);
  const cls=(await db.query('SELECT madinhdanh,magiaovien FROM vuihoc."LOP_HOC" WHERE madinhdanh=$1',['CLS-001'])).rows[0];
  const slot=(await db.query('SELECT madinhdanh FROM vuihoc."KHUNG_GIO" WHERE khoanggio=$1',['18:00 - 19:30'])).rows[0].madinhdanh;
- for(const [id,day,entered] of [['AUTO','2001-02-01',true],['NO-SHOW','2001-02-02',false],['EARLY','2001-02-03',true],['FIVE','2001-02-04',true],['LOCKED','2001-03-01',true]]) {
+ for(const [id,day,entered] of [['AUTO','2001-02-01',true],['NO-SHOW','2001-02-02',false],['EARLY','2001-02-03',true],['FIVE','2001-02-04',true],['CANCELLED','2001-02-05',true],['ARCHIVE','2001-02-06',true],['LOCKED','2001-03-01',true]]) {
   await db.query('INSERT INTO vuihoc."BUOI_HOC"(madinhdanh,malop,ngayhoc,makhunggio,batdau,ketthuc,magiaovienchinh,vaolopluc) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
    [id,cls.madinhdanh,day,slot,id==='NIGHT'?'23:00':'18:00',id==='NIGHT'?'00:30':'19:30',cls.magiaovien,entered?day+(id==='NIGHT'?'T23:00:00+07:00':'T18:00:00+07:00'):null]);
  }
@@ -39,6 +39,7 @@ try {
  await close('2001-02-01T19:31:12+07:00');
  assert.equal(new Date((await row('AUTO')).ketthucluc).getTime(),Date.parse('2001-02-01T19:30:00+07:00'));
  assert.equal((await row('AUTO')).trangthai,'DA_HOC');assert.equal((await row('AUTO')).manguoiketthuc,null);
+ assert.equal((await close('2001-02-01T19:40:00+07:00')).rows[0].tu_dong_checkout,0,'repeat checkout is idempotent');
  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=$1',['AUTO'])).rows[0].n,0);
  await db.query('UPDATE vuihoc."NHAN_XET_BUOI_HOC" SET noidung=$1 WHERE mabuoi=$2',['Comment','AUTO']);
  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=$1',['AUTO'])).rows[0].n,1);
@@ -49,10 +50,24 @@ try {
  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=$1',['EARLY'])).rows[0].n,0);
  await close('2001-02-03T20:00:00+07:00');assert.equal((await row('EARLY')).trangthai,'CHUA_HOAN_TAT');
  await db.query('UPDATE vuihoc."BUOI_HOC" SET ketthucluc=$1 WHERE madinhdanh=$2',['2001-02-04T19:25:00+07:00','FIVE']);assert.equal((await row('FIVE')).trangthai,'DA_HOC');
+ await db.query('UPDATE vuihoc."BUOI_HOC" SET trangthai=$1 WHERE madinhdanh=$2',['NGHI_HOC','CANCELLED']);
+ await close('2001-02-05T20:00:00+07:00');assert.equal((await row('CANCELLED')).ketthucluc,null);
+ await close('2001-02-08T20:00:00+07:00');assert.equal((await row('ARCHIVE')).ketthucluc,null,'old unfinished sessions are not silently completed');
+ const night=(await db.query(`SELECT
+   vuihoc.gio_ket_thuc_ca('2001-02-01','23:00','00:30') AS ends,
+   vuihoc.trang_thai_ca_theo_du_lieu('2001-02-01','23:00','00:30','2001-02-01T23:00:00+07','2001-02-02T00:24:59+07','DANG_HOC','2001-02-02T00:31:00+07') AS early,
+   vuihoc.trang_thai_ca_theo_du_lieu('2001-02-01','23:00','00:30','2001-02-01T23:00:00+07','2001-02-02T00:25:00+07','DANG_HOC','2001-02-02T00:31:00+07') AS normal`)).rows[0];
+ assert.equal(new Date(night.ends).getTime(),Date.parse('2001-02-02T00:30:00+07:00'));
+ assert.equal(night.early,'CHUA_HOAN_TAT');assert.equal(night.normal,'DA_HOC');
  await db.query('INSERT INTO vuihoc."BANG_CONG_THANG"(kycong,dakhoa,daguithongbao) VALUES($1,true,false) ON CONFLICT(kycong) DO UPDATE SET dakhoa=true',['2001-03']);
  await close('2001-03-01T20:00:00+07:00');assert.equal((await row('LOCKED')).ketthucluc,null);
  const before=(await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows;
+ await close('2001-02-04T20:00:00+07:00');
+ await db.exec(migration);
  assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,before);
+ for(const role of ['anon','authenticated']) {
+  assert.equal((await db.query("SELECT has_function_privilege($1,'vuihoc.tu_dong_checkout(timestamptz)','EXECUTE') allowed",[role])).rows[0].allowed,false);
+ }
  assert.equal((await db.query("SELECT has_function_privilege('authenticated','vuihoc.tu_dong_checkout(timestamptz)','EXECUTE') allowed")).rows[0].allowed,false);
  console.log('PASS: automatic exact checkout, feedback gate, no-show, >5 minute early checkout, normal 5 minute checkout, no duplicate work, locked periods, rerun');
 } catch(error){console.error(error.message,error.detail||'',error.where||'');process.exitCode=1;} finally {await db.close();}

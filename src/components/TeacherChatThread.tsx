@@ -15,7 +15,7 @@ export function TeacherChatThread({turns,greeting,isBusy,isAnswering,hasOlder,on
     element.scrollTop=older ? element.scrollTop+element.scrollHeight-previous.current.height : element.scrollHeight;
     previous.current={first,last,height:element.scrollHeight};
   },[turns,isAnswering]);
-  const time=(value:string)=>new Date(value).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const time=(value:string)=>new Date(value).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
   return <div ref={scroll} className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 text-xs bg-slate-50/40">
     {hasOlder && <button type="button" disabled={isBusy} onClick={onOlder} className="w-full text-orange-700 text-[11px] hover:underline disabled:opacity-40">Xem câu hỏi cũ hơn</button>}
     {!turns.length && <div className="p-2.5 rounded-2xl bg-white border border-slate-200"><ChatMessageText text={greeting||'Thầy/cô cần hỗ trợ nội dung gì?'} /></div>}

@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {askGemini} from '../lib/geminiClient';
+import {randomUUID} from '../lib/randomUUID';
 import {knowledgeAnswerPrompt} from '../lib/knowledgeAnswer';
 import {deleteTeacherChat,listTeacherChats,openTeacherChat,readTeacherChat,saveTeacherQuestion,teacherChatContext,type ChatSummary,type ChatTurn} from '../lib/teacherChatHistory';
 import type {RAGBotConfig,SOPDocument} from '../types';
@@ -82,11 +83,11 @@ export function useTeacherChatHistory(accountId:string|undefined,enabled:boolean
     setIsAnswering(true);
     let id=selected.current;
     if(accountId && !id){
-      id=crypto.randomUUID();await openTeacherChat(id);
+      id=randomUUID();await openTeacherChat(id);
       if(version!==generation.current)return;
       selected.current=id;setActiveChat(id);initialized.current=true;
     }
-    const questionId=retryId||crypto.randomUUID();
+    const questionId=retryId||randomUUID();
     if(accountId && !retryId)await saveTeacherQuestion(id!,questionId,query);
     if(version!==generation.current)return;
     if(!retryId){

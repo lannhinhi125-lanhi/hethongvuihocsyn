@@ -42,7 +42,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
   const [fromDate, setFromDate] = useState(initialWeek.from);
   const [toDate, setToDate] = useState(initialWeek.to);
-  const [currentWeekLabel, setCurrentWeekLabel] = useState(initialWeek.label);
 
   // Only teacher questions are persisted. AI answers remain in memory.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
@@ -50,7 +49,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const chatPermission=portal==='TEACHER'?'Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy':'Sử dụng chatbot tra cứu quy chế và nghiệp vụ';
   const knowledgeChat=useTeacherChatHistory(currentUser.id,isKnowledgeBotOpen && can(chatPermission),sopDocuments,ragBotConfig);
   const handleClearChat=async()=>{
-    if(!await confirmAction('Bạn có muốn xóa cuộc trò chuyện này không? Các câu hỏi đã lưu của cuộc trò chuyện sẽ bị xóa khỏi Supabase. Thao tác không thể khôi phục.'))return;
+    if(!await confirmAction('Bạn có muốn xóa cuộc trò chuyện này không? Thao tác này không thể khôi phục.'))return;
     if(await knowledgeChat.remove()){setChatInput('');showToast('Đã xóa cuộc trò chuyện.','info');}
   };
 
@@ -305,7 +304,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
     const nextTo = toInputDate(end);
     setFromDate(nextFrom);
     setToDate(nextTo);
-    setCurrentWeekLabel(`Tuần: ${start.toLocaleDateString('vi-VN')} - ${end.toLocaleDateString('vi-VN')}`);
   };
 
   if (isTeacherAccount && !ownTeacher) {
@@ -356,6 +354,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-slate-600">Khoảng thời gian</span>
+          <button type="button" onClick={() => shiftScheduleWeek(-1)} aria-label="Tuần trước" title="Tuần trước"
+            className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-600 hover:bg-orange-50 hover:text-[#FF5C00]">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
           <input
             aria-label="Từ ngày"
             type="date"
@@ -364,7 +366,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
             onChange={event => {
               if (!event.target.value) return;
               setFromDate(event.target.value);
-              setCurrentWeekLabel(`Từ: ${event.target.value} đến: ${toDate}`);
             }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
           />
@@ -377,10 +378,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
             onChange={event => {
               if (!event.target.value) return;
               setToDate(event.target.value);
-              setCurrentWeekLabel(`Từ: ${fromDate} đến: ${event.target.value}`);
             }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
           />
+          <button type="button" onClick={() => shiftScheduleWeek(1)} aria-label="Tuần kế tiếp" title="Tuần kế tiếp"
+            className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-600 hover:bg-orange-50 hover:text-[#FF5C00]">
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
         {!isTeacherAccount && (
           <label className="flex items-center gap-2">
@@ -396,7 +400,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
         )}
       </div>
 
-      {/* Thanh Chú Thích Màu Sắc & Bộ Chuyển Tuần */}
+      {/* Thanh chú thích trạng thái ca */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col lg:flex-row items-center justify-between gap-3 text-xs">
         <div className="flex flex-wrap items-center gap-3 text-slate-600">
           <span className="font-bold text-slate-700">Trạng thái ca:</span>
@@ -414,23 +418,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-          <button
-            onClick={() => shiftScheduleWeek(-1)}
-            className="p-1 hover:text-[#FF5C00] hover:bg-white rounded transition-colors cursor-pointer"
-            title="Tuần trước"
-          >
-            <ChevronLeft className="w-4 h-4 font-bold" />
-          </button>
-          <span className="font-mono text-xs text-slate-800">{currentWeekLabel}</span>
-          <button
-            onClick={() => shiftScheduleWeek(1)}
-            className="p-1 hover:text-[#FF5C00] hover:bg-white rounded transition-colors cursor-pointer"
-            title="Tuần kế tiếp"
-          >
-            <ChevronRight className="w-4 h-4 font-bold" />
-          </button>
-        </div>
       </div>
 
       {/* ================= BẢNG LỊCH DẠY CHI TIẾT (TIMETABLE GRID) ================= */}

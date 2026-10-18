@@ -496,6 +496,16 @@ try {
  await accounts.waitForAccountSave();await accounts.refreshAccountSession();
  assert.equal(accounts.getAccountSnapshot().groups.find(row=>row.id===group.id)!.desc,'Updated group description');
  console.log('PASS update: permission groups');
+ // The restored checkout migration must also be safe AFTER all newer updates.
+ const checkoutBefore=(await db.query('SELECT * FROM vuihoc."BUOI_HOC" ORDER BY madinhdanh')).rows;
+ const creditBeforeRepair=(await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows;
+ await db.exec(file('supabase/migrations/20261018_auto_checkout.sql'));
+ await db.exec(file('supabase/migrations/20261018_auto_checkout.sql'));
+ assert.deepEqual((await db.query('SELECT * FROM vuihoc."BUOI_HOC" ORDER BY madinhdanh')).rows,checkoutBefore);
+ assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,creditBeforeRepair);
+ assert.equal((await db.query(`SELECT vuihoc.trang_thai_ca_theo_du_lieu('2001-02-01','18:00','19:30',
+  '2001-02-01T18:00:00+07','2001-02-01T19:24:59+07','DA_HOC','2001-02-01T20:00:00+07') state`)).rows[0].state,'CHUA_HOAN_TAT');
+ console.log('PASS: checkout repair reruns after latest migrations without changing lessons, payroll or newer integrations');
  console.log('PASS: frontend store -> Supabase RPC as anon -> database -> reload; stable row IDs and untouched other rows');
 }catch(error){console.error('Update regression failed:',error);throw error;}
 finally{await databaseQueue;globalThis.fetch=originalFetch;await db.close();}

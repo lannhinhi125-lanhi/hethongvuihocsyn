@@ -480,7 +480,7 @@ export const Module6_AIStudio: React.FC = () => {
                   aria-label="Xóa đoạn chat thử nghiệm"
                   disabled={sandboxChat.isBusy || !canChat}
                   onClick={async () => {
-                    if(!await confirmAction('Bạn có muốn xóa cuộc trò chuyện này không? Các câu hỏi đã lưu sẽ bị xóa khỏi Supabase. Thao tác không thể khôi phục.'))return;
+                    if(!await confirmAction('Bạn có muốn xóa cuộc trò chuyện này không? Thao tác này không thể khôi phục.'))return;
                     if(await sandboxChat.remove()){setSandboxInput('');showToast('Đã xóa cuộc trò chuyện.','info');}
                   }}
                   className="text-xs text-red-600 hover:bg-red-50 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-red-200 cursor-pointer shrink-0"
