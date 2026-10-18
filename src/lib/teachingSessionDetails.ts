@@ -18,6 +18,15 @@ export const teachingSessionsInWeek = (cls: ClassItem, date: string) => {
   }).filter(entry => !cls.startDate || entry.date >= cls.startDate);
 };
 
+/** Only the assigned material for this weekday, time and calendar week qualifies. */
+export const scheduledMaterialForDate = (cls: ClassItem, date: string, time: string) => {
+  const day = new Date(`${date}T12:00:00`).getDay();
+  const dayIndex = (day + 6) % 7;
+  const normalize = (value: string) => value.replace(/\s/g, '');
+  const entry = teachingScheduleEntries(cls).find(item => item.dayIndex === dayIndex && normalize(item.time) === normalize(time));
+  return entry ? materialForSessionDate(cls.materials || [], entry.session, date) : undefined;
+};
+
 export interface TeachingLesson {
   id?: string;
   classId: string;

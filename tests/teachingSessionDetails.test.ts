@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import type { ClassItem } from '../src/types';
-import { teachingSessionDetails, teachingSessionsInWeek } from '../src/lib/teachingSessionDetails';
+import { teachingSessionDetails, teachingSessionsInWeek, scheduledMaterialForDate } from '../src/lib/teachingSessionDetails';
 
 const cls = {
   id: 'C1', code: 'MATH', schedule: 'T3 (18:00 - 19:30), T5 (18:00 - 19:30)',
@@ -13,6 +13,11 @@ const cls = {
 const lessons = [{ classId: 'C1', date: '2026-10-13', timeSlotId: 'T1', roomUrl: 'https://zoom.us/j/ops-room',
   recordingUrl: 'https://zoom.us/rec/share/ops-recording', diary: 'Nhật ký ca này' }];
 const slots = [{ id: 'T1', timeRange: '18:00 - 19:30' }];
+assert.equal(scheduledMaterialForDate(cls,'2026-10-13','18:00-19:30'),cls.materials[0]);
+assert.equal(scheduledMaterialForDate(cls,'2026-10-15','18:00-19:30'),undefined,'material for first session does not publish the second session');
+assert.equal(scheduledMaterialForDate(cls,'2026-10-20','18:00-19:30'),undefined,'previous week material does not publish a later week');
+assert.equal(scheduledMaterialForDate(cls,'2026-10-13','19:30-21:00'),undefined,'different time is not eligible');
+assert.equal(scheduledMaterialForDate({...cls,materials:[]},'2026-10-13','18:00-19:30'),undefined);
 const detailAt = (time: string) => teachingSessionDetails(cls, 1, '2026-10-13', '18:00 - 19:30', lessons, slots, new Date(`2026-10-13T${time}:00+07:00`));
 for (const time of ['17:59', '18:00', '19:29']) {
   const detail = detailAt(time);

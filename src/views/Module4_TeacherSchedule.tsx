@@ -79,6 +79,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const [reviewText, setReviewText] = useState('');
 
   const handleOpenClassModal = (cls: ClassItem, sessionNum: number = 1, sessionDate = fromDate) => {
+    const time=teachingScheduleEntries(cls).find(entry=>entry.session===sessionNum)?.time || '';
+    const detail=teachingSessionDetails(cls,sessionNum,sessionDate,time,datedLessons,timeSlots,new Date());
+    if (!materialForSessionDate(cls.materials || [],sessionNum,sessionDate) || detail.lifecycleStatus==='NGHI_HOC' || detail.active?.status==='Nghỉ có phép' || (cls.paused && !detail.lesson)) return;
     if (!requirePermission('Vào phòng học và xem học liệu lớp được giao')) return;
     setSelectedClass(cls.id);
     setSelectedSessionNum(sessionNum);
@@ -107,6 +110,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     }
     if (!selectedClass) return;
     const classroom = teachingSessionDetails(selectedClass, selectedSessionNum, selectedSessionDate || fromDate, selectedClassSchedule.find(entry => entry.session === selectedSessionNum)?.time || '', datedLessons, timeSlots, new Date());
+    if (!materialForSessionDate(selectedClass.materials || [],selectedSessionNum,selectedSessionDate || fromDate) || classroom.lifecycleStatus==='NGHI_HOC' || classroom.active?.status==='Nghỉ có phép') return;
     if (!classroom.roomUrl) {
       showToast('Lớp học này chưa có link phòng Zoom/ClassIn do Vận hành gán!', 'warning');
       return;
@@ -251,6 +255,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
         .filter(entry => entry.time === time && entry.dayIndex === dayIndex)
         .flatMap(entry => {
           if (cls.startDate && dateStringForWeekDay(dayIndex) < cls.startDate) return [];
+          if (cls.endDate && dateStringForWeekDay(dayIndex) > cls.endDate) return [];
+          if (!selectedWeekMaterial(cls,entry.session,dateStringForWeekDay(dayIndex))) return [];
           if (['Dừng lớp','Đã kết thúc'].includes(cls.status || '') && !datedLessons.some(lesson=>lesson.classId===cls.id&&lesson.date===dateStringForWeekDay(dayIndex)&&timeSlots.find(slot=>slot.id===lesson.timeSlotId)?.timeRange===entry.time)) return [];
           const coverAssignment = cls.coverAssignments?.find(assignment =>
             assignment.sessionNum === entry.session && assignment.dateStr === dateStringForWeekDay(dayIndex)
@@ -412,7 +418,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             <span className="w-2.5 h-2.5 rounded-full bg-purple-400" /> Đã hoàn thành
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" /> Nghỉ có phép
+            <span className="w-2.5 h-2.5 rounded-full bg-[#D9A62E]" /> Nghỉ học / Nghỉ có phép / Tạm nghỉ
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-purple-700" /> Dạy thay (Cover)
@@ -442,18 +448,23 @@ export const Module4_TeacherSchedule: React.FC = () => {
                   </td>
                   {row.days.map((sessions, dayIndex) => <td key={dayIndex} className="min-w-32 p-2 border-r border-slate-200 align-top bg-slate-50/20">
                     <div className="space-y-2">
-                      {sessions.map(({ cls, session, material, coverAssignment, sessionDate }) => <button key={`${cls.id}-${session}-${sessionDate}`} type="button" onClick={() => handleOpenClassModal(cls, session, sessionDate)} className={`w-full rounded-xl border p-2.5 text-left transition-colors ${coverAssignment ? 'border-purple-200 bg-purple-50/80 hover:border-purple-400 hover:bg-purple-100' : 'border-emerald-200 bg-emerald-50/70 hover:border-emerald-400 hover:bg-emerald-100'}`}>
+                      {sessions.map(({ cls, session, material, coverAssignment, sessionDate }) => {
+                        const detail=teachingSessionDetails(cls,session,sessionDate,row.time,datedLessons,timeSlots,new Date());
+                        const paused=Boolean(cls.paused && !detail.lesson && sessionDate>=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}));
+                        const resting=detail.lifecycleStatus==='NGHI_HOC' || paused || detail.active?.status==='Nghỉ có phép';
+                        return <button disabled={resting} aria-disabled={resting} key={`${cls.id}-${session}-${sessionDate}`} type="button" onClick={() => handleOpenClassModal(cls, session, sessionDate)} className={`w-full rounded-xl border p-2.5 text-left transition-colors ${resting ? 'border-[#E8C96D] bg-[#FFF3CC] cursor-default' : coverAssignment ? 'border-purple-200 bg-purple-50/80 hover:border-purple-400 hover:bg-purple-100' : 'border-emerald-200 bg-emerald-50/70 hover:border-emerald-400 hover:bg-emerald-100'}`}>
                         <div className="flex items-center justify-between gap-1">
-                          <span className="font-bold text-emerald-900 text-[11px]">{cls.code}</span>
+                          <span className={`font-bold text-[11px] ${resting ? 'text-[#805C16]' : 'text-emerald-900'}`}>{cls.code}</span>
                           <div className="flex items-center gap-1">
                             <span className="rounded bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">Buổi {session}</span>
                             {coverAssignment && <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-800">Dạy thay</span>}
                           </div>
                         </div>
                         <div className="mt-1 text-[10px] text-slate-600">{cls.name}</div>
+                        {resting && <span className="mt-1.5 inline-flex rounded border border-[#E8C96D] bg-[#FFE8A3] px-1.5 py-0.5 text-[10px] font-semibold text-[#805C16]">{paused ? 'Lớp đang tạm nghỉ' : detail.active?.status==='Nghỉ có phép' ? 'Nghỉ có phép' : 'Nghỉ học'}</span>}
                         {coverAssignment && <div className="mt-1 text-[10px] font-semibold text-purple-800">{coverAssignment.teacherName}</div>}
-                        <div className="mt-1.5 line-clamp-2 text-[11px] font-medium text-slate-800">{material?.title || 'Chưa có học liệu được gắn'}</div>
-                        {(() => {
+                        {!resting && <div className="mt-1.5 line-clamp-2 text-[11px] font-medium text-slate-800">{material?.title}</div>}
+                        {!resting && (() => {
                           const detail=teachingSessionDetails(cls,session,sessionDate,row.time,datedLessons,timeSlots,new Date());
                           const ids=detail.lesson?.feedbackProgress?.studentIds ?? cls.studentIds;
                           const total=detail.lesson?.feedbackProgress?.total ?? ids.length;
@@ -462,7 +473,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                           return <span title={completed+'/'+total+' học sinh đã được nhận xét'} className={`mt-1.5 inline-flex rounded px-1.5 py-0.5 text-[9px] font-medium ${done ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-700'}`}>{done ? 'Đã nhận xét' : 'Chưa nhận xét'}</span>;
                         })()}
 
-                      </button>)}
+                      </button>;})}
                     </div>
                   </td>)}
                 </tr>
@@ -507,7 +518,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedDetail?.lifecycleStatus==='CHUA_HOC' ? 'bg-red-100 text-red-800' : selectedDetail?.lifecycleStatus==='CHUA_HOAN_TAT' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedDetail?.lifecycleStatus==='NGHI_HOC' ? 'border border-[#E8C96D] bg-[#FFE8A3] text-[#805C16]' : selectedDetail?.lifecycleStatus==='CHUA_HOC' ? 'bg-red-100 text-red-800' : selectedDetail?.lifecycleStatus==='CHUA_HOAN_TAT' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'}`}>
                         Trạng thái: {selectedDetail && {CHUA_DIEN_RA:'Chưa diễn ra',CHUA_HOC:'Chưa học',DANG_HOC:'Đang học',CHUA_HOAN_TAT:'Chưa hoàn tất',DA_HOC:'Đã học',NGHI_HOC:'Nghỉ học'}[selectedDetail.lifecycleStatus]}
                       </span>
                       {endedEarly && <span className="rounded-full px-2 py-1 text-xs font-bold bg-orange-100 text-orange-800">Chưa hoàn tất — kết thúc sớm hơn 5 phút</span>}

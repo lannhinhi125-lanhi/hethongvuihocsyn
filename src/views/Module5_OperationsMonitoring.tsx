@@ -6,7 +6,7 @@ import {workbenchRange} from '../lib/workbenchTime';
 import {reportToday} from '../lib/customReports';
 import { monitoringSubjectCode, selectedMonitoringSubject } from '../lib/monitoringSubjects';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
-import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
+import { teachingScheduleEntries, scheduledMaterialForDate } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
 import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
@@ -107,6 +107,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       const cls = classes.find(item => item.id === lesson.classId);
       const slot = timeSlots.find(item => item.id === lesson.timeSlotId);
       if (!cls || !slot) return;
+      if (!scheduledMaterialForDate(cls,lesson.date,slot.timeRange)) return;
       generated.push(storedMonitoringSession({
         sessionCode: lesson.id, sessionDate: lesson.date, classCode: cls.code,
         room: '', roomUrl: '', recordingUrl: null, coverTeacher: null,
@@ -822,6 +823,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           <td className="py-3.5 px-3 text-center text-xs font-semibold">{s.coverTeacher ? 'Dạy thay' : 'Chính'}</td>
                           <td className="py-3.5 px-3 text-center text-xs">{(() => {
+                            if (studyStatus(s)==='NGHI_HOC') return <span className="text-slate-400">—</span>;
                             const total=s.feedbackProgress?.total ?? s.students.length;
                             const completed=s.feedbackProgress?.completed ?? s.students.filter(student=>student.aiComment?.trim()).length;
                             return <button type="button" onClick={()=>setSelectedClassViewSession(s)} title="Xem nhận xét của buổi học" className={`whitespace-nowrap rounded-lg px-2 py-1 font-semibold ${completed===0?'bg-rose-50 text-rose-700':completed>=total?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{completed===0 ? 'Chưa nhận xét' : completed>=total ? 'Đã đủ '+completed+'/'+total : 'Chưa đủ '+completed+'/'+total}</button>;
@@ -842,6 +844,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setSelectedClassViewSession(s)}
+                                disabled={studyStatus(s)==='NGHI_HOC'}
                                 className="px-2.5 py-1.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-[#FF5C00] font-bold text-[11px] transition-all cursor-pointer shadow-xs"
                                 title="Mở Sổ ca dạy"
                               >
