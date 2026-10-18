@@ -141,6 +141,7 @@ export interface StudentClassTrace {
   occurredAt:string; actorId:string|null; actorName:string|null; isBaseline:boolean; isInitial:boolean;
 }
 export interface StudentRecord {
+  registrationHistory?: (StudentSubjectRegistration & {grade:string;endedAt:string;registrationKind:string})[];
   registrations?: StudentSubjectRegistration[];
   classHistory?:StudentClassTrace[];
   created_at?: string;
@@ -160,6 +161,8 @@ export interface StudentRecord {
 }
 
 export interface StudentSubjectRegistration {
+  registrationKind?: string;
+  periodNumber?: number;
   registeredAt?: string;
   subject: string;
   model: string;
@@ -207,6 +210,8 @@ export interface ClassCoverAssignment {
 }
 
 export interface ClassItem {
+  durationMonths?: number | null;
+  endDate?: string | null;
   created_at?: string;
   categoryId?: string;
   status?: 'Chờ khai giảng' | 'Đang học' | 'Tạm dừng' | 'Đã kết thúc';

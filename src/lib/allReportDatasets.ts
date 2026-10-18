@@ -8,6 +8,7 @@ import { inspectionReportRows, type InspectionEvaluation } from './inspectionRep
 import type { ReportIncident, ReportLesson } from './incidentReportPeriods';
 import { matchesReportFilter, matchesReportField, reportFilterValues, type ReportDataset, type ReportRecord } from './customReports';
 import { attachReportCatalogs, reportGradeKey } from './reportCatalogs';
+import {reportToday} from './customReports';
 
 const unknown = 'Chưa xác định';
 const multiGroups = (records: ReportRecord[], groupBy: string, values: (record: ReportRecord) => string[]) => {
@@ -96,7 +97,29 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
     records: inspectionReportRows(teachers.map(row => ({ ...row, evaluationReports: undefined })), evaluations.filter(row => row.status === 'DA_DUYET'), lessons, range)
       .map(row => ({ id: row.id, name: row.name, subject: subject(row.subjectCode), rank: row.rank, score: row.avg, sessions: row.total })) });
   teacherInspection.records = teacherInspection.prepareRange({ start: '', end: '' }).records;
-  const detail = [...basics, ...operational, teacherInspection];
+  const today=reportToday();
+  const endingClasses:ReportDataset={
+    id:'classes_ending',label:'Lớp sắp kết thúc',dateKind:'event',
+    note:'Lớp đang học hoặc chờ khai giảng có ngày kết thúc trong 30 ngày tới (kể cả hôm nay). Lọc thời gian theo ngày kết thúc; lớp chưa có thời hạn không được suy đoán ngày kết thúc.',
+    records:classes.filter(row=>row.endDate && !['Đã kết thúc','Tạm dừng'].includes(row.status||'')).flatMap(row=>{
+      const remaining=Math.round((Date.parse(row.endDate!+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);
+      return remaining>=0&&remaining<=30?[{id:row.code,name:row.name,date:row.endDate!,startDate:row.startDate||'',remaining,subject:subject(row.subject),grade:row.grade,model:model(row.model),status:row.status||'Đang học',teacher:row.teacherName,students:row.studentIds.length}]:[];
+    }),metrics:[{id:'count',label:'Lớp sắp kết thúc',mode:'count'}],defaultMetricIds:['count'],
+    dimensions:[{id:'subject',label:'Môn học'},{id:'status',label:'Trạng thái'}],filters:[{id:'subject',label:'Môn học'},{id:'status',label:'Trạng thái'}],
+    detailFields:[{id:'id',label:'Mã lớp'},{id:'name',label:'Tên lớp'},{id:'startDate',label:'Ngày bắt đầu'},{id:'date',label:'Ngày kết thúc'},{id:'remaining',label:'Số ngày còn lại'},{id:'teacher',label:'Giáo viên'},{id:'students',label:'Sĩ số'}]
+  };
+  const kinds:Record<string,string>={FIRST:'Đăng ký lần đầu',ADDITIONAL:'Đăng ký thêm môn',RETURNING:'Đăng ký học lại'};
+  const registrationPeriods:ReportDataset={
+    id:'student_registration_periods',label:'Các đợt đăng ký học',dateKind:'event',
+    note:'Mỗi dòng là một đợt đăng ký môn, kể cả đợt cũ trước khi học lại. Học lại giữ nguyên mã học sinh. Dữ liệu trước nâng cấp chưa phân loại được đánh dấu Chưa xác định.',
+    records:profiles.flatMap(student=>[...(student.registrationHistory||[]),...studentRegistrations(student)].map(reg=>({
+      id:student.id,name:student.name,date:reportCreationDate(reg.registeredAt),subject:subject(reg.subject),model:model(reg.model),grade:'grade' in reg?String(reg.grade):student.grade,
+      status:reg.status,kind:kinds[reg.registrationKind||'']||'Chưa xác định',period:reg.periodNumber||1,endedAt:'endedAt' in reg&&reg.endedAt?String(reg.endedAt).slice(0,10):'',
+    }))),metrics:[{id:'count',label:'Lượt đăng ký',mode:'count'}],defaultMetricIds:['count'],
+    dimensions:[{id:'kind',label:'Loại đăng ký'},{id:'subject',label:'Môn học'}],filters:[{id:'kind',label:'Loại đăng ký'},{id:'subject',label:'Môn học'}],
+    detailFields:[{id:'id',label:'Mã học sinh'},{id:'name',label:'Học sinh'},{id:'date',label:'Ngày đăng ký'},{id:'period',label:'Đợt'},{id:'kind',label:'Loại đăng ký'},{id:'subject',label:'Môn học'},{id:'status',label:'Trạng thái'}]
+  };
+  const detail = [...basics, endingClasses, registrationPeriods, ...operational, teacherInspection];
   attachReportCatalogs(detail, { classes, students, teachers, lookups });
-  return { custom: [...basics, ...operational], detail };
+  return { custom: [...basics, endingClasses, registrationPeriods, ...operational], detail };
 }

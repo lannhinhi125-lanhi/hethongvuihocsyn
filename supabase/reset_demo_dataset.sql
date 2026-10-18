@@ -81,7 +81,7 @@ DELETE FROM vuihoc."HOC_LIEU_LOP";
 DELETE FROM vuihoc."LICH_LOP";
 -- Retired optional tables may still exist on databases not yet cleaned up.
 DO $optional$ DECLARE tab text; BEGIN
- FOREACH tab IN ARRAY ARRAY['LUOT_NHAN_XET_AI','LICH_DANG_KY_HOC_SINH','TRUY_VET_XEP_LOP_SU_KIEN_CU'] LOOP
+ FOREACH tab IN ARRAY ARRAY['LICH_SU_DANG_KY_HOC','LUOT_NHAN_XET_AI','LICH_DANG_KY_HOC_SINH','TRUY_VET_XEP_LOP_SU_KIEN_CU'] LOOP
   IF to_regclass(format('vuihoc.%I',tab)) IS NOT NULL THEN EXECUTE format('DELETE FROM vuihoc.%I',tab); END IF;
  END LOOP;
 END $optional$;

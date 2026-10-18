@@ -1,3 +1,4 @@
+import { MultiSelectColumnFilter, CheckboxFilterOptions } from '../components/MultiSelectColumnFilter';
 import { canTeachClassModel } from '../lib/teachingModelGroups';
 import {MonitoringPeriodToolbar} from '../components/MonitoringPeriodToolbar';
 import {workbenchRange} from '../lib/workbenchTime';
@@ -123,12 +124,14 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     setSessions(generated);
   }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users, teachers, timeSlots, incidents]);
 
-  const [colFilterCode, setColFilterCode] = useState('');
-  const [colFilterClass, setColFilterClass] = useState('');
-  const [colFilterTeacher, setColFilterTeacher] = useState('');
-  const [colFilterTime, setColFilterTime] = useState('ALL');
-  const [colFilterAttendance, setColFilterAttendance] = useState('ALL');
-  const [colFilterStatus, setColFilterStatus] = useState('ALL');
+  const [colFilterCode, setColFilterCode] = useState<string[]>([]);
+  const [colFilterClass, setColFilterClass] = useState<string[]>([]);
+  const [colFilterTeacher, setColFilterTeacher] = useState<string[]>([]);
+  const [colFilterTime, setColFilterTime] = useState<string[]>([]);
+  const [colFilterAttendance, setColFilterAttendance] = useState<string[]>([]);
+  const [colFilterStatus, setColFilterStatus] = useState<string[]>([]);
+  const [colFilterTeaching, setColFilterTeaching] = useState<string[]>([]);
+  const [colFilterFeedback, setColFilterFeedback] = useState<string[]>([]);
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterSubject, setFilterSubject] = useState('ALL');
   const subjectTabs = subjects.filter(subject=>subject.status !== false);
@@ -138,14 +141,14 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [filterLevel, setFilterLevel] = useState('ALL');
 
   // Bộ lọc cột cho Tab 2 (Thông tin Sự cố & Điều phối Dạy thay)
-  const [incColFilterCode, setIncColFilterCode] = useState('');
-  const [incColFilterClass, setIncColFilterClass] = useState('');
-  const [incColFilterTarget, setIncColFilterTarget] = useState('ALL');
-  const [incColFilterType, setIncColFilterType] = useState('');
-  const [incColFilterUrgency, setIncColFilterUrgency] = useState('ALL');
-  const [incColFilterCover, setIncColFilterCover] = useState('');
-  const [incColFilterStatus, setIncColFilterStatus] = useState('ALL');
-  const [incColFilterOps, setIncColFilterOps] = useState('');
+  const [incColFilterCode, setIncColFilterCode] = useState<string[]>([]);
+  const [incColFilterClass, setIncColFilterClass] = useState<string[]>([]);
+  const [incColFilterTarget, setIncColFilterTarget] = useState<string[]>([]);
+  const [incColFilterType, setIncColFilterType] = useState<string[]>([]);
+  const [incColFilterUrgency, setIncColFilterUrgency] = useState<string[]>([]);
+  const [incColFilterCover, setIncColFilterCover] = useState<string[]>([]);
+  const [incColFilterStatus, setIncColFilterStatus] = useState<string[]>([]);
+  const [incColFilterOps, setIncColFilterOps] = useState<string[]>([]);
 
   // Modals state
   const [selectedClassViewSession, setSelectedClassViewSession] = useState<MonitoringSession | null>(null);
@@ -276,50 +279,62 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
   const subjectFilteredSessions = dateFilteredSessions.filter(matchesCatalogFilters);
 
+  const feedbackState = (session: MonitoringSession) => {
+    const total = session.feedbackProgress?.total ?? session.students.length;
+    const completed = session.feedbackProgress?.completed ?? session.students.filter(student => student.aiComment?.trim()).length;
+    return completed === 0 ? 'NONE' : total > 0 && completed >= total ? 'COMPLETE' : 'PARTIAL';
+  };
+  const options = (rows: {value:string;label:string}[]) => Array.from(new Map(rows.map(row => [row.value,row])).values()).sort((a,b)=>a.label.localeCompare(b.label,'vi'));
+  const diaryColumns = [
+    {label:'Mã buổi',values:colFilterCode,onChange:setColFilterCode,options:options(subjectFilteredSessions.map(s=>({value:s.sessionCode,label:displaySessionCode(s)})))},
+    {label:'Lớp học',values:colFilterClass,onChange:setColFilterClass,options:options(subjectFilteredSessions.map(s=>({value:s.classCode,label:s.className+' · '+s.classCode})))},
+    {label:'Giáo viên',values:colFilterTeacher,onChange:setColFilterTeacher,options:options(subjectFilteredSessions.flatMap(s=>[{value:s.primaryTeacherId||'',label:s.primaryTeacher+' · '+(s.primaryTeacherId||'')},...(s.coverTeacherId?[{value:s.coverTeacherId,label:(s.coverTeacher||'')+' · '+s.coverTeacherId}]:[])])).filter(row=>row.value)},
+    {label:'Thời gian & ngày',values:colFilterTime,onChange:setColFilterTime,options:options(subjectFilteredSessions.map(s=>({value:s.timeSlot,label:s.timeSlot})))},
+    {label:'Chuyên cần GV',values:colFilterAttendance,onChange:setColFilterAttendance,options:[{value:'ATTENDED',label:'Có mặt'},{value:'LATE',label:'Đi muộn'},{value:'ABSENT',label:'Chưa vào'}]},
+    {label:'Trạng thái ca',values:colFilterStatus,onChange:setColFilterStatus,options:[{value:'CHUA_DIEN_RA',label:'Chưa diễn ra'},{value:'DANG_HOC',label:'Đang học'},{value:'DA_HOC',label:'Đã học'},{value:'CHUA_HOC',label:'Chưa học'},{value:'CHUA_HOAN_TAT',label:'Chưa hoàn tất'},{value:'NGHI_HOC',label:'Nghỉ học'}]},
+    {label:'Hình thức dạy',values:colFilterTeaching,onChange:setColFilterTeaching,options:[{value:'PRIMARY',label:'Dạy chính'},{value:'COVER',label:'Dạy thay'}]},
+    {label:'Nhận xét',values:colFilterFeedback,onChange:setColFilterFeedback,options:[{value:'NONE',label:'Chưa nhận xét'},{value:'PARTIAL',label:'Đã nhận xét một phần'},{value:'COMPLETE',label:'Đã nhận xét đầy đủ'}]},
+  ];
+
   // Lọc Tab 1
   const diaryFilteredSessions = dateFilteredSessions.filter(s => {
     if (!matchesCatalogFilters(s)) return false;
-    if (colFilterCode && !`${s.sessionCode} ${s.displayCode||''}`.toLowerCase().includes(colFilterCode.toLowerCase())) return false;
-    if (colFilterClass && !(s.className.toLowerCase().includes(colFilterClass.toLowerCase()) || s.classCode.toLowerCase().includes(colFilterClass.toLowerCase()))) return false;
-    if (colFilterTeacher) {
-      const q = colFilterTeacher.toLowerCase();
-      const matchPrimary = s.primaryTeacher && s.primaryTeacher.toLowerCase().includes(q);
-      const matchCover = s.coverTeacher && s.coverTeacher.toLowerCase().includes(q);
-      if (!matchPrimary && !matchCover) return false;
-    }
-    if (colFilterTime !== 'ALL' && s.timeSlot !== colFilterTime) return false;
-    if (colFilterAttendance !== 'ALL' && s.attendance !== colFilterAttendance) return false;
-    if (colFilterStatus !== 'ALL' && studyStatus(s) !== colFilterStatus) return false;
+    if (colFilterCode.length && !colFilterCode.includes(s.sessionCode)) return false;
+    if (colFilterClass.length && !colFilterClass.includes(s.classCode)) return false;
+    if (colFilterTeacher.length && !colFilterTeacher.some(id => id === s.primaryTeacherId || id === s.coverTeacherId)) return false;
+    if (colFilterTime.length && !colFilterTime.includes(s.timeSlot)) return false;
+    if (colFilterAttendance.length && !colFilterAttendance.includes(s.attendance)) return false;
+    if (colFilterStatus.length && !colFilterStatus.includes(studyStatus(s))) return false;
+    if (colFilterTeaching.length && !colFilterTeaching.includes(s.coverTeacherId ? 'COVER' : 'PRIMARY')) return false;
+    if (colFilterFeedback.length && !colFilterFeedback.includes(feedbackState(s))) return false;
     return true;
   }).sort((a,b)=>(viewingToday?monitoringSessionPriority(studyStatus(a))-monitoringSessionPriority(studyStatus(b)):0)||
     a.sessionDate.localeCompare(b.sessionDate)||a.timeSlot.localeCompare(b.timeSlot)||a.classCode.localeCompare(b.classCode));
+
+  const incidentOptionsSource = subjectFilteredSessions.filter(session=>session.hasIncident);
+  const incidentColumns = [
+    {label:'Mã buổi',values:incColFilterCode,onChange:setIncColFilterCode,options:options(incidentOptionsSource.map(s=>({value:s.sessionCode,label:displaySessionCode(s)})))},
+    {label:'Lớp học',values:incColFilterClass,onChange:setIncColFilterClass,options:options(incidentOptionsSource.map(s=>({value:s.classCode,label:s.className+' · '+s.classCode})))},
+    {label:'Đối tượng',values:incColFilterTarget,onChange:setIncColFilterTarget,options:[{value:'GRP-TCH',label:'Giáo viên'},{value:'GRP-STU',label:'Học sinh'},{value:'GRP-SYS',label:'Kỹ thuật'}]},
+    {label:'Loại sự cố chi tiết',values:incColFilterType,onChange:setIncColFilterType,options:options(incidentOptionsSource.map(s=>({value:s.incidentChild||'NONE',label:(INCIDENT_MASTER_DATA[s.incidentParent||'']||[]).find(item=>item.code===s.incidentChild)?.name||s.incidentChild||'Chưa xác định'})))},
+    {label:'Tính chất',values:incColFilterUrgency,onChange:setIncColFilterUrgency,options:[{value:'EMERGENCY',label:'Đột xuất'},{value:'ADVANCED',label:'Báo trước'}]},
+    {label:'Giáo viên dạy thay',values:incColFilterCover,onChange:setIncColFilterCover,options:options(incidentOptionsSource.map(s=>({value:s.coverTeacherId||'NONE',label:s.coverTeacherId?(s.coverTeacher||s.coverTeacherId)+' · '+s.coverTeacherId:'Không có giáo viên dạy thay'})))},
+    {label:'Tiến độ xử lý',values:incColFilterStatus,onChange:setIncColFilterStatus,options:[{value:'DA_GIAI_QUYET',label:'Đã giải quyết'},{value:'DANG_XU_LY',label:'Đang xử lý'},{value:'NONE',label:'Chưa ghi nhận xử lý'}]},
+    {label:'Vận hành xử lý',values:incColFilterOps,onChange:setIncColFilterOps,options:options(incidentOptionsSource.map(s=>({value:s.handledByOpsId||'NONE',label:s.handledByOpsId?(s.handledByName||s.handledByOpsId)+' · '+s.handledByOpsId:'Chưa có người xử lý'})))},
+  ];
 
   // Lọc Tab 2
   const incidentFilteredSessions = dateFilteredSessions.filter(s => {
     if (!matchesCatalogFilters(s)) return false;
     if (!s.hasIncident) return false;
-    if (incColFilterCode && !`${s.sessionCode} ${s.displayCode||''}`.toLowerCase().includes(incColFilterCode.toLowerCase())) return false;
-    if (incColFilterClass && !(s.className.toLowerCase().includes(incColFilterClass.toLowerCase()) || s.classCode.toLowerCase().includes(incColFilterClass.toLowerCase()))) return false;
-    if (incColFilterTarget !== 'ALL' && s.incidentParent !== incColFilterTarget) return false;
-    if (incColFilterType) {
-      const q = incColFilterType.toLowerCase();
-      const parentItems = INCIDENT_MASTER_DATA[s.incidentParent || ''] || [];
-      const childObj = parentItems.find(c => c.code === s.incidentChild);
-      const childName = (childObj ? childObj.name : (s.incidentChild || '')).toLowerCase();
-      const note = (s.incidentNote || '').toLowerCase();
-      if (!childName.includes(q) && !note.includes(q)) return false;
-    }
-    if (incColFilterUrgency !== 'ALL' && s.incidentUrgency !== incColFilterUrgency) return false;
-    if (incColFilterCover) {
-      if (!s.coverTeacher || !s.coverTeacher.toLowerCase().includes(incColFilterCover.toLowerCase())) return false;
-    }
-    if (incColFilterStatus !== 'ALL' && s.incidentStatus !== incColFilterStatus) return false;
-    if (incColFilterOps) {
-      const q = incColFilterOps.toLowerCase();
-      const matchName = s.handledByName && s.handledByName.toLowerCase().includes(q);
-      const matchId = s.handledByOpsId && s.handledByOpsId.toLowerCase().includes(q);
-      if (!matchName && !matchId) return false;
-    }
+    if (incColFilterCode.length && !incColFilterCode.includes(s.sessionCode)) return false;
+    if (incColFilterClass.length && !incColFilterClass.includes(s.classCode)) return false;
+    if (incColFilterTarget.length && !incColFilterTarget.includes(s.incidentParent || 'NONE')) return false;
+    if (incColFilterType.length && !incColFilterType.includes(s.incidentChild || 'NONE')) return false;
+    if (incColFilterUrgency.length && !incColFilterUrgency.includes(s.incidentUrgency || 'NONE')) return false;
+    if (incColFilterCover.length && !incColFilterCover.includes(s.coverTeacherId || 'NONE')) return false;
+    if (incColFilterStatus.length && !incColFilterStatus.includes(s.incidentStatus || 'NONE')) return false;
+    if (incColFilterOps.length && !incColFilterOps.includes(s.handledByOpsId || 'NONE')) return false;
     return true;
   });
 
@@ -337,24 +352,26 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Reset bộ lọc Tab 1
   const resetColFilters = () => {
-    setColFilterCode('');
-    setColFilterClass('');
-    setColFilterTeacher('');
-    setColFilterTime('ALL');
-    setColFilterAttendance('ALL');
-    setColFilterStatus('ALL');
+    setColFilterCode([]);
+    setColFilterClass([]);
+    setColFilterTeacher([]);
+    setColFilterTime([]);
+    setColFilterAttendance([]);
+    setColFilterStatus([]);
+    setColFilterTeaching([]);
+    setColFilterFeedback([]);
   };
 
   // Reset bộ lọc Tab 2
   const resetIncColFilters = () => {
-    setIncColFilterCode('');
-    setIncColFilterClass('');
-    setIncColFilterTarget('ALL');
-    setIncColFilterType('');
-    setIncColFilterUrgency('ALL');
-    setIncColFilterCover('');
-    setIncColFilterStatus('ALL');
-    setIncColFilterOps('');
+    setIncColFilterCode([]);
+    setIncColFilterClass([]);
+    setIncColFilterTarget([]);
+    setIncColFilterType([]);
+    setIncColFilterUrgency([]);
+    setIncColFilterCover([]);
+    setIncColFilterStatus([]);
+    setIncColFilterOps([]);
   };
 
   const selectMonitoringSubject = (code: string) => {
@@ -575,8 +592,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const overdueSessionsList = diaryFilteredSessions.filter(isShiftOverdueAndMissing);
 
   return (
-    <div className="space-y-6 text-slate-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+    <div className="space-y-3 text-slate-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-slate-800">Giám sát ca &amp; sự cố · {selectedSubjectName}</h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -631,129 +648,43 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       {/* ================= TAB 1: NHẬT KÝ & GIÁM SÁT BUỔI HỌC ==================== */}
       {/* ========================================================================= */}
       {activeTab === 'diary' && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {/* 4 Thẻ KPI Tab 1 */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">{viewingToday ? 'Tổng ca dạy hôm nay' : 'Tổng ca dạy'}</div>
-              <div className="text-2xl font-black text-slate-800 font-mono">{kpiTotal}</div>
+              <div className="text-xl font-bold text-slate-800 font-mono">{kpiTotal}</div>
               <div className="text-[11px] text-slate-400 mt-1">{selectedSubjectName}</div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">Đã học</div>
-              <div className="text-2xl font-black text-slate-700 font-mono">{kpiCompleted}</div>
+              <div className="text-xl font-bold text-slate-700 font-mono">{kpiCompleted}</div>
               <div className="text-[11px] text-slate-500 font-medium mt-1">Hoàn thành ca dạy</div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">Ca có sự cố phát sinh</div>
-              <div className="text-2xl font-black text-rose-600 font-mono">{kpiIncidents}</div>
+              <div className="text-xl font-bold text-rose-600 font-mono">{kpiIncidents}</div>
               <div className="text-[11px] text-rose-500 font-medium mt-1">Cần điều phối sang Tab 2</div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">Dạy thay</div>
-              <div className="text-2xl font-black text-purple-700 font-mono">{kpiCover}</div>
+              <div className="text-xl font-bold text-purple-700 font-mono">{kpiCover}</div>
               <div className="text-[11px] text-purple-600 font-medium mt-1">Đã nạp lịch GV dạy thay</div>
             </div>
           </div>
 
           {/* BẢNG GIÁM SÁT BUỔI HỌC VỚI BỘ LỌC TẠI CỘT */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="workspace-table-scroll !max-h-[76vh] overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
+              <table className="w-full min-w-[1200px] text-left text-xs border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                   {/* Hàng 1: Tiêu đề các cột */}
                   <tr>
-                    <th className="py-3 px-3 w-24">MÃ BUỔI</th>
-                    <th className="py-3 px-3 min-w-[210px]">LỚP HỌC</th>
-                    <th className="py-3 px-3 min-w-[180px]">GIÁO VIÊN</th>
-                    <th className="py-3 px-3 min-w-[150px]">THỜI GIAN &amp; NGÀY</th>
-                    <th className="py-3 px-3 text-center min-w-[140px]">CHUYÊN CẦN GV</th>
-                    <th className="py-3 px-3 text-center min-w-[145px]">TRẠNG THÁI CA</th>
-                    <th className="py-3 px-3 text-center">HÌNH THỨC DẠY</th>
-                    <th className="py-3 px-3 text-center">NHẬN XÉT</th>
-                    <th className="py-3 px-3 text-center min-w-[130px]">HÀNH ĐỘNG</th>
-                  </tr>
-                  {/* Hàng 2: Bộ lọc trực tiếp tại từng cột */}
-                  <tr className="bg-slate-100/70 border-t border-slate-200 normal-case font-normal text-slate-600">
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={colFilterCode}
-                        onChange={e => setColFilterCode(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={colFilterClass}
-                        onChange={e => setColFilterClass(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={colFilterTeacher}
-                        onChange={e => setColFilterTeacher(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3">
-                      <select
-                        value={colFilterTime}
-                        onChange={e => setColFilterTime(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00] cursor-pointer"
-                      >
-                        <option value="ALL">Tất cả khung giờ</option>
-                        <option value="12:50 - 13:50">Ca Trưa: 12:50 - 13:50</option>
-                        <option value="18:00 - 19:30">Ca 1: 18:00 - 19:30</option>
-                        <option value="19:45 - 21:15">Ca 2: 19:45 - 21:15</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-3">
-                      <select
-                        value={colFilterAttendance}
-                        onChange={e => setColFilterAttendance(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00] cursor-pointer"
-                      >
-                        <option value="ALL">Tất cả</option>
-                        <option value="ATTENDED">Có mặt</option>
-                        <option value="LATE">Đi muộn</option>
-                        <option value="ABSENT">Chưa vào</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-3">
-                      <select
-                        value={colFilterStatus}
-                        onChange={e => setColFilterStatus(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00] cursor-pointer"
-                      >
-                        <option value="ALL">Tất cả trạng thái</option>
-                        <option value="CHUA_HOC">Chưa học</option>
-                        <option value="CHUA_DIEN_RA">Chưa diễn ra</option>
-                        <option value="DANG_HOC">Đang học</option>
-                        <option value="CHUA_HOAN_TAT">Chưa hoàn tất</option>
-                        <option value="DA_HOC">Đã học</option>
-                        <option value="NGHI_HOC">Nghỉ học</option>
-                      </select>
-                    </th>
-                    <th /><th />
-                    <th className="py-2 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={resetColFilters}
-                        className="px-2.5 py-1 text-[10px] text-slate-500 hover:text-rose-600 font-bold rounded-lg bg-white border border-slate-200 hover:border-rose-300 transition-colors shadow-2xs cursor-pointer"
-                      >
-                        Reset
-                      </button>
-                    </th>
+                    {diaryColumns.map(column => <th key={column.label} className="py-3 px-3 whitespace-nowrap"><MultiSelectColumnFilter {...column} /></th>)}
+                    <th className="py-3 px-3 text-center">Hành động<button type="button" onClick={resetColFilters} className="block mx-auto text-slate-500 hover:text-orange-600 normal-case font-medium">Xóa lọc</button></th>
                   </tr>
                 </thead>
 
@@ -892,7 +823,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           <td className="py-3.5 px-3 text-center text-xs">{(() => {
                             const total=s.feedbackProgress?.total ?? s.students.length;
                             const completed=s.feedbackProgress?.completed ?? s.students.filter(student=>student.aiComment?.trim()).length;
-                            return completed===0 ? 'Chưa nhận xét' : completed===total ? 'Đã đủ '+completed+'/'+total : 'Chưa đủ '+completed+'/'+total;
+                            return <button type="button" onClick={()=>setSelectedClassViewSession(s)} title="Xem nhận xét của buổi học" className={`whitespace-nowrap rounded-lg px-2 py-1 font-semibold ${completed===0?'bg-rose-50 text-rose-700':completed>=total?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{completed===0 ? 'Chưa nhận xét' : completed>=total ? 'Đã đủ '+completed+'/'+total : 'Chưa đủ '+completed+'/'+total}</button>;
                           })()}</td>
                           {/* Hành động */}
                           <td className="py-3.5 px-3 text-center">
@@ -959,143 +890,43 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       {/* ================= TAB 2: THÔNG TIN SỰ CỐ & ĐIỀU PHỐI COVER ============== */}
       {/* ========================================================================= */}
       {activeTab === 'incidents' && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {/* 4 Thẻ KPI Tab 2 */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">Tổng sự cố phát sinh</div>
-              <div className="text-2xl font-black text-rose-600 font-mono">{kpiIncTotal}</div>
+              <div className="text-xl font-bold text-rose-600 font-mono">{kpiIncTotal}</div>
               <div className="text-[11px] text-slate-400 mt-1">Toàn bộ biên bản sự cố</div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">Sự cố đột xuất sát giờ</div>
-              <div className="text-2xl font-black text-amber-600 font-mono">{kpiIncEmergency}</div>
+              <div className="text-xl font-bold text-amber-600 font-mono">{kpiIncEmergency}</div>
               <div className="text-[11px] text-amber-600 font-medium mt-1">Chưa báo trước dưới 2 tiếng</div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">Đối tượng: Giáo viên</div>
-              <div className="text-2xl font-black text-purple-700 font-mono">{kpiIncTeacher}</div>
+              <div className="text-xl font-bold text-purple-700 font-mono">{kpiIncTeacher}</div>
               <div className="text-[11px] text-purple-600 font-medium mt-1">Nghỉ ốm / Đi muộn / Lỗi mic</div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200">
               <div className="text-slate-400 text-xs mb-1">Đối tượng: Học sinh</div>
-              <div className="text-2xl font-black text-blue-600 font-mono">{kpiIncStudent}</div>
+              <div className="text-xl font-bold text-blue-600 font-mono">{kpiIncStudent}</div>
               <div className="text-[11px] text-blue-600 font-medium mt-1">Xin dời ca / Nghỉ có phép</div>
             </div>
           </div>
 
           {/* BẢNG QUẢN LÝ SỰ CỐ VỚI BỘ LỌC TẠI CỘT */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="workspace-table-scroll !max-h-[76vh] overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn">
+              <table className="w-full min-w-[1200px] text-left text-xs border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                   {/* Hàng 1: Tiêu đề cột Tab 2 */}
                   <tr>
-                    <th className="py-3.5 px-3 w-20">MÃ BUỔI</th>
-                    <th className="py-3.5 px-3 min-w-[200px]">LỚP HỌC</th>
-                    <th className="py-3.5 px-3 min-w-[130px]">ĐỐI TƯỢNG</th>
-                    <th className="py-3.5 px-3 min-w-[210px]">LOẠI SỰ CỐ CHI TIẾT</th>
-                    <th className="py-3.5 px-3 min-w-[110px]">TÍNH CHẤT</th>
-                    <th className="py-3.5 px-3 min-w-[160px]">GIÁO VIÊN DẠY THAY</th>
-                    <th className="py-3.5 px-3 text-center min-w-[120px]">TIẾN ĐỘ XỬ LÝ</th>
-                    <th className="py-3.5 px-3 min-w-[160px] bg-orange-50/40 border-l border-orange-100">
-                      <div className="text-[#FF5C00] font-bold">VẬN HÀNH XỬ LÝ</div>
-                    </th>
-                    <th className="py-3.5 px-3 text-center min-w-[120px]">THAO TÁC</th>
-                  </tr>
-                  {/* Hàng 2: Bộ lọc trực tiếp từng cột */}
-                  <tr className="bg-slate-100/70 border-t border-slate-200 normal-case font-normal text-slate-600">
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={incColFilterCode}
-                        onChange={e => setIncColFilterCode(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={incColFilterClass}
-                        onChange={e => setIncColFilterClass(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3">
-                      <select
-                        value={incColFilterTarget}
-                        onChange={e => setIncColFilterTarget(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00] cursor-pointer"
-                      >
-                        <option value="ALL">Tất cả</option>
-                        <option value="GRP-TCH">Giáo viên</option>
-                        <option value="GRP-STU">Học sinh</option>
-                        <option value="GRP-SYS">Kỹ thuật</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={incColFilterType}
-                        onChange={e => setIncColFilterType(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3">
-                      <select
-                        value={incColFilterUrgency}
-                        onChange={e => setIncColFilterUrgency(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00] cursor-pointer"
-                      >
-                        <option value="ALL">Tất cả</option>
-                        <option value="EMERGENCY">Đột xuất</option>
-                        <option value="ADVANCED">Báo trước</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={incColFilterCover}
-                        onChange={e => setIncColFilterCover(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3">
-                      <select
-                        value={incColFilterStatus}
-                        onChange={e => setIncColFilterStatus(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00] cursor-pointer"
-                      >
-                        <option value="ALL">Tất cả</option>
-                        <option value="DA_GIAI_QUYET">Đã giải quyết</option>
-                        <option value="DANG_XU_LY">Đang xử lý</option>
-                      </select>
-                    </th>
-                    <th className="py-2 px-3">
-                      <input
-                        type="text"
-                        value={incColFilterOps}
-                        onChange={e => setIncColFilterOps(e.target.value)}
-                        placeholder="Tìm kiếm..."
-                        className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#FF5C00]"
-                      />
-                    </th>
-                    <th className="py-2 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={resetIncColFilters}
-                        className="px-2.5 py-1 text-[10px] text-slate-500 hover:text-rose-600 font-bold rounded-lg bg-white border border-slate-200 hover:border-rose-300 transition-colors shadow-2xs cursor-pointer"
-                      >
-                        Reset
-                      </button>
-                    </th>
+                    {incidentColumns.map(column => <th key={column.label} className="py-3 px-3 whitespace-nowrap"><MultiSelectColumnFilter {...column} /></th>)}
+                    <th className="py-3 px-3 text-center">Thao tác<button type="button" onClick={resetIncColFilters} className="block mx-auto text-slate-500 hover:text-orange-600 normal-case font-medium">Xóa lọc</button></th>
                   </tr>
                 </thead>
 
@@ -1654,10 +1485,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           Boolean(filterCategory !== 'ALL'),
           Boolean(filterGrade !== 'ALL'),
           Boolean(filterLevel !== 'ALL'),
-          Boolean(colFilterTime !== 'ALL')
+          colFilterTime.length > 0
         ].filter(Boolean).length}
         onReset={() => {
-          setColFilterTime('ALL');
+          setColFilterTime([]);
           setFilterCategory('ALL');
           setFilterGrade('ALL');
           setFilterLevel('ALL');
@@ -1692,12 +1523,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 {levels.filter(level => level.status !== false).map(level => <option key={level.code} value={level.code}>{level.name}</option>)}
               </select>
             </label>
-            <label className="block font-medium text-slate-600">Khung giờ
-              <select value={colFilterTime} onChange={event => setColFilterTime(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
-                <option value="ALL">Tất cả khung giờ</option>
-                {Array.from(new Set(sessions.map(session => session.timeSlot))).map(slot => <option key={slot} value={slot}>{slot}</option>)}
-              </select>
-            </label>
+            <div className="space-y-2"><div className="font-medium text-slate-600">Khung giờ</div>
+              <CheckboxFilterOptions label="Khung giờ" values={colFilterTime} onChange={setColFilterTime} options={options(sessions.map(session=>({value:session.timeSlot,label:session.timeSlot})))}/>
+            </div>
           </section>
         </div>
       </FilterDrawer>

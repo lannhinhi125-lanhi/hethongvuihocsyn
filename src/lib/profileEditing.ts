@@ -11,14 +11,15 @@ export function studentSlotAssignment(studentId:string,subject:string,slot:strin
 }
 export function studentStudyEditIssue(before:StudentRecord,after:StudentRecord,classes?:ClassItem[]):string|undefined {
  const previous=studentRegistrations(before),next=studentRegistrations(after);
- if(before.grade!==after.grade && previous.some(row=>row.status!=='Chờ xếp lớp'||row.currentClassCode))return 'Đưa các đăng ký môn về Chờ xếp lớp và lưu trước khi đổi khối.';
+ if(before.grade!==after.grade && previous.some(row=>(row.status!=='Chờ xếp lớp' && row.status!=='Đã thôi học')||row.currentClassCode))return 'Đưa các đăng ký môn về Chờ xếp lớp và lưu trước khi đổi khối.';
  for(const old of previous){
   const row=next.find(item=>item.subject===old.subject);
   const linkedClass=classes?.find(cls=>cls.subject===old.subject&&cls.studentIds.includes(before.id)&&!['Tạm dừng','Đã kết thúc'].includes(cls.status||''));
   const assigned=classes ? Boolean(linkedClass) : Boolean(old.currentClassCode);
   if(assigned && (!row || row.status!==old.status || row.currentClassCode!==old.currentClassCode))return `Chưa thể đổi trạng thái hoặc rút học sinh vì đang gắn với lớp ${linkedClass?.code||old.currentClassCode}. Dừng hoạt động lớp trước để chuyển về Chờ xếp lớp và giải phóng ca.`;
   const changed=!row || row.model!==old.model || row.level!==old.level;
-  if(changed && (old.status!=='Chờ xếp lớp'||old.currentClassCode))return 'Đưa đăng ký môn về Chờ xếp lớp và lưu trước khi đổi trình độ hoặc mô hình.';
+  const reopening=old.status==='Đã thôi học' && row && ['Chờ xếp lớp','Đang học'].includes(row.status) && !old.currentClassCode;
+  if(changed && !reopening && (old.status!=='Chờ xếp lớp'||old.currentClassCode))return 'Đưa đăng ký môn về Chờ xếp lớp và lưu trước khi đổi trình độ hoặc mô hình.';
   for(const slot of old.scheduleSlots||[]){
    if(row?.scheduleSlots.some(nextSlot=>scheduleKey(nextSlot)===scheduleKey(slot)))continue;
    const occupied=classes?studentSlotAssignment(before.id,old.subject,slot,classes):undefined;

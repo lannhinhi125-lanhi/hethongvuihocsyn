@@ -30,7 +30,7 @@ export function studentHistoryForSubject(student: StudentRecord, subject: string
 export function studentForSubject(student: StudentRecord, subject: string): StudentRecord | undefined {
   const registration = studentRegistrations(student).find(item => item.subject === subject);
   if (!registration) return undefined;
-  const {registeredAt,...fields}=registration;
+  const {registeredAt,registrationKind,periodNumber,...fields}=registration;
   return { ...student, ...fields };
 }
 
@@ -38,7 +38,7 @@ export function updateStudentRegistration(student: StudentRecord, updates: Parti
   const subject = updates.subject || student.subject;
   const registrations = updates.registrations?.length ? updates.registrations : studentRegistrations(student);
   const old = registrations.find(item => item.subject === subject);
-  const next = { subject, registeredAt: old?.registeredAt || studentRegistrations(student).find(item => item.subject === subject)?.registeredAt,
+  const next = { ...old, subject, registeredAt: old?.registeredAt || studentRegistrations(student).find(item => item.subject === subject)?.registeredAt,
     model: updates.model ?? old?.model ?? student.model,
     level: updates.level ?? old?.level ?? student.level,
     scheduleSlots: updates.scheduleSlots ?? old?.scheduleSlots ?? [],
@@ -48,7 +48,7 @@ export function updateStudentRegistration(student: StudentRecord, updates: Parti
   const merged = registrations.some(item => item.subject === subject)
     ? registrations.map(item => item.subject === subject ? next : item) : [...registrations, next];
   // Scalar fields remain a compatibility projection of the first subject.
-  const {registeredAt,...projection}=merged[0];
+  const {registeredAt,registrationKind,periodNumber,...projection}=merged[0];
   return { ...student, ...updates, registrations: merged, ...projection };
 }
 

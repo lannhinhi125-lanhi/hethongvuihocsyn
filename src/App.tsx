@@ -69,7 +69,7 @@ const MainLayout: React.FC = () => {
           {session.saving && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm">Đang lưu…</p>}
           {session.error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Không lưu được: {session.error} <button onClick={()=>void refreshAccountSession()} className="underline">Tải lại dữ liệu</button></p>}
           {session.saved && !session.saving && !session.error && <p role="status" className="mb-4 text-sm text-green-700">Lưu thành công.</p>}
-          <div className="max-w-[1600px] mx-auto w-full">
+          <div className={workspaceMode === 'ADMIN' && activeModule === 5 ? 'w-full' : 'max-w-[1600px] mx-auto w-full'}>
             {workspaceMode === 'ADMIN' && accountPortal(currentUser, roleGroups) === 'ADMIN' ? (
               // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================
               <>

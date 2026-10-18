@@ -9,6 +9,7 @@ import { CatalogTreeBranch } from '../components/CatalogTreeBranch';
 import { IncidentCatalog } from '../components/IncidentCatalog';
 import { CatalogWorkspace } from '../components/CatalogWorkspace';
 import { TeachingCatalog } from '../components/TeachingCatalog';
+import { ClassDurationCatalog } from '../components/ClassDurationCatalog';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { IncidentCategory } from '../types';
@@ -45,8 +46,9 @@ export const Module2_MasterData: React.FC = () => {
     showToast
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching' | 'document-types'>('subjects');
+  const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching' | 'document-types' | 'durations'>('subjects');
   const [documentCategories] = useBusinessValue<DocumentCategory[]>('document_categories');
+  const [durationCatalogs]=useBusinessValue<{code:string;entries:unknown[]}[]>('custom_catalogs');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // Modals state
@@ -319,6 +321,7 @@ export const Module2_MasterData: React.FC = () => {
         { id: 'teaching', name: 'Cấp học & Lớp dạy', group: 'Đào tạo', count: teachingCategories.length },
         { id: 'models', name: 'Mô hình & Sĩ số', group: 'Tổ chức lớp học', count: models.length },
         { id: 'times', name: 'Khung giờ học', group: 'Tổ chức lớp học', count: timeSlots.length },
+        { id: 'durations', name: 'Thời hạn lớp học', group: 'Tổ chức lớp học', count: durationCatalogs.find(row=>row.code==='CLASS_DURATION')?.entries.length||0 },
         { id: 'document-types', name: 'Loại tài liệu', group: 'Vận hành', count: documentCategories.length },
         { id: 'incidents', name: 'Sự cố & Hệ số công', group: 'Vận hành', count: incidents.length }
       ]}>
@@ -331,6 +334,7 @@ export const Module2_MasterData: React.FC = () => {
       </div>}
       {activeTab === 'document-types' && <DocumentCategoryManager searchKeyword={searchKeyword} />}
       {activeTab === 'teaching' && <TeachingCatalog />}
+      {activeTab === 'durations' && <ClassDurationCatalog />}
       {/* ================= TAB 1: MÔN HỌC ================= */}
       {activeTab === 'subjects' && (
         <CatalogTreeBranch title="Môn học" count={subjects.length} onAdd={() => openSubjectModal()} addLabel="Thêm môn học" revealKey={searchKeyword}>
