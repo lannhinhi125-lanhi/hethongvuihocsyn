@@ -1,3 +1,4 @@
+import { readRoomLinkFile } from '../lib/roomLinkImport';
 import { ReportSelect } from '../components/ReportSelect';
 import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
 import { PeriodToolbar } from '../components/PeriodToolbar';
@@ -279,16 +280,16 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [viewingDetailStudent, setViewingDetailStudent] = useState<StudentRecord | null>(null);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [stdName, setStdName] = useState('');
-  const [stdGrade, setStdGrade] = useState('Lớp 3');
-  const [stdSubject, setStdSubject] = useState('SUB-MATH');
+  const [stdGrade, setStdGrade] = useState('');
+  const [stdSubject, setStdSubject] = useState('');
   const [stdFatherName, setStdFatherName] = useState('');
   const [stdFatherPhone, setStdFatherPhone] = useState('');
   const [stdMotherName, setStdMotherName] = useState('');
   const [stdMotherPhone, setStdMotherPhone] = useState('');
-  const [stdModel, setStdModel] = useState('1-3');
-  const [stdLevel, setStdLevel] = useState('LVL-F2');
+  const [stdModel, setStdModel] = useState('');
+  const [stdLevel, setStdLevel] = useState('');
   const [stdStatus, setStdStatus] = useState<StudentRecord['status']>('Chờ xếp lớp');
-  const [stdSlots, setStdSlots] = useState<string[]>(['T3 (18:00 - 19:30)', 'T5 (18:00 - 19:30)']);
+  const [stdSlots, setStdSlots] = useState<string[]>([]);
   const [stdDrafts, setStdDrafts] = useState<StudentSubjectRegistration[]>([]);
 
   const activeTimeSlots = timeSlots.filter(slot => slot.status);
@@ -321,16 +322,16 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   useEffect(() => { setClassSaveError(''); }, [isClassModalOpen, editingClassId]);
   const [clsCode, setClsCode] = useState('');
-  const [clsSchoolYear, setClsSchoolYear] = useState('2026');
+  const [clsSchoolYear, setClsSchoolYear] = useState(() => reportToday().slice(0,4));
   const [clsCategory, setClsCategory] = useState('');
   const [clsStatus, setClsStatus] = useState<NonNullable<ClassItem['status']>>('Chờ khai giảng');
   const [clsName, setClsName] = useState('');
-  const [clsGrade, setClsGrade] = useState('Lớp 3');
-  const [clsSubject, setClsSubject] = useState('SUB-MATH');
-  const [clsLevel, setClsLevel] = useState('LVL-STD');
-  const [clsModel, setClsModel] = useState('1-3');
+  const [clsGrade, setClsGrade] = useState('');
+  const [clsSubject, setClsSubject] = useState('');
+  const [clsLevel, setClsLevel] = useState('');
+  const [clsModel, setClsModel] = useState('');
   const [clsRoomLink, setClsRoomLink] = useState('');
-  const [clsSchedule, setClsSchedule] = useState('T3 (18:00 - 19:30), T5 (18:00 - 19:30)');
+  const [clsSchedule, setClsSchedule] = useState('');
   const [clsStartDate, setClsStartDate] = useState('');
   const [clsDurationMonths,setClsDurationMonths]=useState('');
   const [clsCustomEndDate,setClsCustomEndDate]=useState('');
@@ -418,7 +419,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [isBatchMaterialModalOpen, setIsBatchMaterialModalOpen] = useState(false);
   const [batchMonth, setBatchMonth] = useState(INITIAL_TEACHING_WEEK.month);
   const [batchWeek, setBatchWeek] = useState(INITIAL_TEACHING_WEEK.label);
-  const [batchSubject, setBatchSubject] = useState('SUB-MATH');
+  const [batchSubject, setBatchSubject] = useState('');
   const [batchCategoryId, setBatchCategoryId] = useState('');
   const [batchGradeIds, setBatchGradeIds] = useState<string[]>([]);
   const [batchLevelIds, setBatchLevelIds] = useState<string[]>([]);
@@ -471,6 +472,8 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [deletingMaterials,setDeletingMaterials]=useState(false);
 
   // Import Room Excel Modal state
+  const [roomImportFile, setRoomImportFile] = useState<File | null>(null);
+  const [roomImportBusy, setRoomImportBusy] = useState(false);
   const [isImportRoomModalOpen, setIsImportRoomModalOpen] = useState(false);
 
   const materialMonths = useMemo(() => Array.from(new Set(
@@ -1236,7 +1239,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     let csv = '\uFEFF';
     csv += 'STT,Mã lớp,Tên lớp,Khối lớp,Môn học,Link Phòng Học (Điền link Zoom/ClassIn vào đây)\n';
     missing.forEach((c, idx) => {
-      csv += `${idx + 1},"${c.code}","${c.name}","${c.grade}","${c.subject === 'SUB-MATH' ? 'Toán' : 'Tiếng Anh'}",""\n`;
+      csv += [idx + 1,c.code,c.name,c.grade,subjectName(c.subject),''].map(value => '"' + String(value).replaceAll('"','""') + '"').join(',') + '\n';
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1252,23 +1255,18 @@ export const Module4_StudentsClasses: React.FC = () => {
     showToast(`Đã xuất file mẫu gồm ${missing.length} lớp chưa có link phòng!`, 'success');
   };
 
-  const handleImportRoomExcelDemo = () => {
-    if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
-    const missing = classes.filter(c => !c.roomLink || c.roomLink.trim() === '');
-    if (missing.length === 0) {
-      showToast('Tất cả các lớp đều đã có link phòng học trước đó!', 'info');
-      setIsImportRoomModalOpen(false);
-      return;
-    }
-
-    const mockUpdates = missing.map(c => ({
-      classCode: c.code,
-      roomLink: `https://vuihoc.zoom.us/j/998${Math.floor(1000000 + Math.random() * 9000000)}`
-    }));
-
-    const result = batchImportRoomLinks(mockUpdates);
-    setIsImportRoomModalOpen(false);
-    showToast(`Đã gán thành công link phòng học cho ${result.updated} lớp thiếu link!`, 'success');
+  const handleImportRoomFile = async () => {
+    if (!requirePermission('Tạo, sửa, xóa lớp và cập nhật link phòng học') || roomImportBusy) return;
+    if (!roomImportFile) { showToast('Vui lòng chọn file đã điền link phòng.', 'warning'); return; }
+    setRoomImportBusy(true);
+    try {
+      const updates = await readRoomLinkFile(roomImportFile, classes);
+      const result = batchImportRoomLinks(updates);
+      await waitForBusinessSave();
+      setIsImportRoomModalOpen(false); setRoomImportFile(null);
+      showToast('Đã lưu link phòng cho ' + result.updated + ' lớp; bỏ qua ' + result.skipped + ' lớp đã có link.', 'success');
+    } catch (error) { showToast((error as Error).message, 'error'); }
+    finally { setRoomImportBusy(false); }
   };
 
   return (
@@ -2368,7 +2366,7 @@ export const Module4_StudentsClasses: React.FC = () => {
               <div className="p-4 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-center space-y-2">
                 <FileSpreadsheet className="w-8 h-8 text-emerald-600 mx-auto" />
                 <p className="font-semibold text-slate-700">Tải lên file Excel/CSV đã điền link phòng</p>
-                <input type="file" accept=".csv, .xlsx" className="block w-full text-xs text-slate-500" />
+                <input type="file" accept=".csv,.xlsx" onChange={event => setRoomImportFile(event.target.files?.[0] || null)} className="block w-full text-xs text-slate-500" />
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -2380,10 +2378,10 @@ export const Module4_StudentsClasses: React.FC = () => {
                   Hủy bỏ
                 </button>
                 <button
-                  disabled={!can("Tạo, sửa, xóa lớp và cập nhật link phòng học")} onClick={handleImportRoomExcelDemo}
+                  disabled={!can("Tạo, sửa, xóa lớp và cập nhật link phòng học") || !roomImportFile || roomImportBusy || isSavingChanges} onClick={handleImportRoomFile}
                   className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs cursor-pointer"
                 >
-                  Bắt đầu nạp link phòng
+                  {roomImportBusy ? 'Đang nhập…' : 'Bắt đầu nạp link phòng'}
                 </button>
               </div>
             </div>

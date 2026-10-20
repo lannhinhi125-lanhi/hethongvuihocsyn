@@ -7,7 +7,7 @@ export function confirmAction(message: string): Promise<boolean> {
   return new Promise(resolve => { queue.push({message,resolve}); notify(); });
 }
 export function ConfirmAction() {
-  const request = useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => queue[0]);
+  const request = useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => queue[0], () => undefined);
   const finish = (accepted: boolean) => { const next = queue.shift(); next?.resolve(accepted); notify(); };
   useEffect(() => {
     if (!request) return;

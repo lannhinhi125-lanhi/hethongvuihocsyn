@@ -63,7 +63,7 @@ export interface MonitoringSession {
   pauseReason?: string | null;
   pauseNote?: string | null;
   hasIncident: boolean;
-  incidentParent: 'GRP-TCH' | 'GRP-STU' | 'GRP-SYS' | null;
+  incidentParent: string | null;
   incidentChild: string | null;
   incidentUrgency: 'EMERGENCY' | 'ADVANCED' | null;
   incidentStatus: 'DA_GIAI_QUYET' | 'DANG_XU_LY' | 'HUY_CA' | null;
@@ -80,7 +80,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const displaySessionCode=(session:Pick<MonitoringSession,'displayCode'>)=>session.displayCode||'Chưa cấp mã';
   const { can, requirePermission } = usePermissions();
   const { showToast, currentUser, classes, setClasses, teachers, timeSlots, students, levels, subjects, teachingCategories, incidents, users } = useApp();
-  const INCIDENT_MASTER_DATA: Record<string, { code: string; name: string }[]> = Object.fromEntries(incidents.map(group => [group.code, group.subIncidents.filter(item => item.status).map(item => ({ code: item.code, name: item.name }))]));
+  const INCIDENT_MASTER_DATA: Record<string, { code: string; name: string }[]> = Object.fromEntries(incidents.map(group => [group.code, group.subIncidents.map(item => ({ code: item.code, name: item.name }))]));
 
   const businessStatus = useBusinessStatus();
   const [savingIncident, setSavingIncident] = useState(false);
@@ -165,8 +165,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [simSessionCode, setSimSessionCode] = useState('BD001');
 
   // Incident Modal internal form state
-  const [incParent, setIncParent] = useState<'GRP-TCH' | 'GRP-STU' | 'GRP-SYS'>('GRP-TCH');
-  const [incChild, setIncChild] = useState<string>('INC-TCH-02');
+  const [incParent, setIncParent] = useState<string>('');
+  const [incChild, setIncChild] = useState<string>('');
   const [incUrgency, setIncUrgency] = useState<'EMERGENCY' | 'ADVANCED'>('EMERGENCY');
   const [incStatus, setIncStatus] = useState<'DA_GIAI_QUYET' | 'DANG_XU_LY' | 'HUY_CA'>('DANG_XU_LY');
   const [incNote, setIncNote] = useState<string>('');
@@ -322,7 +322,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const incidentColumns = [
     {label:'Mã buổi',values:incColFilterCode,onChange:setIncColFilterCode,options:options(incidentOptionsSource.map(s=>({value:s.sessionCode,label:displaySessionCode(s)})))},
     {label:'Lớp học',values:incColFilterClass,onChange:setIncColFilterClass,options:options(incidentOptionsSource.map(s=>({value:s.classCode,label:s.className+' · '+s.classCode})))},
-    {label:'Đối tượng',values:incColFilterTarget,onChange:setIncColFilterTarget,options:[{value:'GRP-TCH',label:'Giáo viên'},{value:'GRP-STU',label:'Học sinh'},{value:'GRP-SYS',label:'Kỹ thuật'}]},
+    {label:'Đối tượng',values:incColFilterTarget,onChange:setIncColFilterTarget,options:[...incidents.map(group=>({value:group.code,label:group.name}))]},
     {label:'Loại sự cố chi tiết',values:incColFilterType,onChange:setIncColFilterType,options:options(incidentOptionsSource.map(s=>({value:s.incidentChild||'NONE',label:(INCIDENT_MASTER_DATA[s.incidentParent||'']||[]).find(item=>item.code===s.incidentChild)?.name||s.incidentChild||'Chưa xác định'})))},
     {label:'Tính chất',values:incColFilterUrgency,onChange:setIncColFilterUrgency,options:[{value:'EMERGENCY',label:'Đột xuất'},{value:'ADVANCED',label:'Báo trước'}]},
     {label:'Giáo viên dạy thay',values:incColFilterCover,onChange:setIncColFilterCover,options:options(incidentOptionsSource.map(s=>({value:s.coverTeacherId||'NONE',label:s.coverTeacherId?(s.coverTeacher||s.coverTeacherId)+' · '+s.coverTeacherId:'Không có giáo viên dạy thay'})))},
@@ -391,9 +391,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const openIncidentModal = (session: MonitoringSession) => {
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     setSelectedIncidentSession(session);
-    const parent = session.incidentParent || 'GRP-TCH';
+    const parent = session.incidentParent || '';
     setIncParent(parent);
-    const childList = INCIDENT_MASTER_DATA[parent] || [];
+    const childList = incidents.find(group => group.code === parent)?.subIncidents.filter(item => item.status) || [];
     setIncChild(session.incidentChild || (session.status === 'NGHI_HOC' ? '' : childList[0]?.code || ''));
     setIncUrgency(session.incidentUrgency || 'EMERGENCY');
     setIncStatus(session.incidentStatus || 'DANG_XU_LY');
@@ -409,9 +409,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   };
 
   // Đổi Cây Cha trong modal sự cố
-  const handleIncParentChange = (val: 'GRP-TCH' | 'GRP-STU' | 'GRP-SYS') => {
+  const handleIncParentChange = (val: string) => {
     setIncParent(val);
-    const list = INCIDENT_MASTER_DATA[val] || [];
+    const list = incidents.find(group => group.code === val)?.subIncidents.filter(item => item.status) || [];
     setIncChild(list[0]?.code || '');
     if (val !== 'GRP-TCH') {
       setIncHasCover(false);
@@ -976,19 +976,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Đối tượng */}
                           <td className="py-3.5 px-3">
-                            {s.incidentParent === 'GRP-STU' ? (
-                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-blue-50 text-blue-700 border border-blue-200">
-                                Học sinh
-                              </span>
-                            ) : s.incidentParent === 'GRP-SYS' ? (
-                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-100 text-slate-700 border border-slate-200">
-                                Kỹ thuật LMS
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-purple-50 text-purple-700 border border-purple-200">
-                                Giáo viên
-                              </span>
-                            )}
+                            {<span className="px-2 py-0.5 rounded font-bold text-[10px] bg-purple-50 text-purple-700 border border-purple-200">{incidents.find(group => group.code === s.incidentParent)?.name || s.incidentParent || 'Chưa xác định'}</span>}
                           </td>
 
                           {/* Loại sự cố chi tiết */}
@@ -1186,12 +1174,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                     </label>
                     <ReportSelect
                       value={incParent}
-                      onChange={e => handleIncParentChange(e.target.value as 'GRP-TCH' | 'GRP-STU' | 'GRP-SYS')}
+                      onChange={e => handleIncParentChange(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
-                      <option value="GRP-TCH">Giáo viên</option>
-                      <option value="GRP-STU">Học sinh</option>
-                      <option value="GRP-SYS">Kỹ thuật / Hệ thống</option>
+                      <option value="" disabled>Chọn nhóm sự cố</option>{incidents.map(group => <option key={group.id} value={group.code}>{group.name}</option>)}
                     </ReportSelect>
                   </div>
                   <div>
@@ -1204,7 +1190,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
                       <option value="" disabled>Chọn loại sự cố</option>
-                      {(INCIDENT_MASTER_DATA[incParent] || []).map(item => (
+                      {(incidents.find(group => group.code === incParent)?.subIncidents || []).filter(item => item.status || item.code === incChild).map(item => (
                         <option key={item.code} value={item.code}>{item.name}</option>
                       ))}
                     </ReportSelect>

@@ -74,9 +74,8 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const teachingContext: WorkTeachingContext = useMemo(() => ({ classes, subjects, models, levels, teachingCategories, lessons: handoffLessons }), [classes, subjects, models, levels, teachingCategories, handoffLessons]);
 
   // State bộ lọc
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
-  const payrollMonthOptions = getPayrollMonthOptions();
+  const payrollMonthOptions = getPayrollMonthOptions(new Date(), [...Object.keys(payrollStore), ...handoffLessons.map(lesson => lesson.date.slice(0,7))]);
   const [activeTab, setActiveTab] = useState<'summary' | 'sessions' | 'disputes'>('summary');
   const [detailTeacherId, setDetailTeacherId] = useState<string | null>(null);
   const [staffTypeFilter, setStaffTypeFilter] = useState<'ALL' | 'GIAO_VIEN' | 'GIA_SU'>('ALL');
@@ -243,7 +242,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     const credited=list.map(item=>({...item.session,teacherId:item.teacherId}));
     pendingLessonWork({lessons:handoffLessons,credited,classes,teachers,students,slots:timeSlots,month:selectedMonth}).forEach(session=>{
       const teacher=teachers.find(row=>row.id===session.teacherId)!;
-      list.push({teacherId:teacher.id,teacherName:teacher.name,staffRole:'GIAO_VIEN',subject:teacher.subject==='SUB-ENG'?'ANH':'TOAN',session});
+      list.push({teacherId:teacher.id,teacherName:teacher.name,staffRole:'GIAO_VIEN',subject:teacher.subject,session});
     });
     return list;
   }, [monthData.teachers,handoffLessons,classes,teachers,students,timeSlots,selectedMonth]);
@@ -525,15 +524,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
         {/* Action Buttons */}
         <div className="flex items-center flex-wrap gap-1.5">
           <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-            <span className="text-[10px] font-semibold text-slate-500">Năm học</span>
-            <ReportSelect
-              value={selectedSchoolYear}
-              onChange={e => setSelectedSchoolYear(e.target.value)}
-              className="bg-transparent text-[11px] font-semibold text-slate-700 focus:outline-hidden cursor-pointer"
-            >
-              <option value="2026 - 2027">2026 - 2027</option>
-              <option value="2025 - 2026">2025 - 2026</option>
-            </ReportSelect>
+
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
             <ReportSelect
@@ -780,7 +771,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   <th className="py-3 px-3">{columnTextFilter('Mã nhân sự', staffIdFilter, setStaffIdFilter)}</th>
                   <th className="py-3 px-3">{columnTextFilter('Họ và tên', staffNameFilter, setStaffNameFilter)}</th>
                   <th className="py-3 px-3">{columnSelectFilter('Phân loại', staffTypeFilter, value => setStaffTypeFilter(value as typeof staffTypeFilter), [{ value: 'GIAO_VIEN', label: 'Giáo viên' }])}</th>
-                  <th className="py-3 px-3">{columnSelectFilter('Chuyên trách', subjectFilter, setSubjectFilter, [{ value: 'TOAN', label: 'Toán' }, { value: 'ANH', label: 'Tiếng Anh' }])}</th>
+                  <th className="py-3 px-3">{columnSelectFilter('Chuyên trách', subjectFilter, setSubjectFilter, subjects.map(subject => ({value:subject.code,label:subject.name})))}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Buổi chuẩn', summaryRanges.standardSessions, range => setSummaryRanges(previous => ({ ...previous, standardSessions: range })))}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Buổi sự cố', summaryRanges.incidentSessions, range => setSummaryRanges(previous => ({ ...previous, incidentSessions: range })))}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Công buổi chuẩn', summaryRanges.standardCredit, range => setSummaryRanges(previous => ({ ...previous, standardCredit: range })), '0.1')}</th>
@@ -956,7 +947,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-semibold text-slate-800">{teacherName}</div>
-                        <div className="text-[11px] text-slate-500">{teacherId} · {isTutor ? 'Gia sư' : 'Giáo viên'} · {subject === 'ANH' ? 'Tiếng Anh' : 'Toán'}</div>
+                        <div className="text-[11px] text-slate-500">{teacherId} · {isTutor ? 'Gia sư' : 'Giáo viên'} · {subjects.find(item => item.code === subject)?.name || subject}</div>
                       </td>
                       <td className="py-3 px-3 font-semibold text-slate-800">
                         <div className="font-mono">{session.classCode}</div>
@@ -1174,8 +1165,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <label className="mb-1 block font-bold text-slate-700">Môn chuyên trách</label>
                 <ReportSelect value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả môn</option>
-                  <option value="TOAN">Toán</option>
-                  <option value="ANH">Tiếng Anh</option>
+                  {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
                 </ReportSelect>
               </div>
               <div>
@@ -1232,8 +1222,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <label className="mb-1 block font-bold text-slate-700">Môn học</label>
                 <ReportSelect value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả môn</option>
-                  <option value="TOAN">Toán</option>
-                  <option value="ANH">Tiếng Anh</option>
+                  {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
                 </ReportSelect>
               </div>
               <div>
@@ -1298,8 +1287,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <label className="mb-1 block font-bold text-slate-700">Môn học</label>
                 <ReportSelect value={subjectFilter} onChange={event => setSubjectFilter(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
                   <option value="ALL">Tất cả môn</option>
-                  <option value="TOAN">Toán</option>
-                  <option value="ANH">Tiếng Anh</option>
+                  {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
                 </ReportSelect>
               </div>
               <div>
@@ -1356,7 +1344,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
             <div className="overflow-y-auto p-5">
               <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-xs sm:grid-cols-2">
                 <div><dt className="text-slate-500">Nhân sự</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.teacherName} ({viewingSession.teacherId}) · {viewingSession.staffRole === 'GIA_SU' ? 'Gia sư' : 'Giáo viên'}</dd></div>
-                <div><dt className="text-slate-500">Môn học</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.subject === 'ANH' ? 'Tiếng Anh' : 'Toán'}</dd></div>
+                <div><dt className="text-slate-500">Môn học</dt><dd className="mt-1 font-semibold text-slate-800">{subjects.find(item => item.code === viewingSession.subject)?.name || viewingSession.subject}</dd></div>
                 <div><dt className="text-slate-500">Ngày & giờ</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.dayOfWeek}, {viewingSession.session.dateStr} · {viewingSession.session.time}</dd></div>
                 <div><dt className="text-slate-500">Lớp học</dt><dd className="mt-1 font-mono font-semibold text-slate-800">{viewingSession.session.classCode}<div className="mt-0.5 font-sans text-[11px] font-normal text-slate-500">Mô hình {viewingSession.session.model || '1-3'}</div></dd></div>
                 <div><dt className="text-slate-500">Học sinh / sĩ số</dt><dd className="mt-1 font-semibold text-slate-800">{getSessionStudentNames(viewingSession.session)} · {viewingSession.session.studentCount ?? viewingSession.session.studentNames?.length ?? 3} HS</dd></div>

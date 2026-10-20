@@ -47,9 +47,8 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     return ()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);};
   },[]);
 
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState<string>('2026 - 2027');
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
-  const payrollMonthOptions = getPayrollMonthOptions();
+  const payrollMonthOptions = getPayrollMonthOptions(new Date(), [...Object.keys(payrollStore), ...datedLessons.map(lesson => lesson.date.slice(0,7))]);
   const [showDisputeModal, setShowDisputeModal] = useState<boolean>(false);
   const [selectedSessionForDispute, setSelectedSessionForDispute] = useState<SessionPayrollRecord | null>(null);
   const [disputeType, setDisputeType] = useState<string>('Học sinh xin nghỉ sát giờ nhưng bị tính vắng');
@@ -76,7 +75,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     : undefined;
 
   const pendingSessions=useMemo(()=>ownTeacher?pendingLessonWork({lessons:datedLessons,credited:(savedRecord?.sessions||[]).map(row=>({...row,teacherId:ownTeacher.id})),classes,teachers,students,slots:timeSlots,month:selectedMonth,now:clockNow}).filter(row=>row.teacherId===ownTeacher.id):[],[datedLessons,savedRecord,classes,teachers,students,timeSlots,selectedMonth,ownTeacher?.id,clockNow]);
-  const myRecord=savedRecord||(ownTeacher&&pendingSessions.length?{teacherId:ownTeacher.id,teacherName:ownTeacher.name,staffRole:'GIAO_VIEN' as const,subject:ownTeacher.subject==='SUB-ENG'?'ANH' as const:'TOAN' as const,subjectName:ownTeacher.subjectName,reconcileStatus:undefined,payrollSent:false,sessions:[]}:undefined);
+  const myRecord=savedRecord||(ownTeacher&&pendingSessions.length?{teacherId:ownTeacher.id,teacherName:ownTeacher.name,staffRole:'GIAO_VIEN' as const,subject:ownTeacher.subject,subjectName:ownTeacher.subjectName,reconcileStatus:undefined,payrollSent:false,sessions:[]}:undefined);
   const completedSessions = useMemo(() => ownTeacher
     ? visibleTeacherWork([...lessonWorkDetails(savedRecord?.sessions || [],datedLessons),...pendingSessions],datedLessons,ownTeacher.id,clockNow) : [],
     [savedRecord,datedLessons,ownTeacher?.id,clockNow,pendingSessions]);
@@ -271,16 +270,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
         {/* Chọn kỳ & Hành động */}
         <div className="flex items-center flex-wrap gap-2.5">
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <span className="text-[11px] font-semibold text-slate-500 pl-1.5">Năm học:</span>
-            <ReportSelect
-              value={selectedSchoolYear}
-              onChange={e => setSelectedSchoolYear(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-hidden pr-2 cursor-pointer"
-            >
-              <option value="2026 - 2027">2026 - 2027</option>
-              <option value="2025 - 2026">2025 - 2026</option>
-            </ReportSelect>
-            <span className="text-slate-300">|</span>
+
             <Calendar className="w-4 h-4 text-slate-500 ml-1" />
             <ReportSelect
               value={selectedMonth}

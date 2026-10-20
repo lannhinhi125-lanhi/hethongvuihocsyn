@@ -42,7 +42,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   const [reportedIncidentCode,setReportedIncidentCode]=useState('');
   const reportableIncidents=incidents.flatMap(group=>group.subIncidents.filter(item=>item.status));
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
   const [fromDate, setFromDate] = useState(initialWeek.from);
   const [toDate, setToDate] = useState(initialWeek.to);
 
@@ -297,7 +296,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const selectedStudentIds=selectedLesson?.feedbackProgress?.studentIds ?? selectedClass?.studentIds ?? [];
   const selectedSubjectKey = selectedClass
     ? subjects.find(subject => subject.code === selectedClass.subject)?.code ||
-      (selectedClass.subject === 'SUB-ENG' ? 'ENG' : 'TOAN')
+      selectedClass.subject
     : '';
 
   const selectedClassCoverAssignment = selectedClass?.coverAssignments?.find(assignment =>
@@ -349,18 +348,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
       {/* Bộ lọc thời gian gọn: năm học và khoảng ngày */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-2xs">
-        <label className="flex items-center gap-2">
-          <span className="font-semibold text-slate-600">Năm học</span>
-          <ReportSelect
-            value={selectedSchoolYear}
-            onChange={event => setSelectedSchoolYear(event.target.value)}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-medium text-slate-800"
-          >
-            <option value="2026 - 2027">2026 - 2027</option>
-            <option value="2025 - 2026">2025 - 2026</option>
-            <option value="2027 - 2028">2027 - 2028</option>
-          </ReportSelect>
-        </label>
+
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-slate-600">Khoảng thời gian</span>
           <button type="button" onClick={() => shiftScheduleWeek(-1)} aria-label="Tuần trước" title="Tuần trước"

@@ -93,8 +93,8 @@ export const Module3_Teachers: React.FC = () => {
   const [editTeacherName, setEditTeacherName] = useState('');
   const [editTeacherPhone, setEditTeacherPhone] = useState('');
   const [editTeacherEmail, setEditTeacherEmail] = useState('');
-  const [editTeacherSubject, setEditTeacherSubject] = useState('SUB-MATH');
-  const [editTeacherLevel, setEditTeacherLevel] = useState('CAP-TH');
+  const [editTeacherSubject, setEditTeacherSubject] = useState('');
+  const [editTeacherLevel, setEditTeacherLevel] = useState('');
   const [editTeacherGrades, setEditTeacherGrades] = useState<string[]>([]);
   const [editTeacherModels, setEditTeacherModels] = useState<string[]>([]);
   const [editTeacherStatus, setEditTeacherStatus] = useState<'DANG_DAY' | 'CHO_LOP' | 'TAM_NGUNG'>('DANG_DAY');
@@ -198,8 +198,8 @@ export const Module3_Teachers: React.FC = () => {
   const [newTeacherName, setNewTeacherName] = useState('');
   const [newTeacherEmail, setNewTeacherEmail] = useState('');
   const [newTeacherPhone, setNewTeacherPhone] = useState('');
-  const [newTeacherSubject, setNewTeacherSubject] = useState('SUB-MATH');
-  const [newTeacherLevel, setNewTeacherLevel] = useState('CAP-TH');
+  const [newTeacherSubject, setNewTeacherSubject] = useState('');
+  const [newTeacherLevel, setNewTeacherLevel] = useState('');
   const [newTeacherGrades, setNewTeacherGrades] = useState<string[]>([]);
   const [newTeacherDegree, setNewTeacherDegree] = useState('');
 
@@ -483,21 +483,7 @@ export const Module3_Teachers: React.FC = () => {
               </span>
             </div>
 
-            <div className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs">
-              <span className="text-xs text-slate-500 font-medium">Giáo viên Toán</span>
-              <div className="text-lg font-bold text-[#FF5C00] mt-1">
-                {teachers.filter(t => t.subject === 'SUB-MATH').length}
-              </div>
-              <span className="text-[11px] text-slate-500 font-medium mt-0.5">Mã môn: SUB-MATH</span>
-            </div>
-
-            <div className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs">
-              <span className="text-xs text-slate-500 font-medium">Giáo viên Tiếng Anh</span>
-              <div className="text-lg font-bold text-blue-600 mt-1">
-                {teachers.filter(t => t.subject === 'SUB-ENG').length}
-              </div>
-              <span className="text-[11px] text-slate-500 font-medium mt-0.5">Mã môn: SUB-ENG</span>
-            </div>
+            {subjects.map(subject => <div key={subject.id} className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs"><span className="text-xs text-slate-500 font-medium">Giáo viên {subject.name}</span><div className="text-lg font-bold text-orange-600 mt-1">{teachers.filter(teacher => teacher.subject === subject.code).length}</div><span className="text-[11px] text-slate-500">Mã môn: {subject.code}</span></div>)}
 
             <div className="bg-white px-3 py-2 rounded-lg border border-slate-200/80 shadow-2xs">
               <span className="text-xs text-slate-500 font-medium">Tạm ngưng nhận lớp</span>
@@ -567,10 +553,7 @@ export const Module3_Teachers: React.FC = () => {
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {filteredTeachers.length === 0 && <tr><td colSpan={7} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
                   {filteredTeachers.map(t => {
-                    const isMath = t.subject === 'SUB-MATH';
-                    const badgeColor = isMath
-                      ? 'bg-orange-50 text-[#FF5C00] border-orange-200'
-                      : 'bg-blue-50 text-blue-700 border-blue-200';
+                    const badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
 
                     return (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors">
@@ -578,7 +561,7 @@ export const Module3_Teachers: React.FC = () => {
                           <div className="flex items-center gap-3">
                             <div
                               className={`w-8 h-8 rounded-full ${
-                                isMath ? 'bg-orange-100 text-[#FF5C00]' : 'bg-blue-100 text-blue-600'
+                                'bg-orange-100 text-orange-600'
                               } font-black flex items-center justify-center text-xs`}
                             >
                               {t.name.split(' ').slice(-1)[0].substring(0, 2).toUpperCase()}
@@ -712,7 +695,7 @@ export const Module3_Teachers: React.FC = () => {
                           <div className="text-[11px] text-slate-400 font-normal font-mono">{t.id}</div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`font-semibold ${t.subject === 'SUB-MATH' ? 'text-[#FF5C00]' : 'text-blue-600'}`}>
+                          <span className={`font-semibold text-orange-600`}>
                             {t.subjectName}
                           </span>
                         </td>
@@ -786,8 +769,7 @@ export const Module3_Teachers: React.FC = () => {
                         className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                       >
                         <option value="ALL">Tất cả môn</option>
-                        <option value="SUB-MATH">Toán</option>
-                        <option value="SUB-ENG">Tiếng Anh</option>
+                        {subjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}
                       </ReportSelect>
                     </th>
                     <th className="py-2 px-2">
@@ -797,9 +779,7 @@ export const Module3_Teachers: React.FC = () => {
                         className="w-full px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                       >
                         <option value="ALL">Tất cả cấp</option>
-                        <option value="CAP-TH">Tiểu học</option>
-                        <option value="CAP-THCS">THCS</option>
-                        <option value="CAP-THPT">THPT</option>
+                        {teachingCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                       </ReportSelect>
                     </th>
                     <th className="py-2 px-2 text-center">
@@ -859,7 +839,7 @@ export const Module3_Teachers: React.FC = () => {
                             <div className="text-[11px] text-slate-400">{t.id}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded font-bold text-[11px] ${t.subject === 'SUB-MATH' ? 'bg-orange-50 text-[#FF5C00]' : 'bg-blue-50 text-blue-700'}`}>
+                            <span className={`px-2 py-0.5 rounded font-bold text-[11px] bg-orange-50 text-orange-700`}>
                               {t.subjectName}
                             </span>
                           </td>

@@ -101,7 +101,7 @@ function change(dataset: 'users' | 'role_groups', action: SetStateAction<UserAcc
 }
 export const setSessionUsers = (action: SetStateAction<UserAccount[]>) => change('users',action);
 export const setSessionGroups = (action: SetStateAction<SystemRoleGroup[]>) => change('role_groups',action);
-export function useAccountSession() { return useSyncExternalStore(listener=>{listeners.add(listener);return()=>{listeners.delete(listener);};},()=>state); }
+export function useAccountSession() { return useSyncExternalStore(listener=>{listeners.add(listener);return()=>{listeners.delete(listener);};},()=>state,()=>state); }
 if(typeof window!=='undefined') {
   void refreshAccountSession();
   window.addEventListener('focus',()=>void refreshAccountSession());

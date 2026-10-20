@@ -1,3 +1,7 @@
+import {availabilityWeeks} from '../lib/availabilityCalendar';
+import {workbenchRange} from '../lib/workbenchTime';
+import {reportToday} from '../lib/customReports';
+import {moveCalendarDate} from '../lib/vietnameseCalendar';
 import { ReportSelect } from '../components/ReportSelect';
 import { usePermissions } from '../hooks/usePermissions';
 import {useSaveConfirmation} from '../hooks/useSaveConfirmation';
@@ -27,19 +31,13 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
   const canEdit = !readOnly && can('Giáo viên đăng ký lịch rảnh theo tuần') && canEditTeacherAvailability(currentUser, activeTeacher);
 
   // BỘ LỌC THỜI GIAN THEO YÊU CẦU: Năm học hiện tại, Tháng, Tuần, Từ ngày - Đến ngày
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState('2026 - 2027');
-  const [selectedMonth, setSelectedMonth] = useState('10/2026');
-  const [selectedWeek, setSelectedWeek] = useState('W1');
-  const [fromDate, setFromDate] = useState('2026-10-05');
-  const [toDate, setToDate] = useState('2026-10-11');
-
-  // Danh sách các tuần mẫu trong tháng
-  const weekOptions = [
-    { id: 'W1', label: 'Tuần 1 (05/10/2026 - 11/10/2026)', from: '2026-10-05', to: '2026-10-11' },
-    { id: 'W2', label: 'Tuần 2 (12/10/2026 - 18/10/2026)', from: '2026-10-12', to: '2026-10-18' },
-    { id: 'W3', label: 'Tuần 3 (19/10/2026 - 25/10/2026)', from: '2026-10-19', to: '2026-10-25' },
-    { id: 'W4', label: 'Tuần 4 (26/10/2026 - 01/11/2026)', from: '2026-10-26', to: '2026-11-01' }
-  ];
+  const initialWeek = workbenchRange(reportToday(), 'week');
+  const [selectedMonth, setSelectedMonth] = useState(() => reportToday().slice(0, 7));
+  const [selectedWeek, setSelectedWeek] = useState(initialWeek.start);
+  const [fromDate, setFromDate] = useState(initialWeek.start);
+  const [toDate, setToDate] = useState(initialWeek.end);
+  const weekOptions = availabilityWeeks(selectedMonth);
+  const showWeek = (from: string) => { const range = workbenchRange(from, 'week'); setSelectedMonth(from.slice(0,7)); setSelectedWeek(range.start); setFromDate(range.start); setToDate(range.end); };
 
   const handleWeekChange = (weekId: string) => {
     setSelectedWeek(weekId);
@@ -95,18 +93,13 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     };
     const targetDay = dayShortMap[dayKey];
     if (!activeTeacher) return undefined;
-    const targetDate = new Date(`${fromDate}T00:00:00`);
+    const targetDate = new Date(`${workbenchRange(fromDate, 'week').start}T00:00:00`);
     targetDate.setDate(targetDate.getDate()+dayKey);
     const targetDateString=`${targetDate.getFullYear()}-${String(targetDate.getMonth()+1).padStart(2,'0')}-${String(targetDate.getDate()).padStart(2,'0')}`;
 
     return classes.find(cls => {
       if(['Dừng lớp','Đã kết thúc'].includes(cls.status||''))return false;
-      const isTeacherMatch =
-        cls.teacherId === activeTeacher.id ||
-        (!cls.teacherId && cls.teacherName && activeTeacher.name && (
-          cls.teacherName.includes(activeTeacher.name) ||
-          activeTeacher.name.includes(cls.teacherName)
-        ));
+      const isTeacherMatch = cls.teacherId === activeTeacher.id;
       if (!cls.schedule) return false;
 
       // Ví dụ: cls.schedule = 'T3 (18:00 - 19:30), T5 (18:00 - 19:30)'
@@ -191,7 +184,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     });
     if (!saved) return;
 
-    void confirmSave(()=>showToast(`Đã lưu lịch rảnh (Hiệu lực: ${fromDate} đến ${toDate}, Năm học ${selectedSchoolYear}) cho ${activeTeacher.name}!`, 'success'));
+    void confirmSave(()=>showToast(`Đã lưu lịch rảnh định kỳ cho ${activeTeacher.name}. Khoảng ngày chỉ dùng để đối chiếu lớp đang xếp lịch.`, 'success'));
   };
 
   const currentSelectedDay = days.find(d => d.key === selectedDayKey) || days[0];
@@ -229,7 +222,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
               CỔNG GIẢNG DẠY &amp; GIA SƯ
             </span>
             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-              Năm học {selectedSchoolYear}
+              Lịch rảnh định kỳ
             </span>
           </div>
           <h1 className="text-xl font-bold text-slate-800 mt-2">
@@ -285,15 +278,9 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
       {/* Bộ lọc thời gian gọn theo hàng ngang, dùng chung cho quản trị và giáo viên. */}
       <div className="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex flex-wrap items-end gap-2 text-[11px]">
-          <label className="flex-1 sm:flex-none min-w-[105px] text-slate-500">Năm học
-            <ReportSelect aria-label="Năm học" value={selectedSchoolYear} onChange={e => setSelectedSchoolYear(e.target.value)} className="block w-full sm:w-28 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
-              <option value="2026 - 2027">2026 - 2027</option><option value="2025 - 2026">2025 - 2026</option><option value="2027 - 2028">2027 - 2028</option>
-            </ReportSelect>
-          </label>
+
           <label className="flex-1 sm:flex-none min-w-[95px] text-slate-500">Tháng
-            <ReportSelect aria-label="Tháng" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="block w-full sm:w-24 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
-              <option value="09/2026">09/2026</option><option value="10/2026">10/2026</option><option value="11/2026">11/2026</option><option value="12/2026">12/2026</option>
-            </ReportSelect>
+            <input aria-label="Tháng" type="month" value={selectedMonth} onChange={event => { const value=event.target.value; if(value) { setSelectedMonth(value); const week=availabilityWeeks(value)[0]; if(week) {setSelectedWeek(week.id);setFromDate(week.from);setToDate(week.to);} } }} className="block w-full mt-1 h-8 px-2 rounded-lg border border-slate-200" />
           </label>
           <label className="flex-1 sm:flex-none min-w-[170px] text-slate-500">Tuần
             <ReportSelect aria-label="Tuần" value={selectedWeek} onChange={e => handleWeekChange(e.target.value)} className="block w-full sm:w-48 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
@@ -307,8 +294,8 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
             <input aria-label="Đến ngày" type="date" value={toDate} min={fromDate || undefined} onChange={e => setToDate(e.target.value)} className="block w-full sm:w-32 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800" />
           </label>
           <div className="flex gap-1.5">
-            <button type="button" onClick={() => handleWeekChange('W1')} className={selectedWeek === 'W1' ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần này</button>
-            <button type="button" onClick={() => handleWeekChange('W2')} className={selectedWeek === 'W2' ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần sau</button>
+            <button type="button" onClick={() => showWeek(reportToday())} className={selectedWeek === workbenchRange(reportToday(),'week').start ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần này</button>
+            <button type="button" onClick={() => showWeek(moveCalendarDate(reportToday(),7))} className={selectedWeek === workbenchRange(moveCalendarDate(reportToday(),7),'week').start ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần sau</button>
           </div>
         </div>
       </div>
@@ -474,7 +461,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
             </div>
 
             <div className="text-slate-500 text-[11px] italic">
-              Khoảng thời gian: {fromDate} đến {toDate} (Năm học {selectedSchoolYear})
+              Khoảng thời gian: {fromDate} đến {toDate} (Lịch rảnh định kỳ)
             </div>
           </div>
 

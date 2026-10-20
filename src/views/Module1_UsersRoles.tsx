@@ -32,7 +32,7 @@ import {
 export const Module1_UsersRoles: React.FC = () => {
   const {confirmSave,isSavingChanges}=useSaveConfirmation('accounts');
   const { can, requirePermission } = usePermissions();
-  const { users, currentUser, roleGroups, setRoleGroups, addUser, updateUser, toggleLockUser, showToast } = useApp();
+  const { users, currentUser, roleGroups, setRoleGroups, addUser, updateUser, toggleLockUser, showToast, subjects } = useApp();
 
   const [deletingUser, setDeletingUser] = useState<UserAccount | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -65,7 +65,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
-  const [newUserSubject, setNewUserSubject] = useState<string>('SUB-MATH');
+  const [newUserSubject, setNewUserSubject] = useState<string>('');
 
   // Edit User Form state
   const [editUserName, setEditUserName] = useState('');
@@ -75,7 +75,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
   const [editUserRole, setEditUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
-  const [editUserSubject, setEditUserSubject] = useState<string>('SUB-MATH');
+  const [editUserSubject, setEditUserSubject] = useState<string>('');
 
   const copyToClipboard = (text: string, label: string) => {
     if (label.toLocaleLowerCase('vi').includes('mật khẩu') && !requirePermission('Chỉnh sửa thông tin tài khoản & Mật khẩu')) return;
@@ -147,7 +147,7 @@ export const Module1_UsersRoles: React.FC = () => {
     setEditUserEmail(user.email);
     setEditUserPhone(user.phone);
     setEditUserRole((assignedRole(user, roleGroups)?.name || user.role) as UserAccount['role']);
-    setEditUserSubject(user.subject || 'SUB-MATH');
+    setEditUserSubject(user.subject || '');
   };
 
   const handleEditUserSubmit = (e: React.FormEvent) => {
@@ -364,7 +364,7 @@ export const Module1_UsersRoles: React.FC = () => {
 
             <button
               disabled={!can('Cấp tài khoản & Mật khẩu người dùng') || !can('Tạo, sửa, xóa & Gán Nhóm quyền')}
-              onClick={() => { setNewUserRole(portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'); setIsCreateUserModalOpen(true); }}
+              onClick={() => { setNewUserRole(portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'); setNewUserSubject(subjects.find(subject => subject.status)?.code || ''); setIsCreateUserModalOpen(true); }}
               className="w-full sm:w-auto px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
@@ -410,7 +410,7 @@ export const Module1_UsersRoles: React.FC = () => {
                             <div className="text-[11px] text-slate-400">ID: {u.id}</div>
                             {u.subject && (
                               <div className="text-[10px] text-orange-600 font-semibold">
-                                {u.subject === 'SUB-MATH' ? 'Môn: Toán' : 'Môn: Tiếng Anh'}
+                                {'Môn: ' + (subjects.find(subject => subject.code === u.subject)?.name || u.subject || 'Chưa phân công')}
                               </div>
                             )}
                           </td>
@@ -691,30 +691,7 @@ export const Module1_UsersRoles: React.FC = () => {
                   <label className="block font-semibold text-[#FF5C00] mb-1">
                     Môn chuyên trách cố định (Dành cho Giáo viên) <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex items-center gap-6 mt-1.5">
-                    <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                      <input
-                        type="radio"
-                        name="new_subject"
-                        value="SUB-MATH"
-                        checked={newUserSubject === 'SUB-MATH'}
-                        onChange={() => setNewUserSubject('SUB-MATH')}
-                        className="accent-[#FF5C00]"
-                      />
-                      <span>Môn Toán</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                      <input
-                        type="radio"
-                        name="new_subject"
-                        value="SUB-ENG"
-                        checked={newUserSubject === 'SUB-ENG'}
-                        onChange={() => setNewUserSubject('SUB-ENG')}
-                        className="accent-[#FF5C00]"
-                      />
-                      <span>Môn Tiếng Anh</span>
-                    </label>
-                  </div>
+                  <ReportSelect required value={newUserSubject} onChange={event => setNewUserSubject(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2"><option value="" disabled>Chọn môn học</option>{subjects.filter(subject => subject.status || subject.code === newUserSubject).map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}</ReportSelect>
                 </div>
               )}
 
@@ -866,30 +843,7 @@ export const Module1_UsersRoles: React.FC = () => {
                   <label className="block font-semibold text-[#FF5C00] mb-1">
                     Môn chuyên trách cố định (Dành cho Giáo viên) <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex items-center gap-6 mt-1.5">
-                    <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                      <input
-                        type="radio"
-                        name="edit_subject"
-                        value="SUB-MATH"
-                        checked={editUserSubject === 'SUB-MATH'}
-                        onChange={() => setEditUserSubject('SUB-MATH')}
-                        className="accent-[#FF5C00]"
-                      />
-                      <span>Môn Toán</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                      <input
-                        type="radio"
-                        name="edit_subject"
-                        value="SUB-ENG"
-                        checked={editUserSubject === 'SUB-ENG'}
-                        onChange={() => setEditUserSubject('SUB-ENG')}
-                        className="accent-[#FF5C00]"
-                      />
-                      <span>Môn Tiếng Anh</span>
-                    </label>
-                  </div>
+                  <ReportSelect required value={editUserSubject} onChange={event => setEditUserSubject(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2"><option value="" disabled>Chọn môn học</option>{subjects.filter(subject => subject.status || subject.code === editUserSubject).map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}</ReportSelect>
                 </div>
               )}
 

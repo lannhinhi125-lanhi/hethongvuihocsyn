@@ -24,7 +24,7 @@ try {
  console.log('PASS migration applies twice');
  await db.exec(file('supabase/migrations/20261110_temporary_class_pause.sql'));
  await db.exec(file('supabase/migrations/20261110_temporary_class_pause.sql'));
- for (const name of ['20261111_class_pause_reason','20261112_class_pause_reason_catalog','20261113_class_pause_reporting']) {
+ for (const name of ['20261111_class_pause_reason','20261112_class_pause_reason_catalog','20261113_class_pause_reporting','20261114_catalog_query_consistency']) {
   await db.exec(file('supabase/migrations/'+name+'.sql'));
   await db.exec(file('supabase/migrations/'+name+'.sql'));
  }
@@ -56,6 +56,38 @@ try {
  const login=(await db.query("SELECT public.vuihoc_login('admin.tong','234567') AS value")).rows[0].value;
  const token=login.token;
  const business=async()=>(await db.query('SELECT public.vuihoc_business_data($1) AS value',[token])).rows[0].value;
+ // Catalog codes, rather than a fixed Toán/Tiếng Anh bucket, identify payroll subjects.
+ const projected=await business();
+ for(const month of projected.monthly_payroll) for(const teacher of month.danhsachgiaovien || []) {
+  const profile=projected.teachers.find(row=>row.madinhdanh===teacher.teacherId);
+  assert.equal(teacher.subject,profile.mamonhoc);
+  assert.equal(teacher.subjectName,projected.subjects.find(row=>row.mamonhoc===profile.mamonhoc)?.tenmonhoc || '');
+ }
+ await db.exec('BEGIN');
+ const sampleSubject=projected.subjects[0];
+ await db.query('UPDATE vuihoc."MON_HOC" SET madinhdanh=$1,tenmonhoc=$2 WHERE madinhdanh=$3',['AUDIT-SUBJECT-ID','Tên môn cập nhật',sampleSubject.madinhdanh]);
+ const renamed=await business();
+ for(const month of renamed.monthly_payroll) for(const teacher of month.danhsachgiaovien || []) {
+  const profile=renamed.teachers.find(row=>row.madinhdanh===teacher.teacherId);
+  if(profile.mamonhoc===sampleSubject.mamonhoc) assert.equal(teacher.subjectName,'Tên môn cập nhật');
+ }
+ await db.exec('ROLLBACK');
+ console.log('PASS payroll queries preserve catalog subject codes and join labels by code independently of row ID');
+ await db.exec('BEGIN');
+ const subjectChange={dataset:'subjects',before:null,after:{madinhdanh:'AUDIT-MUSIC-ID',mamonhoc:'AUDIT-MUSIC',tenviettat:'NHAC',tenmonhoc:'Âm nhạc kiểm thử',mota:'',danghoatdong:true}};
+ await db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify([subjectChange])]);
+ const sourceTeacher=projected.teachers.find(row=>row.danhsachkhoi?.length && row.danhsachmohinh?.length);
+ assert.ok(sourceTeacher);
+ const created=(await db.query('SELECT public.vuihoc_create_teacher($1,$2::jsonb) AS result',[token,JSON.stringify({hoten:'Giáo viên môn mới kiểm thử',mamonhoc:'AUDIT-MUSIC',macaphoc:sourceTeacher.macaphoc,danhsachkhoi:sourceTeacher.danhsachkhoi,danhsachmohinh:sourceTeacher.danhsachmohinh,thudientu:'catalog-audit@example.test',sodienthoai:'0900000001',bangcap:'',ngaybatdau:'2026-10-01'})])).rows[0].result;
+ assert.equal(created.teacher.mamonhoc,'AUDIT-MUSIC');
+ const teacherLogin=(await db.query('SELECT public.vuihoc_login($1,$2) AS result',[created.username,created.password])).rows[0].result;
+ const teacherData=(await db.query('SELECT public.vuihoc_business_data($1) AS result',[teacherLogin.token])).rows[0].result;
+ assert.ok(teacherData.subjects.some(row=>row.mamonhoc==='AUDIT-MUSIC'));
+ assert.ok(teacherData.custom_catalogs.some(row=>row.madanhmuc==='CLASS_PAUSE_REASON'));
+ assert.ok(teacherData.custom_catalogs.every(row=>row.madanhmuc==='CLASS_PAUSE_REASON'));
+ await db.exec('ROLLBACK');
+ console.log('PASS new subject with distinct ID/code saves through RPC, creates a teacher account, and teacher portal reads pause catalog without unrelated catalogs');
+
  const activeClass=(await business()).classes.find(c=>c.trangthai==='DANG_HOC');
  assert.ok(activeClass);
  const registrationsBefore=(await db.query('SELECT * FROM vuihoc."DANG_KY_MON_HOC" WHERE malop=$1 ORDER BY mahocsinh',[activeClass.madinhdanh])).rows;

@@ -109,7 +109,7 @@ export interface TeacherProfile {
   name: string;
   username?: string;
   passwordRaw?: string;
-  subject: string; // SUB-MATH | SUB-ENG
+  subject: string; // Mã môn từ danh mục
   subjectName: string;
   levelId: string; // CAP-TH | CAP-THCS | CAP-THPT
   levelName: string;
@@ -148,7 +148,7 @@ export interface StudentRecord {
   id: string;
   name: string;
   grade: string; // 'Lớp 1' ... 'Lớp 5'
-  subject: string; // 'SUB-MATH' | 'SUB-ENG'
+  subject: string; // Mã môn từ danh mục
   model: string; // '1-1' | '1-3' | '1-5'
   level: string; // 'LVL-F1' ... 'LVL-ADV'
   fatherName?: string;
@@ -337,7 +337,7 @@ export interface TeacherPayrollSummary {
   teacherName: string;
   staffRole?: 'GIAO_VIEN' | 'GIA_SU';
   staffRoleName?: string;
-  subject: 'TOAN' | 'ANH';
+  subject: string;
   subjectName: string;
   standardSessions: number;
   coverSessions: number;

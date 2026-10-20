@@ -103,7 +103,7 @@ async function flush(){
  }catch(error){if(version===generation)publish({...state,data:confirmed,saving:false,error:(error as Error).message});}
  finally{flushing=false;if(state.saving)queueMicrotask(()=>void flush());}
 }
-export function useBusinessStatus(){return useSyncExternalStore(fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},()=>state);}
+export function useBusinessStatus(){return useSyncExternalStore(fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},()=>state,()=>state);}
 export function useBusinessValue<T>(key:string):[T,(action:SetStateAction<T>)=>void]{const snapshot=useBusinessStatus();const setter=useCallback((action:SetStateAction<T>)=>setBusinessValue(key,action),[key]);return [snapshot.data[key]??initial(key),setter];}
 export function getBusinessSnapshot(){return state;}
 export function businessSaving(){return state.saving;}
