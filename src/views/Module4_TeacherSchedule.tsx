@@ -418,7 +418,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
             <span className="w-2.5 h-2.5 rounded-full bg-purple-400" /> Đã hoàn thành
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#D9A62E]" /> Nghỉ học / Nghỉ có phép / Tạm nghỉ
+            <span className="w-2.5 h-2.5 rounded-full bg-[#D9A62E]" /> Nghỉ học / Nghỉ có phép / Tạm dừng
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-purple-700" /> Dạy thay (Cover)
@@ -461,7 +461,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                           </div>
                         </div>
                         <div className="mt-1 text-[10px] text-slate-600">{cls.name}</div>
-                        {resting && <span className="mt-1.5 inline-flex rounded border border-[#E8C96D] bg-[#FFE8A3] px-1.5 py-0.5 text-[10px] font-semibold text-[#805C16]">{paused ? 'Lớp đang tạm nghỉ' : detail.active?.status==='Nghỉ có phép' ? 'Nghỉ có phép' : 'Nghỉ học'}</span>}
+                        {resting && <span className="mt-1.5 inline-flex rounded border border-[#E8C96D] bg-[#FFE8A3] px-1.5 py-0.5 text-[10px] font-semibold text-[#805C16]">{paused ? 'Lớp đang tạm dừng' : detail.active?.status==='Nghỉ có phép' ? 'Nghỉ có phép' : 'Nghỉ học'}</span>}
                         {coverAssignment && <div className="mt-1 text-[10px] font-semibold text-purple-800">{coverAssignment.teacherName}</div>}
                         {!resting && <div className="mt-1.5 line-clamp-2 text-[11px] font-medium text-slate-800">{material?.title}</div>}
                         {!resting && (() => {

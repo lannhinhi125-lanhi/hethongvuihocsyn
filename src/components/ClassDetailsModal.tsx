@@ -1,3 +1,5 @@
+import { useBusinessValue } from '../lib/businessPersistence';
+import type { ClassDurationCatalog } from '../lib/classDuration';
 import { PaginatedTableBody } from './Pagination';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -15,6 +17,8 @@ type Props = {
 };
 
 export const ClassDetailsModal: React.FC<Props> = ({ item, students, categoryName, gradeName, subjectName, levelName, onClose }) => {
+  const [catalogs] = useBusinessValue<ClassDurationCatalog[]>('custom_catalogs');
+  const reasonName = catalogs.find(catalog => catalog.code === 'CLASS_PAUSE_REASON')?.entries.find(entry => entry.id === item.pauseReason)?.name || item.pauseReason || 'Chưa ghi nhận';
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -45,7 +49,8 @@ export const ClassDetailsModal: React.FC<Props> = ({ item, students, categoryNam
         <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3 text-xs">
           {[
             ['Loại lớp', categoryName], ['Khối lớp', gradeName], ['Môn học', subjectName], ['Trình độ', levelName],
-            ['Mô hình', item.model], ['Trạng thái', item.status || 'Đang học'], ['Giáo viên', item.teacherName || 'Chưa phân công'], ['Sĩ số', members.length + '/' + item.maxStudents],
+            ['Mô hình', item.model], ['Trạng thái', item.paused ? 'Tạm dừng' : item.status || 'Đang học'], ['Giáo viên', item.teacherName || 'Chưa phân công'], ['Sĩ số', members.length + '/' + item.maxStudents],
+            ['Lý do tạm dừng', reasonName], ['Ghi chú tạm dừng', item.pauseNote || '—'],
             ['Ngày bắt đầu',item.startDate?.split('-').reverse().join('/')||'Chưa có'],['Thời hạn',item.durationMonths?item.durationMonths+' tháng':'Chưa có'],['Ngày kết thúc',item.endDate?.split('-').reverse().join('/')||'Chưa có']
           ].map(([label, value]) => <div key={label}><dt className="text-slate-500">{label}</dt><dd className="mt-0.5 font-semibold text-slate-800">{value}</dd></div>)}
           <div className="sm:col-span-2"><dt className="text-slate-500">Lịch học</dt><dd className="mt-0.5 font-medium text-slate-800">{item.schedule || 'Chưa có lịch'}</dd></div>

@@ -597,6 +597,8 @@ export const APP_DATABASE_FIELDS = {
     "categoryId": "macaphoc",
     "status": "trangthai",
     "paused": "tamdunglich",
+    "pauseReason": "lydotamdung",
+    "pauseNote": "ghichutamdung",
     "id": "madinhdanh",
     "code": "malophoc",
     "name": "tenlophoc",

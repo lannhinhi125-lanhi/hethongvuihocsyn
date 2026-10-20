@@ -389,7 +389,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     const parent = session.incidentParent || 'GRP-TCH';
     setIncParent(parent);
     const childList = INCIDENT_MASTER_DATA[parent] || [];
-    setIncChild(session.incidentChild || childList[0]?.code || 'INC-TCH-01');
+    setIncChild(session.incidentChild || (session.status === 'NGHI_HOC' ? '' : childList[0]?.code || ''));
     setIncUrgency(session.incidentUrgency || 'EMERGENCY');
     setIncStatus(session.incidentStatus || 'DANG_XU_LY');
     setIncNote(session.incidentNote || '');
@@ -421,7 +421,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (savingIncident || businessStatus.saving || !selectedIncidentSession) return;
     const isCompletedIncidentSession = selectedIncidentSession.status === 'DA_HOC' || studyStatus(selectedIncidentSession) === 'DA_HOC';
     const selectedIncident = incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild);
-    if (selectedIncident?.creditCoeff === undefined) {
+    if (!selectedIncident) { showToast('Vui lòng chọn đúng loại sự cố; nghỉ theo lịch lớp không mặc định là giáo viên xin nghỉ.', 'warning'); return; }
+    if (selectedIncident.creditCoeff === undefined) {
       showToast('Loại sự cố này chưa được cấu hình hệ số công.', 'error');
       return;
     }
@@ -1197,6 +1198,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       onChange={e => setIncChild(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
+                      <option value="" disabled>Chọn loại sự cố</option>
                       {(INCIDENT_MASTER_DATA[incParent] || []).map(item => (
                         <option key={item.code} value={item.code}>{item.name}</option>
                       ))}

@@ -139,6 +139,24 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'students' | 'classes' | 'materials'>('students');
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [pauseClassIds, setPauseClassIds] = useState<string[]>([]);
+  const [pauseReason, setPauseReason] = useState('');
+  const [pauseNote, setPauseNote] = useState('');
+  const [pauseCatalogs] = useBusinessValue<ClassDurationCatalog[]>('custom_catalogs');
+  const pauseReasons = pauseCatalogs.find(catalog => catalog.code === 'CLASS_PAUSE_REASON')?.entries.filter(entry => entry.status) || [];
+  const openPause = (items: ClassItem[]) => {
+    const reason = items.length === 1 ? items[0].pauseReason || '' : '';
+    setPauseClassIds(items.map(item => item.id));
+    setPauseReason(pauseReasons.some(entry => entry.id === reason) ? reason : '');
+    setPauseNote(items.length === 1 ? items[0].pauseNote || (reason && !pauseReasons.some(entry => entry.id === reason) ? reason : '') : '');
+  };
+  const savePause = async () => {
+    const reason = pauseReasons.find(entry => entry.id === pauseReason)?.id;
+    if (!reason || !requirePermission('Tạo, sửa, xóa lớp và cập nhật link phòng học')) return;
+    const ids = new Set(pauseClassIds);
+    setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? {...item, paused:true, pauseReason:reason, pauseNote:pauseNote.trim() || null} : item));
+    try { await waitForBusinessSave(); setPauseClassIds([]); showToast('Đã lưu lý do tạm dừng.', 'success'); } catch { showToast('Không lưu được lý do tạm dừng. Vui lòng thử lại.', 'error'); }
+  };
   const [viewingClassId, setViewingClassId] = useState<string | null>(null);
   const viewingClass = classes.find(item => item.id === viewingClassId);
   const [isStudentFilterOpen, setIsStudentFilterOpen] = useState(false);
@@ -188,11 +206,11 @@ export const Module4_StudentsClasses: React.FC = () => {
     code: [item.code], name: [item.name], category: [classCategoryId(item)], grade: [item.grade], subject: [item.subject], model: [item.model], level: [item.level],
     schedule: item.schedule ? item.schedule.split(',').map(slot => slot.trim()).filter(Boolean) : ['UNSCHEDULED'],
     occupancy: [item.studentIds.length + '/' + item.maxStudents, item.studentIds.length >= item.maxStudents ? 'FULL' : 'AVAILABLE', ...(item.studentIds.length === 0 ? ['EMPTY'] : [])],
-    status: [item.paused ? 'Tạm nghỉ' : item.status || 'Đang học'], teacher: [item.teacherId || item.teacherName || 'UNASSIGNED']
+    status: [item.paused ? 'Tạm dừng' : item.status || 'Đang học'], teacher: [item.teacherId || item.teacherName || 'UNASSIGNED']
   });
   const classFilterOptions = (key: ClassFilterKey): FilterOption[] => {
     const stored = classes.flatMap(item => classFieldValues(item)[key]).map(value => ({ value, label: value }));
-    const catalog: FilterOption[] = key === 'category' ? teachingCategories.map(item => ({value:item.id,label:item.name})) : key === 'grade' ? gradeOptions.map(item => ({value:item.id,label:item.label})) : key === 'subject' ? subjects.map(item => ({value:item.code,label:item.name})) : key === 'model' ? models.map(item => ({value:item.code,label:item.name})) : key === 'level' ? levels.map(item => ({value:item.code,label:item.name})) : key === 'status' ? [...[...classStatuses.map(value => ({value,label:value})), {value:'Tạm nghỉ',label:'Tạm nghỉ'}], {value:'Tạm nghỉ',label:'Tạm nghỉ'}] : key === 'occupancy' ? [{value:'EMPTY',label:'Chưa có học sinh'},{value:'AVAILABLE',label:'Còn chỗ'},{value:'FULL',label:'Đủ sĩ số'}] : key === 'teacher' ? teachers.map(item => ({value:item.id,label:item.name})) : [];
+    const catalog: FilterOption[] = key === 'category' ? teachingCategories.map(item => ({value:item.id,label:item.name})) : key === 'grade' ? gradeOptions.map(item => ({value:item.id,label:item.label})) : key === 'subject' ? subjects.map(item => ({value:item.code,label:item.name})) : key === 'model' ? models.map(item => ({value:item.code,label:item.name})) : key === 'level' ? levels.map(item => ({value:item.code,label:item.name})) : key === 'status' ? [...[...classStatuses.map(value => ({value,label:value})), {value:'Tạm dừng',label:'Tạm dừng'}], {value:'Tạm dừng',label:'Tạm dừng'}] : key === 'occupancy' ? [{value:'EMPTY',label:'Chưa có học sinh'},{value:'AVAILABLE',label:'Còn chỗ'},{value:'FULL',label:'Đủ sĩ số'}] : key === 'teacher' ? teachers.map(item => ({value:item.id,label:item.name})) : [];
     const result = Array.from(new Map([...stored, ...catalog, {value:'UNSPECIFIED',label:'Chưa phân loại'}, {value:'UNSCHEDULED',label:'Chưa có lịch'}, {value:'UNASSIGNED',label:'Chưa phân công'}].filter(option => stored.some(item => item.value === option.value) || catalog.some(item => item.value === option.value)).map(option => [option.value, option])).values());
     return key==='grade' && clsFilters.category?.length ? result.filter(option=>teachingCategories.some(category=>clsFilters.category!.includes(category.id)&&category.options.some(grade=>grade.id===option.value))) : result;
   };
@@ -247,11 +265,12 @@ export const Module4_StudentsClasses: React.FC = () => {
   const allClassesSelected = selectableClasses.length > 0 && selectedClasses.length === selectableClasses.length;
   const bulkPauseClasses = (paused: boolean) => {
     if (!requirePermission('Tạo, sửa, xóa lớp và cập nhật link phòng học')) return;
+    if (paused) { openPause(selectedClasses); return; }
     const ids = new Set(selectedClasses.filter(item => Boolean(item.paused) !== paused).map(item => item.id));
     if (!ids.size) return;
     setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? { ...item, paused } : item));
     setSelectedClassIds([]);
-    showToast(paused ? `Đã tạm nghỉ ${ids.size} lớp, giữ nguyên giáo viên và học sinh.` : `Đã tiếp tục lịch của ${ids.size} lớp từ hôm nay.`, 'success');
+    showToast(paused ? `Đã tạm dừng ${ids.size} lớp, giữ nguyên giáo viên và học sinh.` : `Đã tiếp tục lịch của ${ids.size} lớp từ hôm nay.`, 'success');
   };
 
   // Student Modal state
@@ -1117,7 +1136,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const openEditMaterials = (item: ClassItem, month: string, week: string, materials: ClassItem['materials']) => {
     if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
-    if (!canAssignClassMaterials(item)) {showToast('Chỉ gắn học liệu cho lớp đang học, không tạm nghỉ và còn hạn.','warning');return;}
+    if (!canAssignClassMaterials(item)) {showToast('Chỉ gắn học liệu cho lớp đang học, không tạm dừng và còn hạn.','warning');return;}
     const categoryId = classCategoryId(item);
     const sessionOne = materials.find(material => material.session === 1);
     const sessionTwo = materials.find(material => material.session === 2);
@@ -1254,6 +1273,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {pauseClassIds.length > 0 && createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-label="Lý do tạm dừng lớp" className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6"><h2 className="text-lg font-bold">Lý do tạm dừng ({pauseClassIds.length} lớp)</h2><p className="text-sm text-slate-600">Giữ nguyên giáo viên và học sinh. Lớp chỉ học lại khi bạn chọn Tiếp tục lớp. Bạn có thể sửa lý do khi lớp đang nghỉ.</p><label className="block text-sm">Lý do<ReportSelect value={pauseReason} onChange={event => setPauseReason(event.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="" disabled>Chọn lý do tạm dừng</option>{pauseReasons.map(reason => <option key={reason.id} value={reason.id}>{reason.name}</option>)}</ReportSelect></label>{!pauseReasons.length && <p className="text-sm text-amber-700">Chưa có lý do đang áp dụng. Vui lòng cấu hình danh mục Lý do tạm dừng lớp.</p>}<textarea aria-label="Chi tiết lý do khác" placeholder="Nhập lý do tạm dừng" value={pauseNote} onChange={event => setPauseNote(event.target.value)} className="w-full rounded-lg border p-2" /><div className="flex justify-end gap-2"><button type="button" onClick={() => setPauseClassIds([])} className="rounded-lg border px-4 py-2">Hủy</button><button type="button" disabled={!pauseReasons.some(entry => entry.id === pauseReason) || isSavingChanges} onClick={savePause} className="rounded-lg bg-orange-600 px-4 py-2 text-white disabled:opacity-40">Lưu lý do</button></div></div></div>, document.body)}
       {/* Header Banner Phân hệ 4 Quản trị chuẩn Figma */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div>
@@ -1380,7 +1400,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         <div className="space-y-4">
           {can('Tạo, sửa, xóa lớp và cập nhật link phòng học') && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs">
             <span className="mr-auto text-slate-600">Đã chọn {selectedClasses.length} lớp trong bộ lọc</span>
-            <button type="button" disabled={!selectedClasses.some(item => !item.paused) || isSavingChanges} onClick={() => bulkPauseClasses(true)} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800 disabled:opacity-40">Tạm ngưng lớp đã chọn</button>
+            <button type="button" disabled={!selectedClasses.some(item => !item.paused) || isSavingChanges} onClick={() => bulkPauseClasses(true)} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800 disabled:opacity-40">Tạm dừng lớp đã chọn</button>
             <button type="button" disabled={!selectedClasses.some(item => item.paused) || isSavingChanges} onClick={() => bulkPauseClasses(false)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-800 disabled:opacity-40">Tiếp tục lớp đã chọn</button>
             {selectedClassIds.length > 0 && <button type="button" onClick={() => setSelectedClassIds([])} className="px-2 py-1.5 text-slate-500">Bỏ chọn</button>}
           </div>}
@@ -1421,7 +1441,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden"><div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn"><table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px]"><tr>
-              <th className="px-3 py-3"><input type="checkbox" aria-label="Chọn tất cả lớp có thể tạm ngưng trong bộ lọc, gồm mọi trang" title="Chọn tất cả lớp trong bộ lọc (mọi trang)" checked={allClassesSelected} disabled={!selectableClasses.length || !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onChange={event => setSelectedClassIds(event.target.checked ? selectableClasses.map(item => item.id) : [])} className="accent-orange-500" /></th>
+              <th className="px-3 py-3"><input type="checkbox" aria-label="Chọn tất cả lớp có thể tạm dừng trong bộ lọc, gồm mọi trang" title="Chọn tất cả lớp trong bộ lọc (mọi trang)" checked={allClassesSelected} disabled={!selectableClasses.length || !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onChange={event => setSelectedClassIds(event.target.checked ? selectableClasses.map(item => item.id) : [])} className="accent-orange-500" /></th>
               {([['Mã lớp','code'],['Tên lớp','name'],['Cấp học / lớp dạy','category'],['Khối lớp','grade'],['Môn học','subject'],['Mô hình','model'],['Trình độ','level'],['Lịch học','schedule'],['Sĩ số','occupancy'],['Trạng thái','status'],['Giáo viên','teacher']] as [string, ClassFilterKey][]).map(([label,key]) => <th key={key} className="py-3 px-3 whitespace-nowrap">{classColumn(label,key)}</th>)}
               <th className="py-3 px-3 text-center">Thao tác</th>
             </tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
@@ -1432,9 +1452,9 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <td className="px-3 py-3 whitespace-nowrap">{classCategoryName(item)}</td><td className="px-3 py-3 whitespace-nowrap">{gradeName(item.grade)}</td><td className="px-3 py-3 whitespace-nowrap text-[#FF5C00]">{subjectName(item.subject)}</td>
                 <td className="px-3 py-3"><span className="rounded bg-orange-50 text-[#FF5C00] px-2 py-1 font-semibold">{item.model}</span></td><td className="px-3 py-3 whitespace-nowrap"><span className="rounded bg-blue-50 text-blue-700 px-2 py-1">{levelName(item.level)}</span></td>
                 <td className="px-3 py-3 min-w-44 text-[11px]">{item.schedule || 'Chưa có lịch'}{item.startDate && <div className="mt-1 text-slate-500">Bắt đầu: {new Date(`${item.startDate}T00:00:00`).toLocaleDateString('vi-VN')}</div>}</td><td className="px-3 py-3 whitespace-nowrap"><span className={item.studentIds.length >= item.maxStudents ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-700'}>{item.studentIds.length}/{item.maxStudents}</span></td>
-                <td className="px-3 py-3 whitespace-nowrap"><span className={'px-2 py-1 rounded text-[10px] font-semibold ' + (item.paused ? 'bg-amber-50 text-amber-700' : (item.status || 'Đang học') === 'Đang học' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Dừng lớp' ? 'bg-amber-50 text-amber-700' : item.status === 'Đã kết thúc' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700')}>{item.paused ? 'Tạm nghỉ' : item.status || 'Đang học'}</span></td>
+                <td className="px-3 py-3 whitespace-nowrap"><span className={'px-2 py-1 rounded text-[10px] font-semibold ' + (item.paused ? 'bg-amber-50 text-amber-700' : (item.status || 'Đang học') === 'Đang học' ? 'bg-emerald-50 text-emerald-700' : item.status === 'Dừng lớp' ? 'bg-amber-50 text-amber-700' : item.status === 'Đã kết thúc' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700')}>{item.paused ? 'Tạm dừng' : item.status || 'Đang học'}</span></td>
                 <td className="px-3 py-3 min-w-32">{item.teacherName || 'Chưa phân công'}</td>
-                <td className="px-3 py-3"><div className="flex items-center justify-center gap-1"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>{!['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') && <RowActionMenu label={'Thao tác khác của lớp '+item.code} actions={[{label:item.paused ? 'Tiếp tục lớp' : 'Tạm ngưng lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {paused:!item.paused}, item.paused ? 'Đã tiếp tục lịch lớp từ hôm nay.' : 'Đã tạm nghỉ lớp. Giữ nguyên giáo viên, học sinh và ngày kết thúc.')},{label:'Dừng lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {status:'Dừng lớp',paused:false}, 'Đã dừng lớp và giải phóng ca giáo viên, học sinh. Học sinh về Chờ xếp lớp của môn này.')}]}/>}<button type="button" title="Xóa lớp" onClick={() => setPendingDelete({type:'class',id:item.id,name:item.name})} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
+                <td className="px-3 py-3"><div className="flex items-center justify-center gap-1"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>{!['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') && <RowActionMenu label={'Thao tác khác của lớp '+item.code} actions={[{label:item.paused ? 'Tiếp tục lớp' : 'Tạm dừng lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>item.paused ? updateClass(item.id, {paused:false}, 'Đã tiếp tục lịch lớp từ hôm nay.') : openPause([item])},...(item.paused ? [{label:'Sửa lý do tạm dừng',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>openPause([item])}] : []),{label:'Dừng lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {status:'Dừng lớp',paused:false}, 'Đã dừng lớp và giải phóng ca giáo viên, học sinh. Học sinh về Chờ xếp lớp của môn này.')}]}/>}<button type="button" title="Xóa lớp" onClick={() => setPendingDelete({type:'class',id:item.id,name:item.name})} className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
               </tr>)}
             </PaginatedTableBody></table></div></div>
         </div>

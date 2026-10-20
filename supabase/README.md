@@ -142,3 +142,7 @@ Sau ban mat khau text, chay `migrations/20261012_cleanup_user_columns.sql` de bo
 Chay theo thu tu: `migrations/20261012_incident_credit.sql`, `migrations/20261013_negative_work_credit.sql`, `migrations/20261013_sync_incident_catalog_credit.sql`. Ban cuoi dong bo he so thay doi trong danh muc sang su co va bang cong thang chua khoa, gom he so am; sua cac snapshot cu khi nang cap. Ky da khoa giu nguyen. Tong cong = cong chuan + cong su co (vi du 5 + (-1) = 4). Viec sua ghi chu su co khong ghi de he so da doi soat.
 
 Kiem thu: `node tests/incidentCatalogCredit.test.mjs` voi `PGLITE_MODULE_PATH` tro den thu muc `@electric-sql/pglite`.
+
+Lý do tạm dừng lớp: chạy `migrations/20261111_class_pause_reason.sql` sau bản 20261110 trước khi dùng giao diện mới. Lớp đang tạm dừng giữ nguyên trạng thái; chọn **Sửa lý do tạm dừng** để bổ sung lý do. Biên bản sự cố đã lưu cần kiểm tra, sửa riêng theo lý do thực tế.
+
+Chạy tiếp `migrations/20261112_class_pause_reason_catalog.sql` sau 20261111. Danh sách lý do lấy từ danh mục bổ sung `CLASS_PAUSE_REASON` trên Supabase; quản lý tên, mã và trạng thái trong Danh mục dùng chung → Lý do tạm dừng lớp. Lớp lưu mã định danh mục được chọn và ghi chú; không dùng danh sách lý do dự phòng trong giao diện. Migration giữ trạng thái tạm dừng và chuyển lý do dạng chữ cũ sang mục tương ứng hoặc giữ làm ghi chú.
