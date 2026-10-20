@@ -718,6 +718,9 @@ export const APP_DATABASE_FIELDS = {
   },
   "dated_lessons": {
     "displayCode": "mabuoihienthi",
+    "pausedByClass": "tamhoandolop",
+    "pauseReason": "lydotamdung",
+    "pauseNote": "ghichutamdung",
     "id": "madinhdanh",
     "classId": "malop",
     "date": "ngayhoc",

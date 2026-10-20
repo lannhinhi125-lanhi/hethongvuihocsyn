@@ -1,9 +1,11 @@
+import { pauseReasonName, type PauseCatalog } from './classPause';
 import { matchesReportFilter, matchesReportField, reportFilterValues, type ReportDataset, type ReportDimension, type ReportRecord } from './customReports';
 import type { ReportLesson, ReportIncident } from './incidentReportPeriods';
 import { inspectionDate, type InspectionEvaluation } from './inspectionReport';
 import { evaluationRating } from './evaluationScoring';
 
 export interface ReportLookups {
+  customCatalogs?: PauseCatalog[];
   incidentCategories?: { id: string; name: string; subIncidents: { code: string; name: string }[] }[];
   teachingCategories?: { id: string; name: string; options: { id: string; label: string; parentId?: string }[] }[];
   levels?: { code: string; name: string }[];
@@ -30,6 +32,7 @@ const withEvents = (record: ReportRecord, events: ReportIncident[]): ReportRecor
 /** One source row per lesson; filtering an incident type changes the numerator, not the lesson population. */
 export function enrichedOperationalReports(lessons: ReportLesson[], incidents: ReportIncident[], evaluations: InspectionEvaluation[],
   teachers: { id: string; name: string; subject: string }[], classes: ReportingClass[], lookups: ReportLookups = {}): ReportDataset[] {
+  incidents = incidents.map(event => ({...event, incidentName: lookups.incidentCategories?.find(category => category.id === event.categoryId)?.subIncidents.find(item => item.code === event.incidentCode)?.name || event.incidentName}));
   const classesById = new Map(classes.map(row => [row.id, row]));
   const lessonsById = new Map(lessons.map(row => [row.id, row]));
   const teachersById = new Map(teachers.map(row => [row.id, row]));
@@ -51,12 +54,20 @@ export function enrichedOperationalReports(lessons: ReportLesson[], incidents: R
       __subject: cls?.subject, __model: cls?.model, __timeSlot: lesson?.timeSlotId, category: cls?.categoryId || lookups.teachingCategories?.find(cat => cat.options.some(opt => opt.id === cls?.grade))?.id, program: cls?.level,
       model: lookups.models?.find(row => row.code === cls?.model)?.name || cls?.model || unknown, grade: cls?.grade || unknown,
       timeSlot: slot?.timeRange || (start ? start + (end ? ' – ' + end : '') : unknown),
-      teacherId: tutor?.id || lesson?.coverTeacherId || lesson?.primaryTeacherId || undefined, teacher: tutor?.name || unknown, lessonStatus: lessonStatus(lesson?.status),
+      teacherId: tutor?.id || lesson?.coverTeacherId || lesson?.primaryTeacherId || undefined, teacher: tutor?.name || unknown, lessonStatus: lesson?.pausedByClass ? 'Tạm dừng lớp' : lessonStatus(lesson?.status),
+      pauseReason: lesson?.pausedByClass ? lesson.pauseReason || '__MISSING__' : '__NONE__',
+      pauseReasonName: lesson?.pausedByClass ? pauseReasonName(lesson.pauseReason, lookups.customCatalogs || []) : 'Không tạm dừng',
+      pauseNote: lesson?.pausedByClass ? lesson.pauseNote || '' : '',
       weekday: lesson?.date && Number.isFinite(Date.parse(lesson.date)) ? ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][new Date(lesson.date + 'T00:00:00Z').getUTCDay()] : unknown };
   };
   const subject = field('subject', 'Môn học'), model = field('model', 'Mô hình'), grade = field('grade', 'Khối lớp');
   const slot = field('timeSlot', 'Khung giờ'), teacher = field('teacher', 'Giáo viên thực dạy'), className = field('name', 'Lớp học');
-  const shared = [subject, model, grade, slot, field('weekday', 'Ngày trong tuần'), teacher, className, field('lessonStatus', 'Trạng thái buổi học')];
+  const pauseReasonField: ReportDimension = {id:'pauseReason', label:'Lý do tạm dừng', choices:[
+    {value:'__NONE__',label:'Không tạm dừng'}, {value:'__MISSING__',label:'Chưa ghi nhận lý do'},
+    ...(lookups.customCatalogs?.find(catalog => catalog.code === 'CLASS_PAUSE_REASON')?.entries.map(entry => ({value:entry.id,label:entry.name})) || []),
+    ...[...new Set(lessons.filter(lesson => lesson.pausedByClass && lesson.pauseReason).map(lesson => lesson.pauseReason!))].filter(id => !lookups.customCatalogs?.find(catalog => catalog.code === 'CLASS_PAUSE_REASON')?.entries.some(entry => entry.id === id)).map(id => ({value:id,label:id}))
+  ]};
+  const shared = [pauseReasonField, subject, model, grade, slot, field('weekday', 'Ngày trong tuần'), teacher, className, field('lessonStatus', 'Trạng thái buổi học')];
   const incidentDataset: ReportDataset = {
     id: 'incidents', label: 'Sự cố vận hành', dateKind: 'event', nonAdditiveGroups: ['cause'],
     note: 'Tỷ lệ = buổi có sự cố / tổng buổi học trong cùng kỳ và cùng môn, mô hình, khung giờ đã lọc. Chọn loại sự cố chỉ đổi tử số. Một buổi có nhiều sự cố chỉ tính một lần ở tổng; các nhóm loại sự cố có thể trùng buổi, không cộng các nhóm để suy ra tổng. Môn/mô hình theo lớp hiện có; thiếu liên kết ghi “Chưa xác định”.',
@@ -65,11 +76,11 @@ export function enrichedOperationalReports(lessons: ReportLesson[], incidents: R
       { id: 'rate', label: 'Tỷ lệ buổi có sự cố', mode: 'ratio', field: 'incidents', denominator: 'total', format: 'percent' },
       { id: 'total', label: 'Tổng buổi học', mode: 'sum', field: 'total' }, { id: 'urgent', label: 'Buổi có sự cố khẩn cấp', mode: 'sum', field: 'urgent' },
       { id: 'notice', label: 'Buổi có sự cố không khẩn cấp', mode: 'sum', field: 'notice' }],
-    defaultMetricIds: ['total', 'incidents', 'rate'], dimensions: [subject, model, slot, grade, teacher, className, causeField, ...time, field('weekday', 'Ngày trong tuần'), field('period', 'Tháng (mã)')],
+    defaultMetricIds: ['total', 'incidents', 'rate'], dimensions: [pauseReasonField, subject, model, slot, grade, teacher, className, causeField, ...time, field('weekday', 'Ngày trong tuần'), field('period', 'Tháng (mã)')],
     filters: [...shared, { ...causeField, options: [...new Set(incidents.map(event => event.incidentName || unknown))].sort() },
       { ...field('urgency', 'Mức độ sự cố'), options: ['Khẩn cấp', 'Không khẩn cấp'] },
       { ...field('incidentStatus', 'Trạng thái xử lý sự cố'), options: [...new Set(incidents.map(event => incidentStatus(event.status)))].sort() }],
-    detailFields: [field('code', 'Mã buổi'), field('date', 'Ngày học'), className, subject, model, grade, slot, teacher, field('lessonStatus', 'Trạng thái buổi'), field('incidents', 'Có sự cố (1/0)'), field('cause', 'Sự cố ghi nhận'), field('urgencyLabel', 'Mức độ'), field('incidentState', 'Trạng thái xử lý')],
+    detailFields: [field('code', 'Mã buổi'), field('date', 'Ngày học'), className, subject, model, grade, slot, teacher, field('lessonStatus', 'Trạng thái buổi'), field('pauseReasonName', 'Lý do tạm dừng'), field('pauseNote', 'Ghi chú tạm dừng'), field('incidents', 'Có sự cố (1/0)'), field('cause', 'Sự cố ghi nhận'), field('urgencyLabel', 'Mức độ'), field('incidentState', 'Trạng thái xử lý')],
     filterRecords: (records, filters) => records.filter(record => incidentDataset.filters.filter(item => !['cause', 'urgency', 'incidentStatus'].includes(item.id)).every(item => matchesReportField(record, item, filters[item.id]))).map(record => withEvents(record,
       eventList(record).filter(event => matchesReportFilter(causeKey(event), filters.cause)
         && matchesReportFilter(event.urgency === 'EMERGENCY' ? 'Khẩn cấp' : 'Không khẩn cấp', filters.urgency)
@@ -103,11 +114,11 @@ export function enrichedOperationalReports(lessons: ReportLesson[], incidents: R
     id: 'lessons', label: 'Ca dạy & phân bổ', dateKind: 'event',
     note: 'Theo ngày học; giáo viên thực dạy ưu tiên người dạy thay. Buổi hoàn thành theo trạng thái lưu, không suy từ lịch dự kiến. Môn và mô hình theo lớp hiện có.',
     records: lessons.map(lesson => ({ ...context(lesson), id: lesson.id, code: lesson.displayCode || 'Chưa cấp mã', date: lesson.date,
-      total: 1, completed: ['DA_HOC', 'HOAN_THANH', 'DA_HOC_CU', 'DAY_THAY_CU'].includes(lesson.status || '') ? 1 : 0, cover: lesson.coverTeacherId ? 1 : 0 })),
-    metrics: [{ id: 'total', label: 'Buổi học được ghi nhận', mode: 'sum', field: 'total' }, { id: 'completed', label: 'Buổi đã hoàn thành', mode: 'sum', field: 'completed' },
+      paused: lesson.pausedByClass ? 1 : 0, total: 1, completed: ['DA_HOC', 'HOAN_THANH', 'DA_HOC_CU', 'DAY_THAY_CU'].includes(lesson.status || '') ? 1 : 0, cover: lesson.coverTeacherId ? 1 : 0 })),
+    metrics: [{id:'paused',label:'Buổi tạm dừng lớp',mode:'sum',field:'paused'}, { id: 'total', label: 'Buổi học được ghi nhận', mode: 'sum', field: 'total' }, { id: 'completed', label: 'Buổi đã hoàn thành', mode: 'sum', field: 'completed' },
       { id: 'cover', label: 'Buổi có dạy thay', mode: 'sum', field: 'cover' }, { id: 'count', label: 'Giáo viên thực dạy', mode: 'distinct', field: 'teacherId' }],
-    defaultMetricIds: ['total', 'completed', 'cover'], dimensions: [...shared, ...time], filters: shared,
-    detailFields: [field('code', 'Mã buổi'), field('date', 'Ngày học'), className, subject, model, grade, slot, teacher, field('lessonStatus', 'Trạng thái'), field('cover', 'Dạy thay (1/0)')]
+    defaultMetricIds: ['total', 'completed', 'cover', 'paused'], dimensions: [...shared, ...time], filters: shared,
+    detailFields: [field('code', 'Mã buổi'), field('date', 'Ngày học'), className, subject, model, grade, slot, teacher, field('lessonStatus', 'Trạng thái'), field('pauseReasonName', 'Lý do tạm dừng'), field('pauseNote', 'Ghi chú tạm dừng'), field('cover', 'Dạy thay (1/0)')]
   };
   return [incidentDataset, inspectionDataset, lessonDataset];
 }

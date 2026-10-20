@@ -28,6 +28,9 @@ export const scheduledMaterialForDate = (cls: ClassItem, date: string, time: str
 };
 
 export interface TeachingLesson {
+  pausedByClass?: boolean;
+  pauseReason?: string | null;
+  pauseNote?: string | null;
   id?: string;
   classId: string;
   date: string;

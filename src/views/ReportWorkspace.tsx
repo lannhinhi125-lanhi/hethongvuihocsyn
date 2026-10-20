@@ -1,3 +1,4 @@
+import type { PauseCatalog } from '../lib/classPause';
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -16,6 +17,7 @@ export function ReportWorkspace() {
   const request = draft?.actorId === currentUser.id ? draft.value : null;
   const { can } = usePermissions();
   const { loadedAt } = useBusinessStatus();
+  const [customCatalogs] = useBusinessValue<PauseCatalog[]>('custom_catalogs');
   const [lessons] = useBusinessValue<ReportLesson[]>('dated_lessons');
   const [incidents] = useBusinessValue<ReportIncident[]>('lesson_incidents');
   const [evaluations] = useBusinessValue<InspectionEvaluation[]>('teacher_evaluations');
@@ -23,8 +25,8 @@ export function ReportWorkspace() {
   const operational = can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn');
   const custom = can('Công cụ tạo báo cáo tùy biến (Dynamic Report)');
   const canView = general || operational || custom;
-  const datasets = useMemo(() => allReportDatasets({ classes, students, teachers, lessons, incidents, evaluations, lookups: { subjects, models, timeSlots, teachingCategories, levels, incidentCategories } }),
-    [classes, students, teachers, lessons, incidents, evaluations, subjects, models, timeSlots, teachingCategories, levels, incidentCategories]);
+  const datasets = useMemo(() => allReportDatasets({ classes, students, teachers, lessons, incidents, evaluations, lookups: { subjects, models, timeSlots, teachingCategories, levels, incidentCategories, customCatalogs } }),
+    [classes, students, teachers, lessons, incidents, evaluations, subjects, models, timeSlots, teachingCategories, levels, incidentCategories, customCatalogs]);
   const allowed = datasets.detail.filter(dataset => custom || (['classes','classes_ending', 'students', 'student_registrations','student_registration_periods', 'student_multi_enrollment', 'teachers'].includes(dataset.id) ? general : operational));
   return <div className="space-y-3"><ReportDataStatus showSuccess={false} />
     {loadedAt && canView && allowed.length > 0 && <>

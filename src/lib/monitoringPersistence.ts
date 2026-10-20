@@ -19,6 +19,7 @@ export function storedMonitoringSession(base:MonitoringSession,lessons:Row[],inc
  status:['HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status)?'DA_HOC':['HUY','NGHI_HOC'].includes(lesson.status)?'NGHI_HOC':lesson.status as MonitoringSessionState,
  primaryTeacherId:lesson.primaryTeacherId,primaryTeacher:teachers.find(t=>t.id===lesson.primaryTeacherId)?.name||base.primaryTeacher,
  coverTeacherId:lesson.coverTeacherId||null,coverTeacher:teachers.find(t=>t.id===lesson.coverTeacherId)?.name||null,recordingUrl:lesson.recordingUrl||null,lessonDiary:lesson.diary||'',
+ pausedByClass:lesson.pausedByClass,pauseReason:lesson.pauseReason,pauseNote:lesson.pauseNote,
  hasIncident:!!incident,incidentParent:(categories.find(c=>c.id===incident?.categoryId)?.code||null) as MonitoringSession['incidentParent'],incidentChild:incident?.incidentCode||null,
  incidentUrgency:incident?.urgency||null,incidentStatus:incident?.status||null,incidentNote:incident?.content||'',handledByOpsId:incident?.handledBy||null,handledByName:users.find(user=>user.id===incident?.handledBy)?.name||null,handledAt:incident?.handledAt||null};
 }

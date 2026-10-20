@@ -24,21 +24,31 @@ try {
  console.log('PASS migration applies twice');
  await db.exec(file('supabase/migrations/20261110_temporary_class_pause.sql'));
  await db.exec(file('supabase/migrations/20261110_temporary_class_pause.sql'));
+ for (const name of ['20261111_class_pause_reason','20261112_class_pause_reason_catalog','20261113_class_pause_reporting']) {
+  await db.exec(file('supabase/migrations/'+name+'.sql'));
+  await db.exec(file('supabase/migrations/'+name+'.sql'));
+ }
  await db.exec('BEGIN; SAVEPOINT pause_test');
  await db.exec(`INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh','TEST-PAUSE','malophoc','TEST-PAUSE','trangthai','DANG_HOC','ngaybatdau','2090-01-01','thoihanthang',1))).* FROM vuihoc."LOP_HOC" l WHERE magiaovien IS NOT NULL LIMIT 1;
  INSERT INTO vuihoc."LICH_LOP"(malop,thutu,thutrongtuan,makhunggio) SELECT 'TEST-PAUSE',1,thutrongtuan,makhunggio FROM vuihoc."LICH_LOP" LIMIT 1;
  SELECT vuihoc.dong_bo_ca_theo_lich('2090-01-01','2090-01-15');`);
- const pauseLessons=async()=>(await db.query(`SELECT madinhdanh,trangthai,tamhoandolop FROM vuihoc."BUOI_HOC" WHERE malop='TEST-PAUSE' ORDER BY ngayhoc`)).rows;
+ const pauseLessons=async()=>(await db.query(`SELECT madinhdanh,trangthai,tamhoandolop,lydotamdung,ghichutamdung FROM vuihoc."BUOI_HOC" WHERE malop='TEST-PAUSE' ORDER BY ngayhoc`)).rows;
  let pauseRows=await pauseLessons();assert.ok(pauseRows.length>1);
  await db.query(`UPDATE vuihoc."BUOI_HOC" SET trangthai='NGHI_HOC' WHERE madinhdanh=$1`,[pauseRows[0].madinhdanh]);
  const teacherBefore=(await db.query(`SELECT magiaovien FROM vuihoc."LOP_HOC" WHERE madinhdanh='TEST-PAUSE'`)).rows[0].magiaovien;
- await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=true WHERE madinhdanh='TEST-PAUSE'; SELECT vuihoc.dong_bo_ca_theo_lich('2090-01-16','2090-01-31');`);
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=true,lydotamdung='PAUSE-HOLIDAY',ghichutamdung='Lịch nghỉ' WHERE madinhdanh='TEST-PAUSE'; SELECT vuihoc.dong_bo_ca_theo_lich('2090-01-16','2090-01-31');`);
  pauseRows=await pauseLessons();assert.equal(pauseRows.length,(await db.query(`SELECT count(*)::int n FROM vuihoc."BUOI_HOC" WHERE malop='TEST-PAUSE' AND ngayhoc<='2090-01-15'`)).rows[0].n);
  assert.ok(pauseRows.every(r=>r.trangthai==='NGHI_HOC'));
  assert.equal(pauseRows[0].tamhoandolop,false);
+ assert.ok(pauseRows.slice(1).every(r=>r.lydotamdung==='PAUSE-HOLIDAY'&&r.ghichutamdung==='Lịch nghỉ'));
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET lydotamdung='PAUSE-SCHOOL',ghichutamdung='Thông báo mới' WHERE madinhdanh='TEST-PAUSE'`);
+ pauseRows=await pauseLessons();
+ assert.ok(pauseRows.slice(1).every(r=>r.lydotamdung==='PAUSE-SCHOOL'&&r.ghichutamdung==='Thông báo mới'));
+ assert.equal(pauseRows[0].lydotamdung,null);
+
  assert.equal((await db.query(`SELECT magiaovien FROM vuihoc."LOP_HOC" WHERE madinhdanh='TEST-PAUSE'`)).rows[0].magiaovien,teacherBefore);
  await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=false WHERE madinhdanh='TEST-PAUSE';`);
- pauseRows=await pauseLessons();assert.equal(pauseRows[0].trangthai,'NGHI_HOC');assert.ok(pauseRows.slice(1).every(r=>r.trangthai==='CHUA_DIEN_RA'&&!r.tamhoandolop));
+ pauseRows=await pauseLessons();assert.equal(pauseRows[0].trangthai,'NGHI_HOC');assert.ok(pauseRows.slice(1).every(r=>r.trangthai==='CHUA_DIEN_RA'&&!r.tamhoandolop&&r.lydotamdung===null&&r.ghichutamdung===null));
  await db.exec(`SELECT vuihoc.dong_bo_ca_theo_lich('2090-01-16','2090-01-31');`);
  assert.ok((await pauseLessons()).length>pauseRows.length);
  await db.exec('ROLLBACK');

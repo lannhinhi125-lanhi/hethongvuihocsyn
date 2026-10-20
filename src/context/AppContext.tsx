@@ -180,6 +180,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     previousContactVersion.current=contactVersion;
     if(accountSession.actor)void refreshBusinessData();
   },[contactVersion,businessStatus.loading,businessStatus.saving,accountSession.actor?.id]);
+  useEffect(() => {
+    if (!accountSession.actor || isPreviewAccount(accountSession.actor)) return;
+    const refresh = () => { if (document.visibilityState === 'visible') void refreshBusinessData(); };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+  }, [accountSession.actor?.id]);
   const teacherAccess = JSON.stringify(accountSession.groups.map(g=>[g.id,g.permissions,g.portal]));
   useEffect(() => {
     resetBusinessData();

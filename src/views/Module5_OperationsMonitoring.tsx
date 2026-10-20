@@ -1,3 +1,4 @@
+import { lessonPauseLabel, type PauseCatalog } from '../lib/classPause';
 import { ReportSelect } from '../components/ReportSelect';
 import { MultiSelectColumnFilter, CheckboxFilterOptions } from '../components/MultiSelectColumnFilter';
 import { canTeachClassModel } from '../lib/teachingModelGroups';
@@ -58,6 +59,9 @@ export interface MonitoringSession {
   hasPersistedStatus?: boolean;
   feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
   status: MonitoringSessionState;
+  pausedByClass?: boolean;
+  pauseReason?: string | null;
+  pauseNote?: string | null;
   hasIncident: boolean;
   incidentParent: 'GRP-TCH' | 'GRP-STU' | 'GRP-SYS' | null;
   incidentChild: string | null;
@@ -92,6 +96,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Danh sách ca dạy toàn hệ thống
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
+  const [pauseCatalogs] = useBusinessValue<PauseCatalog[]>('custom_catalogs');
   const [persistedLessons] = useBusinessValue<Record<string,any>[]>('dated_lessons');
   const [persistedIncidents] = useBusinessValue<Record<string,any>[]>('lesson_incidents');
   const saveSessions = (action: React.SetStateAction<MonitoringSession[]>) => {
@@ -343,7 +348,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Thống kê KPI Tab 1
   const kpiTotal = subjectFilteredSessions.length;
   const kpiCompleted = subjectFilteredSessions.filter(s => studyStatus(s) === 'DA_HOC').length;
-  const kpiIncidents = subjectFilteredSessions.filter(s => s.hasIncident || s.status === 'NGHI_HOC').length;
+  const kpiIncidents = subjectFilteredSessions.filter(s => s.hasIncident).length;
   const kpiCover = subjectFilteredSessions.filter(s => s.coverTeacherId).length;
 
   // Thống kê KPI Tab 2
@@ -817,7 +822,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                               </span>
                             ) : s.status === 'NGHI_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200">
-                                <span className="w-2 h-2 rounded-full bg-amber-500" /> Nghỉ học
+                                <span className="w-2 h-2 rounded-full bg-amber-500" /> {lessonPauseLabel(s, pauseCatalogs) || 'Nghỉ học'}
                               </span>
                             ) : null}
                           </td>

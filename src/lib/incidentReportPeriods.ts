@@ -1,6 +1,9 @@
 import { reportCreationDate } from './reportCreationDate';
 
 export interface ReportLesson {
+  pausedByClass?: boolean;
+  pauseReason?: string | null;
+  pauseNote?: string | null;
   id: string;
   displayCode?: string;
   date: string;

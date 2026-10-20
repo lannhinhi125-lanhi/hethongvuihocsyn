@@ -5,6 +5,7 @@ import {materialForSessionDate} from './teacherScheduleMaterials';
 import {teachingScheduleEntries} from './teachingSessionDetails';
 
 export interface WorkbenchLesson {
+ pausedByClass?:boolean;pauseReason?:string|null;pauseNote?:string|null;
  id:string;classId:string;date:string;timeSlotId:string;startsAt?:string;endsAt?:string;
  primaryTeacherId?:string;coverTeacherId?:string|null;status?:string;checkinAt?:string|null;checkoutAt?:string|null;
  feedbackProgress?:{state:string;total:number;completed:number};
