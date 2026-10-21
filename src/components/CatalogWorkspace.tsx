@@ -11,7 +11,7 @@ import { useApp } from '../context/AppContext';
 
 type Entry = { id: string; code: string; name: string; desc: string; status: boolean };
 type Catalog = { id: string; code: string; name: string; desc: string; parentId?: string; entries: Entry[] };
-type Navigation = { id: string; name: string; group: string; count: number };
+type Navigation = { id: string; name: string; group: string; count: number; catalogCode?: string };
 const input = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500';
 const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40';
 export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; onSelect: (id: string) => void; children: React.ReactNode }> = ({ items, active, onSelect, children }) => {
@@ -32,6 +32,8 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
+  const navigationFor = (catalog: Catalog) => items.find(item => item.catalogCode === catalog.code);
+  const activeCatalog = catalogs.find(catalog => navigationFor(catalog)?.id === active);
   const selected = catalogs.find(item => item.id === selectedId);
   useEffect(() => {
     const ancestors: string[] = []; const seen = new Set<string>(); let id = selectedId;
@@ -56,12 +58,14 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
     setEditingId(entry?.id || ''); setCode(entry?.code || ''); setName(entry?.name || ''); setDesc(entry?.desc || ''); setDialog(kind);
   };
   const selectCatalog = (id: string) => { setSelectedId(id); setEntryQuery(''); setStatus('all'); };
-  const openChild = () => { open('catalog'); setParentId(selected?.id || active); };
-  const selectedChildren = catalogs.filter(item => item.parentId === (selected?.id || active));
+  const openChild = () => { open('catalog'); setParentId(selected?.id || activeCatalog?.id || active); };
+  const selectedChildren = catalogs.filter(item => item.parentId === (selected?.id || activeCatalog?.id || active));
   const path: { id: string; name: string }[] = [];
   let ancestor = selected;
   const visited = new Set<string>();
   while (ancestor && !visited.has(ancestor.id)) {
+    const boundNavigation = navigationFor(ancestor);
+    if (boundNavigation) { path.unshift(boundNavigation); break; }
     visited.add(ancestor.id); path.unshift({ id: ancestor.id, name: ancestor.name });
     const builtin = items.find(item => item.id === ancestor?.parentId);
     if (builtin) { path.unshift(builtin); break; }
@@ -71,7 +75,11 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   const groups = [...new Set(items.map(item => item.group))];
   const rows = (selected?.entries || []).filter(entry => (entry.name + ' ' + entry.code).toLocaleLowerCase('vi').includes(entryQuery.trim().toLocaleLowerCase('vi')) && (status === 'all' || entry.status === (status === 'active')));
   const navClass = (chosen: boolean) => 'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs ' + (chosen ? 'bg-orange-50 font-semibold text-orange-700' : 'text-slate-600 hover:bg-slate-50');
-  const isRoot = (item: Catalog) => !item.parentId || ![...items, ...catalogs].some(parent => parent.id === item.parentId);
+  const isRoot = (item: Catalog) => !navigationFor(item) && (!item.parentId || ![...items, ...catalogs].some(parent => parent.id === item.parentId));
+  const navigationChildren = (item: Navigation) => {
+    const catalogId = catalogs.find(catalog => navigationFor(catalog)?.id === item.id)?.id;
+    return catalogs.filter(child => child.parentId === item.id || Boolean(catalogId && child.parentId === catalogId));
+  };
   const branchMatches = (item: Catalog, seen = new Set<string>()): boolean => {
     if (seen.has(item.id)) return false;
     seen.add(item.id);
@@ -98,8 +106,8 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
         <label className="relative block"><Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" /><input aria-label="Tìm loại danh mục" placeholder="Tìm danh mục..." value={query} onChange={event => setQuery(event.target.value)} className={input + ' pl-8'} /></label>
         <nav aria-label="Các danh mục dùng chung" className="mt-3 space-y-3">
           {groups.map(group => <div key={group}><h3 className="mb-1 px-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">{group}</h3>
-            {items.filter(item => item.group === group && (matches(item.name) || catalogs.some(child => child.parentId === item.id && branchMatches(child)))).map(item => <div key={item.id}><button type="button" aria-current={!selectedId && active === item.id ? 'page' : undefined} className={navClass(!selectedId && active === item.id)} onClick={() => { setSelectedId(''); onSelect(item.id); }}><span>{item.name}</span><span className="text-[10px] text-slate-400">{item.count}</span></button>
-              {(active === item.id || expandedIds.includes(item.id) || query.trim()) && <div className="ml-3 border-l border-slate-200 pl-1">{renderBranch(catalogs.filter(child => child.parentId === item.id))}</div>}
+            {items.filter(item => item.group === group && (matches(item.name) || navigationChildren(item).some(child => branchMatches(child)))).map(item => <div key={item.id}><button type="button" aria-current={!selectedId && active === item.id ? 'page' : undefined} className={navClass(!selectedId && active === item.id)} onClick={() => { setSelectedId(''); onSelect(item.id); }}><span>{item.name}</span><span className="text-[10px] text-slate-400">{item.count}</span></button>
+              {(active === item.id || expandedIds.includes(item.id) || query.trim()) && <div className="ml-3 border-l border-slate-200 pl-1">{renderBranch(navigationChildren(item))}</div>}
             </div>)}
           </div>)}
           <div><h3 className="mb-1 px-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">Danh mục bổ sung</h3>
@@ -117,7 +125,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
         </div>}
         {!selected ? children : <CatalogTreeBranch key={selected.id} title={selected.name} code={selected.code} count={selected.entries.length} disabled={!canEdit} addLabel="Thêm giá trị" onAdd={() => open('entry')} revealKey={entryQuery || (status !== 'all' ? status : '')}>
           <div className="space-y-3 p-4">
-            <p className="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500">Chưa liên kết phân hệ · Danh mục này hiện lưu trên trình duyệt. Tạo danh mục con chỉ phân loại dữ liệu, chưa thêm trường vào biểu mẫu nghiệp vụ.</p>
+            <p className="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500">Danh mục được lưu trên Supabase. Tạo danh mục con giúp phân loại dữ liệu; chỉ các danh mục đã liên kết mới cung cấp lựa chọn cho biểu mẫu nghiệp vụ.</p>
             <div className="flex flex-wrap gap-2"><input aria-label="Tìm giá trị danh mục" placeholder="Tìm theo mã hoặc tên..." value={entryQuery} onChange={event => setEntryQuery(event.target.value)} className={input + ' max-w-sm'} /><ReportSelect aria-label="Lọc trạng thái giá trị" value={status} onChange={event => setStatus(event.target.value)} className={input + ' max-w-44'}><option value="all">Tất cả trạng thái</option><option value="active">Đang áp dụng</option><option value="inactive">Tạm dừng</option></ReportSelect></div>
           </div>
           <div className="workspace-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Bảng dữ liệu có thể cuộn"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-slate-600"><tr>{['Mã', 'Tên giá trị', 'Mô tả', 'Trạng thái', 'Thao tác'].map(label => <th key={label} scope="col" className="px-4 py-3">{label}</th>)}</tr></thead><PaginatedTableBody className="divide-y divide-slate-100">

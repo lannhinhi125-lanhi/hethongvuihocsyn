@@ -1,3 +1,4 @@
+import {REPORT_FONT_FAMILY} from './reportTypography';
 export type ReportChartKind = 'column' | 'bar' | 'line' | 'area' | 'donut' | 'pie' | 'lollipop' | 'treemap';
 export interface PlotDatum { key: string; label: string; value: number | null; previous?: number | null }
 export const reportChartNames: Record<ReportChartKind, string> = { column: 'Cột', bar: 'Thanh ngang', line: 'Đường', area: 'Miền', donut: 'Tròn', pie: 'Tròn đặc', lollipop: 'Chấm', treemap: 'Ô tỷ trọng' };
@@ -78,5 +79,5 @@ export function renderReportPlot(data: PlotDatum[], kind: ReportChartKind, forma
   const xLabel=horizontal ? options.metricLabel || options.title : options.groupLabel || 'Nhóm';
   const yLabel=horizontal ? options.groupLabel || 'Nhóm' : options.metricLabel || options.title;
   const axes=cartesian ? `<text aria-label="Trục tung" x="10" y="${height/2+8}" transform="rotate(-90 10 ${height/2+8})" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">${esc(yLabel)}</text><text aria-label="Trục hoành" x="390" y="${height+25}" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">${esc(xLabel)}</text>` : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cartesian?755:720} ${height+(cartesian?38:0)}" role="${options.interactive ? 'group' : 'img'}" aria-label="${esc(options.title)}" style="display:block;width:100%;height:auto;font-family:Arial,sans-serif;color:#0f172a">${gradients}${cartesian?'<g transform="translate(30 8)">':''}${body}${cartesian?'</g>':''}${axes}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cartesian?755:720} ${height+(cartesian?38:0)}" role="${options.interactive ? 'group' : 'img'}" aria-label="${esc(options.title)}" style="display:block;width:100%;height:auto;font-family:${REPORT_FONT_FAMILY.replaceAll('"', '&quot;')};color:#0f172a">${gradients}${cartesian?'<g transform="translate(30 8)">':''}${body}${cartesian?'</g>':''}${axes}</svg>`;
 }

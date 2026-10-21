@@ -1,3 +1,4 @@
+import {REPORT_FONT_FAMILY} from '../lib/reportTypography';
 import type { PauseCatalog } from '../lib/classPause';
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -28,7 +29,7 @@ export function ReportWorkspace() {
   const datasets = useMemo(() => allReportDatasets({ classes, students, teachers, lessons, incidents, evaluations, lookups: { subjects, models, timeSlots, teachingCategories, levels, incidentCategories, customCatalogs } }),
     [classes, students, teachers, lessons, incidents, evaluations, subjects, models, timeSlots, teachingCategories, levels, incidentCategories, customCatalogs]);
   const allowed = datasets.detail.filter(dataset => custom || (['classes','classes_ending', 'students', 'student_registrations','student_registration_periods', 'student_multi_enrollment', 'teachers'].includes(dataset.id) ? general : operational));
-  return <div className="space-y-3"><ReportDataStatus showSuccess={false} />
+  return <div className="space-y-3" style={{fontFamily:REPORT_FONT_FAMILY}}><ReportDataStatus showSuccess={false} />
     {loadedAt && canView && allowed.length > 0 && <>
       <div hidden={reportSection !== 'detail'}><CustomReportBuilder key={'statistics-' + currentUser.id} datasets={allowed} mode={custom ? 'custom' : 'detail'} onCompose={value => { setDraft({ actorId: currentUser.id, value }); setReportSection('custom'); }} /></div>
       <div hidden={reportSection !== 'custom'}><ReportComposer key={'composer-' + currentUser.id} datasets={allowed} request={request} updatedAt={loadedAt} /></div>

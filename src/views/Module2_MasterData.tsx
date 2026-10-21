@@ -48,7 +48,7 @@ export const Module2_MasterData: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching' | 'document-types' | 'durations'>('subjects');
   const [documentCategories] = useBusinessValue<DocumentCategory[]>('document_categories');
-  const [durationCatalogs]=useBusinessValue<{code:string;entries:unknown[]}[]>('custom_catalogs');
+  const [durationCatalogs]=useBusinessValue<{code:string;name:string;entries:unknown[]}[]>('custom_catalogs');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // Modals state
@@ -321,7 +321,7 @@ export const Module2_MasterData: React.FC = () => {
         { id: 'teaching', name: 'Cấp học & Lớp dạy', group: 'Đào tạo', count: teachingCategories.length },
         { id: 'models', name: 'Mô hình & Sĩ số', group: 'Tổ chức lớp học', count: models.length },
         { id: 'times', name: 'Khung giờ học', group: 'Tổ chức lớp học', count: timeSlots.length },
-        { id: 'durations', name: 'Thời hạn lớp học', group: 'Tổ chức lớp học', count: durationCatalogs.find(row=>row.code==='CLASS_DURATION')?.entries.length||0 },
+        { id: 'durations', catalogCode: 'CLASS_DURATION', name: durationCatalogs.find(row=>row.code==='CLASS_DURATION')?.name || 'Thời hạn lớp học', group: 'Tổ chức lớp học', count: durationCatalogs.find(row=>row.code==='CLASS_DURATION')?.entries.length||0 },
         { id: 'document-types', name: 'Loại tài liệu', group: 'Vận hành', count: documentCategories.length },
         { id: 'incidents', name: 'Sự cố & Hệ số công', group: 'Vận hành', count: incidents.length }
       ]}>
@@ -334,7 +334,7 @@ export const Module2_MasterData: React.FC = () => {
       </div>}
       {activeTab === 'document-types' && <DocumentCategoryManager searchKeyword={searchKeyword} />}
       {activeTab === 'teaching' && <TeachingCatalog />}
-      {activeTab === 'durations' && <ClassDurationCatalog />}
+      {activeTab === 'durations' && <ClassDurationCatalog searchKeyword={searchKeyword} />}
       {/* ================= TAB 1: MÔN HỌC ================= */}
       {activeTab === 'subjects' && (
         <CatalogTreeBranch title="Môn học" count={subjects.length} onAdd={() => openSubjectModal()} addLabel="Thêm môn học" revealKey={searchKeyword}>
