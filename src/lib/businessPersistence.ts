@@ -10,7 +10,7 @@ let confirmed: Record<string,any> = {}, generation=0, flushing=false, scheduled=
 let raw: Record<string,Row[]> = {};
 const listeners=new Set<()=>void>();
 function publish(next:Snapshot){state=next;listeners.forEach(fn=>fn());}
-const collections: SupabaseDataset[] = ['subjects','levels','time_slots','class_models','teaching_categories','incident_categories','teachers','students','classes','criteria_categories','document_categories','sop_documents','report_templates','custom_catalogs','teacher_evaluations','dated_lessons','lesson_incidents'];
+const collections: SupabaseDataset[] = ['subjects','levels','time_slots','class_models','teaching_categories','incident_categories','teachers','students','classes','document_categories','sop_documents','report_templates','custom_catalogs','teacher_evaluations','dated_lessons','lesson_incidents'];
 const defaults:Record<string,any>={rag_bot_config:emptyRag,active_tone_key:'',monthly_payroll:{},tone_directives:{}};
 function initial(key:string):any {if(!(key in defaults))defaults[key]=[];return defaults[key];}
 function encode(key:string,value:any):Row[]{

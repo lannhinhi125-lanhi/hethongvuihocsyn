@@ -1,5 +1,15 @@
 # Theo dõi thay đổi chuẩn hóa
 
+Đợt **20261202 — mẫu/chỉ số/bộ lọc báo cáo**: [đủ cột trước/sau, PK/FK và luồng](REPORT_TEMPLATE_3NF_CHANGES.md). Bộ lọc tách từng lựa chọn thành dòng (3→4 cột), chỉ số giữ ba cột, mẫu bổ sung bảy tham số chưa được lưu (11→18); không tạo bảng hay cột JSON. Giữ mã nguồn và truy vấn nhãn hiện tại. [Migration](migrations/20261202_normalize_report_templates.sql) sau 20261201; chưa chạy lên Supabase thật.
+
+Đợt **20261201 — nhận xét/danh mục bổ sung**: [đủ cột trước/sau, PK/FK và nguồn truy vấn](FEEDBACK_CATALOG_3NF_CHANGES.md). Ba bảng giữ 6/7/7 cột, không thêm nơi lưu; bổ sung kiểm tra mã trùng/cây vòng lặp và gỡ hợp đồng tiêu chí cũ khỏi giao diện. Bốn bảng tiêu chí đã nghỉ từ 20261021, không phải các bảng cần chuẩn hóa tiếp. Migration chạy sau 20261130; chưa áp dụng lên Supabase thật trong phiên này.
+
+Đợt **20261130 — công/kỳ/đối soát**: [PAYROLL_3NF_CHANGES.md](PAYROLL_3NF_CHANGES.md) ghi đủ cột trước/sau: dòng công 13→11, kỳ 8 giữ nguyên, đối soát 4 giữ nguyên; PK/FK và nguồn JOIN kỳ/vai trò. [Migration 20261130](migrations/20261130_normalize_payroll_sources.sql) chạy sau 20261129, không thay số công hay mở kỳ khóa. Chưa chạy lên Supabase thật trong phiên này.
+
+Đợt **20261129 — giải trình/minh chứng**: [WORK_EVIDENCE_3NF_CHANGES.md](WORK_EVIDENCE_3NF_CHANGES.md) ghi đầy đủ 13→12 cột bảng cha, ba cột bảng con trước/sau, PK/FK và nguồn truy vấn. Bỏ bản sao danh sách ở bảng cha, giữ liên kết tại `LINK_MINH_CHUNG_CONG`; [migration 20261129](migrations/20261129_normalize_work_evidence.sql) chạy sau 20261128. Chưa áp dụng lên Supabase thật trong phiên này.
+
+Đợt mới nhất **20261128 — sự cố và danh mục**: xem [INCIDENT_3NF_CHANGES.md](INCIDENT_3NF_CHANGES.md) để đối chiếu đủ 17→16 cột, các bảng nguồn trước/sau, PK/FK, luồng báo cáo/công/tạm dừng và lý do giữ hệ số đã áp dụng. Migration: [20261128_normalize_incident_names.sql](migrations/20261128_normalize_incident_names.sql), sau 20261127; chưa thực thi trên Supabase thật trong phiên này.
+
 ## Lần 1 — Điểm đánh giá giáo viên
 
 Migration: [20261116_normalize_teacher_evaluations.sql](migrations/20261116_normalize_teacher_evaluations.sql), chạy sau 20261115.
@@ -423,5 +433,6 @@ Kiểm thử với buổi/công/kế hoạch có dữ liệu: migration lặp l�
 
 Trong nhóm này, thuộc tính kế hoạch phụ thuộc đầy đủ vào khóa lớp–mã học liệu; không lưu nhãn thời gian suy ra. Buổi chỉ giữ FK kế hoạch và các sự thật dùng khác thực tế, không chép mặc định. Đã loại các cột cùng ý nghĩa cho liên kết giảng dạy/bài tập. Đây là phạm vi kế hoạch–học liệu buổi đã chuẩn hóa; chưa kết luận toàn bộ BUOI_HOC, biên bản dự giờ, đối soát hoặc toàn CSDL đã hoàn tất 3NF.
 ## Đợt tiếp theo: biên bản dự giờ 20261127
+
 
 Đối chiếu **đầy đủ 29 cột trước → 16 cột sau**, PK/FK, nguồn JOIN, hai bảng được sửa (BIEN_BAN_DU_GIO đổi cột; BUOI_HOC chỉ thêm bảo vệ giáo viên) và phạm vi 3NF được ghi tại [INSPECTION_3NF_CHANGES.md](INSPECTION_3NF_CHANGES.md). Migration mới: [20261127_normalize_inspection_reports.sql](migrations/20261127_normalize_inspection_reports.sql), áp dụng sau 20261126. Chỉ kiểm thử cục bộ trong phiên này, chưa chạy trên Supabase thật.

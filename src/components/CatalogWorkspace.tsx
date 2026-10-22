@@ -141,6 +141,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
         event.preventDefault();if(isSavingChanges)return;
         const normalizedCode = code.trim().toUpperCase(), normalizedName = name.trim();
         if (!normalizedCode || !normalizedName) { showToast('Nhập mã và tên hợp lệ.', 'warning'); return; }
+        if (dialog === 'catalog' && catalogs.some(item => item.id !== editingId && item.code.trim().toUpperCase() === normalizedCode)) { showToast('Mã danh mục đã tồn tại trong hệ thống.', 'warning'); return; }
         const existing = dialog === 'catalog' ? catalogs.filter(item => (item.parentId || '') === parentId) : selected?.entries || [];
         if (existing.some(item => item.id !== editingId && (item.code.toUpperCase() === normalizedCode || item.name.toLocaleLowerCase('vi') === normalizedName.toLocaleLowerCase('vi')))) { showToast('Mã hoặc tên đã tồn tại trong danh mục.', 'warning'); return; }
         if (dialog === 'catalog' && !parentId && items.some(item => item.name.toLocaleLowerCase('vi') === normalizedName.toLocaleLowerCase('vi'))) { showToast('Danh mục hệ thống đã có tên này. Hãy chọn danh mục bên trái để thêm giá trị.', 'warning'); return; }

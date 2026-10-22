@@ -4,4 +4,7 @@ const progress={total:2,completed:1,state:'CHUA_DU',studentIds:['S1','S2']};
 const decoded=fromSupabaseRow('dated_lessons',{madinhdanh:'STATE-1',trangthai:'DA_HOC',tiendonhanxet:progress});
 assert.deepEqual(decoded.feedbackProgress,progress);
 assert.deepEqual(toSupabaseRow('dated_lessons',decoded),{madinhdanh:'STATE-1',trangthai:'DA_HOC'});
+const incident=fromSupabaseRow('lesson_incidents',{madinhdanh:'SC-1',mabuoi:'B-1',manhomsuco:'GROUP-1',masuco:'NET',tensuco:'Tên từ danh mục',dotamdunglop:false,noidung:'Chi tiết riêng'});
+assert.equal(incident.incidentName,'Tên từ danh mục');
+assert.deepEqual(toSupabaseRow('lesson_incidents',incident),{madinhdanh:'SC-1',mabuoi:'B-1',manhomsuco:'GROUP-1',masuco:'NET',noidung:'Chi tiết riêng'});
 console.log('PASS: feedback progress is read-only');

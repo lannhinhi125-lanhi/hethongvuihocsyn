@@ -135,7 +135,7 @@ try {
  console.log('PASS: business/teacher/account reads succeed in a read-only transaction');
  await business.loadBusinessData();
  assert.equal(business.getBusinessSnapshot().error,'');
- assert.equal(business.getBusinessSnapshot().data.criteria_categories.length,0,'retired criteria table remains absent');
+ assert.equal(business.getBusinessSnapshot().data.criteria_categories,undefined,'retired criteria table has no fabricated client collection');
  // Reproduce a permission failure restricted to schedule-writing helpers.
  const {updateStudentRegistration:updateWaitingRegistration}=await import('../src/lib/studentRegistrations');
  const waitingStudent=business.getBusinessSnapshot().data.students.find((row:any)=>row.registrations.some((r:any)=>r.status==='Chờ xếp lớp'&&!r.currentClassCode));

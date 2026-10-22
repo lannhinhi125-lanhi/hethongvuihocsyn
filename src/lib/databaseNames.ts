@@ -187,17 +187,6 @@ export const DATABASE_NAMES = {
       "updated_at": "ngaycapnhat"
     }
   },
-  "criteria_categories": {
-    "table": "NHOM_TIEU_CHI",
-    "columns": {
-      "id": "madinhdanh",
-      "subject_code": "mamonhoc",
-      "name": "tennhomtieuchi",
-      "criteria": "danhsachtieuchi",
-      "created_at": "ngaytao",
-      "updated_at": "ngaycapnhat"
-    }
-  },
   "sop_documents": {
     "table": "TAI_LIEU_QUY_TRINH",
     "columns": {
@@ -621,14 +610,6 @@ export const APP_DATABASE_FIELDS = {
     "materials": "hoclieu",
     "activeSessions": "chitietcahoc",
     "coverAssignments": "phancongdaythay",
-    "created_at": "ngaytao",
-    "updated_at": "ngaycapnhat"
-  },
-  "criteria_categories": {
-    "id": "madinhdanh",
-    "subject": "mamonhoc",
-    "name": "tennhomtieuchi",
-    "criteria": "danhsachtieuchi",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
   },

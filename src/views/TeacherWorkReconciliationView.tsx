@@ -1,4 +1,6 @@
 import { ReportSelect } from '../components/ReportSelect';
+import {WorkEvidenceLinks} from '../components/WorkEvidenceLinks';
+import {normalizeWorkEvidence} from '../lib/workEvidence';
 import {MultiSelectColumnFilter} from '../components/MultiSelectColumnFilter';
 import {isIncidentWorkSession} from '../lib/workCredits';
 import { workNoteDisplay } from '../lib/workNoteDisplay';
@@ -51,7 +53,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   const payrollMonthOptions = getPayrollMonthOptions(new Date(), [...Object.keys(payrollStore), ...datedLessons.map(lesson => lesson.date.slice(0,7))]);
   const [showDisputeModal, setShowDisputeModal] = useState<boolean>(false);
   const [selectedSessionForDispute, setSelectedSessionForDispute] = useState<SessionPayrollRecord | null>(null);
-  const [disputeType, setDisputeType] = useState<string>('Học sinh xin nghỉ sát giờ nhưng bị tính vắng');
+  const [disputeType, setDisputeType] = useState<string>('');
   const [disputeContent, setDisputeContent] = useState<string>('');
   const [disputeAttachment, setDisputeAttachment] = useState<string>('');
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
@@ -195,7 +197,11 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       showToast('Vui lòng nhập nội dung giải trình chi tiết!', 'error');
       return;
     }
+    if (!disputeType.trim()) { showToast('Vui lòng nhập vấn đề cần giải trình.', 'error'); return; }
 
+    let evidence: string;
+    try { evidence=normalizeWorkEvidence(disputeAttachment); }
+    catch(error) { showToast(error instanceof Error ? error.message : 'Minh chứng không hợp lệ.', 'error'); return; }
     const disputeItem: DisputeItem = {
       id: '',
       teacherId: myRecord.teacherId,
@@ -206,9 +212,9 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       sessionTime: `${selectedSessionForDispute.dateStr} (${selectedSessionForDispute.time})`,
       classCode: selectedSessionForDispute.classCode,
       status: 'CHO_DUYET',
-      incidentType: disputeType,
+      incidentType: disputeType.trim(),
       content: disputeContent,
-      attachment: disputeAttachment || 'Bien_ban_xac_nhan.png',
+      attachment: evidence,
       adminNote: ''
     };
 
@@ -217,6 +223,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
     setShowDisputeModal(false);
     setSelectedSessionForDispute(null);
     setDisputeContent('');
+    setDisputeType('');
     setDisputeAttachment('');
     });
   };
@@ -495,6 +502,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                 <div className="text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
                   "{d.content}"
                 </div>
+                <WorkEvidenceLinks value={d.attachment} />
                 {d.adminNote && (
                   <div className="text-emerald-700 font-medium">
                     Phản hồi từ Ban Vận Hành: {d.adminNote}
@@ -564,26 +572,14 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-600 font-semibold mb-1">Loại vấn đề giải trình:</label>
-                <ReportSelect
+                <label className="block text-slate-600 font-semibold mb-1">Vấn đề cần giải trình:</label>
+                <input
+                  type="text"
                   value={disputeType}
                   onChange={e => setDisputeType(e.target.value)}
+                  placeholder="Mô tả ngắn vấn đề cần đối soát"
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-blue-500"
-                >
-                  <option value="Học sinh xin nghỉ sát giờ nhưng hệ thống ghi nhận nhầm GV vắng">
-                    Học sinh xin nghỉ sát giờ nhưng hệ thống ghi nhận nhầm GV vắng
-                  </option>
-                  <option value="Đã trực phòng đủ 30 phút theo quy chế đề nghị bảo lưu 1.0 công">
-                    Đã trực phòng đủ 30 phút theo quy chế đề nghị bảo lưu 1.0 công
-                  </option>
-                  <option value="Sự cố kỹ thuật đường truyền Internet khách quan (Có biên bản)">
-                    Sự cố kỹ thuật đường truyền Internet khách quan (Có biên bản)
-                  </option>
-                  <option value="Ca dạy thay đồng nghiệp chưa được cập nhật hệ số công">
-                    Ca dạy thay đồng nghiệp chưa được cập nhật hệ số công
-                  </option>
-                  <option value="Khác">Lý do khác...</option>
-                </ReportSelect>
+                />
               </div>
 
               <div>
@@ -598,12 +594,12 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-600 font-semibold mb-1">Tên file ảnh / minh chứng đính kèm:</label>
-                <input
-                  type="text"
+                <label className="block text-slate-600 font-semibold mb-1">Liên kết minh chứng (không bắt buộc):</label>
+                <textarea
+                  rows={3}
                   value={disputeAttachment}
                   onChange={e => setDisputeAttachment(e.target.value)}
-                  placeholder="Ví dụ: Anh_chup_man_hinh_zoom_truc_phong.png"
+                  placeholder="Mỗi dòng một liên kết https://…"
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
                 />
               </div>

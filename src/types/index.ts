@@ -249,25 +249,6 @@ export interface ClassItem {
 }
 
 // Phân hệ 6: Quản trị AI Studio
-export interface CriterionOption {
-  id: string;
-  label: string;
-  isDefault: boolean;
-}
-
-export interface CriterionItem {
-  id: string;
-  name: string;
-  options: CriterionOption[];
-}
-
-export interface CriteriaCategory {
-  id: string;
-  subject: string;
-  name: string;
-  criteria: CriterionItem[];
-}
-
 export interface DocumentCategory { id:string; name:string; description:string; isActive:boolean; }
 export interface SOPDocument {
   driveUrl?: string;

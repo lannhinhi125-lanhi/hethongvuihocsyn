@@ -1,4 +1,5 @@
 import { ReportSelect } from '../components/ReportSelect';
+import {WorkEvidenceLinks} from '../components/WorkEvidenceLinks';
 import { workNoteDisplay } from '../lib/workNoteDisplay';
 import {pendingLessonWork,lessonWorkDetails,lessonWorkStatus} from '../lib/pendingLessonWork';
 import type {TeachingLesson} from '../lib/teachingSessionDetails';
@@ -33,7 +34,6 @@ import {
   FileCheck,
   AlertTriangle,
   UserCheck,
-  Paperclip,
   Calendar,
   Share2,
   Send
@@ -1078,13 +1078,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                       "{dispute.content}"
                     </div>
 
-                    {dispute.attachment && (
-                      <div className="text-[11px] text-indigo-600 flex items-center gap-1.5 font-medium">
-                        <Paperclip className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Minh chứng đính kèm:</span>
-                        <span className="underline cursor-pointer">{dispute.attachment}</span>
-                      </div>
-                    )}
+                    <WorkEvidenceLinks value={dispute.attachment} />
 
                     {dispute.adminNote && (
                       <div className="text-[11px] text-slate-500 italic">

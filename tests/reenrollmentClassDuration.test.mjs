@@ -473,4 +473,9 @@ try {
  await (await import('./timeSlotNormalizationCases.mjs')).verifyTimeSlotNormalization(db,token);
  await (await import('./classMaterialNormalizationCases.mjs')).verifyClassMaterialNormalization(db,token);
  await (await import('./inspectionNormalizationCases.mjs')).verifyInspectionNormalization(db,token);
+ await (await import('./incidentNormalizationCases.mjs')).verifyIncidentNormalization(db,token);
+ await (await import('./workEvidenceNormalizationCases.mjs')).verifyWorkEvidenceNormalization(db,token);
+ await (await import('./payrollSourceNormalizationCases.mjs')).verifyPayrollSourceNormalization(db,token);
+ await (await import('./feedbackCatalogNormalizationCases.mjs')).verifyFeedbackCatalogNormalization(db,token);
+ await (await import('./reportTemplateNormalizationCases.mjs')).verifyReportTemplateNormalization(db,token);
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}

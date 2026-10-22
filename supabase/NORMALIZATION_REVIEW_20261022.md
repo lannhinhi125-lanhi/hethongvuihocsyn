@@ -1,5 +1,15 @@
 # Rà soát nguồn dữ liệu và cột dư — 22/10/2026
 
+Đợt 20261202: chuẩn hóa bộ lọc nhiều lựa chọn, bảo toàn đầy đủ cấu hình mẫu báo cáo. [Chi tiết ba bảng, trước/sau và giới hạn FK](REPORT_TEMPLATE_3NF_CHANGES.md). Không tạo bảng danh mục sao chép hay cột JSON; chưa áp dụng lên Supabase thật.
+
+Đợt 20261201 rà ba bảng nhận xét/danh mục còn hoạt động: [đủ cột trước/sau và các nguồn liên kết](FEEDBACK_CATALOG_3NF_CHANGES.md). Không xóa cột hay thêm bảng; củng cố khóa nghiệp vụ và cây danh mục. Bốn bảng tiêu chí đã nghỉ không còn nằm trong danh sách bảng cần kiểm kê. Kiểm thử cục bộ; chưa thực thi lên Supabase thật.
+
+Đợt 20261130 rà ba bảng công/kỳ/đối soát và bỏ bản sao kỳ/vai trò ở dòng công: xem [toàn bộ cột trước/sau, FK, nguồn và giới hạn](PAYROLL_3NF_CHANGES.md). Kiểm thử cục bộ; chưa thực thi lên Supabase thật trong phiên này.
+
+Đợt 20261129 xử lý bản sao minh chứng ở giải trình: xem [đủ cột trước/sau, FK và các luồng](WORK_EVIDENCE_3NF_CHANGES.md). Đã chuẩn bị và kiểm thử cục bộ; chưa thực thi lên Supabase thật trong phiên này.
+
+Đợt 20261128 tiếp tục chuẩn hóa tên sự cố, đồng bộ truy vấn danh mục, công và báo cáo. Xem [đủ cột trước/sau và nguồn JOIN](INCIDENT_3NF_CHANGES.md). Bản sửa được kiểm thử cục bộ, chưa chạy lên Supabase thật trong phiên này.
+
 Các bản sửa 20261116–20261126 (giáo viên, tài khoản/quyền, hồ sơ học sinh–đăng ký–xếp lớp, chi tiết ca/dạy thay, sĩ số, thời hạn, khung giờ và nguồn học liệu) được ghi riêng tại [NORMALIZATION_CHANGES.md](NORMALIZATION_CHANGES.md). Kết quả kiểm kê bên dưới mô tả trạng thái trước migration 20261116; không phải cấu trúc sau các bản sửa này. Người dùng đã báo chạy thành công đến 20261122; 20261123–20261126 được kiểm thử cục bộ, chưa áp dụng lên Supabase thật trong phiên này.
 
 ## Kết luận và phạm vi

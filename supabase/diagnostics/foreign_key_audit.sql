@@ -1,5 +1,13 @@
 -- Read-only: each row should report OK after the foreign-key migration.
 WITH candidates(bang,cot,bang_tham_chieu) AS (VALUES
+ ('MAU_BAO_CAO','manguoidung','NGUOI_DUNG'),('CHI_SO_MAU_BAO_CAO','mamau','MAU_BAO_CAO'),('BO_LOC_MAU_BAO_CAO','mamau','MAU_BAO_CAO'),
+ ('NHAN_XET_BUOI_HOC','mabuoi','BUOI_HOC'),('NHAN_XET_BUOI_HOC','mahocsinh','HOC_SINH'),('NHAN_XET_BUOI_HOC','manguoicapnhat','NGUOI_DUNG'),
+ ('DANH_MUC_BO_SUNG','madanhmuccha','DANH_MUC_BO_SUNG'),('MUC_DANH_MUC','madanhmuc','DANH_MUC_BO_SUNG'),
+ ('CONG_DAY_BUOI_HOC','mabuoi','BUOI_HOC'),('CONG_DAY_BUOI_HOC','magiaovien','GIAO_VIEN'),
+ ('DOI_SOAT_CONG_GIAO_VIEN','kycong','BANG_CONG_THANG'),('DOI_SOAT_CONG_GIAO_VIEN','magiaovien','GIAO_VIEN'),
+ ('LINK_MINH_CHUNG_CONG','magiaitrinh','GIAI_TRINH_CONG_DAY'),
+ ('GIAI_TRINH_CONG_DAY','macong','CONG_DAY_BUOI_HOC'),
+ ('GIAI_TRINH_CONG_DAY','manguoigui','NGUOI_DUNG'),('GIAI_TRINH_CONG_DAY','manguoiduyet','NGUOI_DUNG'),
  ('BIEN_BAN_DU_GIO','mabuoi','BUOI_HOC'),('BIEN_BAN_DU_GIO','mabuoi','CHI_TIET_CA_LOP'),
  ('BIEN_BAN_DU_GIO','manguoidanhgia','NGUOI_DUNG'),
  ('HOC_SINH','malophientai','LOP_HOC'),

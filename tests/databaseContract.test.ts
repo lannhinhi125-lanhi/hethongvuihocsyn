@@ -8,7 +8,7 @@ import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset, DERIVED_DATABASE_
 // TypeScript 7 in this project does not expose the old compiler AST API.
 // Read only top-level properties in these exported interface declarations.
 const groups: [string, Record<string, SupabaseDataset>][] = [
- ['src/types/index.ts', { UserAccount:'users',SystemRoleGroup:'role_groups',SubjectItem:'subjects',LevelItem:'levels',TimeSlotItem:'time_slots',ClassModelItem:'class_models',IncidentCategory:'incident_categories',TeacherProfile:'teachers',StudentRecord:'students',ClassItem:'classes',CriteriaCategory:'criteria_categories',SOPDocument:'sop_documents',RAGBotConfig:'rag_bot_config',MonthPayrollData:'monthly_payroll',EvaluationRecord:'teacher_evaluations' }],
+ ['src/types/index.ts', { UserAccount:'users',SystemRoleGroup:'role_groups',SubjectItem:'subjects',LevelItem:'levels',TimeSlotItem:'time_slots',ClassModelItem:'class_models',IncidentCategory:'incident_categories',TeacherProfile:'teachers',StudentRecord:'students',ClassItem:'classes',SOPDocument:'sop_documents',RAGBotConfig:'rag_bot_config',MonthPayrollData:'monthly_payroll',EvaluationRecord:'teacher_evaluations' }],
  ['src/components/CategoryMultiFilter.tsx', {CategoryGroup:'teaching_categories'}],
  ['src/lib/customReports.ts', {SavedReportTemplate:'report_templates'}]
 ];

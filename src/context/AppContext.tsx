@@ -27,7 +27,6 @@ import {
   TeacherProfile,
   StudentRecord,
   ClassItem,
-  CriteriaCategory,
   SOPDocument,
   RAGBotConfig,
   MonthPayrollData,
@@ -108,8 +107,6 @@ interface AppContextType {
   assignCoverTeacher: (sessionId: string, newTeacherId: string) => void;
 
   // PH6: AI Studio
-  criteriaCategories: CriteriaCategory[];
-  setCriteriaCategories: React.Dispatch<React.SetStateAction<CriteriaCategory[]>>;
   sopDocuments: SOPDocument[];
   setSopDocuments: React.Dispatch<React.SetStateAction<SOPDocument[]>>;
   ragBotConfig: RAGBotConfig;
@@ -166,7 +163,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [teachers, setTeachers] = useBusinessValue<TeacherProfile[]>('teachers');
   const [students, setStudents] = useBusinessValue<StudentRecord[]>('students');
   const [classes, setClasses] = useBusinessValue<ClassItem[]>('classes');
-  const [criteriaCategories, setCriteriaCategories] = useBusinessValue<CriteriaCategory[]>('criteria_categories');
   const [sopDocuments, setSopDocuments] = useBusinessValue<SOPDocument[]>('sop_documents');
   const [ragBotConfig, setRagBotConfig] = useBusinessValue<RAGBotConfig>('rag_bot_config');
   const [activeToneKey, setActiveToneKey] = useBusinessValue<string>('active_tone_key');
@@ -758,8 +754,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         batchImportRoomLinks,
         reportIncidentToSession,
         assignCoverTeacher,
-        criteriaCategories,
-        setCriteriaCategories: guardedSetter(setCriteriaCategories, 'Cấu hình Prompt văn phong & Tiêu chí nhận xét môn'),
         sopDocuments,
         setSopDocuments: guardedSetter(setSopDocuments, 'Quản lý kho tài liệu tri thức SOP'),
         ragBotConfig,
