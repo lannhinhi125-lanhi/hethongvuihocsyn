@@ -1,10 +1,13 @@
 -- Read-only: each row should report OK after the foreign-key migration.
 WITH candidates(bang,cot,bang_tham_chieu) AS (VALUES
+ ('BIEN_BAN_DU_GIO','mabuoi','BUOI_HOC'),('BIEN_BAN_DU_GIO','mabuoi','CHI_TIET_CA_LOP'),
+ ('BIEN_BAN_DU_GIO','manguoidanhgia','NGUOI_DUNG'),
  ('HOC_SINH','malophientai','LOP_HOC'),
  ('LICH_DANG_KY_HOC_SINH','mahocsinh','HOC_SINH'),
  ('LICH_DANG_KY_HOC_SINH','makhunggio','KHUNG_GIO'),
  ('LICH_LOP','malop','LOP_HOC'),('LICH_LOP','makhunggio','KHUNG_GIO'),
  ('BUOI_HOC','makhunggio','KHUNG_GIO'),('LICH_RANH_DINH_KY','makhunggio','KHUNG_GIO'),
+ ('BUOI_HOC','malop,mahoclieu','HOC_LIEU_LOP'),('HOC_LIEU_LOP','malop','LOP_HOC'),
  ('LICH_DANG_KY_MON_HOC','makhunggio','KHUNG_GIO'),('LICH_SU_CA_DANG_KY_HOC','makhunggio','KHUNG_GIO'),
  ('LOP_HOC','mamohinh','MO_HINH_LOP'),
  ('LOP_HOC','madanhmucthoihan,mathoihan','MUC_DANH_MUC'),
@@ -19,7 +22,8 @@ WITH candidates(bang,cot,bang_tham_chieu) AS (VALUES
 ), expected AS (
  -- Retired tables/columns are not missing FKs. Views use their source table FKs.
  SELECT e.* FROM candidates e JOIN pg_class t ON t.oid=to_regclass(format('vuihoc.%I',e.bang)) AND t.relkind IN ('r','p')
- WHERE NOT EXISTS(SELECT 1 FROM unnest(string_to_array(e.cot,',')) col WHERE NOT EXISTS(
+ WHERE (e.bang<>'BIEN_BAN_DU_GIO' OR e.bang_tham_chieu<>'CHI_TIET_CA_LOP' OR to_regclass('vuihoc."V_BIEN_BAN_DU_GIO"') IS NOT NULL)
+ AND NOT EXISTS(SELECT 1 FROM unnest(string_to_array(e.cot,',')) col WHERE NOT EXISTS(
   SELECT 1 FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attname=col AND a.attnum>0 AND NOT a.attisdropped))
 ), actual AS (
  SELECT t.relname bang,

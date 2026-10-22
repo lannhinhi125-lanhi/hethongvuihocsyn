@@ -49,7 +49,7 @@ export interface TeachingLesson {
   inspectionData?: {sessionNum?:number | null;title?:string | null;studentIds:string[];attendance:Record<string,string>;feedback:Record<string,string>};
   title?: string;
   diary?: string;
-  materials?: { materialGv?: string; materialHs?: string; exerciseLms?: string; slide?: string; lms?: string };
+  materials?: { title?: string; materialGv?: string; materialHs?: string; exerciseLms?: string; slide?: string; lms?: string };
 }
 
 export const teachingSessionDetails = (cls: ClassItem, session: number, date: string, time: string,
@@ -69,7 +69,7 @@ export const teachingSessionDetails = (cls: ClassItem, session: number, date: st
     active, lesson, status,
     lifecycleStatus: monitoringSessionStatus({sessionDate:date,timeSlot:time,status:lesson?.status === 'HOAN_THANH' ? 'DA_HOC' : lesson?.status,
       checkinAt:lesson?.checkinAt || active?.checkinAt,checkinTime:active?.checkinTime,checkoutAt:lesson?.checkoutAt || active?.checkoutAt},now),
-    title: lesson?.title || lesson?.inspectionData?.title || active?.title || material?.title || `Buổi ${session}`,
+    title: lesson?.title || lesson?.materials?.title || lesson?.inspectionData?.title || active?.title || material?.title || `Buổi ${session}`,
     slide: lesson?.materials?.materialGv || lesson?.materials?.slide || active?.materialGv || material?.slide || '',
     studentMaterial: lesson?.materials?.materialHs || active?.materialHs || '',
     exercise: lesson?.materials?.exerciseLms || lesson?.materials?.lms || active?.exerciseLms || material?.lms || '',

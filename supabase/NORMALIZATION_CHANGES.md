@@ -377,3 +377,51 @@ Kiểm thử SQL với dữ liệu có buổi/công/lịch/lịch rảnh: migrat
 ### Phạm vi 3NF
 
 KHUNG_GIO không còn thuộc tính dẫn xuất được lưu độc lập; các thuộc tính giữ lại phụ thuộc vào mã định danh/khóa ứng viên. LICH_LOP giữ lịch theo khóa lớp–thứ tự và các FK, không lưu tên hoặc giờ chép từ khung. Nhóm khung giờ chuẩn–lịch định kỳ đã loại các bản sao trong phạm vi được rà. Giờ thực tế của buổi có ý nghĩa khác nên được giữ. Chưa kết luận toàn bộ BUOI_HOC, học liệu, biên bản dự giờ, đối soát hay toàn CSDL đã hoàn tất 3NF.
+
+## Lần 11 — Kế hoạch học liệu và nguồn học liệu buổi
+
+Migration: [20261126_normalize_class_materials.sql](migrations/20261126_normalize_class_materials.sql), chạy nguyên câu DO sau 20261125. Nguyên tử, chạy lại an toàn. Không thêm bảng nghiệp vụ hoặc cột JSON/JSONB.
+
+| Bảng / đối tượng | Trước đây | Sau sửa | Nguồn / bảng truy vấn sang |
+|---|---|---|---|
+| HOC_LIEU_LOP | PK malop–thutu; lưu thang/tuan bằng chuỗi và tiêu đề, slide, LMS kế hoạch | Bỏ thang/tuan. Thêm tungay/denngay kiểu date. Đổi thutu thành mahoclieu, giữ nguyên mã cũ nhưng từ nay là định danh ổn định theo lớp. Giữ malop, sobuoi, tieude, lienketslide, lienketlms | V_HOC_LIEU_LOP truy vấn nhãn tháng/tuần; lớp, lịch giáo viên, bộ sinh buổi và BUOI_HOC đọc cùng nguồn |
+| BUOI_HOC | hoclieuslide và hoclieugiaovien cùng phục vụ liên kết giảng dạy; hoclieulms và baitaplms cùng phục vụ bài tập, có thể mâu thuẫn; chưa có FK kế hoạch | Bỏ hoclieuslide/hoclieulms sau đối soát. Thêm mahoclieu, FK ghép malop–mahoclieu đến HOC_LIEU_LOP. Giữ hoclieutieude, hoclieugiaovien, hoclieuhocsinh, baitaplms là nội dung thực tế khác kế hoạch | JOIN HOC_LIEU_LOP bằng đúng hai phần khóa; trường thực tế trống dùng nguồn kế hoạch qua hoc_lieu_buoi_truy_van |
+| CHI_TIET_CA_LOP | Metadata ba cột đã chuẩn hóa ở 20261122 | Giữ nguyên bảng/cột | View chi tiết ca đọc học liệu hiệu lực từ BUOI_HOC JOIN kế hoạch, không chép thêm vào metadata |
+| V_HOC_LIEU_LOP | Chưa có | View thường, không lưu kết quả: cung cấp nhãn thang/tuan và alias thutu để tương thích các truy vấn đọc | Danh sách học liệu lớp, lịch dạy, chẩn đoán và reset fixture |
+
+### Khóa và phạm vi của dữ liệu
+
+Khóa kế hoạch là (malop, mahoclieu), không suy đoán lớp bằng tiêu đề hoặc URL. BUOI_HOC đã có malop nên chỉ thêm một cột mahoclieu; cặp FK bảo đảm không tham chiếu kế hoạch của lớp khác. mahoclieu không còn là vị trí trong mảng; đảo thứ tự danh sách không đổi mã và không xóa–chèn lại những dòng không đổi. Sequence kỹ thuật cấp mã mới để không tái sử dụng mã vừa xóa; sequence không phải bảng lưu thông tin nghiệp vụ lặp.
+
+Khoảng ngày dài tối đa 7 ngày, hai đầu là các giá trị ngày gốc; không bắt buộc mọi khoảng phải đủ 7 ngày nên denngay được giữ độc lập. Nhãn tháng lấy từ tungay; nhãn tuần định dạng từ hai ngày. UNIQUE lớp–từ ngày–số buổi và kiểm tra khoảng chồng ngăn nhiều nguồn cùng áp dụng cho một buổi. Các nhãn cũ chỉ dùng để đối soát/nhận yêu cầu tương thích, không còn là cột lưu.
+
+Backfill liên kết bằng lớp, ngày và số buổi: ưu tiên metadata của buổi đã có; nếu thiếu metadata thì dùng lịch chuẩn để xác định số buổi. Không ghép bằng họ tên, tiêu đề hay URL. Buổi không xác định được kế hoạch gốc vẫn giữ học liệu thực tế và FK trống; không tự tạo kế hoạch giả để lấp liên kết.
+
+### Một nguồn kế hoạch và phần dùng khác thực tế
+
+Giảng dạy theo kế hoạch: các cột thực tế tương ứng để NULL; truy vấn trả tiêu đề/slide/LMS từ HOC_LIEU_LOP. Khi lưu giá trị giống kế hoạch, SQL cũng đưa về NULL thay vì giữ bản sao. Giáo viên dùng tài liệu khác: chỉ lưu giá trị khác trong BUOI_HOC, không sửa kế hoạch của lớp. hoclieuhocsinh là tài liệu riêng cho học sinh, khác liên kết giảng dạy; hoclieutieude là tiêu đề học liệu thực tế, khác tieude là tên buổi học. Không gộp các thuộc tính chỉ vì tình cờ có cùng giá trị.
+
+Hai cặp slide/materialGv và lms/exerciseLms nay chỉ có một cột vật lý cho mỗi ý nghĩa. Tên slide/lms trong JSON trả về là alias đọc để giữ giao diện tương thích, không phải thêm nơi lưu. Hàm ghi nhận khóa canonical; alias cũ được dùng khi yêu cầu không chứa khóa canonical. Dữ liệu cũ có hai giá trị không rỗng khác nhau phải đối soát, không áp dụng quy tắc ưu tiên để âm thầm bỏ giá trị.
+
+### Sửa nguồn và bảo toàn lịch sử
+
+Kế hoạch cho buổi chưa học có thể sửa nội dung, các buổi liên kết dùng mặc định sẽ đọc giá trị mới ngay. Học liệu thực tế dùng khác kế hoạch vẫn giữ nguyên. Nguồn đã được buổi tham chiếu không được xóa hoặc đổi định danh/khoảng ngày/số buổi. Nguồn đã dùng (check-in/out hoặc có công) hay thuộc kỳ công khóa không được ghi đè nội dung; quy tắc này bảo toàn lịch sử khi mặc định được truy vấn thay vì lưu bản sao. Không tạo bảng version/snapshot để giữ thêm bản chép.
+
+Hàm ghi danh sách chỉ INSERT mới/UPDATE khác/DELETE dòng bị bỏ. Dòng cũ không đổi không kích hoạt sửa lịch sử, vì thế vẫn sửa được kế hoạch tương lai trong cùng danh sách có các tuần đã học. Khi gắn kế hoạch mới, bộ sinh tạo buổi có FK; buổi tương lai chưa có nguồn có thể được liên kết nếu lớp/ngày/số buổi khớp, chưa sử dụng và kỳ công chưa khóa. Không tự gắn lại buổi lịch sử hoặc đổi nguồn của buổi đã sử dụng.
+
+Các luồng lớp, lịch giáo viên, chi tiết buổi, tiến độ thiếu học liệu và báo cáo dùng học liệu hiệu lực từ cùng truy vấn. Luồng giáo viên check-in dùng nội dung hiệu lực (gồm phần thực tế đã chỉnh), không lấy kế hoạch ghi đè tài liệu khác của buổi. Nhập giá trị mặc định trong thao tác check-in/out cũng không tạo bản sao vì hàm ghi chuẩn hóa trước khi quyết định UPDATE.
+
+### Đối soát và kiểm thử
+
+[class_material_legacy.sql](diagnostics/class_material_legacy.sql) chạy chỉ đọc trước/sau migration: báo mã kế hoạch/buổi, ngày không hợp lệ, tháng lệch, khoảng chồng, hai cặp liên kết thực tế mâu thuẫn hoặc FK lệch lớp/ngày. Migration dừng và hoàn tác nếu có mâu thuẫn; không tự sửa dữ liệu để vượt qua đối soát.
+
+Backfill chỉ chuyển ngày, gắn FK và chuyển liên kết cũ sang cột thực tế canonical khi đã khớp. Trong đúng giao dịch DDL, ghi nhớ/tạm ngắt rồi khôi phục trạng thái từng user trigger của hai bảng để không tính lại công hoặc đổi thời gian hệ thống của dữ liệu lịch sử. Các giá trị buổi không thuộc nhóm học liệu và các dòng công giữ nguyên. Reset demo được cập nhật cho ngày/khóa mới và hai liên kết canonical, tương thích trước/sau và chạy lại; không phải bước chạy trên dữ liệu thật.
+
+Kiểm thử với buổi/công/kế hoạch có dữ liệu: migration lặp lại, ba loại mâu thuẫn đều rollback, số bảng không tăng, cột cũ bị bỏ, dữ liệu buổi ngoài học liệu và công giữ nguyên, nội dung hiệu lực giữ nguyên. RPC thực: mã ổn định khi đổi thứ tự mảng, lưu mặc định không chép, sửa kế hoạch tương lai cập nhật buổi, giữ override, liên kết lại buổi tương lai thiếu nguồn, chặn xóa nguồn/đổi khóa/ngày/ghi đè nguồn đã dùng, tạo kế hoạch mới sinh buổi có FK. Kiểm tra chẩn đoán trước/sau, FK, không có cột JSON/JSONB và reset lặp lại. Kiểm thử giao diện xác nhận ngày typed từ Supabase và học liệu hiệu lực được ưu tiên đúng khi xem/vào buổi học.
+
+### Phạm vi 3NF
+
+Trong nhóm này, thuộc tính kế hoạch phụ thuộc đầy đủ vào khóa lớp–mã học liệu; không lưu nhãn thời gian suy ra. Buổi chỉ giữ FK kế hoạch và các sự thật dùng khác thực tế, không chép mặc định. Đã loại các cột cùng ý nghĩa cho liên kết giảng dạy/bài tập. Đây là phạm vi kế hoạch–học liệu buổi đã chuẩn hóa; chưa kết luận toàn bộ BUOI_HOC, biên bản dự giờ, đối soát hoặc toàn CSDL đã hoàn tất 3NF.
+## Đợt tiếp theo: biên bản dự giờ 20261127
+
+Đối chiếu **đầy đủ 29 cột trước → 16 cột sau**, PK/FK, nguồn JOIN, hai bảng được sửa (BIEN_BAN_DU_GIO đổi cột; BUOI_HOC chỉ thêm bảo vệ giáo viên) và phạm vi 3NF được ghi tại [INSPECTION_3NF_CHANGES.md](INSPECTION_3NF_CHANGES.md). Migration mới: [20261127_normalize_inspection_reports.sql](migrations/20261127_normalize_inspection_reports.sql), áp dụng sau 20261126. Chỉ kiểm thử cục bộ trong phiên này, chưa chạy trên Supabase thật.

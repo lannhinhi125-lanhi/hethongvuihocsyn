@@ -27,7 +27,7 @@ WITH review(table_name,status,reason) AS (
  ('CAP_HOC','GIU','Danh mục cấp học.'),
  ('LUA_CHON_CAP_HOC','GIU','Danh mục khối thuộc cấp học.'),
  ('KHUNG_GIO','GIU','Giờ bắt đầu/kết thúc chuẩn; lịch lớp/lịch rảnh liên kết bằng FK. V_KHUNG_GIO truy vấn nhãn khoảng giờ và số phút sau 20261125.'),
- ('HOC_LIEU_LOP','GIU','Học liệu được phân phối cho lớp theo tuần/buổi.'),
+ ('HOC_LIEU_LOP','GIU','Nguồn kế hoạch học liệu theo lớp/khoảng ngày/số buổi; BUOI_HOC liên kết bằng FK malop–mahoclieu sau 20261126. Tháng/tuần chỉ là nhãn truy vấn.'),
  ('PHAN_CONG_DAY_THAY','GIU','Trước 20261122 là bảng; sau đó là view đọc giáo viên dạy thay từ BUOI_HOC, không lưu bản sao.'),
  ('CHI_TIET_CA_LOP','GIU','Sau 20261122 chỉ giữ khóa buổi, khóa giao diện và số buổi; nội dung vận hành truy vấn từ BUOI_HOC.'),
  ('DANH_MUC_SU_CO','GIU','Nhóm sự cố.'),

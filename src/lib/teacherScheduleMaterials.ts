@@ -13,6 +13,7 @@ export const teachingWeekForDate = (date: Date) => {
 export const materialForSessionDate = (materials: ClassSessionMaterial[], session: number, date: string) =>
   materials.find(material => {
     if (material.session !== session) return false;
+    if (material.fromDate && material.toDate) return material.fromDate <= date && date <= material.toDate;
     const range = material.week.match(/Từ ngày (\d{2})\/(\d{2})\/(\d{4}) đến ngày (\d{2})\/(\d{2})\/(\d{4})/);
     if (!range) return false;
     const start = `${range[3]}-${range[2]}-${range[1]}`;

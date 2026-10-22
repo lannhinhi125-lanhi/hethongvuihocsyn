@@ -177,6 +177,9 @@ export interface StudentSubjectRegistration {
 }
 
 export interface ClassSessionMaterial {
+  id?: number; // Stable key scoped to its class, returned by Supabase.
+  fromDate?: string;
+  toDate?: string;
   month: string; // '10/2026'
   week: string; // 'Tuần 1: Từ ngày 05/10/2026 đến ngày 11/10/2026'
   session: number; // 1 | 2

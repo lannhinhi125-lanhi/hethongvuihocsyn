@@ -1,6 +1,6 @@
 # Rà soát nguồn dữ liệu và cột dư — 22/10/2026
 
-Các bản sửa 20261116–20261125 (giáo viên, tài khoản/quyền, hồ sơ học sinh–đăng ký–xếp lớp, chi tiết ca/dạy thay, sĩ số, thời hạn và khung giờ chuẩn) được ghi riêng tại [NORMALIZATION_CHANGES.md](NORMALIZATION_CHANGES.md). Kết quả kiểm kê bên dưới mô tả trạng thái trước migration 20261116; không phải cấu trúc sau các bản sửa này. Người dùng đã báo chạy thành công đến 20261122; 20261123–20261125 được kiểm thử cục bộ, chưa áp dụng lên Supabase thật trong phiên này.
+Các bản sửa 20261116–20261126 (giáo viên, tài khoản/quyền, hồ sơ học sinh–đăng ký–xếp lớp, chi tiết ca/dạy thay, sĩ số, thời hạn, khung giờ và nguồn học liệu) được ghi riêng tại [NORMALIZATION_CHANGES.md](NORMALIZATION_CHANGES.md). Kết quả kiểm kê bên dưới mô tả trạng thái trước migration 20261116; không phải cấu trúc sau các bản sửa này. Người dùng đã báo chạy thành công đến 20261122; 20261123–20261126 được kiểm thử cục bộ, chưa áp dụng lên Supabase thật trong phiên này.
 
 ## Kết luận và phạm vi
 
@@ -81,3 +81,4 @@ Trên dữ liệu kiểm thử cục bộ đã quan sát được điểm giáo 
 5. Chạy lại luồng giao diện, lịch giáo viên, báo cáo, xuất Excel và đối soát trên dữ liệu đã chuyển. Chỉ bỏ cột sau khi đã kiểm tra không mất giá trị và không còn phụ thuộc đọc/ghi.
 
 Chưa tạo migration xóa cột trong lần rà soát này. Kiểm thử SQL chẩn đoán được thực hiện trong giao dịch `READ ONLY`; kiểm tra đủ cột vật lý, không trùng hàng, giữ phân biệt cột dư và dữ liệu lịch sử, và chạy lặp cho cùng kết quả.
+Đợt mới nhất 20261127 chuẩn hóa riêng bảng biên bản dự giờ: xem [đầy đủ các cột trước/sau, nguồn và ràng buộc](INSPECTION_3NF_CHANGES.md). Đợt này được kiểm thử cục bộ, chưa thực thi trên Supabase thật trong phiên hiện tại. Nội dung rà soát cũ bên dưới là lịch sử trước các migration.

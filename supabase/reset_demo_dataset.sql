@@ -7,6 +7,8 @@ BEGIN
 SET CONSTRAINTS ALL DEFERRED;
 IF to_regclass('vuihoc."V_KHUNG_GIO"') IS NOT NULL THEN EXECUTE 'CREATE TEMP VIEW demo_slot_source AS SELECT * FROM vuihoc."V_KHUNG_GIO"';
 ELSE EXECUTE 'CREATE TEMP VIEW demo_slot_source AS SELECT * FROM vuihoc."KHUNG_GIO"'; END IF;
+IF to_regclass('vuihoc."V_HOC_LIEU_LOP"') IS NOT NULL THEN EXECUTE 'CREATE TEMP VIEW demo_material_source AS SELECT * FROM vuihoc."V_HOC_LIEU_LOP"';
+ELSE EXECUTE 'CREATE TEMP VIEW demo_material_source AS SELECT * FROM vuihoc."HOC_LIEU_LOP"'; END IF;
 PERFORM pg_advisory_xact_lock(hashtextextended('vuihoc-lifecycle-clock',0));
 LOCK TABLE vuihoc."NGUOI_DUNG",vuihoc."GIAO_VIEN",vuihoc."HOC_SINH",vuihoc."LOP_HOC",
  vuihoc."BUOI_HOC",vuihoc."BANG_CONG_THANG",vuihoc."BIEN_BAN_DU_GIO" IN ACCESS EXCLUSIVE MODE;
@@ -34,6 +36,7 @@ END $preflight$;
 
 -- Some deployed databases have criterion columns but lack the scoring trigger.
 -- Install the existing scoring rule before loading; never seed computed scores.
+IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='BIEN_BAN_DU_GIO' AND column_name='diemtong') THEN
 CREATE OR REPLACE FUNCTION vuihoc.chuan_hoa_diem_du_gio() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog AS $$
 BEGIN
@@ -46,6 +49,7 @@ DROP TRIGGER IF EXISTS chuan_hoa_diem_du_gio ON vuihoc."BIEN_BAN_DU_GIO";
 CREATE TRIGGER chuan_hoa_diem_du_gio BEFORE INSERT OR UPDATE ON vuihoc."BIEN_BAN_DU_GIO"
  FOR EACH ROW EXECUTE FUNCTION vuihoc.chuan_hoa_diem_du_gio();
 REVOKE ALL ON FUNCTION vuihoc.chuan_hoa_diem_du_gio() FROM PUBLIC,anon,authenticated;
+END IF;
 
 
 
@@ -275,6 +279,8 @@ DO $stage_materials$ DECLARE r record; BEGIN
 END $stage_materials$;
 -- The current generator requires weekly materials before it can create lessons.
 -- Stage them from the class schedule, not from lessons that do not exist yet.
+DO $demo_plan_rows$
+DECLARE statement text:=$rows$
 WITH planned AS (
  SELECT DISTINCT c.id AS malop,date_trunc('week',d.day)::date AS monday,
   CASE WHEN extract(isodow FROM d.day)=c.firstday THEN 1 ELSE 2 END AS session
@@ -291,6 +297,12 @@ INSERT INTO vuihoc."HOC_LIEU_LOP"(malop,thutu,thang,tuan,sobuoi,tieude,lienketsl
  'Bài học và luyện tập – Buổi '||session||' – '||to_char(monday,'DD/MM/YYYY'),
  'https://example.com/vuihoc/materials/'||malop||'/'||monday||'/buoi-'||session,
  'https://example.com/vuihoc/lms/'||malop||'/'||monday||'/buoi-'||session FROM labeled;
+$rows$;
+BEGIN
+ IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='HOC_LIEU_LOP' AND column_name='mahoclieu') THEN
+  statement:=replace(replace(statement,'malop,thutu,thang,tuan,sobuoi','malop,mahoclieu,tungay,denngay,sobuoi'),'::integer,month,week,session','::integer,monday,monday+6,session');
+ END IF;EXECUTE statement;
+END $demo_plan_rows$;
 PERFORM vuihoc.dong_bo_ca_theo_lich(date '2026-09-01',date '2026-10-31');
 PERFORM vuihoc.dong_bo_ca_theo_lich(date '2026-11-01',date '2026-11-30');
 -- The paused demo class only operated during the first two weeks of September.
@@ -315,6 +327,8 @@ UPDATE demo_lessons SET scenario=CASE
  ELSE 'COMPLETE' END;
 UPDATE demo_lessons x SET id=b.madinhdanh FROM vuihoc."BUOI_HOC" b
  WHERE b.malop=x.class_id AND b.ngayhoc=x.day AND b.makhunggio=x.slot;
+DO $demo_actual_materials$
+DECLARE statement text:=$actual$
 UPDATE vuihoc."BUOI_HOC" b SET
  magiaoviendaythay=CASE WHEN x.scenario='COVER' THEN 'DEMO-GV-'||lpad((CASE WHEN x.class_i<=8 THEN x.class_i+2 ELSE x.class_i-8 END)::text,3,'0') END,
  tieude=(CASE WHEN x.subject='SUB-MATH' THEN (ARRAY['Ôn tập số và phép tính','Giải toán có lời văn','Hình học quanh em','Luyện tư duy logic'])[(x.lesson_no-1)%4+1]
@@ -322,6 +336,12 @@ UPDATE vuihoc."BUOI_HOC" b SET
  hoclieutieude='Học liệu buổi '||x.lesson_no,hoclieuslide='https://example.com/vuihoc/slides/'||x.id,
  hoclieulms='https://example.com/vuihoc/exercises/'||x.id
  FROM demo_lessons x WHERE b.madinhdanh=x.id;
+$actual$;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='BUOI_HOC' AND column_name='hoclieuslide') THEN
+  statement:=replace(replace(statement,'hoclieuslide=','hoclieugiaovien='),'hoclieulms=','baitaplms=');
+ END IF;EXECUTE statement;
+END $demo_actual_materials$;
 -- Existing stopped classes cannot be newly checked in. Their historical lessons
 -- are staged while temporarily active, then stopped after history is populated.
 UPDATE vuihoc."LOP_HOC" SET trangthai='DANG_HOC' WHERE madinhdanh='DEMO-LOP-012';
@@ -376,6 +396,8 @@ ELSE
  SELECT x.id,x.day::text||'-'||CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END,
  CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id;
 END IF;
+DO $demo_missing_materials$
+DECLARE statement text:=$missing$
 WITH slots AS (
  SELECT DISTINCT b.malop,date_trunc('week',b.ngayhoc)::date AS monday,l.thutu AS session
  FROM vuihoc."BUOI_HOC" b JOIN vuihoc."LICH_LOP" l
@@ -386,15 +408,21 @@ WITH slots AS (
  'Tuần '||(floor((extract(day FROM monday)-1)/7)+1)::integer||': Từ ngày '||to_char(monday,'DD/MM/YYYY')||' đến ngày '||to_char(monday+6,'DD/MM/YYYY') AS week
  FROM slots
 ), missing AS (
- SELECT x.* FROM labeled x WHERE NOT EXISTS(SELECT 1 FROM vuihoc."HOC_LIEU_LOP" h WHERE h.malop=x.malop AND h.tuan=x.week AND h.sobuoi=x.session)
+ SELECT x.* FROM labeled x WHERE NOT EXISTS(SELECT 1 FROM demo_material_source h WHERE h.malop=x.malop AND h.tuan=x.week AND h.sobuoi=x.session)
 )
 INSERT INTO vuihoc."HOC_LIEU_LOP"(malop,thutu,thang,tuan,sobuoi,tieude,lienketslide,lienketlms)
- SELECT x.malop,coalesce((SELECT max(h.thutu) FROM vuihoc."HOC_LIEU_LOP" h WHERE h.malop=x.malop),0)
+ SELECT x.malop,coalesce((SELECT max(h.thutu) FROM demo_material_source h WHERE h.malop=x.malop),0)
  +row_number() OVER(PARTITION BY x.malop ORDER BY x.monday,x.session),x.month,x.week,x.session,
  'Bài học và luyện tập – Buổi '||x.session||' – '||to_char(x.monday,'DD/MM/YYYY'),
  'https://example.com/vuihoc/materials/'||x.malop||'/'||x.monday||'/buoi-'||x.session,
  'https://example.com/vuihoc/lms/'||x.malop||'/'||x.monday||'/buoi-'||x.session
  FROM missing x;
+$missing$;
+BEGIN
+ IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='HOC_LIEU_LOP' AND column_name='mahoclieu') THEN
+  statement:=replace(replace(statement,'malop,thutu,thang,tuan,sobuoi','malop,mahoclieu,tungay,denngay,sobuoi'),',x.month,x.week,x.session',',x.monday,x.monday+6,x.session');
+ END IF;EXECUTE statement;
+END $demo_missing_materials$;
 
 INSERT INTO vuihoc."PHAN_CONG_DAY_THAY"(malop,thutu,sobuoi,ngaygio,magiaovien,mabuoi)
  SELECT x.class_id,row_number() OVER(PARTITION BY x.class_id ORDER BY x.day),
@@ -428,6 +456,8 @@ INSERT INTO vuihoc."SU_CO_BUOI_HOC"(madinhdanh,mabuoi,manhomsuco,masuco,tensuco,
 -- Sending/reconciling/locking payroll is left for real actions in the UI.
 
 -- Inspection reports: multiple scores/ratings, linked to genuinely taught lessons.
+IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='BIEN_BAN_DU_GIO' AND column_name='malophoc') THEN
+EXECUTE $legacy_inspections$
 INSERT INTO vuihoc."BIEN_BAN_DU_GIO"(madinhdanh,magiaovien,mabienban,mabuoi,malophoc,manguoinhan,manguoidanhgia,
  ngaydanhgia,ngaycahoc,macahoc,guiluc,sobuoi,tenbuoihoc,khunggio,mohinh,diemtc1,diemtc2,diemtc3,
  nhanxetchung,uudiem,cancaithien,khuyennghi,trangthai,lienketphonghoc,lienketbanghi)
@@ -441,6 +471,19 @@ INSERT INTO vuihoc."BIEN_BAN_DU_GIO"(madinhdanh,magiaovien,mabienban,mabuoi,malo
  CASE WHEN x.class_i%4=0 THEN 'CHO_GOP_Y' ELSE 'DA_DUYET' END,b.lienketphonghoc,b.lienketbanghi
  FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=x.class_id
  WHERE x.class_i<=10 AND x.lesson_no IN (3,10) AND x.scenario IN ('COMPLETE','LATE');
+$legacy_inspections$;
+ELSE
+ INSERT INTO vuihoc."BIEN_BAN_DU_GIO"(madinhdanh,mabienban,mabuoi,manguoidanhgia,ngaydanhgia,guiluc,
+ diemtc1,diemtc2,diemtc3,nhanxetchung,uudiem,cancaithien,khuyennghi,trangthai)
+ SELECT 'DEMO-DG-'||lpad(x.class_i::text,3,'0')||'-'||x.lesson_no,
+ 'BBDG/2026/'||lpad(x.class_i::text,3,'0')||'/'||x.lesson_no,x.id,
+ (SELECT u.madinhdanh FROM vuihoc."NGUOI_DUNG" u JOIN vuihoc."NHOM_QUYEN" g ON g.madinhdanh=u.manhomquyen WHERE g.congtruycap='ADMIN' AND u.trangthai='active' ORDER BY u.madinhdanh LIMIT 1),
+ x.day,x.day,6.4+(x.class_i%4),6.5+(x.class_i%4),6.6+(x.class_i%4),
+ 'Bài dạy có mục tiêu rõ ràng, học sinh tham gia tích cực.','Hướng dẫn mạch lạc, sử dụng ví dụ gần gũi.',
+ 'Tăng câu hỏi gợi mở và phân bổ thời gian luyện tập.','Tiếp tục dự giờ đồng nghiệp và trao đổi phương pháp.',
+ CASE WHEN x.class_i%4=0 THEN 'CHO_GOP_Y' ELSE 'DA_DUYET' END
+ FROM demo_lessons x WHERE x.class_i<=10 AND x.lesson_no IN (3,10) AND x.scenario IN ('COMPLETE','LATE');
+END IF;
 
 SET CONSTRAINTS ALL IMMEDIATE;
 DO $restore_materials$ DECLARE r record; BEGIN
@@ -451,6 +494,7 @@ END $restore_materials$;
 PERFORM vuihoc.kiem_tra_dang_ky_mon();
 SET CONSTRAINTS ALL IMMEDIATE;
 DROP VIEW demo_slot_source;
+DROP VIEW demo_material_source;
 END $demo_reset$;
 
 -- Read-only summary; payroll totals are queried from generated work rows.

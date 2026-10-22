@@ -17,6 +17,8 @@ export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly s
     "teacherName", "maxStudents", "durationMonths", "endDate"
   ],
   "teacher_evaluations": [
+    "teacherId", "classCode", "recipientUserId", "sessionDate", "sessionCode",
+    "sessionNum", "sessionName", "timeSlot", "model", "overallScore", "rank", "roomLink", "recordLink",
     "evaluatorName",
     "evaluatorRole",
     "className"

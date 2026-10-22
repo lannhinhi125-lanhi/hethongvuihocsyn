@@ -61,7 +61,9 @@ assert.deepEqual(toSupabaseRow('role_groups',countedRole),{madinhdanh:'ROLE'},'a
 const saved = toSupabaseRow('teacher_evaluations', {id:'E1',lessonId:result.lesson.id,teacherId:'T2',classCode:result.cls.code,
   className:result.cls.name,sessionNum:result.sessionNum,timeSlot:result.session.slot,sessionDate:result.lesson.date});
 assert.equal(saved.mabuoi,'MATH-2026-10-15-2');
-assert.equal(saved.malophoc,'MATH');
-assert.equal(saved.sobuoi,2);
-assert.equal(saved.khunggio,'19:00 - 20:00');
+assert.deepEqual(saved,{madinhdanh:'E1',mabuoi:'MATH-2026-10-15-2'},'lesson FK is written; lesson context is only queried');
+const projected=fromSupabaseRow('teacher_evaluations',{madinhdanh:'E1',mabuoi:'B1',magiaovien:'T2',malophoc:'MATH',diemtong:8.5,xeploai:'Tốt',diemtieuchi:{tc1:8,tc2:9,tc3:8}});
+assert.equal(projected.overallScore,8.5);
+assert.equal(projected.teacherId,'T2');
+assert.deepEqual(toSupabaseRow('teacher_evaluations',projected),{madinhdanh:'E1',mabuoi:'B1',diemtieuchi:{tc1:8,tc2:9,tc3:8}});
 console.log('Passed: exact dated lesson, actual class/slot/roster, cover and read-only lookup.');

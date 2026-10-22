@@ -12,3 +12,4 @@ assert.equal(materialForSessionDate(materials, 1, '2026-10-14')?.title, 'Slide T
 assert.equal(materialForSessionDate(materials, 2, '2026-10-16')?.title, 'Bài tập');
 assert.equal(materialForSessionDate(materials, 1, '2026-10-19'), undefined);
 assert.equal(materialForSessionDate(materials, 2, '2026-10-11'), undefined);
+assert.equal(materialForSessionDate([{...materials[0],id:12,fromDate:'2026-10-12',toDate:'2026-10-18'}],1,'2026-10-14')?.id,12,'typed query dates take precedence over legacy display labels');

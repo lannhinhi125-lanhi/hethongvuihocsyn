@@ -34,6 +34,8 @@ const fallback = teachingSessionDetails(cls, 1, '2026-10-13', '18:00 - 19:30', [
 assert.equal(fallback.actionUrl, '', 'A room URL must not be presented as a recording URL');
 const exactLessons=[{...lessons[0],id:'OTHER',title:'Wrong lesson'}, {...lessons[0],id:'EXACT',title:'Selected lesson',inspectionData:{sessionNum:1,studentIds:['S1'],attendance:{S1:'present'},feedback:{S1:'Hidden in inspection'}}}];
 assert.equal(teachingSessionDetails(cls,1,'2026-10-13','18:00 - 19:30',exactLessons,slots,new Date('2026-10-13T19:30:00+07:00'),'EXACT').title,'Selected lesson');
+const linked=teachingSessionDetails(cls,1,'2026-10-13','18:00 - 19:30',[{...lessons[0],id:'LINKED',materials:{title:'Linked plan title',materialGv:'https://example.com/actual',exerciseLms:'https://example.com/linked-lms'}}],slots,new Date('2026-10-13T18:00:00+07:00'),'LINKED');
+assert.equal(linked.title,'Linked plan title');assert.equal(linked.slide,'https://example.com/actual');assert.equal(linked.exercise,'https://example.com/linked-lms');
 assert.deepEqual(teachingSessionsInWeek(cls, '2026-10-13').map(item => item.date), ['2026-10-13', '2026-10-15']);
 assert.equal(teachingSessionsInWeek(cls, '2026-10-06').length, 0);
 assert.equal(teachingSessionDetails(cls, 1, '2026-10-20', '18:00 - 19:30', [], slots, new Date('2026-10-20T18:00:00+07:00')).slide, '', 'No stale weekly materials');

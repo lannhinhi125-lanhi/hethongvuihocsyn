@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+export async function verifyClassMaterialNormalization(db,token){
+ const file=p=>readFileSync(p,'utf8');
+ const migration=file('supabase/migrations/20261126_normalize_class_materials.sql');
+ const business=async()=>(await db.query('SELECT public.vuihoc_business_data($1) AS v',[token])).rows[0].v;
+ const save=changes=>db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify(changes)]);
+ const physical=async name=>(await db.query(`SELECT to_jsonb(t) AS row FROM vuihoc."${name}" t ORDER BY to_jsonb(t)::text`)).rows;
+ const data=await business(),facts=await physical('BUOI_HOC'),work=await physical('CONG_DAY_BUOI_HOC'),plans=await physical('HOC_LIEU_LOP');
+ assert.deepEqual((await db.query(file('supabase/diagnostics/class_material_legacy.sql'))).rows,[]);
+ assert.ok(facts.length&&work.length&&plans.length);
+ const tables=async()=>(await db.query("SELECT tablename FROM pg_tables WHERE schemaname='vuihoc' ORDER BY tablename")).rows;
+ const tableNames=await tables();
+ const future=(await db.query(`SELECT b.* FROM vuihoc."BUOI_HOC" b JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=b.malop WHERE b.ngayhoc>current_date AND b.vaolopluc IS NULL AND b.ketthucluc IS NULL AND l.trangthai='DANG_HOC' AND NOT EXISTS(SELECT 1 FROM vuihoc."CONG_DAY_BUOI_HOC" c WHERE c.mabuoi=b.madinhdanh) ORDER BY b.ngayhoc LIMIT 1`)).rows[0];assert.ok(future);
+ await db.exec('BEGIN');await db.query('UPDATE vuihoc."BUOI_HOC" SET hoclieugiaovien=$2 WHERE madinhdanh=$1',[future.madinhdanh,'https://example.test/conflicting-actual']);
+ await assert.rejects(()=>db.exec(migration),/mâu thuẫn/);await db.exec('ROLLBACK');
+ await db.exec('BEGIN; ALTER TABLE vuihoc."HOC_LIEU_LOP" DISABLE TRIGGER USER');await db.exec(`UPDATE vuihoc."HOC_LIEU_LOP" SET tuan='invalid' WHERE (malop,thutu)=(SELECT malop,thutu FROM vuihoc."HOC_LIEU_LOP" LIMIT 1)`);
+ await assert.rejects(()=>db.exec(migration),/khoảng ngày hợp lệ/);await db.exec('ROLLBACK');
+ await db.exec('BEGIN; ALTER TABLE vuihoc."HOC_LIEU_LOP" DISABLE TRIGGER USER');
+ await db.exec(`INSERT INTO vuihoc."HOC_LIEU_LOP" SELECT (jsonb_populate_record(NULL::vuihoc."HOC_LIEU_LOP",to_jsonb(h)||jsonb_build_object('thutu',100000))).* FROM vuihoc."HOC_LIEU_LOP" h LIMIT 1`);
+ await assert.rejects(()=>db.exec(migration),/chồng nhau/);await db.exec('ROLLBACK');
+ await db.exec(migration);await db.exec(migration);
+ assert.deepEqual(await tables(),tableNames);assert.deepEqual(await physical('CONG_DAY_BUOI_HOC'),work);
+ const currentFacts=await physical('BUOI_HOC');
+ for(const {row:old} of facts){const now=currentFacts.find(x=>x.row.madinhdanh===old.madinhdanh).row;
+  for(const k of Object.keys(old).filter(k=>!['hoclieuslide','hoclieulms','hoclieugiaovien','baitaplms','hoclieutieude'].includes(k)))assert.deepEqual(now[k],old[k],`preserve lesson fact ${k}`);
+  const effective=(await db.query('SELECT vuihoc.hoc_lieu_buoi_truy_van($1::jsonb) AS v',[JSON.stringify(now)])).rows[0].v;
+  assert.equal(effective.slide||'',old.hoclieugiaovien||old.hoclieuslide||'');assert.equal(effective.lms||'',old.baitaplms||old.hoclieulms||'');assert.equal(effective.title||'',old.hoclieutieude||'');
+ }
+ const columns=async table=>(await db.query('SELECT column_name FROM information_schema.columns WHERE table_schema=\'vuihoc\' AND table_name=$1',[table])).rows.map(r=>r.column_name);
+ assert.ok(!(await columns('HOC_LIEU_LOP')).some(k=>['thutu','thang','tuan'].includes(k)));
+ assert.ok(!(await columns('BUOI_HOC')).some(k=>['hoclieuslide','hoclieulms'].includes(k)));
+ const after=await business();const cls=after.classes.find(c=>c.madinhdanh===future.malop);
+ const b=(await db.query('SELECT * FROM vuihoc."BUOI_HOC" WHERE madinhdanh=$1',[future.madinhdanh])).rows[0];assert.ok(b.mahoclieu);
+ const plan=cls.hoclieu.find(m=>m.id===b.mahoclieu);assert.ok(plan);
+ const setLesson=materials=>save([{dataset:'dated_lessons',before:{madinhdanh:b.madinhdanh},after:{madinhdanh:b.madinhdanh,hoclieu:materials}}]);
+ await setLesson({title:plan.title,materialGv:plan.slide,exerciseLms:plan.lms});
+ let raw=(await db.query('SELECT hoclieutieude,hoclieugiaovien,baitaplms FROM vuihoc."BUOI_HOC" WHERE madinhdanh=$1',[b.madinhdanh])).rows[0];assert.deepEqual(raw,{hoclieutieude:null,hoclieugiaovien:null,baitaplms:null});
+ const readClass=async()=>(await business()).classes.find(c=>c.madinhdanh===cls.madinhdanh);
+ const readLesson=async()=>(await business()).dated_lessons.find(l=>l.madinhdanh===b.madinhdanh);
+ const setPlans=items=>save([{dataset:'classes',before:{madinhdanh:cls.madinhdanh},after:{madinhdanh:cls.madinhdanh,hoclieu:items}}]);
+ const savedRows=await physical('HOC_LIEU_LOP');await setPlans([...cls.hoclieu].reverse());assert.deepEqual(await physical('HOC_LIEU_LOP'),savedRows,'reordering API rows must not rename or rewrite source IDs');
+ const next=cls.hoclieu.map(m=>m.id===plan.id?{...m,slide:'https://example.test/new-plan',lms:'https://example.test/new-plan-lms'}:m);
+ await setPlans(next);assert.equal((await readLesson()).hoclieu.materialGv,'https://example.test/new-plan');
+ raw=(await db.query('SELECT hoclieugiaovien,baitaplms FROM vuihoc."BUOI_HOC" WHERE madinhdanh=$1',[b.madinhdanh])).rows[0];assert.deepEqual(raw,{hoclieugiaovien:null,baitaplms:null});
+ const actual='https://example.test/actual-override';await setLesson({materialGv:actual,materialHs:'https://example.test/student'});
+ await setPlans(next.map(m=>m.id===plan.id?{...m,slide:'https://example.test/plan-again'}:m));assert.equal((await readLesson()).hoclieu.materialGv,actual);
+ await db.exec('BEGIN');await db.query('UPDATE vuihoc."BUOI_HOC" SET mahoclieu=NULL WHERE madinhdanh=$1',[b.madinhdanh]);
+ await setPlans((await readClass()).hoclieu.map(m=>m.id===plan.id?{...m,lms:'https://example.test/relinked'}:m));
+ assert.equal((await db.query('SELECT mahoclieu FROM vuihoc."BUOI_HOC" WHERE madinhdanh=$1',[b.madinhdanh])).rows[0].mahoclieu,plan.id);
+ assert.equal((await readLesson()).hoclieu.materialGv,actual);await db.exec('ROLLBACK');
+ await assert.rejects(async()=>setPlans((await readClass()).hoclieu.filter(m=>m.id!==plan.id)),/đang được buổi học tham chiếu/);
+ const historical=(await db.query(`SELECT h.mahoclieu FROM vuihoc."HOC_LIEU_LOP" h JOIN vuihoc."BUOI_HOC" b USING(malop,mahoclieu) WHERE h.malop=$1 AND b.vaolopluc IS NOT NULL LIMIT 1`,[cls.madinhdanh])).rows[0];assert.ok(historical);
+ await assert.rejects(async()=>setPlans((await readClass()).hoclieu.map(m=>m.id===historical.mahoclieu?{...m,title:m.title+' CHANGED'}:m)),/Học liệu đã dùng/);
+ await assert.rejects(async()=>setPlans((await readClass()).hoclieu.map(m=>m.id===plan.id?{...m,fromDate:'2090-01-01',toDate:'2090-01-07',month:'01/2090',week:'Tuần 1: Từ ngày 01/01/2090 đến ngày 07/01/2090'}:m)),/Không đổi định danh/);
+ // A new future plan creates linked lessons; their defaults remain solely on
+ // the plan, and deleting a referenced source is blocked.
+ await db.exec('BEGIN');
+ const fresh={fromDate:'2090-01-02',toDate:'2090-01-08',session:1,title:'New plan',slide:'https://example.test/fresh',lms:''};
+ await setPlans([...(await readClass()).hoclieu,fresh]);
+ const newPlan=(await readClass()).hoclieu.find(m=>m.fromDate===fresh.fromDate);assert.ok(newPlan.id);
+ const generated=(await db.query('SELECT to_jsonb(b) AS b FROM vuihoc."BUOI_HOC" b WHERE (malop,mahoclieu)=($1,$2)',[cls.madinhdanh,newPlan.id])).rows;
+ assert.ok(generated.length);for(const {b:lesson} of generated){assert.equal(lesson.hoclieugiaovien,null);assert.equal(lesson.baitaplms,null);assert.equal((await db.query('SELECT vuihoc.hoc_lieu_buoi_truy_van($1::jsonb) AS v',[JSON.stringify(lesson)])).rows[0].v.materialGv,fresh.slide);}
+ await db.exec('ROLLBACK');
+ assert.deepEqual(await physical('CONG_DAY_BUOI_HOC'),work);
+ assert.deepEqual((await db.query(file('supabase/diagnostics/class_material_legacy.sql'))).rows,[]);
+ assert.ok((await db.query(file('supabase/diagnostics/foreign_key_audit.sql'))).rows.every(r=>r.trangthai==='OK'));
+ assert.deepEqual((await db.query(file('supabase/diagnostics/json_storage_columns.sql'))).rows,[]);
+ await db.exec(file('supabase/reset_demo_dataset.sql'));await db.exec(file('supabase/reset_demo_dataset.sql'));assert.ok((await business()).classes.length);
+ console.log('PASS class material normalization: typed plan dates, stable scoped FK, two duplicate lesson links removed, one effective source, preserved history/work, conflict/overlap rollback, repeated migration, real plan/lesson CRUD, immutable used plans, generated linked lessons, defaults without copying, overrides, FK and repeated reset');
+}
