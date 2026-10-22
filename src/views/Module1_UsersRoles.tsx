@@ -64,8 +64,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [newUserPassVisible, setNewUserPassVisible] = useState(true);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
-  const [newUserRole, setNewUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
-  const [newUserSubject, setNewUserSubject] = useState<string>('');
+  const [newUserRoleGroupId, setNewUserRoleGroupId] = useState('');
 
   // Edit User Form state
   const [editUserName, setEditUserName] = useState('');
@@ -74,8 +73,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [editUserPassVisible, setEditUserPassVisible] = useState(true);
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
-  const [editUserRole, setEditUserRole] = useState<UserAccount['role']>('Nhân viên Vận hành Lớp');
-  const [editUserSubject, setEditUserSubject] = useState<string>('');
+  const [editUserRoleGroupId, setEditUserRoleGroupId] = useState('');
 
   const copyToClipboard = (text: string, label: string) => {
     if (label.toLocaleLowerCase('vi').includes('mật khẩu') && !requirePermission('Chỉnh sửa thông tin tài khoản & Mật khẩu')) return;
@@ -113,15 +111,16 @@ export const Module1_UsersRoles: React.FC = () => {
       .join('')
       .toUpperCase();
 
+    const selectedGroup=portalRoles.find(group=>group.id===newUserRoleGroupId);
+    if(!selectedGroup){showToast('Chọn nhóm quyền đang tồn tại.','error');return;}
     if (!addUser({
       name: newUserName.trim(),
       username: newUserUsername.trim(),
       passwordRaw: newUserPass,
       email: newUserEmail.trim(),
       phone: newUserPhone.trim(),
-      role: (['Quản trị Toàn quyền', 'Quản lý Chuyên môn', 'Nhân viên Vận hành Lớp', 'Giáo viên Giảng dạy'].includes(newUserRole) ? newUserRole : portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'),
-      roleGroupId: roleGroups.find(group => group.name === newUserRole)?.id,
-      subject: portal === 'TEACHER' ? newUserSubject : undefined,
+      role: selectedGroup.name,
+      roleGroupId: selectedGroup.id,
       status: 'active',
       avatarInitials: avatarInitials || 'VH'
     })) return;
@@ -146,8 +145,7 @@ export const Module1_UsersRoles: React.FC = () => {
     setEditUserPassVisible(true);
     setEditUserEmail(user.email);
     setEditUserPhone(user.phone);
-    setEditUserRole((assignedRole(user, roleGroups)?.name || user.role) as UserAccount['role']);
-    setEditUserSubject(user.subject || '');
+    setEditUserRoleGroupId(user.roleGroupId || '');
   };
 
   const handleEditUserSubmit = (e: React.FormEvent) => {
@@ -157,7 +155,9 @@ export const Module1_UsersRoles: React.FC = () => {
     if (!editingUser) return;
     if (editUserPass && !/^[0-9]{6,8}$/.test(editUserPass)) { showToast('Mật khẩu phải gồm 6–8 chữ số.', 'error'); return; }
 
-    const roleChanged = assignedRole(editingUser, roleGroups)?.name !== editUserRole;
+    const selectedGroup=portalRoles.find(group=>group.id===editUserRoleGroupId);
+    if(!selectedGroup){showToast('Chọn nhóm quyền đang tồn tại.','error');return;}
+    const roleChanged = editingUser.roleGroupId !== selectedGroup.id;
     if (roleChanged && !requirePermission('Tạo, sửa, xóa & Gán Nhóm quyền')) return;
     if (!updateUser(editingUser.id, {
       name: editUserName.trim(),
@@ -166,10 +166,9 @@ export const Module1_UsersRoles: React.FC = () => {
       email: editUserEmail.trim(),
       phone: editUserPhone.trim(),
       ...(roleChanged ? {
-        role: (['Quản trị Toàn quyền', 'Quản lý Chuyên môn', 'Nhân viên Vận hành Lớp', 'Giáo viên Giảng dạy'].includes(editUserRole) ? editUserRole : portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'),
-      roleGroupId: roleGroups.find(group => group.name === editUserRole)?.id,
-      } : {}),
-      subject: portal === 'TEACHER' ? editUserSubject : undefined
+        role: selectedGroup.name,
+      roleGroupId: selectedGroup.id,
+      } : {})
     })) return;
 
     void confirmSave(()=>setEditingUser(null));
@@ -364,7 +363,7 @@ export const Module1_UsersRoles: React.FC = () => {
 
             <button
               disabled={!can('Cấp tài khoản & Mật khẩu người dùng') || !can('Tạo, sửa, xóa & Gán Nhóm quyền')}
-              onClick={() => { setNewUserRole(portal === 'TEACHER' ? 'Giáo viên Giảng dạy' : 'Nhân viên Vận hành Lớp'); setNewUserSubject(subjects.find(subject => subject.status)?.code || ''); setIsCreateUserModalOpen(true); }}
+              onClick={() => { setNewUserRoleGroupId(portalRoles[0]?.id || ''); setIsCreateUserModalOpen(true); }}
               className="w-full sm:w-auto px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
@@ -530,7 +529,7 @@ export const Module1_UsersRoles: React.FC = () => {
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${tagColor}`}>
                         {role.category}
                       </span>
-                      <span className="text-xs font-bold text-slate-400">{users.filter(user => assignedRole(user, roleGroups)?.id === role.id).length} tài khoản</span>
+                      <span className="text-xs font-bold text-slate-400">{role.userCount} tài khoản</span>
                     </div>
                     <h3 className="font-bold text-sm text-slate-800 mt-2">{role.name}</h3>
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{role.desc}</p>
@@ -678,20 +677,17 @@ export const Module1_UsersRoles: React.FC = () => {
                   Gán Nhóm quyền áp dụng <span className="text-rose-500">*</span>
                 </label>
                 <ReportSelect
-                  value={newUserRole}
-                  onChange={e => setNewUserRole(e.target.value as UserAccount['role'])}
+                  value={newUserRoleGroupId}
+                  onChange={e => setNewUserRoleGroupId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                 >
-                  {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
+                  {portalRoles.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
                 </ReportSelect>
               </div>
 
               {portal === 'TEACHER' && (
                 <div className="p-3 bg-orange-50/60 rounded-xl border border-orange-100">
-                  <label className="block font-semibold text-[#FF5C00] mb-1">
-                    Môn chuyên trách cố định (Dành cho Giáo viên) <span className="text-rose-500">*</span>
-                  </label>
-                  <ReportSelect required value={newUserSubject} onChange={event => setNewUserSubject(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2"><option value="" disabled>Chọn môn học</option>{subjects.filter(subject => subject.status || subject.code === newUserSubject).map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}</ReportSelect>
+                  <p>Môn giảng dạy được lấy từ hồ sơ giáo viên. Tạo hồ sơ giáo viên để tự động cấp tài khoản và tên đăng nhập.</p>
                 </div>
               )}
 
@@ -830,20 +826,19 @@ export const Module1_UsersRoles: React.FC = () => {
                 </label>
                 <ReportSelect
                   disabled={!can('Tạo, sửa, xóa & Gán Nhóm quyền')}
-                  value={editUserRole}
-                  onChange={e => setEditUserRole(e.target.value as UserAccount['role'])}
+                  value={editUserRoleGroupId}
+                  onChange={e => setEditUserRoleGroupId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:border-[#FF5C00]"
                 >
-                  {portalRoles.map(group => <option key={group.id} value={group.name}>{group.name}</option>)}
+                  {portalRoles.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
                 </ReportSelect>
               </div>
 
               {portal === 'TEACHER' && (
                 <div className="p-3 bg-orange-50/60 rounded-xl border border-orange-100">
-                  <label className="block font-semibold text-[#FF5C00] mb-1">
-                    Môn chuyên trách cố định (Dành cho Giáo viên) <span className="text-rose-500">*</span>
-                  </label>
-                  <ReportSelect required value={editUserSubject} onChange={event => setEditUserSubject(event.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2"><option value="" disabled>Chọn môn học</option>{subjects.filter(subject => subject.status || subject.code === editUserSubject).map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}</ReportSelect>
+                  <label className="block font-semibold text-[#FF5C00] mb-1">Môn giảng dạy</label>
+                  <p>{subjects.find(subject => subject.code === editingUser.subject)?.name || 'Chưa có hồ sơ giáo viên'}</p>
+                  <p className="mt-1 text-sm text-slate-600">Cập nhật môn trong hồ sơ giáo viên.</p>
                 </div>
               )}
 

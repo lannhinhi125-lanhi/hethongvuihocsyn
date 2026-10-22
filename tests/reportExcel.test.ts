@@ -15,10 +15,16 @@ const dataset: ReportDataset = { id: 'incidents', label: 'Sự cố', dateKind: 
   defaultMetricIds: ['total', 'incidents', 'rate'], dimensions: [{ id: 'subject', label: 'Môn', choices: [{ value: 'M', label: 'Toán' }] }], filters: [{ id: 'subject', label: 'Môn', choices: [{ value: 'M', label: 'Toán' }] }], detailFields: [{ id: 'id', label: 'Mã buổi' }, { id: 'date', label: 'Ngày' }, { id: 'name', label: 'Tên' }]
 };
 const section = prepareDocumentSection(dataset, { ...defaultReportConfig(dataset), datePreset: 'custom', from: '2026-10-01', to: '2026-10-31', filters: { subject: ['M'] } }, { enabled: true, mode: 'custom', start: '2026-09-01', end: '2026-09-30' });
-const workbook = reportExcelData([section], { title: 'Báo cáo kiểm chứng', organization: 'VUIHOC', author: 'Người lập', date: '2026-10-18', updatedAt: '2026-10-18', remarks: '', recommendations: '', appendix: false });
+const info={ title: 'Báo cáo kiểm chứng', organization: 'VUIHOC', author: 'Người lập', date: '2026-10-18', updatedAt: '2026-10-18', remarks: '', recommendations: '', appendix: false };
+const workbook = reportExcelData([section], info);
 assert.equal(workbook.sheets.length, 8);
 assert.deepEqual(workbook.sheets[1].rows[1], ['TỔNG', 2, 1, 50]);
-assert.equal(workbook.sheets[2].rows.length, 3);
+assert.equal(workbook.sheets[0].name,'Tổng quan');
+assert.ok(workbook.sheets[0].rows.some(row=>JSON.stringify(row)===JSON.stringify(['Tỷ lệ (%)',50,0,50])));
+assert.ok(workbook.sheets[0].rows.some(row=>row[0]==='Số bản ghi nguồn'&&row[1]===2));
+assert.equal(workbook.sheets[2].rows.length-workbook.sheets[2].headerRow!-1, 2);
+assert.deepEqual(workbook.sheets[2].rows[workbook.sheets[2].headerRow!],['Mã buổi','Ngày','Tên','Tổng buổi','Buổi sự cố']);
+assert.ok(workbook.sheets[2].rows.some(row=>row[0]==='Người kết xuất'&&row[1]==='Người lập'));
 assert.equal(workbook.sheets[3].rows.length, 2);
 assert.ok(JSON.stringify(workbook).includes('Môn: Toán'));
 assert.ok(!JSON.stringify(workbook).includes('never-export'));
@@ -44,5 +50,22 @@ assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('=1+1 &amp; &lt;text
 assert.ok(![...entries.values()].some(xml => xml.includes('<f>')));
 assert.ok(entries.get('xl/worksheets/sheet2.xml')!.includes('<v>50</v>'));
 assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('state="frozen"'));
+assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('ySplit="11" topLeftCell="A12"'));
+assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('<autoFilter ref="A11:E13"/>'));
+assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('<mergeCell ref="A1:E1"/>'));
+assert.ok(!entries.get('xl/worksheets/sheet1.xml')!.includes('<autoFilter'));
+assert.ok(entries.get('xl/styles.xml')!.includes('Times New Roman'));
+// Overview totals come from source aggregation, including overlapping groups and unavailable ratios.
+const overlapping={...section,result:{...section.result,totals:{total:2,incidents:1,rate:50},rows:[...section.result.rows,...section.result.rows]},dataset:{...dataset,nonAdditiveGroups:['subject']}};
+const overview=reportExcelData([overlapping],{...info,exportedBy:'Người xuất thực tế',exportedAt:'09:00 22/10/2026'}).sheets[0];
+assert.ok(overview.rows.some(row=>JSON.stringify(row)===JSON.stringify(['Buổi sự cố',1,0,1])));
+assert.ok(overview.rows.some(row=>row[0]==='Lưu ý tổng hợp'));
+assert.ok(overview.rows.some(row=>row[0]==='Người kết xuất'&&row[1]==='Người xuất thực tế'));
+const empty={...section,result:{...section.result,records:[],rows:[],totals:{total:0,incidents:0,rate:null}},previous:null};
+const emptyBook=reportExcelData([empty],info);
+assert.ok(emptyBook.sheets[0].rows.some(row=>row[0]==='Tỷ lệ (%)'&&row[1]===null));
+assert.equal(emptyBook.sheets[2].rows.length,12-1);
+const scheduled={...section,result:{...section.result,records:[{id:'holiday',date:'2026-10-01',__selectedEvents:JSON.stringify([{catalogOnly:true,incidentCode:'HOLIDAY',incidentName:'Nghỉ lễ'}])}]},previous:null};
+assert.equal(reportExcelData([scheduled],info).sheets[3].rows.length,1,'scheduled breaks must not become incident minutes in Excel');
 if (process.env.REPORT_EXCEL_TEST_PATH) writeFileSync(process.env.REPORT_EXCEL_TEST_PATH, bytes);
 console.log('PASS: Excel snapshot matches report filters, totals, comparisons, source/event evidence; ZIP checksums and literal cells');

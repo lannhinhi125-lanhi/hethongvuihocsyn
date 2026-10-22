@@ -35,13 +35,29 @@ assert.equal(inspectionSession('UUID-other-week',classes,[{...lessons[1],inspect
 assert.equal(inspectionSession('missing',classes,lessons,slots),undefined);
 assert.equal(inspectionSession('MATH-2026-10-15-2',classes,lessons,[]),undefined);
 assert.deepEqual({classes,lessons,slots},before,'Viewing must never mutate lesson/class data');
-const teacher = fromSupabaseRow('teachers', {madinhdanh:'T2',trangthaidanhgia:'UNSCORED',baocaodanhgia:[{overallScore:9,generalComment:'Good',criteriaScores:{tc1:9,tc2:9,tc3:9}}]});
+const teacher = fromSupabaseRow('teachers', {madinhdanh:'T2',trangthaidanhgia:'UNSCORED',baocaodanhgia:[{status:'DA_DUYET',overallScore:9,generalComment:'Good',criteriaScores:{tc1:9,tc2:9,tc3:9}}]});
 assert.equal(teacher.evalStatus,'SCORED');
 assert.equal(teacher.evalScore,'9.00');
 const unscored = fromSupabaseRow('teachers',{madinhdanh:'T2',trangthaidanhgia:'SCORED',diemdanhgia:'9.0',nhanxetdanhgia:'Stale seed',baocaodanhgia:[]});
 assert.equal(unscored.evalStatus,'UNSCORED');
 assert.equal(unscored.evalScore,null);
 assert.equal(unscored.evalComment,'');
+const approved=fromSupabaseRow('teachers',{madinhdanh:'T2',baocaodanhgia:[
+ {id:'draft',status:'NHAP',evaluationDate:'31/12/2026',overallScore:10},
+ {id:'old',status:'DA_DUYET',evaluationDate:'30/09/2026',overallScore:8},
+ {id:'new',status:'DA_DUYET',evaluationDate:'02/10/2026',overallScore:9,generalComment:'Approved',criteriaScores:{tc1:9,tc2:9,tc3:9}}
+]});
+assert.equal(approved.evalScore,'9.00');
+assert.equal(approved.evalComment,'Approved');
+const encoded=toSupabaseRow('teachers',approved);
+assert.ok(!['trangthaidanhgia','diemdanhgia','nhanxetdanhgia','diemtieuchi'].some(key=>Object.hasOwn(encoded,key)));
+assert.equal(fromSupabaseRow('teachers',{madinhdanh:'T2',baocaodanhgia:[{status:'NHAP',overallScore:10}]}).evalStatus,'UNSCORED');
+const queriedSlots=fromSupabaseRow('teachers',{madinhdanh:'T2',socaranh:3,socadaxep:2,dakinlich:false});
+assert.deepEqual([queriedSlots.freeSlots,queriedSlots.busySlots,queriedSlots.isFull],[3,2,false]);
+assert.deepEqual(toSupabaseRow('teachers',queriedSlots),{madinhdanh:'T2'},'query totals remain visible but cannot be sent as stored profile fields');
+const countedRole=fromSupabaseRow('role_groups',{madinhdanh:'ROLE',soluongnguoidung:4});
+assert.equal(countedRole.userCount,4);
+assert.deepEqual(toSupabaseRow('role_groups',countedRole),{madinhdanh:'ROLE'},'account counts are query results, not stored role inputs');
 const saved = toSupabaseRow('teacher_evaluations', {id:'E1',lessonId:result.lesson.id,teacherId:'T2',classCode:result.cls.code,
   className:result.cls.name,sessionNum:result.sessionNum,timeSlot:result.session.slot,sessionDate:result.lesson.date});
 assert.equal(saved.mabuoi,'MATH-2026-10-15-2');

@@ -66,7 +66,7 @@ async function flush() {
       let users=[...confirmed.users], groups=[...confirmed.groups];
       for(const c of changes) {
         const rows=c.dataset==='users'?users:groups;
-        const row=c.after?fromSupabaseRow(c.dataset,c.after as Record<string,unknown>):null;
+        const row: Record<string,unknown> | null=c.after?{...rows.find(item=>item.id===(c.after as Record<string,unknown>).madinhdanh),...fromSupabaseRow(c.dataset,c.after as Record<string,unknown>)}:null;
         const id=(row?.id || (c.before as Record<string,unknown>)?.madinhdanh) as string;
         const updated=rows.filter(item=>item.id!==id);
         if(row)updated.push(row as unknown as UserAccount & SystemRoleGroup);
@@ -151,6 +151,7 @@ export async function deleteAccount(userId: string): Promise<void> {
     const users = state.users.filter(item => item.id !== userId);
     confirmed = {...confirmed,users,saving:false,saved:true,error:''};
     publish({...state,users,saving:false,saved:true,error:''});
+    await refreshAccountSession();
   } catch (error) {
     const message = (error as Error).message;
     if (version === generation) publish({...state,saving:false,saved:false,error:message});

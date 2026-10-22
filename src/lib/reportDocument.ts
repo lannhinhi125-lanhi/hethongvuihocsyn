@@ -8,6 +8,8 @@ import { vuihocReportLogo } from './reportBrand';
 export interface ReportDocumentRequest { datasetId: string; config: CustomReportConfig }
 export interface DocumentSection { dataset: ReportDataset; config: CustomReportConfig; result: ReportResult; previous: ReportResult | null }
 export interface ReportDocumentOptions {
+  exportedAt?: string;
+  exportedBy?: string;
   showCharts?: boolean;
   title: string; organization: string; author: string; date: string; updatedAt: string;
   remarks: string; recommendations: string; appendix: boolean;

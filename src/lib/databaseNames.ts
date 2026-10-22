@@ -126,10 +126,7 @@ export const DATABASE_NAMES = {
       "start_date": "ngaybatdau",
       "end_date": "ngayketthuc",
       "status": "trangthai",
-      "eval_status": "trangthaidanhgia",
-      "eval_score": "diemdanhgia",
-      "eval_comment": "nhanxetdanhgia",
-      "eval_criteria_scores": "diemtieuchi",
+      // Query-only projection from thong_ke_ca_giao_vien, not GIAO_VIEN columns.
       "free_slots": "socaranh",
       "busy_slots": "socadaxep",
       "is_full": "dakinlich",
@@ -468,6 +465,7 @@ export const APP_DATABASE_FIELDS = {
     "name": "tennhomquyen",
     "category": "phanloai",
     "desc": "mota",
+    // COUNT projection from NGUOI_DUNG.manhomquyen, never a stored role-group input.
     "userCount": "soluongnguoidung",
     "permissions": "danhsachquyen",
     "isDefault": "macdinh",
@@ -560,10 +558,7 @@ export const APP_DATABASE_FIELDS = {
     "startDate": "ngaybatdau",
     "endDate": "ngayketthuc",
     "status": "trangthai",
-    "evalStatus": "trangthaidanhgia",
-    "evalScore": "diemdanhgia",
-    "evalComment": "nhanxetdanhgia",
-    "evalCriteriaScores": "diemtieuchi",
+    // Query-only projection; supabaseMapper excludes these from writes.
     "freeSlots": "socaranh",
     "busySlots": "socadaxep",
     "isFull": "dakinlich",

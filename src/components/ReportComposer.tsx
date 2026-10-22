@@ -84,7 +84,7 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
         return prepareDocumentSection(dataset, { ...base, filters: scopeMode === 'all' ? {} : base.filters, selection: scopeMode === 'all' ? undefined : base.selection, chartType: activeChartType,
           datePreset: range.start || range.end ? 'custom' : 'all', from: range.start, to: range.end }, comparison);
       });
-      const info = { ...documentInfo, showCharts, title: title.trim(), organization: organization.trim(), author: author.trim(), date,
+      const info = { ...documentInfo, showCharts, title: title.trim(), organization: organization.trim(), author: author.trim(), exportedBy:currentUser.name, date,
         updatedAt: updatedAt ? new Date(updatedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' }) : 'Chưa xác định', remarks, recommendations, appendix };
       const html = buildReportDocument(sections, info);
       setExcelSnapshot(reportExcelData(sections, info));

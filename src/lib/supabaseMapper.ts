@@ -1,13 +1,16 @@
 import { APP_DATABASE_FIELDS, DATABASE_NAMES } from './databaseNames';
+import { inspectionDate } from './inspectionReport';
 export type SupabaseDataset = keyof typeof APP_DATABASE_FIELDS;
 type DataRow = Record<string, unknown>;
 export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly string[]>> = {
+  users: ['role', 'subject', 'avatarInitials'],
+  role_groups: ['userCount'],
   lesson_incidents: ['fromClassPause'],
   dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseCategoryId', 'pauseNote'],
   students: ['classHistory','registrationHistory'],
   sop_documents: ['category'],
   rag_bot_config: ['quickPrompts'],
-  teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull'],
+  teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull', 'evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores'],
   "classes": [
     "teacherName"
   ],
@@ -123,8 +126,10 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     result.evalScore = null;
     result.evalComment = '';
     result.evalCriteriaScores = undefined;
-    if (Array.isArray(result.evaluationReports) && result.evaluationReports.length) {
-      const latest = result.evaluationReports[0];
+    const latest = Array.isArray(result.evaluationReports) ? result.evaluationReports
+      .filter(report => report.status === 'DA_DUYET' && report.overallScore != null && Number.isFinite(Number(report.overallScore)))
+      .sort((a,b) => inspectionDate(b.evaluationDate).localeCompare(inspectionDate(a.evaluationDate)) || String(b.id || '').localeCompare(String(a.id || '')))[0] : undefined;
+    if (latest) {
       result.evalStatus = 'SCORED';
       result.evalScore = Number(latest.overallScore).toFixed(2);
       result.evalComment = latest.generalComment || '';

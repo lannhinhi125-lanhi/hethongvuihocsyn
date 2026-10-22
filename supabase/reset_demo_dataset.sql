@@ -132,14 +132,39 @@ DO $teachers$ DECLARE r record; role_id text; BEGIN
   AND 'TEACHER_PORTAL'=ANY(vuihoc.quyen_nhom(madinhdanh)) ORDER BY madinhdanh LIMIT 1;
  IF role_id IS NULL THEN RAISE EXCEPTION 'Thiếu nhóm quyền giáo viên đầy đủ'; END IF;
  FOR r IN SELECT * FROM demo_teachers ORDER BY i LOOP
+  IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='NGUOI_DUNG' AND column_name='mamonhoc') THEN
   INSERT INTO vuihoc."NGUOI_DUNG"(madinhdanh,hoten,tendangnhap,thudientu,sodienthoai,vaitro,trangthai,chucaiavatar,manhomquyen,mamonhoc,matkhau,ngaytao)
   VALUES('DEMO-GV-'||lpad(r.i::text,3,'0'),r.name,r.username,r.username||'@example.com','090100'||lpad(r.i::text,4,'0'),
    'Giáo viên Giảng dạy',CASE WHEN r.i=12 THEN 'locked' ELSE 'active' END,upper(left(split_part(r.name,' ',1),1)||left(reverse(split_part(reverse(r.name),' ',1)),1)),role_id,r.subject,'246810','2026-08-20');
+  ELSE
+   INSERT INTO vuihoc."NGUOI_DUNG"(madinhdanh,hoten,tendangnhap,thudientu,sodienthoai,trangthai,manhomquyen,matkhau,ngaytao)
+   VALUES('DEMO-GV-'||lpad(r.i::text,3,'0'),r.name,r.username,r.username||'@example.com','090100'||lpad(r.i::text,4,'0'),
+    CASE WHEN r.i=12 THEN 'locked' ELSE 'active' END,role_id,'246810','2026-08-20');
+  END IF;
+  IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='GIAO_VIEN' AND column_name='trangthaidanhgia') THEN
+   INSERT INTO vuihoc."GIAO_VIEN"(madinhdanh,manguoidung,hoten,tendangnhap,mamonhoc,macaphoc,sodienthoai,thudientu,bangcap,
+    ngaybatdau,trangthai,trangthaidanhgia,nhanxetdanhgia,socaranh,socadaxep,dakinlich,ngaytao)
+   VALUES('DEMO-GV-'||lpad(r.i::text,3,'0'),'DEMO-GV-'||lpad(r.i::text,3,'0'),r.name,r.username,r.subject,'CAP-TH',
+    '090100'||lpad(r.i::text,4,'0'),r.username||'@example.com',CASE WHEN r.subject='SUB-MATH' THEN 'Cử nhân Sư phạm Toán' ELSE 'Cử nhân Sư phạm Tiếng Anh, IELTS 7.5' END,
+    '2026-08-20',CASE WHEN r.i=11 THEN 'CHO_LOP' WHEN r.i=12 THEN 'TAM_NGUNG' ELSE 'DANG_DAY' END,'UNSCORED','',0,0,false,'2026-08-20');
+  ELSIF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='GIAO_VIEN' AND column_name='socaranh') THEN
   INSERT INTO vuihoc."GIAO_VIEN"(madinhdanh,manguoidung,hoten,tendangnhap,mamonhoc,macaphoc,sodienthoai,thudientu,bangcap,
-   ngaybatdau,trangthai,trangthaidanhgia,nhanxetdanhgia,socaranh,socadaxep,dakinlich,ngaytao)
+   ngaybatdau,trangthai,socaranh,socadaxep,dakinlich,ngaytao)
   VALUES('DEMO-GV-'||lpad(r.i::text,3,'0'),'DEMO-GV-'||lpad(r.i::text,3,'0'),r.name,r.username,r.subject,'CAP-TH',
    '090100'||lpad(r.i::text,4,'0'),r.username||'@example.com',CASE WHEN r.subject='SUB-MATH' THEN 'Cử nhân Sư phạm Toán' ELSE 'Cử nhân Sư phạm Tiếng Anh, IELTS 7.5' END,
-   '2026-08-20',CASE WHEN r.i=11 THEN 'CHO_LOP' WHEN r.i=12 THEN 'TAM_NGUNG' ELSE 'DANG_DAY' END,'UNSCORED','',0,0,false,'2026-08-20');
+   '2026-08-20',CASE WHEN r.i=11 THEN 'CHO_LOP' WHEN r.i=12 THEN 'TAM_NGUNG' ELSE 'DANG_DAY' END,0,0,false,'2026-08-20');
+  ELSIF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='GIAO_VIEN' AND column_name='hoten') THEN
+   INSERT INTO vuihoc."GIAO_VIEN"(madinhdanh,manguoidung,hoten,tendangnhap,mamonhoc,macaphoc,sodienthoai,thudientu,bangcap,
+    ngaybatdau,trangthai,ngaytao)
+   VALUES('DEMO-GV-'||lpad(r.i::text,3,'0'),'DEMO-GV-'||lpad(r.i::text,3,'0'),r.name,r.username,r.subject,'CAP-TH',
+    '090100'||lpad(r.i::text,4,'0'),r.username||'@example.com',CASE WHEN r.subject='SUB-MATH' THEN 'Cử nhân Sư phạm Toán' ELSE 'Cử nhân Sư phạm Tiếng Anh, IELTS 7.5' END,
+    '2026-08-20',CASE WHEN r.i=11 THEN 'CHO_LOP' WHEN r.i=12 THEN 'TAM_NGUNG' ELSE 'DANG_DAY' END,'2026-08-20');
+  ELSE
+   INSERT INTO vuihoc."GIAO_VIEN"(madinhdanh,manguoidung,mamonhoc,macaphoc,bangcap,ngaybatdau,trangthai,ngaytao)
+   VALUES('DEMO-GV-'||lpad(r.i::text,3,'0'),'DEMO-GV-'||lpad(r.i::text,3,'0'),r.subject,'CAP-TH',
+    CASE WHEN r.subject='SUB-MATH' THEN 'Cử nhân Sư phạm Toán' ELSE 'Cử nhân Sư phạm Tiếng Anh, IELTS 7.5' END,
+    '2026-08-20',CASE WHEN r.i=11 THEN 'CHO_LOP' WHEN r.i=12 THEN 'TAM_NGUNG' ELSE 'DANG_DAY' END,'2026-08-20');
+  END IF;
  END LOOP;
 END $teachers$;
 INSERT INTO vuihoc."GIAO_VIEN_KHOI" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),k.macaphoc,k.madinhdanh,k.thutu
@@ -288,7 +313,8 @@ INSERT INTO vuihoc."CHI_TIET_CA_LOP"(malop,khoaca,mabuoi,sobuoi,ngaygio,tieude,g
  SELECT x.class_id,x.day::text||'-'||CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END,x.id,
  CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END,x.day::text||' '||replace(x.hours,'-',' - '),b.tieude,
  to_char(b.vaolopluc AT TIME ZONE 'Asia/Bangkok','HH24:MI:SS'),g.hoten,b.magiaoviendaythay,b.vaolopluc IS NOT NULL,b.ketthucluc IS NOT NULL
- FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id LEFT JOIN vuihoc."GIAO_VIEN" g ON g.madinhdanh=coalesce(b.magiaoviendaythay,b.magiaovienchinh);
+ FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id LEFT JOIN vuihoc."GIAO_VIEN" teacher ON teacher.madinhdanh=coalesce(b.magiaoviendaythay,b.magiaovienchinh)
+ LEFT JOIN vuihoc."NGUOI_DUNG" g ON g.madinhdanh=teacher.manguoidung;
 WITH slots AS (
  SELECT DISTINCT b.malop,date_trunc('week',b.ngayhoc)::date AS monday,l.thutu AS session
  FROM vuihoc."BUOI_HOC" b JOIN vuihoc."LICH_LOP" l

@@ -3,20 +3,21 @@ import { ReportMultiFilter } from './ReportMultiFilter';
 import { reportFilterValues, reportFilterLabel } from '../lib/customReports';
 import { ReportChart } from './ReportChart';
 import { suggestReportTitle, type ReportDocumentRequest } from '../lib/reportDocument';
+import { reportExcelData, reportExcelBytes } from '../lib/reportExcel';
 import { CompactClassReportTable } from './CompactClassReportTable';
 import { ComparisonControls, ComparisonResults } from './ReportComparison';
 import { alignComparisonRows, comparisonIssue, comparisonRange, defaultComparison, formatComparisonRange, selectionInPreviousPeriod, timeGroupKey, withMissingPeriod } from '../lib/reportComparison';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import {randomUUID} from '../lib/randomUUID';
 import {PeriodToolbar} from './PeriodToolbar';
-import { useBusinessValue } from '../lib/businessPersistence';
+import { useBusinessValue, useBusinessStatus } from '../lib/businessPersistence';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from './FilterDrawer';
 import {
-  buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig, reportCsvCell,
+  buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig, reportCsvCell, reportToday,
   type CustomReportConfig, type ReportDataset, type SavedReportTemplate
 } from '../lib/customReports';
 
@@ -30,6 +31,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const { currentUser, showToast } = useApp();
+  const {loadedAt}=useBusinessStatus();
   const [config, setConfig] = useState<CustomReportConfig>(() => defaultReportConfig(datasets[0]));
   const [templates, setTemplates] = useBusinessValue<SavedReportTemplate[]>('report_templates');
   const [templateId, setTemplateId] = useState('');
@@ -137,6 +139,20 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
       void confirmSave(()=>{setTemplateId(saved.id); setSaveOpen(false);});
       showToast('Đang lưu mẫu báo cáo…', 'success');
     }
+  };
+  const exportExcel = () => {
+    if(!requirePermission('Xuất kết quả báo cáo CSV') || result.invalidRange) return;
+    try {
+      const workbook=reportExcelData([{dataset,config,result,previous:previousResult}],{
+        title:suggestReportTitle(dataset,config.groupBy),organization:'',author:currentUser.name,date:reportToday(),
+        updatedAt:loadedAt?new Date(loadedAt).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok'}):'Chưa xác định',
+        reportType:dataset.label,remarks:'',recommendations:'',appendix:false
+      });
+      const url=URL.createObjectURL(new Blob([reportExcelBytes(workbook)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+      const link=document.createElement('a');link.href=url;link.download=workbook.filename;
+      document.body.appendChild(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+      showToast('Đã xuất Excel gồm Tổng quan, Tổng hợp và Danh sách chi tiết theo kỳ, bộ lọc đang chọn.','success');
+    }catch(error){showToast(error instanceof Error?error.message:'Không xuất được Excel. Vui lòng thử lại.','error');}
   };
   const exportCsv = () => {
     if (!requirePermission('Xuất kết quả báo cáo CSV')) return;
@@ -286,6 +302,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
                 </div>
                 <div className="flex items-center gap-2">
 
+                  <button type="button" className={button} disabled={result.invalidRange || !result.records.length || !can('Xuất kết quả báo cáo CSV')} onClick={exportExcel} title="Xuất toàn bộ kỳ và bộ lọc hiện tại, gồm các trang dữ liệu; không giới hạn theo ô tìm kiếm trên bảng"><Download className="h-3.5 w-3.5" />Excel</button>
                   <button type="button" className={button} disabled={noVisibleResults || !can('Xuất kết quả báo cáo CSV')} onClick={exportCsv}><Download className="h-3.5 w-3.5" />CSV</button>
                 </div>
               </div>
