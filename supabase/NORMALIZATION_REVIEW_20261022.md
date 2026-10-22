@@ -1,6 +1,6 @@
 # Rà soát nguồn dữ liệu và cột dư — 22/10/2026
 
-Các bản sửa 20261116–20261120 (điểm giáo viên, số ca, số tài khoản theo nhóm, thông tin cá nhân giáo viên và phụ thuộc tài khoản) được ghi riêng tại [NORMALIZATION_CHANGES.md](NORMALIZATION_CHANGES.md). Kết quả kiểm kê bên dưới mô tả trạng thái trước migration 20261116; không phải cấu trúc sau các bản sửa này. Chưa xác nhận người dùng đã áp dụng các migration này lên Supabase thật.
+Các bản sửa 20261116–20261121 (giáo viên, tài khoản/quyền và nhóm hồ sơ học sinh–đăng ký–xếp lớp) được ghi riêng tại [NORMALIZATION_CHANGES.md](NORMALIZATION_CHANGES.md). Kết quả kiểm kê bên dưới mô tả trạng thái trước migration 20261116; không phải cấu trúc sau các bản sửa này. Chưa xác nhận người dùng đã áp dụng các migration này lên Supabase thật.
 
 ## Kết luận và phạm vi
 

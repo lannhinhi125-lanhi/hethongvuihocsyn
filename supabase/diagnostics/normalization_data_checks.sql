@@ -9,12 +9,11 @@ WITH teacher_scores AS (
   WHERE e.magiaovien=g.madinhdanh ORDER BY e.ngaydanhgia DESC,e.madinhdanh DESC LIMIT 1
  ) e ON true WHERE to_jsonb(g) ?| ARRAY['diemtc1','diemtc2','diemtc3']
 ), student_legacy AS (
- SELECT h.madinhdanh,(h.mamonhoc,h.mamohinh,h.matrinhdo,h.trangthai,h.malophientai)
-  IS DISTINCT FROM (d.mamonhoc,d.mamohinh,d.matrinhdo,d.trangthai,l.malophoc) AS differs
+ SELECT h.madinhdanh,(to_jsonb(h)->>'mamonhoc',to_jsonb(h)->>'mamohinh',to_jsonb(h)->>'matrinhdo',to_jsonb(h)->>'trangthai',to_jsonb(h)->>'malophientai')
+  IS DISTINCT FROM (d->>'subject',d->>'model',d->>'level',d->>'status',d->>'currentClassCode') AS differs
  FROM vuihoc."HOC_SINH" h JOIN LATERAL (
-  SELECT * FROM vuihoc."DANG_KY_MON_HOC" d WHERE d.mahocsinh=h.madinhdanh
-  ORDER BY d.ngaydangky,d.mamonhoc LIMIT 1
- ) d ON true LEFT JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=d.malop
+  SELECT vuihoc.dang_ky_mon_truy_van(h.madinhdanh)->0 AS d
+ ) q ON true WHERE to_jsonb(h) ? 'mamonhoc'
 ), intervals AS (
  SELECT k.*,CASE WHEN khoanggio ~ '^([01][0-9]|2[0-3]):[0-5][0-9] *- *([01][0-9]|2[0-3]):[0-5][0-9]$'
   THEN extract(epoch FROM (btrim(split_part(khoanggio,'-',2))::time-btrim(split_part(khoanggio,'-',1))::time))/60 END AS calculated

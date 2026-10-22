@@ -157,3 +157,55 @@ Chạy [account_dependencies.sql](diagnostics/account_dependencies.sql). Nếu t
 Theo các phụ thuộc nghiệp vụ đã kiểm tra trong mã, nhóm bốn quan hệ tài khoản/quyền trên đáp ứng mô hình 3NF sau các migration 20261118–20261120. Đây không phải chứng nhận toàn bộ phân hệ giáo viên/dự giờ hay toàn bộ CSDL: các trường ngữ cảnh biên bản, đăng ký học sinh và các nhóm trong bản rà soát ban đầu vẫn cần xử lý riêng. Chỉ kiểm thử trên PostgreSQL cục bộ; cấu trúc thực tế trên Supabase cần đối chiếu sau khi người dùng áp dụng migration.
 
 Kiểm thử tích hợp: migration chạy hai lần, chặn và hoàn tác khi môn cũ không khớp, không tăng số bảng lưu trữ, giữ các sự thật nguồn còn lại, tạo giáo viên kèm tài khoản, đổi môn, đổi nhóm/đổi tên nhóm, cập nhật avatar theo tên, đăng nhập cổng giáo viên, chặn ghi trường dẫn xuất, truy vấn công và reset fixture cục bộ.
+
+## Lần 6 — Hồ sơ học sinh, nhu cầu đăng ký và xếp lớp
+
+Migration: [20261121_normalize_student_enrollments.sql](migrations/20261121_normalize_student_enrollments.sql), chạy **sau 20261120**, toàn bộ file trong một lần. Cập nhật ứng dụng và tải lại trang sau khi chạy SQL. Không chạy schema, seed hay reset dữ liệu thật để nâng cấp.
+
+### Bảng đã sửa, trước đây trùng gì và sau khi sửa
+
+| Bảng | Trước đây | Sau khi sửa |
+| --- | --- | --- |
+| HOC_SINH | Lưu mamonhoc, mamohinh, matrinhdo, trangthai, malophientai dù đã có đăng ký theo môn. Một bộ cột chỉ biểu diễn được một môn và có thể cũ hơn nguồn đăng ký. | Bỏ cả 5 cột. Giữ madinhdanh, hoten, hotencha, sodienthoaicha, hotenme, sodienthoaime, macaphoc, makhoi, ngaytao, ngaycapnhat. |
+| DANG_KY_MON_HOC | Trộn nhu cầu môn/trình độ/mô hình với malop hiện tại; lớp lại xác định môn/trình độ/mô hình nên để chung còn phụ thuộc bắc cầu. | Bỏ malop. Giữ nhu cầu, vòng đời, thời điểm và số đợt đăng ký. Thêm macaphocdangky làm phần còn thiếu của khóa cấp–khối lúc nhập học. |
+| XEP_LOP_DANG_KY — bảng liên kết mới | Quan hệ xếp lớp nằm trong đăng ký. | Chỉ lưu mahocsinh, mamonhoc, malop. PK (mahocsinh,mamonhoc), khóa duy nhất (mahocsinh,malop), FK đến đăng ký và cặp mã lớp–môn. Không chép tên học sinh/lớp, trình độ, mô hình hay trạng thái. |
+| LICH_DANG_KY_MON_HOC | Đã lưu lịch theo môn, nhưng chưa chặn cùng ca được ghi nhiều lần bằng các thutu khác nhau. | Giữ làm nguồn lịch đăng ký duy nhất; thêm UNIQUE (mahocsinh,mamonhoc,thutrongtuan,makhunggio) và CHECK thứ tự dương. |
+| LICH_DANG_KY_HOC_SINH | Bảng lịch cũ theo hồ sơ, cùng ý nghĩa với lịch của một đăng ký; một số database đã bỏ bảng qua cleanup_unused_tables. | Đối soát các ca cũ với môn tương ứng trước khi DROP TABLE IF EXISTS; không bỏ ca chưa đối soát. |
+| LICH_SU_DANG_KY_HOC | Lưu đợt đã thôi học, vẫn lưu thêm trangthai luôn DA_THOI_HOC; mã khối lịch sử thiếu cấp để tạo FK đầy đủ. | Bỏ trangthai sau khi kiểm tra toàn bộ lịch sử là đợt đã thôi học; thêm macaphoc và FK cấp–khối. Giữ môn, số đợt, ngày đăng ký/kết thúc, loại đợt, khối/trình độ/mô hình của đợt cũ. |
+| LICH_SU_CA_DANG_KY_HOC | Lịch của từng đợt đã kết thúc. | Giữ lịch riêng theo khóa đợt; thêm UNIQUE chặn trùng ca và CHECK thứ/ngày hợp lệ. |
+| LOP_HOC | Nguồn chính thông tin lớp; chưa có UNIQUE ghép mã lớp–môn cho FK mới. | Chỉ bổ sung UNIQUE (madinhdanh,mamonhoc); không sửa dữ liệu lớp. |
+
+### Nguồn chính và các bảng truy vấn sang
+
+- Hồ sơ: HOC_SINH.madinhdanh là nguồn thông tin cá nhân và khối hiện tại. Cặp (macaphoc,makhoi) liên kết LUA_CHON_CAP_HOC; mã khối chỉ duy nhất trong cấp nên cần giữ đủ cặp FK.
+- Nhu cầu học: DANG_KY_MON_HOC có PK (mahocsinh,mamonhoc); mahocsinh → HOC_SINH, mamonhoc → MON_HOC, matrinhdo → TRINH_DO, mamohinh → MO_HINH_LOP. Đây là nhu cầu đã đăng ký, không phải bản sao thuộc tính lớp; nhu cầu vẫn tồn tại khi chưa được xếp lớp.
+- Xếp lớp hiện tại: XEP_LOP_DANG_KY.(mahocsinh,mamonhoc) → DANG_KY_MON_HOC; (malop,mamonhoc) → LOP_HOC.(madinhdanh,mamonhoc). Trạng thái đăng ký chỉ lưu ở DANG_KY_MON_HOC, bảng xếp lớp không lưu lại trạng thái.
+- Lịch mong muốn: LICH_DANG_KY_MON_HOC.(mahocsinh,mamonhoc) → DANG_KY_MON_HOC, makhunggio → KHUNG_GIO. Lịch lớp thực tế vẫn thuộc LICH_LOP; hai lịch có ý nghĩa khác nhau.
+- Đợt cũ: LICH_SU_DANG_KY_HOC có PK (mahocsinh,mamonhoc,dotdangky); lịch đợt cũ tham chiếu đủ ba phần khóa này. Ràng buộc chặn một đợt xuất hiện đồng thời ở hiện tại và lịch sử, hoặc lịch sử đứng sau đợt hiện tại.
+- Khối lúc bắt đầu đợt: DANG_KY_MON_HOC.(macaphocdangky,khoidangky) và LICH_SU_DANG_KY_HOC.(macaphoc,khoi) → LUA_CHON_CAP_HOC.(macaphoc,madinhdanh). Không còn trigger chép mọi thay đổi khối hiện tại vào khối nhập học. Đợt học lại lấy khối tại thời điểm bắt đầu đợt mới; đợt trước không bị đổi theo.
+
+V_DANG_KY_MON_HOC và V_HOC_SINH là VIEW thường, chỉ JOIN/tính kết quả để giữ hợp đồng RPC; không lưu thêm dữ liệu. V_HOC_SINH có bộ trường học của đăng ký đầu để tương thích các đoạn đọc cũ; danh sách đầy đủ và báo cáo nhiều môn tiếp tục dùng dangkymonhoc. Không thể dùng các trường tương thích này để ghi vào bảng hồ sơ.
+
+### Luồng đã chuyển
+
+Tạo/sửa hồ sơ, thêm môn, xếp lớp, dừng/tạm dừng lớp, kiểm tra sĩ số/trùng lịch, bảo lưu/thôi học, học lại, danh sách lớp/điểm danh, lịch sử xếp lớp, cổng giáo viên và báo cáo tiếp tục dùng chuỗi RPC/truy vấn quan hệ hiện có. Các truy vấn đăng ký đọc V_DANG_KY_MON_HOC; hàm ghi chuẩn hóa ghi nhu cầu vào DANG_KY_MON_HOC và chỉ ghi quan hệ lớp vào XEP_LOP_DANG_KY. Truy vết xếp lớp ghi theo thay đổi quan hệ xếp lớp, không ghi lặp khi chỉ sửa thông tin cá nhân.
+
+Mapper bỏ subject/model/level/status/currentClassCode/scheduleSlots ở cấp hồ sơ khỏi dữ liệu ghi. Thay đổi nhu cầu được gửi trong registrations → dangkymonhoc. SQL chặn trình duyệt cũ cố ghi lại các trường hồ sơ đã bỏ. Tạo hồ sơ cần ít nhất một đăng ký; ràng buộc kiểm tra theo giao dịch cho phép tạo hồ sơ và đăng ký cùng một lần lưu.
+
+Tạm dừng giữ quan hệ xếp lớp. Dừng/kết thúc giải phóng quan hệ và đưa đăng ký về Chờ xếp lớp như trước. Giữ kiểm tra quyền, giới hạn sĩ số, môn/trình độ/mô hình/khối phù hợp, lịch chồng và quy tắc phải dừng lớp trước khi rút học sinh.
+
+### Vì sao những giá trị giống nhau được giữ
+
+Khối hiện tại của hồ sơ và khối lúc bắt đầu đợt là hai sự thật có thời điểm khác nhau. Đăng ký hiện tại và đợt cũ có khóa đợt khác nhau, không phải hai bản sao cùng một đợt. Lịch mong muốn của đăng ký khác lịch vận hành lớp. Truy vết xếp lớp là sự kiện đã xảy ra, khác quan hệ lớp hiện tại. Thông tin cha/mẹ trong hồ sơ là liên hệ theo vai trò được khai báo cho học sinh; không suy đoán danh tính người giám hộ hoặc gộp người chỉ dựa vào họ tên/số điện thoại.
+
+### Đối soát trước khi bỏ dữ liệu cũ
+
+Chạy [student_enrollment_legacy.sql](diagnostics/student_enrollment_legacy.sql). Migration dừng nguyên giao dịch nếu bộ cột cũ không khớp đăng ký thực tế nào, có ca cũ chưa khớp nguồn lịch theo môn, khối nhập học cũ không xác định duy nhất cấp, lịch sử có trạng thái khác đợt đã thôi học, hoặc gặp bản ghi trùng vi phạm các UNIQUE mới. Không tự ghi đè sự khác biệt, không tự ghép theo tên, không tự bịa đợt học/lớp/ngày đăng ký.
+
+Những giá trị khối nhập học đã từng bị trigger cũ đồng bộ theo khối hiện tại không thể tự khôi phục về thời điểm ban đầu nếu không có chứng từ; migration giữ giá trị đang có và từ nay ngăn ghi đè tiếp. Các script kiểm thử có bước đối soát fixture cục bộ; bước đó không nằm trong migration dữ liệu thật.
+
+### Đánh giá 3NF trong phạm vi nhóm bảng này
+
+HOC_SINH chỉ giữ thuộc tính hồ sơ theo khóa học sinh. DANG_KY_MON_HOC giữ thuộc tính của nhu cầu/vòng đời theo khóa học sinh–môn, không còn mã lớp tạo phụ thuộc bắc cầu. XEP_LOP_DANG_KY chỉ chứa khóa liên kết, có hai khóa ứng viên học sinh–môn và học sinh–lớp. Hai bảng lịch giữ ca theo toàn bộ khóa đăng ký/đợt và thứ tự; không lưu nhãn ngày/khung giờ. Lịch sử giữ sự thật của từng đợt đóng theo đầy đủ khóa học sinh–môn–đợt, không lưu trạng thái hằng có thể suy ra. Các tên danh mục được JOIN từ nguồn.
+
+Theo các phụ thuộc nghiệp vụ được rà, nhóm quan hệ trên đáp ứng 3NF. Không suy rộng kết luận sang LOP_HOC, BUOI_HOC, dự giờ hoặc toàn bộ CSDL; các phân hệ đó vẫn cần rà riêng. Migration chỉ được chạy và kiểm thử trên PostgreSQL cục bộ, chưa áp dụng lên Supabase thật.

@@ -7,7 +7,8 @@ export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly s
   role_groups: ['userCount'],
   lesson_incidents: ['fromClassPause'],
   dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseCategoryId', 'pauseNote'],
-  students: ['classHistory','registrationHistory'],
+  // Student scalar study fields are a read projection; only registrations writes study data.
+  students: ['classHistory','registrationHistory','subject','model','level','status','currentClassCode','scheduleSlots'],
   sop_documents: ['category'],
   rag_bot_config: ['quickPrompts'],
   teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull', 'evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores'],
@@ -58,11 +59,6 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
       const parsed = new Date(iso + 'T00:00:00Z');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10) !== iso) throw new Error('Ngày dự giờ không hợp lệ: ' + raw);
       result[fields[field]] = iso;
-      continue;
-    }
-    // Nhãn hiển thị cũ không phải mã lớp hợp lệ; học sinh chưa ghép lớp lưu NULL.
-    if (dataset === 'students' && field === 'currentClassCode' && content === 'Chưa xếp lớp') {
-      result[fields[field]] = null;
       continue;
     }
     // Undefined trong trường có mặt nghĩa là người dùng xóa giá trị tùy chọn.

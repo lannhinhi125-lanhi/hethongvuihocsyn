@@ -466,4 +466,5 @@ try {
  assert.deepEqual((await db.query(file('supabase/diagnostics/account_dependencies.sql'))).rows,[]);
  await db.exec(file('supabase/reset_demo_dataset.sql'));await business();await accountSession();
  console.log('PASS account dependencies: no new storage tables, three columns removed, unchanged source facts, preflight rollback, repeated migration, real teacher create/edit/login, role reassign/rename, derived avatar, prohibited derived writes and compatible payroll/reset');
+ await (await import('./studentNormalizationCases.mjs')).verifyStudentNormalization(db,token);
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}

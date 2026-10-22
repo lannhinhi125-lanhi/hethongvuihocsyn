@@ -217,14 +217,17 @@ DO $rosters$ DECLARE c record; next_i integer:=1; amount integer; BEGIN
 END $rosters$;
 UPDATE demo_students SET class_i=11 WHERE i IN (33,34);
 UPDATE demo_students SET class_i=12 WHERE i IN (37,38);
-INSERT INTO vuihoc."HOC_SINH"(madinhdanh,hoten,mamonhoc,mamohinh,matrinhdo,macaphoc,makhoi,hotencha,sodienthoaicha,hotenme,sodienthoaime,trangthai,ngaytao)
- SELECT 'DEMO-HS-'||lpad(s.i::text,3,'0'),s.name,coalesce(c.subject,CASE WHEN s.i%2=1 THEN 'SUB-MATH' ELSE 'SUB-ENG' END),
- coalesce(c.model,'1-3'),coalesce(c.level,'LVL-STD'),'CAP-TH',k.madinhdanh,
- split_part(s.name,' ',1)||' Văn Thành','091200'||lpad(s.i::text,4,'0'),
- (ARRAY['Nguyễn','Trần','Lê','Phạm'])[(s.i-1)%4+1]||' Thị Lan','092300'||lpad(s.i::text,4,'0'),
- CASE WHEN s.class_i IS NOT NULL THEN 'DANG_HOC' WHEN s.i<=36 THEN 'CHO_XEP_LOP' WHEN s.i<=38 THEN 'BAO_LUU' ELSE 'DA_THOI_HOC' END,'2026-08-28'
+INSERT INTO vuihoc."HOC_SINH"
+ SELECT (jsonb_populate_record(NULL::vuihoc."HOC_SINH",jsonb_build_object(
+ 'madinhdanh','DEMO-HS-'||lpad(s.i::text,3,'0'),'hoten',s.name,'mamonhoc',coalesce(c.subject,CASE WHEN s.i%2=1 THEN 'SUB-MATH' ELSE 'SUB-ENG' END),
+ 'mamohinh',coalesce(c.model,'1-3'),'matrinhdo',coalesce(c.level,'LVL-STD'),'macaphoc','CAP-TH','makhoi',k.madinhdanh,
+ 'hotencha',split_part(s.name,' ',1)||' Văn Thành','sodienthoaicha','091200'||lpad(s.i::text,4,'0'),
+ 'hotenme',(ARRAY['Nguyễn','Trần','Lê','Phạm'])[(s.i-1)%4+1]||' Thị Lan','sodienthoaime','092300'||lpad(s.i::text,4,'0'),
+ 'trangthai',CASE WHEN s.class_i IS NOT NULL THEN 'DANG_HOC' WHEN s.i<=36 THEN 'CHO_XEP_LOP' WHEN s.i<=38 THEN 'BAO_LUU' ELSE 'DA_THOI_HOC' END,
+ 'ngaytao','2026-08-28','ngaycapnhat',statement_timestamp()))).*
  FROM demo_students s LEFT JOIN demo_classes c ON c.i=s.class_i
  JOIN vuihoc."LUA_CHON_CAP_HOC" k ON k.macaphoc='CAP-TH' AND k.nhan='Lớp '||coalesce(c.grade,3);
+IF to_regclass('vuihoc."V_DANG_KY_MON_HOC"') IS NULL THEN
 INSERT INTO vuihoc."DANG_KY_MON_HOC"(mahocsinh,mamonhoc,matrinhdo,mamohinh,malop,trangthai,ngaydangky)
  SELECT h.madinhdanh,h.mamonhoc,h.matrinhdo,h.mamohinh,c.id,h.trangthai,'2026-08-28T09:00:00+07'
  FROM demo_students s JOIN vuihoc."HOC_SINH" h ON h.madinhdanh='DEMO-HS-'||lpad(s.i::text,3,'0') LEFT JOIN demo_classes c ON c.i=s.class_i;
@@ -237,6 +240,21 @@ INSERT INTO vuihoc."LICH_DANG_KY_MON_HOC" SELECT d.mahocsinh,d.mamonhoc,l.thutu,
  FROM vuihoc."DANG_KY_MON_HOC" d JOIN vuihoc."LICH_LOP" l ON l.malop=d.malop;
 INSERT INTO vuihoc."LICH_DANG_KY_MON_HOC" SELECT d.mahocsinh,d.mamonhoc,1,CASE WHEN d.mamonhoc='SUB-MATH' THEN 1 ELSE 2 END,
  (SELECT slot FROM demo_classes WHERE i=5) FROM vuihoc."DANG_KY_MON_HOC" d WHERE d.malop IS NULL;
+ELSE
+INSERT INTO vuihoc."V_DANG_KY_MON_HOC"(mahocsinh,mamonhoc,matrinhdo,mamohinh,malop,trangthai,ngaydangky)
+ SELECT 'DEMO-HS-'||lpad(s.i::text,3,'0'),coalesce(c.subject,CASE WHEN s.i%2=1 THEN 'SUB-MATH' ELSE 'SUB-ENG' END),
+ coalesce(c.level,'LVL-STD'),coalesce(c.model,'1-3'),c.id,
+ CASE WHEN s.class_i IS NOT NULL THEN 'DANG_HOC' WHEN s.i<=36 THEN 'CHO_XEP_LOP' WHEN s.i<=38 THEN 'BAO_LUU' ELSE 'DA_THOI_HOC' END,'2026-08-28T09:00:00+07'
+ FROM demo_students s LEFT JOIN demo_classes c ON c.i=s.class_i;
+INSERT INTO vuihoc."V_DANG_KY_MON_HOC"(mahocsinh,mamonhoc,matrinhdo,mamohinh,malop,trangthai,ngaydangky)
+ SELECT 'DEMO-HS-'||lpad(s.i::text,3,'0'),c.subject,c.level,c.model,c.id,'DANG_HOC','2026-09-01T09:00:00+07'
+ FROM demo_students s JOIN demo_classes c ON c.i=CASE WHEN s.class_i=5 THEN 6 ELSE 5 END
+ WHERE s.i IN (SELECT min(i) FROM demo_students WHERE class_i IN (5,6) GROUP BY class_i);
+INSERT INTO vuihoc."LICH_DANG_KY_MON_HOC" SELECT d.mahocsinh,d.mamonhoc,l.thutu,l.thutrongtuan,l.makhunggio
+ FROM vuihoc."V_DANG_KY_MON_HOC" d JOIN vuihoc."LICH_LOP" l ON l.malop=d.malop;
+INSERT INTO vuihoc."LICH_DANG_KY_MON_HOC" SELECT d.mahocsinh,d.mamonhoc,1,CASE WHEN d.mamonhoc='SUB-MATH' THEN 1 ELSE 2 END,
+ (SELECT slot FROM demo_classes WHERE i=5) FROM vuihoc."V_DANG_KY_MON_HOC" d WHERE d.malop IS NULL;
+END IF;
 
 -- The existing schedule generator creates lessons. Never INSERT generated rows.
 PERFORM vuihoc.dong_bo_ca_theo_lich(date '2026-09-01',date '2026-10-31');
@@ -286,9 +304,12 @@ UPDATE vuihoc."BUOI_HOC" b SET ketthucluc=vuihoc.gio_ket_thuc_ca(b.ngayhoc,b.bat
 UPDATE vuihoc."BUOI_HOC" b SET trangthai='NGHI_HOC',nhatky='Phụ huynh xin nghỉ trước buổi học.'
  FROM demo_lessons x WHERE x.id=b.madinhdanh AND x.scenario='CANCELLED';
 UPDATE vuihoc."LOP_HOC" SET trangthai='TAM_DUNG' WHERE madinhdanh='DEMO-LOP-012';
-UPDATE vuihoc."DANG_KY_MON_HOC" SET trangthai='BAO_LUU'
- WHERE mahocsinh IN ('DEMO-HS-037','DEMO-HS-038') AND malop IS NULL;
-UPDATE vuihoc."HOC_SINH" SET trangthai='BAO_LUU' WHERE madinhdanh IN ('DEMO-HS-037','DEMO-HS-038');
+UPDATE vuihoc."DANG_KY_MON_HOC" d SET trangthai='BAO_LUU'
+ WHERE mahocsinh IN ('DEMO-HS-037','DEMO-HS-038') AND NOT EXISTS(
+ SELECT 1 FROM vuihoc."LOP_HOC" l WHERE d.mahocsinh=ANY(vuihoc.hoc_sinh_lop(l.madinhdanh)));
+IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='HOC_SINH' AND column_name='trangthai') THEN
+ UPDATE vuihoc."HOC_SINH" SET trangthai='BAO_LUU' WHERE madinhdanh IN ('DEMO-HS-037','DEMO-HS-038');
+END IF;
 
 INSERT INTO vuihoc."DIEM_DANH_BUOI_HOC"(mabuoi,mahocsinh,trangthai,ghichu,manguoicapnhat)
  SELECT n.mabuoi,n.mahocsinh,CASE WHEN right(n.mahocsinh,3)::integer%9=0 AND x.lesson_no%4=0 THEN 'absent'

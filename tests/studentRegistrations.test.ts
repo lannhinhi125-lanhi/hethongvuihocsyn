@@ -22,6 +22,7 @@ assert.equal(studentScheduleConflict('HS-1',english,[math]),false);
 assert.equal(studentScheduleConflict('HS-1',{...english,schedule:'T2 (18:30 - 19:30)'},[math]),true);
 assert.equal(studentScheduleConflict('HS-1',{...english,schedule:math.schedule},[{...math,status:'Dừng lớp'}]),false);
 const encoded=toSupabaseRow('students',next);
+for(const key of ['mamonhoc','mamohinh','matrinhdo','trangthai','malophientai','lichdangky'])assert.equal(Object.hasOwn(encoded,key),false,'study facts must not be copied onto the profile: '+key);
 assert.equal((encoded.dangkymonhoc as any[])[0].status,'CHO_XEP_LOP');
 assert.deepEqual(fromSupabaseRow('students',encoded).registrations,next.registrations);
 const simultaneous=updateStudentRegistration(student,{registrations:[
