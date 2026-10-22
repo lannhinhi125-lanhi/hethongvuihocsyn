@@ -1,3 +1,4 @@
+import {classPauseReasons,pauseReasonKey} from '../lib/classPause';
 import { readRoomLinkFile } from '../lib/roomLinkImport';
 import { ReportSelect } from '../components/ReportSelect';
 import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
@@ -124,7 +125,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClasses,
     teachers,
     timeSlots,
-    subjects, levels, models, teachingCategories,
+    subjects, levels, models, teachingCategories, incidents,
     addStudent,
     updateStudent,
     deleteStudent,
@@ -143,20 +144,20 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [pauseClassIds, setPauseClassIds] = useState<string[]>([]);
   const [pauseReason, setPauseReason] = useState('');
   const [pauseNote, setPauseNote] = useState('');
-  const [pauseCatalogs] = useBusinessValue<ClassDurationCatalog[]>('custom_catalogs');
-  const pauseReasons = pauseCatalogs.find(catalog => catalog.code === 'CLASS_PAUSE_REASON')?.entries.filter(entry => entry.status) || [];
+  const pauseReasons = classPauseReasons(incidents,true);
   const openPause = (items: ClassItem[]) => {
-    const reason = items.length === 1 ? items[0].pauseReason || '' : '';
+    const reason = items.length === 1 && items[0].pauseReason && items[0].pauseCategoryId ? pauseReasonKey(items[0].pauseCategoryId,items[0].pauseReason) : '';
     setPauseClassIds(items.map(item => item.id));
-    setPauseReason(pauseReasons.some(entry => entry.id === reason) ? reason : '');
-    setPauseNote(items.length === 1 ? items[0].pauseNote || (reason && !pauseReasons.some(entry => entry.id === reason) ? reason : '') : '');
+    setPauseReason(pauseReasons.some(entry => entry.key === reason) ? reason : '');
+    setPauseNote(items.length === 1 ? items[0].pauseNote || (reason && !pauseReasons.some(entry => entry.key === reason) ? reason : '') : '');
   };
   const savePause = async () => {
-    const reason = pauseReasons.find(entry => entry.id === pauseReason)?.id;
+    const reason = pauseReasons.find(entry => entry.key === pauseReason);
     if (!reason || !requirePermission('Tạo, sửa, xóa lớp và cập nhật link phòng học')) return;
+    if(!reason.isScheduledBreak && reason.creditCoeff===undefined){showToast('Loại sự cố chưa được cấu hình hệ số công. Vui lòng kiểm tra danh mục.', 'warning');return;}
     const ids = new Set(pauseClassIds);
-    setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? {...item, paused:true, pauseReason:reason, pauseNote:pauseNote.trim() || null} : item));
-    try { await waitForBusinessSave(); setPauseClassIds([]); showToast('Đã lưu lý do tạm dừng.', 'success'); } catch { showToast('Không lưu được lý do tạm dừng. Vui lòng thử lại.', 'error'); }
+    setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? {...item, paused:true, pauseReason:reason.id, pauseCategoryId:reason.categoryId, pauseNote:pauseNote.trim() || null} : item));
+    try { await waitForBusinessSave(); setPauseClassIds([]); showToast('Đã lưu lý do tạm dừng.', 'success'); } catch(error) { showToast(error instanceof Error ? error.message : 'Không lưu được lý do tạm dừng. Vui lòng thử lại.', 'error'); }
   };
   const [viewingClassId, setViewingClassId] = useState<string | null>(null);
   const viewingClass = classes.find(item => item.id === viewingClassId);
@@ -1271,7 +1272,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {pauseClassIds.length > 0 && createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-label="Lý do tạm dừng lớp" className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6"><h2 className="text-lg font-bold">Lý do tạm dừng ({pauseClassIds.length} lớp)</h2><p className="text-sm text-slate-600">Giữ nguyên giáo viên và học sinh. Lớp chỉ học lại khi bạn chọn Tiếp tục lớp. Bạn có thể sửa lý do khi lớp đang nghỉ.</p><label className="block text-sm">Lý do<ReportSelect value={pauseReason} onChange={event => setPauseReason(event.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="" disabled>Chọn lý do tạm dừng</option>{pauseReasons.map(reason => <option key={reason.id} value={reason.id}>{reason.name}</option>)}</ReportSelect></label>{!pauseReasons.length && <p className="text-sm text-amber-700">Chưa có lý do đang áp dụng. Vui lòng cấu hình danh mục Lý do tạm dừng lớp.</p>}<textarea aria-label="Chi tiết lý do khác" placeholder="Nhập lý do tạm dừng" value={pauseNote} onChange={event => setPauseNote(event.target.value)} className="w-full rounded-lg border p-2" /><div className="flex justify-end gap-2"><button type="button" onClick={() => setPauseClassIds([])} className="rounded-lg border px-4 py-2">Hủy</button><button type="button" disabled={!pauseReasons.some(entry => entry.id === pauseReason) || isSavingChanges} onClick={savePause} className="rounded-lg bg-orange-600 px-4 py-2 text-white disabled:opacity-40">Lưu lý do</button></div></div></div>, document.body)}
+      {pauseClassIds.length > 0 && createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-label="Tạm dừng lớp" className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6"><h2 className="text-lg font-bold">Tạm dừng ({pauseClassIds.length} lớp)</h2><p className="text-sm text-slate-600">Giữ nguyên giáo viên và học sinh. Lớp chỉ học lại khi bạn chọn Tiếp tục lớp. Bạn có thể sửa lý do khi lớp đang nghỉ.</p><label className="block text-sm">Loại sự cố / nghỉ học<ReportSelect value={pauseReason} onChange={event => setPauseReason(event.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="" disabled>Chọn từ danh mục sự cố</option>{pauseReasons.map(reason => <option key={reason.key} value={reason.key} disabled={!reason.isScheduledBreak && reason.creditCoeff===undefined}>{reason.group} · {reason.name}{!reason.isScheduledBreak && reason.creditCoeff===undefined ? ' (chưa có hệ số công)' : ''}</option>)}</ReportSelect></label>{!pauseReasons.length && <p className="text-sm text-amber-700">Chưa có lý do đang áp dụng. Vui lòng bật “Cho phép tạm dừng lớp” cho loại tương ứng trong Danh mục sự cố.</p>}<textarea aria-label="Chi tiết lý do khác" placeholder="Nhập lý do tạm dừng" value={pauseNote} onChange={event => setPauseNote(event.target.value)} className="w-full rounded-lg border p-2" /><div className="flex justify-end gap-2"><button type="button" onClick={() => setPauseClassIds([])} className="rounded-lg border px-4 py-2">Hủy</button><button type="button" disabled={!pauseReasons.some(entry => entry.key === pauseReason) || isSavingChanges} onClick={savePause} className="rounded-lg bg-orange-600 px-4 py-2 text-white disabled:opacity-40">Lưu lý do</button></div></div></div>, document.body)}
       {/* Header Banner Phân hệ 4 Quản trị chuẩn Figma */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div>

@@ -74,6 +74,8 @@ export interface IncidentCategory {
 }
 
 export interface SubIncidentItem {
+  allowClassPause?: boolean;
+  isScheduledBreak?: boolean;
   /** Hệ số công theo loại sự cố; undefined nghĩa là chưa cấu hình. */
   creditCoeff?: number;
   noticeType?: 'advance' | 'unannounced' | 'unspecified';
@@ -212,6 +214,7 @@ export interface ClassCoverAssignment {
 export interface ClassItem {
   paused?: boolean;
   pauseReason?: string | null;
+  pauseCategoryId?: string | null;
   pauseNote?: string | null;
   durationMonths?: number | null;
   endDate?: string | null;

@@ -47,14 +47,14 @@ REVOKE ALL ON FUNCTION vuihoc.chuan_hoa_diem_du_gio() FROM PUBLIC,anon,authentic
 
 
 
--- Suspend ONLY the two guards preventing an intentional full history deletion.
+-- Suspend only history guards needed by this explicitly requested full reset.
 -- Save and restore exact trigger states; all FKs and other validation remain on.
 CREATE TEMP TABLE demo_guard_states ON COMMIT DROP AS
  SELECT n.nspname,c.relname,t.tgname,t.tgenabled FROM pg_trigger t
  JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
  JOIN pg_proc p ON p.oid=t.tgfoid
  WHERE n.nspname='vuihoc' AND NOT t.tgisinternal
- AND p.proname IN ('kiem_tra_ky_cong_buoi','ghi_cong_khi_luu_nhan_xet');
+ AND p.proname IN ('kiem_tra_ky_cong_buoi','ghi_cong_khi_luu_nhan_xet','bao_ve_su_co_tam_dung');
 DO $disable$ DECLARE r record; BEGIN
  FOR r IN SELECT * FROM demo_guard_states LOOP
   EXECUTE format('ALTER TABLE %I.%I DISABLE TRIGGER %I',r.nspname,r.relname,r.tgname);

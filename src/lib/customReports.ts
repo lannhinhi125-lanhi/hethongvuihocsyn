@@ -10,7 +10,7 @@ export type ReportRecord = Record<string, string | number | undefined>;
 export type ReportFilterValue = string | string[];
 export type ReportFilters = Record<string, ReportFilterValue>;
 export interface ReportChoice { value: string; label: string; group?: string; depth?: number }
-export interface ReportDimension { id: string; label: string; options?: string[]; choices?: ReportChoice[]; recordField?: string }
+export interface ReportDimension { id: string; label: string; options?: string[]; choices?: ReportChoice[]; recordField?: string; previousIds?: string[]; valueAliases?: Record<string,string> }
 export const reportFilterValues = (value: ReportFilterValue | undefined): string[] => Array.isArray(value) ? value.filter(Boolean) : value ? [value] : [];
 export const matchesReportFilter = (actual: unknown, selected: ReportFilterValue | undefined): boolean => !reportFilterValues(selected).length || reportFilterValues(selected).includes(String(actual ?? ''));
 export const reportFilterLabel = (field: ReportDimension | undefined, value: ReportFilterValue): string => reportFilterValues(value).map(key => field?.choices?.find(item => item.value === key)?.label || key).join(', ');
@@ -68,9 +68,27 @@ export function defaultReportConfig(dataset: ReportDataset): CustomReportConfig 
     datePreset: dataset.dateKind === 'snapshot' ? 'all' : 'month', from: '', to: '', filters: {}, sort: 'value_desc'
   };
 }
+// Read saved filters from before catalog unification without exposing duplicate controls.
+function migrateReportFields<T extends Partial<CustomReportConfig>>(dataset: ReportDataset, raw: T): T {
+  const filters = {...raw.filters};
+  let groupBy = raw.groupBy;
+  for (const field of dataset.filters) {
+    for (const previous of field.previousIds || []) {
+      if (filters[previous] !== undefined && filters[field.id] === undefined) {
+        const value=filters[previous];
+        const resolve=(key:string)=>field.valueAliases?.[key] || key;
+        filters[field.id]=Array.isArray(value)?value.map(resolve):resolve(value);
+      }
+      delete filters[previous];
+      if (groupBy === previous) groupBy = field.id;
+    }
+  }
+  return {...raw,filters,groupBy};
+}
 export function normalizeReportConfig(value: unknown, datasets: ReportDataset[]): CustomReportConfig {
-  const raw = value && typeof value === 'object' ? value as Partial<CustomReportConfig> : {};
+  let raw = value && typeof value === 'object' ? value as Partial<CustomReportConfig> : {};
   const dataset = datasets.find(item => item.id === raw.datasetId) || datasets[0];
+  raw = migrateReportFields(dataset,raw);
   const fallback = defaultReportConfig(dataset);
   const metricIds = Array.isArray(raw.metricIds)
     ? [...new Set(raw.metricIds.filter(id => typeof id === 'string' && dataset.metrics.some(metric => metric.id === id)))]
@@ -153,6 +171,7 @@ function groupLabel(key: string, groupBy: string): string {
 }
 export interface ReportResult { rows: ReportGroup[]; records: ReportRecord[]; metrics: ReportMetric[]; totals: Record<string, number | null>; range: { from: string; to: string }; invalidRange: boolean }
 export function buildCustomReport(dataset: ReportDataset, config: CustomReportConfig, now = new Date()): ReportResult {
+  config = migrateReportFields(dataset,config);
   config = { ...config, filters: Object.fromEntries(Object.entries(config.filters).map(([id, value]) => {
     const choices = dataset.filters.find(field => field.id === id)?.choices;
     const resolve = (key: string) => {

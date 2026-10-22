@@ -2,7 +2,8 @@ import { APP_DATABASE_FIELDS, DATABASE_NAMES } from './databaseNames';
 export type SupabaseDataset = keyof typeof APP_DATABASE_FIELDS;
 type DataRow = Record<string, unknown>;
 export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly string[]>> = {
-  dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseNote'],
+  lesson_incidents: ['fromClassPause'],
+  dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseCategoryId', 'pauseNote'],
   students: ['classHistory','registrationHistory'],
   sop_documents: ['category'],
   rag_bot_config: ['quickPrompts'],
@@ -87,6 +88,16 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     if (Object.hasOwn(row,column)) result[field] = row[column];
   }
   if (dataset === 'users') result.passwordRaw = '';
+  if (dataset === 'report_templates') {
+    const config = result.config as {filters?:Record<string,unknown>} | undefined;
+    const value = config?.filters?.pauseReason;
+    if (typeof value === 'string') {
+      try {
+        const keys:unknown = JSON.parse(value);
+        if (Array.isArray(keys) && keys.every(key => typeof key === 'string' && (key.startsWith('[') || key.startsWith('__')))) result.config = {...config,filters:{...config!.filters,pauseReason:keys}};
+      } catch { /* A scalar filter remains a scalar. */ }
+    }
+  }
   if (dataset === 'students' && Array.isArray(result.registrations)) {
     result.registrations = result.registrations.map(item => ({ ...item,
       status: Object.entries(STATUS_CODES.students).find(([, code]) => code === item.status)?.[0] || item.status,

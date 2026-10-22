@@ -1,4 +1,4 @@
-import { lessonPauseLabel, type PauseCatalog } from '../lib/classPause';
+import { lessonPauseLabel } from '../lib/classPause';
 import { ReportSelect } from '../components/ReportSelect';
 import { MultiSelectColumnFilter, CheckboxFilterOptions } from '../components/MultiSelectColumnFilter';
 import { canTeachClassModel } from '../lib/teachingModelGroups';
@@ -59,6 +59,8 @@ export interface MonitoringSession {
   hasPersistedStatus?: boolean;
   feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
   status: MonitoringSessionState;
+  fromClassPause?: boolean;
+  pauseCategoryId?: string | null;
   pausedByClass?: boolean;
   pauseReason?: string | null;
   pauseNote?: string | null;
@@ -96,7 +98,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Danh sách ca dạy toàn hệ thống
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
-  const [pauseCatalogs] = useBusinessValue<PauseCatalog[]>('custom_catalogs');
   const [persistedLessons] = useBusinessValue<Record<string,any>[]>('dated_lessons');
   const [persistedIncidents] = useBusinessValue<Record<string,any>[]>('lesson_incidents');
   const saveSessions = (action: React.SetStateAction<MonitoringSession[]>) => {
@@ -389,11 +390,12 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Mở Modal Sự cố
   const openIncidentModal = (session: MonitoringSession) => {
+    if(session.fromClassPause){showToast('Sự cố này liên kết với tạm dừng lớp. Hãy sửa lý do tại màn hình quản lý lớp để đồng bộ các buổi liên quan.', 'warning');return;}
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     setSelectedIncidentSession(session);
     const parent = session.incidentParent || '';
     setIncParent(parent);
-    const childList = incidents.find(group => group.code === parent)?.subIncidents.filter(item => item.status) || [];
+    const childList = incidents.find(group => group.code === parent)?.subIncidents.filter(item => item.status && !item.isScheduledBreak) || [];
     setIncChild(session.incidentChild || (session.status === 'NGHI_HOC' ? '' : childList[0]?.code || ''));
     setIncUrgency(session.incidentUrgency || 'EMERGENCY');
     setIncStatus(session.incidentStatus || 'DANG_XU_LY');
@@ -822,7 +824,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                               </span>
                             ) : s.status === 'NGHI_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200">
-                                <span className="w-2 h-2 rounded-full bg-amber-500" /> {lessonPauseLabel(s, pauseCatalogs) || 'Nghỉ học'}
+                                <span className="w-2 h-2 rounded-full bg-amber-500" /> {lessonPauseLabel(s, incidents) || 'Nghỉ học'}
                               </span>
                             ) : null}
                           </td>
@@ -1190,7 +1192,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
                       <option value="" disabled>Chọn loại sự cố</option>
-                      {(incidents.find(group => group.code === incParent)?.subIncidents || []).filter(item => item.status || item.code === incChild).map(item => (
+                      {(incidents.find(group => group.code === incParent)?.subIncidents || []).filter(item => !item.isScheduledBreak && (item.status || item.code === incChild)).map(item => (
                         <option key={item.code} value={item.code}>{item.name}</option>
                       ))}
                     </ReportSelect>

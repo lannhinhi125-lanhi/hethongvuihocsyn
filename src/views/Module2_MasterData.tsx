@@ -323,7 +323,7 @@ export const Module2_MasterData: React.FC = () => {
         { id: 'times', name: 'Khung giờ học', group: 'Tổ chức lớp học', count: timeSlots.length },
         { id: 'durations', catalogCode: 'CLASS_DURATION', name: durationCatalogs.find(row=>row.code==='CLASS_DURATION')?.name || 'Thời hạn lớp học', group: 'Tổ chức lớp học', count: durationCatalogs.find(row=>row.code==='CLASS_DURATION')?.entries.length||0 },
         { id: 'document-types', name: 'Loại tài liệu', group: 'Vận hành', count: documentCategories.length },
-        { id: 'incidents', name: 'Sự cố & Hệ số công', group: 'Vận hành', count: incidents.length }
+        { id: 'incidents', name: 'Danh mục sự cố', group: 'Vận hành', count: incidents.length }
       ]}>
       <div className="space-y-3">
       {activeTab !== 'teaching' && activeTab !== 'incidents' && <div className="relative max-w-sm">

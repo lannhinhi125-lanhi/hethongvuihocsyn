@@ -1,5 +1,6 @@
+import { incidentCatalogFields } from './reportIncidentCatalog';
 import type { ClassItem, StudentRecord, TeacherProfile } from '../types';
-import { pauseReasonName } from './classPause';
+import { pauseReasonName, pauseReasonKey } from './classPause';
 import {studentMultiEnrollmentReport} from './studentMultiEnrollmentReport';
 import { makeReportDatasets } from './reportDatasets';
 import { operationalReportDatasets, type ReportLookups } from './operationalReportDatasets';
@@ -44,17 +45,21 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
   const classesDataset = basics.find(dataset => dataset.id === 'classes')!;
   classesDataset.records = classesDataset.records.map(record => {
     const cls = classesByCode.get(String(record.id));
-    return {...record, classStatus:cls?.paused ? 'Tạm dừng' : cls?.status || 'Đang học',
-      pauseReason:cls?.paused ? cls.pauseReason || '__MISSING__' : '__NONE__',
-      pauseReasonName:cls?.paused ? pauseReasonName(cls.pauseReason, lookups.customCatalogs || []) : 'Không tạm dừng'};
+    const category=lookups.incidentCategories?.find(row=>row.id===cls?.pauseCategoryId);
+    const item=category?.subIncidents.find(row=>(row.id||row.code)===cls?.pauseReason);
+    return {...record, incidentGroup:cls?.paused ? cls.pauseCategoryId || '__MISSING__' : '__NONE__',
+      incidentGroupName:cls?.paused ? category?.name || cls.pauseCategoryId || 'Chưa xác định' : 'Không có sự cố',
+      causeKey:cls?.paused ? cls.pauseReason && cls.pauseCategoryId ? pauseReasonKey(cls.pauseCategoryId,item?.code || cls.pauseReason) : '__MISSING__' : '__NONE__',
+      cause:cls?.paused ? item?.name || cls.pauseReason || 'Chưa xác định' : 'Không có sự cố', classStatus:cls?.paused ? 'Tạm dừng' : cls?.status || 'Đang học',
+      pauseReason:cls?.paused ? cls.pauseReason && cls.pauseCategoryId ? pauseReasonKey(cls.pauseCategoryId,cls.pauseReason) : '__MISSING__' : '__NONE__',
+      pauseReasonName:cls?.paused ? pauseReasonName(cls.pauseReason, lookups.incidentCategories || [], cls.pauseCategoryId) : 'Không tạm dừng'};
   });
   const classStatus = {id:'classStatus',label:'Trạng thái hoạt động lớp'};
-  const pauseReason = {id:'pauseReason',label:'Lý do tạm dừng',choices:[
-    {value:'__NONE__',label:'Không tạm dừng'},{value:'__MISSING__',label:'Chưa ghi nhận lý do'},
-    ...(lookups.customCatalogs?.find(catalog => catalog.code === 'CLASS_PAUSE_REASON')?.entries.map(entry => ({value:entry.id,label:entry.name})) || [])]};
-  classesDataset.dimensions.push(classStatus, pauseReason);
-  classesDataset.filters.push(classStatus, pauseReason);
-  classesDataset.detailFields.push(classStatus, {id:'pauseReasonName',label:'Lý do tạm dừng'});
+  const classification = incidentCatalogFields(lookups.incidentCategories || []);
+  const incidentType = {...classification.type,recordField:'causeKey'};
+  classesDataset.dimensions.push(classStatus,classification.group,incidentType);
+  classesDataset.filters.push(classStatus,classification.group,incidentType);
+  classesDataset.detailFields.push(classStatus,{id:'incidentGroupName',label:'Nhóm sự cố'},{id:'cause',label:'Loại sự cố'});
   const growthField = { id: 'growthKind', label: 'Phân loại tăng trưởng', options: Object.values(classGrowthLabels) };
   classesDataset.metrics.push({ id: 'growth', label: 'Lớp mới tăng trưởng', mode: 'sum', field: 'growth' });
   classesDataset.defaultMetricIds = ['count', 'growth', 'available'];

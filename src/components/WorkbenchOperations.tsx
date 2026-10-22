@@ -1,4 +1,4 @@
-import {lessonPauseLabel,type PauseCatalog} from '../lib/classPause';
+import {lessonPauseLabel} from '../lib/classPause';
 import {InfoTitle} from './InfoTitle';
 import React,{useEffect,useMemo,useState} from 'react';
 import {ArrowUpRight,CalendarDays} from 'lucide-react';
@@ -13,9 +13,8 @@ import {PaginatedTableBody} from './Pagination';
 import {SessionStatusChart} from './SessionStatusChart';
 
 export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange;period:WorkbenchPeriod;section:'operations'|'tasks'}){
- const {classes,students,teachers,timeSlots,payrollStore,setActiveModule}=useApp();
+ const {classes,students,teachers,timeSlots,payrollStore,setActiveModule,incidents:incidentCategories}=useApp();
  const {canModule}=usePermissions();
- const [pauseCatalogs]=useBusinessValue<PauseCatalog[]>('custom_catalogs');
  const [lessons]=useBusinessValue<WorkbenchLesson[]>('dated_lessons');
  const [incidents]=useBusinessValue<{status?:string;lessonId?:string;reportedAt?:string}[]>('lesson_incidents');
  const [now,setNow]=useState(()=>new Date());
@@ -64,7 +63,7 @@ export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange
    <div className="flex flex-wrap items-center justify-between gap-3 p-4"><h2 className="flex items-center gap-2 text-sm font-bold text-slate-800"><CalendarDays className="h-4 w-4 text-orange-500"/>{reviewOnly?'Ca cần kiểm tra':'Danh sách ca học trong kỳ'} · {visibleLessons.length} ca</h2><div className="flex gap-2 text-xs"><button type="button" aria-pressed={!reviewOnly} onClick={()=>setReviewOnly(false)} className={`rounded-lg border px-3 py-1.5 ${!reviewOnly?'border-orange-200 bg-orange-50 text-orange-700':'border-slate-200 text-slate-600'}`}>Tất cả</button><button type="button" aria-pressed={reviewOnly} onClick={()=>setReviewOnly(true)} className={`rounded-lg border px-3 py-1.5 ${reviewOnly?'border-rose-200 bg-rose-50 text-rose-700':'border-slate-200 text-slate-600'}`}>Cần kiểm tra</button></div></div>
    {teacherFilter&&<div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-indigo-50 px-4 py-2 text-xs text-indigo-700"><span>Giáo viên: {teachers.find(t=>t.id===teacherFilter)?.name||teacherFilter}</span><button type="button" onClick={()=>setTeacherFilter('')} className="font-semibold underline">Bỏ lọc giáo viên</button></div>}
    <div className="max-h-80 overflow-auto"><table className="w-full min-w-[600px] text-left text-xs"><thead className="bg-slate-50 text-[11px] text-slate-500"><tr><th className="p-3">Ngày</th><th className="p-3">Giờ học</th><th className="p-3">Lớp</th><th className="p-3">Giáo viên</th><th className="p-3">Trạng thái</th></tr></thead>
-    <PaginatedTableBody>{visibleLessons.map(row=><tr key={row.lesson.id} className="border-t border-slate-100"><td className="p-3 whitespace-nowrap">{dateLabel(row.lesson.date)}</td><td className="p-3 whitespace-nowrap">{row.time}</td><td className="p-3">{row.className}</td><td className="p-3">{row.teacherName}{row.lesson.coverTeacherId&&<span className="ml-1 text-[10px] text-indigo-600">(Dạy thay)</span>}</td><td className={`p-3 font-semibold ${row.reviewReason?'text-rose-600':'text-slate-600'}`}>{lessonPauseLabel(row.lesson,pauseCatalogs)||labels[row.state]||row.state}{row.reviewReason&&<div className="mt-1 text-[11px] font-normal">{row.reviewReason}</div>}</td></tr>)}{!visibleLessons.length&&<tr><td colSpan={5} className="p-8 text-center text-slate-400">{reviewOnly?'Không có ca cần kiểm tra trong kỳ đã chọn.':'Chưa có ca học trong kỳ đã chọn.'}</td></tr>}</PaginatedTableBody>
+    <PaginatedTableBody>{visibleLessons.map(row=><tr key={row.lesson.id} className="border-t border-slate-100"><td className="p-3 whitespace-nowrap">{dateLabel(row.lesson.date)}</td><td className="p-3 whitespace-nowrap">{row.time}</td><td className="p-3">{row.className}</td><td className="p-3">{row.teacherName}{row.lesson.coverTeacherId&&<span className="ml-1 text-[10px] text-indigo-600">(Dạy thay)</span>}</td><td className={`p-3 font-semibold ${row.reviewReason?'text-rose-600':'text-slate-600'}`}>{lessonPauseLabel(row.lesson,incidentCategories)||labels[row.state]||row.state}{row.reviewReason&&<div className="mt-1 text-[11px] font-normal">{row.reviewReason}</div>}</td></tr>)}{!visibleLessons.length&&<tr><td colSpan={5} className="p-8 text-center text-slate-400">{reviewOnly?'Không có ca cần kiểm tra trong kỳ đã chọn.':'Chưa có ca học trong kỳ đã chọn.'}</td></tr>}</PaginatedTableBody>
    </table></div>
   </section>}
  </>;

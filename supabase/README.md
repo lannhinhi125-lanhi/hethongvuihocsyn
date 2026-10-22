@@ -150,3 +150,6 @@ Chạy tiếp `migrations/20261112_class_pause_reason_catalog.sql` sau 20261111.
 Đồng bộ lịch tạm dừng và báo cáo: chạy `migrations/20261113_class_pause_reporting.sql` sau 20261112. Mã lý do, ghi chú và thời điểm đợt tạm dừng được lưu bằng các cột scalar trên buổi học; không thêm cột JSONB. Sửa lý do cập nhật các buổi thuộc cùng đợt; tiếp tục lớp chỉ mở lại buổi tương lai, giữ lịch sử nghỉ đã qua. RPC trả các cột này và cho giáo viên đọc riêng danh mục lý do. Giao diện dùng chung danh mục, tự làm mới khi quay lại cửa sổ và mỗi 30 giây khi đang hiển thị. Dữ liệu nghỉ cũ thiếu mã lý do không tự suy ra sự cố giáo viên.
 
 Rà soát liên kết danh mục (21/10/2026): chạy `migrations/20261114_catalog_query_consistency.sql` sau 20261113. Truy vấn bảng công/giải trình trả mã môn gốc từ danh mục; bảng công nối tên môn bằng `mamonhoc`, không dùng mã định danh dòng. Không thay đổi hệ số hoặc số công đã lưu, không thêm cột JSONB. Giao diện cần cập nhật cùng bản mã nguồn này để bộ lọc dùng mã môn mới.
+
+
+Cập nhật danh mục tạm dừng: chạy `migrations/20261115_pause_incident_catalog.sql` sau 20261114. Lý do nghỉ lễ/Tết chuyển vào nhóm **Khác** trong danh mục sự cố; giáo viên xin nghỉ dùng loại có sẵn. Danh mục bổ sung cũ được thay bằng liên kết nhóm/loại, giữ trạng thái tạm dừng và lịch sử. Xem [Tạm dừng lớp](TEMPORARY_CLASS_PAUSE.md).

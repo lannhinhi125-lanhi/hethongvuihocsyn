@@ -1,4 +1,4 @@
-import { lessonPauseLabel, pauseReasonName, type PauseCatalog } from '../lib/classPause';
+import { lessonPauseLabel, pauseReasonName } from '../lib/classPause';
 import { ReportSelect } from '../components/ReportSelect';
 import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
@@ -31,7 +31,6 @@ import {
 
 export const Module4_TeacherSchedule: React.FC = () => {
   const businessStatus=useBusinessStatus();
-  const [pauseCatalogs] = useBusinessValue<PauseCatalog[]>('custom_catalogs');
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const initialWeek = teachingWeekForDate(new Date());
   const { can, requirePermission, portal } = usePermissions();
@@ -41,7 +40,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   } = useApp();
 
   const [reportedIncidentCode,setReportedIncidentCode]=useState('');
-  const reportableIncidents=incidents.flatMap(group=>group.subIncidents.filter(item=>item.status));
+  const reportableIncidents=incidents.flatMap(group=>group.subIncidents.filter(item=>item.status&&!item.isScheduledBreak));
   const [fromDate, setFromDate] = useState(initialWeek.from);
   const [toDate, setToDate] = useState(initialWeek.to);
 
@@ -451,7 +450,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                           </div>
                         </div>
                         <div className="mt-1 text-[10px] text-slate-600">{cls.name}</div>
-                        {resting && <span className="mt-1.5 inline-flex rounded border border-[#E8C96D] bg-[#FFE8A3] px-1.5 py-0.5 text-[10px] font-semibold text-[#805C16]">{detail.lesson?.pausedByClass ? lessonPauseLabel(detail.lesson, pauseCatalogs) : paused ? 'Tạm dừng lớp · ' + pauseReasonName(cls.pauseReason, pauseCatalogs) : detail.active?.status==='Nghỉ có phép' ? 'Nghỉ có phép' : 'Nghỉ học'}</span>}
+                        {resting && <span className="mt-1.5 inline-flex rounded border border-[#E8C96D] bg-[#FFE8A3] px-1.5 py-0.5 text-[10px] font-semibold text-[#805C16]">{detail.lesson?.pausedByClass ? lessonPauseLabel(detail.lesson, incidents) : paused ? 'Tạm dừng lớp · ' + pauseReasonName(cls.pauseReason, incidents, cls.pauseCategoryId) : detail.active?.status==='Nghỉ có phép' ? 'Nghỉ có phép' : 'Nghỉ học'}</span>}
                         {coverAssignment && <div className="mt-1 text-[10px] font-semibold text-purple-800">{coverAssignment.teacherName}</div>}
                         {!resting && <div className="mt-1.5 line-clamp-2 text-[11px] font-medium text-slate-800">{material?.title}</div>}
                         {!resting && (() => {

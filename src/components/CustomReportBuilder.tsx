@@ -100,11 +100,11 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
   const patch = (updates: Partial<CustomReportConfig>) => setConfig(previous => ({ ...previous, ...updates,
     ...(['filters', 'groupBy', 'from', 'to', 'datePreset'].some(key => Object.hasOwn(updates, key)) && !Object.hasOwn(updates, 'selection') ? { selection: undefined } : {}) }));
   const selectChartGroup = (key: string) => { patch({ selection: config.selection?.key === key ? undefined : { by: config.groupBy, key } }); setSearch(''); };
-  const primaryFilters = dataset.filters.filter(field => ['category', 'grade', 'subject', 'model', 'timeSlot', 'cause', 'rank', 'status'].includes(field.id)).slice(0, 7);
+  const primaryFilters = dataset.filters.filter(field => ['category', 'grade', 'subject', 'model', 'timeSlot', 'incidentGroup', 'cause', 'rank', 'status'].includes(field.id)).slice(0, 7);
   const filterOptions = (field: ReportDataset['filters'][number]) => field.choices || (field.options || [...new Set(dataset.records.map(record => String(record[field.id] ?? '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }))).map(value => ({ value, label: value }));
   const leadingRow = [...result.rows].filter(row => chartMetric && row.values[chartMetric.id] != null).sort((a, b) => (b.values[chartMetric!.id] ?? 0) - (a.values[chartMetric!.id] ?? 0))[0];
   const insight = !result.records.length ? 'Chưa có dữ liệu phù hợp. Hãy thử mở rộng thời gian hoặc bỏ bớt điều kiện lọc.'
-    : dataset.id === 'incidents' && result.totals.incidents === 0 ? `Chưa ghi nhận buổi có sự cố phù hợp trong ${result.totals.total ?? result.records.length} buổi học sau lọc.`
+    : dataset.id === 'incidents' && result.totals.incidents === 0 && !result.totals.breaks ? `Chưa ghi nhận buổi có sự cố phù hợp trong ${result.totals.total ?? result.records.length} buổi học sau lọc.`
     : leadingRow && chartMetric && config.groupBy !== 'all' ? `${leadingRow.label} có ${chartMetric.label.toLocaleLowerCase('vi')} cao nhất: ${formatReportValue(leadingRow.values[chartMetric.id], chartMetric)}.${dataset.id === 'incidents' ? ` Dựa trên ${leadingRow.values.total ?? leadingRow.records.length} buổi học; cần xem cả số buổi khi đánh giá tỷ lệ.` : ''}`
     : `${result.records.length.toLocaleString('vi-VN')} bản ghi phù hợp với thời gian và bộ lọc hiện tại.`;
   const switchDataset = (id: string) => {

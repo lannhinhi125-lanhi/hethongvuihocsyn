@@ -29,11 +29,13 @@ export const IncidentCatalog: React.FC = () => {
   const [desc, setDesc] = useState('');
   const [party, setParty] = useState<SubIncidentItem['targetParty']>('Giáo viên');
   const [notice, setNotice] = useState<NonNullable<SubIncidentItem['noticeType']>>('unspecified');
+  const [allowClassPause,setAllowClassPause]=useState(false);
+  const [isScheduledBreak,setIsScheduledBreak]=useState(false);
   const [coefficient, setCoefficient] = useState('');
   const allRows = incidents.flatMap(parent => parent.subIncidents.map(item => ({ parent, item })));
   const rows = allRows.filter(({ parent, item }) => (!group || parent.id === group) &&
     (item.name + ' ' + item.code + ' ' + parent.name).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')) &&
-    (filter === 'all' || (filter === 'missing' ? item.creditCoeff === undefined : filter === 'active' ? item.status : !item.status)));
+    (filter === 'all' || (filter === 'missing' ? !item.isScheduledBreak && item.creditCoeff === undefined : filter === 'active' ? item.status : !item.status)));
   const visibleGroups = incidents.filter(parent => (!group || parent.id === group) && (
     rows.some(row => row.parent.id === parent.id) ||
     (filter === 'all' && (parent.name + ' ' + parent.code).toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')))
@@ -60,11 +62,12 @@ export const IncidentCatalog: React.FC = () => {
     setEditingId(item?.id || ''); setParentId(parent || group || incidents[0]?.id || '');
     setCode(item?.code || ''); setName(item?.name || ''); setDesc(item?.desc || '');
     setParty(item?.targetParty || 'Giáo viên'); setNotice(item?.noticeType || 'unspecified');
+    setAllowClassPause(item?.allowClassPause ?? false);setIsScheduledBreak(item?.isScheduledBreak ?? false);
     setCoefficient(item?.creditCoeff === undefined ? '' : String(item.creditCoeff)); setDialog(kind);
   };
   return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-3">
-      <div><h3 className="text-sm font-bold text-slate-800">Sự cố & Hệ số công</h3><p className="mt-1 text-[11px] text-slate-500">Bấm nhóm để xổ các sự cố con và cấu hình hệ số công.</p></div>
+      <div><h3 className="text-sm font-bold text-slate-800">Danh mục sự cố</h3><p className="mt-1 text-[11px] text-slate-500">Quản lý sự cố, nghỉ học và lý do tạm dừng lớp trong cùng danh mục.</p></div>
       <div className="flex flex-wrap gap-2"><button type="button" disabled={!canConfigure} className={button} onClick={() => open('group')}><FolderPlus className="h-3.5 w-3.5" />Thêm nhóm</button><button type="button" disabled={!canConfigure || !incidents.length} className={button + ' border-orange-200 bg-orange-50 text-orange-700'} onClick={() => open('incident')}><PlusCircle className="h-3.5 w-3.5" />Thêm sự cố</button></div>
     </header>
     <div className="space-y-2 border-b border-slate-100 p-3">
@@ -97,10 +100,10 @@ export const IncidentCatalog: React.FC = () => {
             </tr>
             </tbody><PaginatedTableBody id={'incident-group-' + parent.id} hidden={!isOpen} className="divide-y divide-slate-100">
                 {children.map(({ item }) => <tr key={item.id} className="hover:bg-slate-50">
-        <td className="border-l-2 border-orange-100 py-2.5 pl-8 pr-3"><button type="button" disabled={!canEdit} onClick={() => open('incident', item, parent.id)} className="text-left font-semibold text-slate-800 hover:text-orange-700">{item.name}</button><p className="mt-1 text-[10px] text-slate-400">{item.code}</p></td>
+        <td className="border-l-2 border-orange-100 py-2.5 pl-8 pr-3"><button type="button" disabled={!canEdit} onClick={() => open('incident', item, parent.id)} className="text-left font-semibold text-slate-800 hover:text-orange-700">{item.name}</button><p className="mt-1 text-[10px] text-slate-400">{item.code}</p>{item.allowClassPause && <p className="mt-1 text-[10px] text-amber-700">Tạm dừng lớp{item.isScheduledBreak ? ' · Nghỉ theo lịch' : ' · Có ghi nhận sự cố'}</p>}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{item.targetParty}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{notices[item.noticeType || 'unspecified']}</td>
-        <td className="whitespace-nowrap px-3 py-2.5">{item.creditCoeff === undefined ? <span className="text-[11px] text-amber-700">Chưa thiết lập</span> : <span className="rounded bg-orange-50 px-2 py-1 font-bold tabular-nums text-orange-700">{item.creditCoeff.toLocaleString('vi-VN')} công</span>}</td>
+        <td className="whitespace-nowrap px-3 py-2.5">{item.isScheduledBreak ? <span className="text-[11px] text-slate-500">Không áp dụng</span> : item.creditCoeff === undefined ? <span className="text-[11px] text-amber-700">Chưa thiết lập</span> : <span className="rounded bg-orange-50 px-2 py-1 font-bold tabular-nums text-orange-700">{item.creditCoeff.toLocaleString('vi-VN')} công</span>}</td>
         <td className="px-3 py-2.5"><input type="checkbox" aria-label={'Áp dụng ' + item.name} checked={item.status} disabled={!canConfigure} className="accent-orange-600" onChange={event => { if (canEdit) setIncidents(previous => previous.map(category => category.id === parent.id ? { ...category, subIncidents: category.subIncidents.map(row => row.id === item.id ? { ...row, status: event.target.checked } : row) } : category)); }} /></td>
         <td className="px-3 py-2.5"><button type="button" className={button} disabled={!canEdit} onClick={() => open('incident', item, parent.id)} aria-label={'Sửa sự cố và hệ số: ' + item.name}><Pencil className="h-3 w-3" />Sửa</button></td>
       </tr>)}
@@ -132,7 +135,7 @@ export const IncidentCatalog: React.FC = () => {
           if (value !== undefined && (!Number.isFinite(value) || Math.abs(value) > 999.999)) { showToast('Hệ số công phải là số từ -999.999 đến 999.999.', 'warning'); return; }
           if (allRows.some(({ parent, item }) => item.id !== editingId && (item.code.toUpperCase() === normalizedCode || (parent.id === parentId && item.name.toLocaleLowerCase('vi') === normalizedName.toLocaleLowerCase('vi'))))) { showToast('Mã sự cố hoặc tên trong nhóm đã tồn tại.', 'warning'); return; }
           const existing = allRows.find(({ item }) => item.id === editingId)?.item;
-          const item: SubIncidentItem = { ...existing, id: editingId || crypto.randomUUID(), code: normalizedCode, name: normalizedName, desc: desc.trim(), targetParty: party, status: existing?.status ?? true, noticeType: notice, creditCoeff: value };
+          const item: SubIncidentItem = { ...existing, id: editingId || crypto.randomUUID(), code: normalizedCode, name: normalizedName, desc: desc.trim(), targetParty: party, status: existing?.status ?? true, noticeType: notice, creditCoeff: isScheduledBreak ? undefined : value, allowClassPause, isScheduledBreak };
           if (!canConfigure && existing) { Object.assign(item, existing); item.creditCoeff = value; }
           setIncidents(previous => previous.map(parent => {
             const remaining = parent.subIncidents.filter(row => row.id !== editingId);
@@ -149,11 +152,14 @@ export const IncidentCatalog: React.FC = () => {
           <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Tên *</span><input required maxLength={150} disabled={!canConfigure} value={name} onChange={event => setName(event.target.value)} className={input} /></label>
         </div>
         {dialog === 'incident' && <>
+          <label className="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" disabled={!canConfigure} checked={allowClassPause} onChange={event=>setAllowClassPause(event.target.checked)} className="accent-orange-600"/>Cho phép dùng để tạm dừng lớp</label>
+          <label className="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" disabled={!canConfigure} checked={isScheduledBreak} onChange={event=>{setIsScheduledBreak(event.target.checked);if(event.target.checked){setParty('Khách quan');setAllowClassPause(true);setCoefficient('');}}} className="accent-orange-600"/>Nghỉ theo lịch (không tính vào sự cố hoặc công dạy)</label>
+          <p className="text-[11px] text-slate-500">Giáo viên xin nghỉ dùng loại sự cố giáo viên đã có. Chọn nghỉ theo lịch cho lễ/Tết hoặc thông báo nghỉ chung.</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Bên phát sinh</span><ReportSelect disabled={!canConfigure} value={party} onChange={event => setParty(event.target.value as SubIncidentItem['targetParty'])} className={input}><option>Giáo viên</option><option>Học sinh</option><option>Khách quan</option></ReportSelect></label>
+            <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Bên phát sinh</span><ReportSelect disabled={!canConfigure} value={party} onChange={event => {setParty(event.target.value as SubIncidentItem['targetParty']);if(event.target.value!=='Khách quan')setIsScheduledBreak(false);}} className={input}><option>Giáo viên</option><option>Học sinh</option><option>Khách quan</option></ReportSelect></label>
             <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Tình trạng báo trước</span><ReportSelect disabled={!canConfigure} value={notice} onChange={event => setNotice(event.target.value as typeof notice)} className={input}>{Object.entries(notices).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</ReportSelect></label>
           </div>
-          <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Hệ số công cho loại sự cố này</span><input type="number" min="-999.999" max="999.999" step="0.001" disabled={!canCoefficient} value={coefficient} onChange={event => setCoefficient(event.target.value)} placeholder="Chưa thiết lập" className={input} /><span className="block text-[11px] font-normal text-slate-500">Ví dụ: học sinh không báo trước, gia sư đã chờ → 0,5 công; giáo viên nghỉ không báo trước: -1 công. Để trống nếu chưa quyết định quy tắc.</span></label>
+          <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>Hệ số công cho loại sự cố này</span><input type="number" min="-999.999" max="999.999" step="0.001" disabled={!canCoefficient || isScheduledBreak} value={coefficient} onChange={event => setCoefficient(event.target.value)} placeholder="Chưa thiết lập" className={input} /><span className="block text-[11px] font-normal text-slate-500">Ví dụ: học sinh không báo trước, gia sư đã chờ → 0,5 công; giáo viên nghỉ không báo trước: -1 công. Để trống nếu chưa quyết định quy tắc.</span></label>
           <p className="rounded-lg bg-orange-50 p-2.5 text-[11px] text-orange-800">Hệ số thuộc loại sự cố cụ thể bạn chọn. Nhóm chỉ dùng để phân loại; không có hệ số chung tự áp xuống các sự cố con.</p>
         </>}
         <label className="block space-y-1 text-xs font-semibold text-slate-600"><span>{dialog === 'incident' ? 'Điều kiện áp dụng / Ghi chú' : 'Mô tả nhóm'}</span><textarea rows={2} maxLength={500} disabled={!canConfigure} value={desc} onChange={event => setDesc(event.target.value)} className={input} placeholder={dialog === 'incident' ? 'Ví dụ: gia sư đã vào phòng và chờ đủ thời gian quy định.' : ''} /></label>

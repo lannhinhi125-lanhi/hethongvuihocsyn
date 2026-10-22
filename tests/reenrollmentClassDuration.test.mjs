@@ -53,9 +53,58 @@ try {
  assert.ok((await pauseLessons()).length>pauseRows.length);
  await db.exec('ROLLBACK');
  console.log('PASS temporary pause: no new lessons, teacher retained, future lessons resume, unrelated absence preserved');
+ await db.exec(`INSERT INTO vuihoc."LOP_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."LOP_HOC",to_jsonb(l)||jsonb_build_object('madinhdanh','TEST-MIG-PAUSE','malophoc','TEST-MIG-PAUSE','trangthai','DANG_HOC','tamdunglich',false,'lydotamdung',null,'ngaybatdau','2090-01-01','thoihanthang',1))).* FROM vuihoc."LOP_HOC" l WHERE magiaovien IS NOT NULL LIMIT 1;
+ INSERT INTO vuihoc."BUOI_HOC" SELECT (jsonb_populate_record(NULL::vuihoc."BUOI_HOC",to_jsonb(b)||jsonb_build_object('madinhdanh','TEST-MIG-LESSON','malop','TEST-MIG-PAUSE','ngayhoc','2090-01-05','trangthai','CHUA_DIEN_RA','vaolopluc',null,'ketthucluc',null,'tamhoandolop',false))).* FROM vuihoc."BUOI_HOC" b LIMIT 1;
+ UPDATE vuihoc."LOP_HOC" SET tamdunglich=true,lydotamdung='PAUSE-TEACHER' WHERE madinhdanh='TEST-MIG-PAUSE';`);
+ await db.exec(`INSERT INTO vuihoc."MAU_BAO_CAO"(madinhdanh,tenmaubaocao,manguoidung) SELECT 'PAUSE-TEMPLATE-AUDIT','Mẫu lý do tạm dừng',madinhdanh FROM vuihoc."NGUOI_DUNG" WHERE tendangnhap='admin.tong';
+ INSERT INTO vuihoc."BO_LOC_MAU_BAO_CAO"(mamau,truong,giatri) VALUES('PAUSE-TEMPLATE-AUDIT','pauseReason','["PAUSE-TEACHER","__NONE__"]');`);
+ const pauseMigration=file('supabase/migrations/20261115_pause_incident_catalog.sql');
+ assert.match(pauseMigration,/DO \$pause_catalog_migration\$/);
+ assert.doesNotMatch(pauseMigration,/^BEGIN;|^COMMIT;/m);
+ await db.exec(pauseMigration);
+ assert.equal((await db.query("SELECT to_regclass('pg_temp.pause_reason_map') AS relation")).rows[0].relation,null,'standalone statement drops its temporary mapping only after all dependent steps');
+ await db.exec(file('supabase/migrations/20261115_pause_incident_catalog.sql'));
+ const migratedReason=(await db.query(`SELECT l.*,s.ma,g.manhomsuco FROM vuihoc."LOP_HOC" l JOIN vuihoc."LOAI_SU_CO" s ON (s.manhom,s.madinhdanh)=(l.manhomtamdung,l.lydotamdung) JOIN vuihoc."DANH_MUC_SU_CO" g ON g.madinhdanh=s.manhom WHERE l.madinhdanh='TEST-MIG-PAUSE'`)).rows[0];
+ assert.equal(migratedReason.ma,'INC-TCH-01');assert.equal(migratedReason.manhomsuco,'GRP-TCH');
+ const savedFilter=(await db.query(`SELECT giatri FROM vuihoc."BO_LOC_MAU_BAO_CAO" WHERE mamau='PAUSE-TEMPLATE-AUDIT'`)).rows[0].giatri;
+ assert.deepEqual(JSON.parse(savedFilter),[JSON.stringify([migratedReason.manhomtamdung,migratedReason.lydotamdung]),'__NONE__']);
+
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."SU_CO_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON' AND dotamdunglop`)).rows[0].n,1);
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON'`)).rows[0].n,0);
+ console.log('PASS pause catalog migration: teacher leave reused, linked incident deduplicated, payroll preserved, repeat migration safe');
  const login=(await db.query("SELECT public.vuihoc_login('admin.tong','234567') AS value")).rows[0].value;
  const token=login.token;
  const business=async()=>(await db.query('SELECT public.vuihoc_business_data($1) AS value',[token])).rows[0].value;
+ const changePause=async(fields)=>{
+  const old=(await business()).classes.find(row=>row.madinhdanh==='TEST-MIG-PAUSE');
+  const before={madinhdanh:old.madinhdanh,...Object.fromEntries(Object.keys(fields).map(key=>[key,old[key]??null]))};
+  return db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify([{dataset:'classes',before,after:{madinhdanh:old.madinhdanh,...fields}}])]);
+ };
+ await changePause({tamdunglich:false});
+ await changePause({tamdunglich:true});
+ let autoIncident=(await db.query(`SELECT * FROM vuihoc."SU_CO_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON' AND dotamdunglop`)).rows[0];
+ assert.ok(autoIncident);assert.equal(autoIncident.masuco,'INC-TCH-01');
+ assert.equal((await db.query(`SELECT hesocong FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON'`)).rows[0].hesocong,'0.000');
+ await changePause({ghichutamdung:'Ghi chú nghỉ mới'});
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."SU_CO_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON' AND dotamdunglop`)).rows[0].n,1);
+ const groupForEdit=(await business()).incident_categories.find(group=>group.madinhdanh===migratedReason.manhomtamdung);
+ const nextTypes=groupForEdit.danhsachsuco.map(item=>item.id===migratedReason.lydotamdung?{...item,name:'Giáo viên xin nghỉ đã cập nhật',creditCoeff:-0.5}:item);
+ await db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify([{dataset:'incident_categories',before:{madinhdanh:groupForEdit.madinhdanh,danhsachsuco:groupForEdit.danhsachsuco},after:{madinhdanh:groupForEdit.madinhdanh,danhsachsuco:nextTypes}}])]);
+ const linkedAfterCatalog=(await business()).lesson_incidents.find(row=>row.mabuoi==='TEST-MIG-LESSON');
+ assert.equal(linkedAfterCatalog.dotamdunglop,true);
+ assert.equal((await db.query(`SELECT hesocong FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON'`)).rows[0].hesocong,'-0.500');
+ await assert.rejects(()=>db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify([{dataset:'lesson_incidents',before:{madinhdanh:linkedAfterCatalog.madinhdanh,noidung:linkedAfterCatalog.noidung},after:{madinhdanh:linkedAfterCatalog.madinhdanh,noidung:'Sửa trực tiếp sai luồng'}}])]),/tạm dừng lớp/);
+ await db.exec(`UPDATE vuihoc."CONG_DAY_BUOI_HOC" SET hesocong=-0.75 WHERE mabuoi='TEST-MIG-LESSON'`);
+ await assert.rejects(()=>changePause({tamdunglich:false}),/điều chỉnh/);
+ await db.exec(`UPDATE vuihoc."CONG_DAY_BUOI_HOC" SET hesocong=-0.5 WHERE mabuoi='TEST-MIG-LESSON'`);
+ const holiday=(await db.query(`SELECT * FROM vuihoc."LOAI_SU_CO" WHERE nghitheolich AND danghoatdong ORDER BY ma LIMIT 1`)).rows[0];
+ await changePause({lydotamdung:holiday.madinhdanh,manhomtamdung:holiday.manhom});
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."SU_CO_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON'`)).rows[0].n,0);
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi='TEST-MIG-LESSON'`)).rows[0].n,0);
+ await changePause({tamdunglich:false});
+ const resumed=(await business()).dated_lessons.find(row=>row.madinhdanh==='TEST-MIG-LESSON');
+ assert.equal(resumed.tamhoandolop,false);assert.equal(resumed.manhomtamdung,null);
+ console.log('PASS real RPC: teacher leave incident + configured credit, catalog rename/credit sync, direct edit protected, adjusted work protected, holiday excludes incidents/payroll, future resume cleanup');
  // Catalog codes, rather than a fixed Toán/Tiếng Anh bucket, identify payroll subjects.
  const projected=await business();
  for(const month of projected.monthly_payroll) for(const teacher of month.danhsachgiaovien || []) {
@@ -83,12 +132,12 @@ try {
  const teacherLogin=(await db.query('SELECT public.vuihoc_login($1,$2) AS result',[created.username,created.password])).rows[0].result;
  const teacherData=(await db.query('SELECT public.vuihoc_business_data($1) AS result',[teacherLogin.token])).rows[0].result;
  assert.ok(teacherData.subjects.some(row=>row.mamonhoc==='AUDIT-MUSIC'));
- assert.ok(teacherData.custom_catalogs.some(row=>row.madanhmuc==='CLASS_PAUSE_REASON'));
- assert.ok(teacherData.custom_catalogs.every(row=>row.madanhmuc==='CLASS_PAUSE_REASON'));
+ assert.ok(!teacherData.custom_catalogs.some(row=>row.madanhmuc==='CLASS_PAUSE_REASON'));
+ assert.ok(teacherData.incident_categories.some(group=>group.danhsachsuco.some(item=>item.allowClassPause)));
  await db.exec('ROLLBACK');
  console.log('PASS new subject with distinct ID/code saves through RPC, creates a teacher account, and teacher portal reads pause catalog without unrelated catalogs');
 
- const activeClass=(await business()).classes.find(c=>c.trangthai==='DANG_HOC');
+ const activeClass=(await business()).classes.find(c=>c.trangthai==='DANG_HOC' && !c.tamdunglich && c.madinhdanh!=='TEST-MIG-PAUSE');
  assert.ok(activeClass);
  const registrationsBefore=(await db.query('SELECT * FROM vuihoc."DANG_KY_MON_HOC" WHERE malop=$1 ORDER BY mahocsinh',[activeClass.madinhdanh])).rows;
  for(const paused of [true,false]) {

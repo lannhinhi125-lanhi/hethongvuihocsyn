@@ -3,6 +3,7 @@ import { reportCreationDate } from './reportCreationDate';
 export interface ReportLesson {
   pausedByClass?: boolean;
   pauseReason?: string | null;
+  pauseCategoryId?: string | null;
   pauseNote?: string | null;
   id: string;
   displayCode?: string;
