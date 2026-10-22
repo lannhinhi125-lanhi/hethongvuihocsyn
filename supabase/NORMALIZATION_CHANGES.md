@@ -200,7 +200,13 @@ Khối hiện tại của hồ sơ và khối lúc bắt đầu đợt là hai s
 
 ### Đối soát trước khi bỏ dữ liệu cũ
 
-Chạy [student_enrollment_legacy.sql](diagnostics/student_enrollment_legacy.sql). Migration dừng nguyên giao dịch nếu bộ cột cũ không khớp đăng ký thực tế nào, có ca cũ chưa khớp nguồn lịch theo môn, khối nhập học cũ không xác định duy nhất cấp, lịch sử có trạng thái khác đợt đã thôi học, hoặc gặp bản ghi trùng vi phạm các UNIQUE mới. Không tự ghi đè sự khác biệt, không tự ghép theo tên, không tự bịa đợt học/lớp/ngày đăng ký.
+Chạy [student_enrollment_legacy.sql](diagnostics/student_enrollment_legacy.sql). Migration dừng nguyên giao dịch nếu nhu cầu môn/mô hình/trình độ cũ không khớp đăng ký thực tế nào, có quan hệ lớp hoặc trạng thái cũ mâu thuẫn chưa giải thích được, có ca cũ chưa khớp nguồn lịch theo môn, khối nhập học cũ không xác định duy nhất cấp, lịch sử có trạng thái khác đợt đã thôi học, hoặc gặp bản ghi trùng vi phạm các UNIQUE mới. Không tự ghi đè sự khác biệt, không tự ghép theo tên, không tự bịa đợt học/lớp/ngày đăng ký.
+
+Bản đối soát đã sửa cho dữ liệu cũ thực tế: malophientai trống trên hồ sơ không phải là quan hệ lớp đối lập với đăng ký môn. Mã lớp cũ đã dừng chỉ được chấp nhận khi TRUY_VET_XEP_LOP chứng minh đã giải phóng đúng học sinh–môn–lớp. Trạng thái cũ DANG_HOC khác trạng thái nguồn CHO_XEP_LOP chỉ được chấp nhận khi có truy vết giải phóng lớp đã dừng/kết thúc. Không bỏ qua khác biệt bảo lưu/thôi học, môn, mô hình hay trình độ. Kiểm thử chạy migration trên nguyên bản fixture demo trước mọi bước điền lại cột cũ; không cập nhật hoặc mở lại lớp để vượt qua đối soát.
+
+Đối soát bổ sung từ CSV Supabase của DEMO-HS-036: bản sao hồ sơ là CHO_XEP_LOP, mã lớp trống; nguồn đăng ký là DANG_HOC, và có sự kiện xếp lớp ban đầu đến đúng mã lớp đang được đăng ký tham chiếu. Khi cả môn/mô hình/trình độ khớp và có đủ truy vết này, migration chấp nhận bản sao trạng thái cũ mà không sửa đăng ký, quan hệ lớp hay lịch. Thiếu truy vết tương ứng vẫn dừng; không mở rộng cho trạng thái bảo lưu/thôi học hoặc trường hợp trỏ tới lớp khác.
+
+Tương thích hàm ghi lịch rảnh 20261105/fix_student_available_slots: UPSERT có thể thêm WHERE ... IS DISTINCT FROM để tránh cập nhật đăng ký không đổi. Bản chuyển đổi nhận cả phiên bản gốc và phiên bản này; helper chuẩn hóa giữ điều kiện chỉ UPDATE nhu cầu hoặc quan hệ lớp khi giá trị thực sự khác. Kiểm thử cài phiên bản lịch rảnh này trước khi chạy 20261121, kiểm tra học lại, sửa hồ sơ và xếp/dừng lớp sau chuyển đổi. Không cần chạy lại các migration cũ để sửa lỗi chuyển đổi hàm.
 
 Những giá trị khối nhập học đã từng bị trigger cũ đồng bộ theo khối hiện tại không thể tự khôi phục về thời điểm ban đầu nếu không có chứng từ; migration giữ giá trị đang có và từ nay ngăn ghi đè tiếp. Các script kiểm thử có bước đối soát fixture cục bộ; bước đó không nằm trong migration dữ liệu thật.
 
@@ -209,3 +215,165 @@ Những giá trị khối nhập học đã từng bị trigger cũ đồng bộ
 HOC_SINH chỉ giữ thuộc tính hồ sơ theo khóa học sinh. DANG_KY_MON_HOC giữ thuộc tính của nhu cầu/vòng đời theo khóa học sinh–môn, không còn mã lớp tạo phụ thuộc bắc cầu. XEP_LOP_DANG_KY chỉ chứa khóa liên kết, có hai khóa ứng viên học sinh–môn và học sinh–lớp. Hai bảng lịch giữ ca theo toàn bộ khóa đăng ký/đợt và thứ tự; không lưu nhãn ngày/khung giờ. Lịch sử giữ sự thật của từng đợt đóng theo đầy đủ khóa học sinh–môn–đợt, không lưu trạng thái hằng có thể suy ra. Các tên danh mục được JOIN từ nguồn.
 
 Theo các phụ thuộc nghiệp vụ được rà, nhóm quan hệ trên đáp ứng 3NF. Không suy rộng kết luận sang LOP_HOC, BUOI_HOC, dự giờ hoặc toàn bộ CSDL; các phân hệ đó vẫn cần rà riêng. Migration chỉ được chạy và kiểm thử trên PostgreSQL cục bộ, chưa áp dụng lên Supabase thật.
+
+## Lần 7 — Chi tiết ca và phân công dạy thay
+
+Migration: [20261122_normalize_lesson_metadata.sql](migrations/20261122_normalize_lesson_metadata.sql), chạy toàn bộ sau **20261121**. Không chạy schema, seed hoặc reset để nâng cấp dữ liệu thật. Tải lại ứng dụng sau khi chạy.
+
+| Bảng / nguồn | Trước đây trùng gì | Sau khi sửa |
+| --- | --- | --- |
+| CHI_TIET_CA_LOP | malop, ngaygio, tieude, giovaohienthi, hotennguoivao, hoclieugiaovien, hoclieuhocsinh, baitaplms, magiaoviendaythay cùng mô tả buổi đã có mã mabuoi. codiemdanh/conhanxet lưu thêm cờ về các bảng chi tiết. | Bỏ 11 cột trên. Chỉ giữ **mabuoi, khoaca, sobuoi**; PK chuyển sang mabuoi, giữ FK đến BUOI_HOC.madinhdanh. Không tạo bản sao sang bảng mới. |
+| BUOI_HOC | Đã có nội dung thực tế nhưng đôi khi nội dung còn nằm riêng ở chi tiết ca. Giáo viên dạy thay còn có một bản sao ở phân công. | Là nguồn chính ngày/giờ thực tế, lớp, tiêu đề, nội dung đã dùng, check-in/out và giáo viên dạy thay. Không thêm cột. Chỉ điền tiêu đề/ba trường học liệu còn thiếu từ chi tiết ca sau khi đối soát. |
+| PHAN_CONG_DAY_THAY | Bảng lưu malop, thutu, sobuoi, ngaygio, magiaovien, mabuoi; cùng một phân công đã nằm ở BUOI_HOC.magiaoviendaythay. | Bỏ bảng lưu vật lý và trigger đồng bộ một chiều. Giữ tên PHAN_CONG_DAY_THAY dưới dạng **VIEW thường** nối buổi và số buổi; không lưu dòng phân công lần hai. |
+| DIEM_DANH_BUOI_HOC | Nguồn điểm danh theo buổi–học sinh. | Giữ nguyên; truy vấn trực tiếp, không duy trì cờ bản sao trong chi tiết ca. |
+| NHAN_XET_BUOI_HOC | Nguồn nhận xét và danh sách học sinh thực tế của buổi đã vào lớp. | Giữ nguyên; truy vấn trực tiếp, không duy trì cờ bản sao trong chi tiết ca. |
+| NGUOI_DUNG, GIAO_VIEN | Danh tính người thao tác / người dạy. | Giữ nguyên; tên người vào lớp lấy theo manguoivaolop, tên giáo viên theo mã giáo viên, không chép tên vào chi tiết ca. |
+| HOC_LIEU_LOP, LICH_LOP | Kế hoạch học liệu theo tuần và lịch lặp. | Giữ nguyên; kế hoạch khác buổi thực tế và nội dung thực tế đã dùng. |
+
+### Nguồn chính và các JOIN
+
+- CHI_TIET_CA_LOP.mabuoi → BUOI_HOC.madinhdanh → LOP_HOC.madinhdanh qua malop.
+- BUOI_HOC.magiaoviendaythay → GIAO_VIEN.madinhdanh → NGUOI_DUNG qua manguoidung.
+- BUOI_HOC.manguoivaolop → NGUOI_DUNG.madinhdanh; giờ hiển thị tính từ vaolopluc theo Asia/Bangkok, không lưu lại chuỗi giờ/tên người.
+- Điểm danh và nhận xét lấy theo mabuoi từ hai bảng nghiệp vụ tương ứng. Không chuyển các dữ liệu này vào bảng ca, không tạo mảng JSON lưu trong bảng.
+- V_CHI_TIET_CA_LOP chỉ JOIN nguồn để trả lại các trường tương thích RPC cũ. PHAN_CONG_DAY_THAY là view lấy các buổi có giáo viên dạy thay; thứ tự/ngày giờ là kết quả truy vấn.
+
+### Phần riêng của chi tiết ca
+
+sobuoi là số buổi trong nội dung giảng dạy; không đồng nhất với số thứ tự ngày học trong toàn bộ lịch sử. khoaca là khóa của giao diện cũ, không phải bản sao ngày/giờ. Cả hai phụ thuộc toàn phần vào khóa mabuoi. Khi giao diện dùng lại khóa ngắn như "1" vào tuần sau, khóa giao diện cũ chuyển về dạng lesson:<mã buổi>; số buổi của buổi trước được giữ nguyên. Bỏ một khóa khỏi bản đồ giao diện không xóa metadata của buổi lịch sử. Ràng buộc ngăn hai buổi cùng lớp có cùng khóa giao diện.
+
+### Luồng đã chuyển và bảo toàn
+
+Các hàm đọc chi tiết ca/dự giờ, danh sách lớp, dạy thay và RPC nghiệp vụ đọc V_CHI_TIET_CA_LOP hoặc view phân công. Hàm ghi chi tiết chỉ ghi ba trường vào CHI_TIET_CA_LOP, ghi nội dung buổi vào BUOI_HOC, điểm danh/nhận xét vào bảng gốc. Hàm ghi phân công chỉ UPDATE BUOI_HOC khi giáo viên thực sự thay đổi, không xóa rồi chèn lại hàng loạt phân công không đổi.
+
+Xác định buổi từ mã lớp, ngày và giờ thực tế. Dữ liệu phân công chỉ có ngày dùng thêm số buổi/khung lịch để xác định duy nhất; có nhiều ứng viên thì báo lỗi, không tự chọn một buổi. Đường ghi qua view cũ vẫn kiểm tra mã buổi/lớp/ngày/số buổi và dùng trigger kiểm tra của BUOI_HOC.
+
+Giữ các kiểm tra lớp đã dừng, giáo viên/môn phù hợp, quyền sửa ca, kỳ công đã khóa, ca đã phát sinh công và tiến độ nhận xét. Check-out và nhận xét vẫn quyết định ghi công; không phát sinh công chỉ vì chuyển schema. Không đổi trạng thái, ngày/giờ, người check-in/out, giáo viên hoặc các hàng công trong migration.
+
+### Đối soát và chuyển metadata
+
+Chạy [lesson_metadata_legacy.sql](diagnostics/lesson_metadata_legacy.sql) để xem mã buổi và mã lý do cần đối soát. Migration dừng nếu một buổi còn nhiều dòng chi tiết, tiêu đề/học liệu hai nguồn khác nhau khi đều có nội dung, phân công không khớp, hoặc có giờ/tên người vào nhưng thiếu dữ liệu gốc cần thiết. Không chọn một tiêu đề/học liệu khác bằng suy đoán. Trường hợp bản sao ghi chính giáo viên chính làm người dạy thay được coi là không có dạy thay, đúng quy tắc trigger đã dùng trước đó.
+
+Chỉ khi nguồn BUOI_HOC trống mới chuyển tiêu đề/học liệu từ chi tiết ca. Trong đúng giao dịch DDL này, migration ghi nhớ rồi tạm ngắt các user trigger của BUOI_HOC để việc chuyển nội dung cũ không chạy đồng hồ vòng đời hoặc tính lại công kỳ đã khóa. Ngay sau UPDATE metadata, mọi trigger được trả về đúng trạng thái cũ (kể cả trigger vốn bị tắt/replica/always). Bất kỳ lỗi nào hoàn tác cả dữ liệu lẫn DDL. Các luồng ghi bình thường sau migration vẫn chịu đầy đủ trigger khóa công.
+
+### Phạm vi 3NF và xác nhận
+
+CHI_TIET_CA_LOP sau sửa có khóa mabuoi → khoaca, sobuoi, không còn thuộc tính phụ thuộc qua buổi/người/lớp. Phân công dạy thay không còn bảng chứa bản sao; FK giáo viên của BUOI_HOC là nguồn chính duy nhất. Hai view dùng cho hiển thị/khả năng tương thích không phải bảng lưu kết quả denormalized. Đây là phần chi tiết ca–dạy thay đã chuẩn hóa; chưa coi toàn bộ LOP_HOC/BUOI_HOC, sĩ số/thời hạn, dự giờ hoặc toàn CSDL là đã hoàn tất rà soát 3NF.
+
+Kiểm thử trên CSDL có buổi thực tế, metadata, công và các kỳ công: chạy migration hai lần; chặn nội dung mâu thuẫn; chuyển học liệu còn thiếu trong kỳ đã khóa mà không đổi công; giữ nguyên trigger; đọc báo cáo/dự giờ; sửa học liệu qua RPC; đổi/hủy dạy thay và đọc lại ngay qua view; dùng lại khóa giao diện tuần sau; check-in/out, nhận xét tạo đúng một dòng công; chặn sửa kỳ khóa; kiểm tra FK và reset fixture sau nâng cấp.
+
+Bộ reset demo được sửa để nạp kế hoạch học liệu **trước** khi gọi bộ sinh buổi (bộ sinh hiện tại yêu cầu học liệu), tránh kiểm thử trên bảng buổi/công rỗng. Đây chỉ là bộ nạp dữ liệu mẫu có chủ ý xóa dữ liệu, không phải bước chạy migration trên Supabase thật. Các script điều chỉnh thời hạn demo và truy vấn rà FK cũng được cập nhật để không truy vấn cột chi tiết ca đã bỏ.
+
+## Lần 8 — Sĩ số lớp lấy từ mô hình
+
+Migration: [20261123_normalize_class_capacity.sql](migrations/20261123_normalize_class_capacity.sql), chạy sau 20261122. Toàn bộ là một câu DO nguyên tử; chạy lại an toàn. Không tạo bảng lưu dữ liệu mới.
+
+| Bảng | Trước đây | Sau sửa | Các nơi truy vấn nguồn |
+|---|---|---|---|
+| MO_HINH_LOP | sisotoida là giới hạn theo mô hình | Giữ sisotoida; bổ sung CHECK số nguyên dương và kiểm tra không giảm dưới sĩ số lớp đang có | LOP_HOC JOIN bằng mamohinh; giao diện lớp, ghép học sinh, gợi ý lớp, cổng giáo viên và báo cáo đọc cùng nguồn |
+| LOP_HOC | mamohinh và bản chép sisotoida từ mô hình | Bỏ sisotoida; giữ mamohinh cùng FK hiện có đến MO_HINH_LOP.mamohinh | si_so_lop JOIN hai bảng; du_lieu_quan_he trả trường sisotoida dạng kết quả truy vấn |
+| XEP_LOP_DANG_KY | Quan hệ học sinh–môn–lớp | Không thêm/bỏ cột; thêm khóa hàng mô hình khi ghi xếp lớp để phối hợp với thay đổi giới hạn | Kiểm tra sĩ số dựa COUNT quan hệ xếp lớp và nguồn MO_HINH_LOP |
+
+### Chính sách và đối soát
+
+Giao diện hiện tạo lớp theo sĩ số của mô hình và không có trường ghi đè sĩ số riêng. Vì vậy nguồn duy nhất là MO_HINH_LOP. Migration chỉ xóa bản chép khi toàn bộ lớp khớp nguồn; nếu có lớp khác mô hình thì dừng với mã lớp, không tự tăng/giảm hoặc bỏ qua. Chạy [class_capacity_legacy.sql](diagnostics/class_capacity_legacy.sql) để đối soát trước/sau; truy vấn tương thích khi cột cũ đã bỏ.
+
+Sửa sĩ số mô hình sẽ áp dụng cho các lớp cùng mô hình, kể cả lớp cũ. Không dùng sĩ số tối đa hiện tại để thay đổi điểm danh, số học sinh thực tế, lịch sử buổi hay số công đã ghi. Hệ thống không cho giảm dưới số học sinh đang được xếp trong bất kỳ lớp nào của mô hình. Xếp lớp/đổi mô hình lớp khóa hàng mô hình bằng FOR SHARE; sửa mô hình giữ khóa UPDATE, kiểm tra sĩ số tại cuối giao dịch. Người dùng có thể điều chỉnh danh sách và giới hạn trong cùng giao dịch khi đủ quyền.
+
+### Luồng đọc/ghi
+
+Mapper không gửi maxStudents trong dữ liệu ghi lớp; vẫn gửi khi sửa danh mục mô hình. RPC từ chối yêu cầu ghi sisotoida vào lớp, nhưng loại trường này khỏi before của màn hình cũ để nó không gây lỗi so sánh dữ liệu nguồn. Các trường khác vẫn được so sánh trước khi ghi và giữ nguyên kiểm tra quyền. Hợp đồng đọc giữ tên sisotoida để giao diện và báo cáo không mất trường hiển thị; trường đó không còn là cột vật lý của LOP_HOC.
+
+Truy vấn tóm tắt ca/dự giờ và kiểm tra xếp lớp đã chuyển sang si_so_lop. Sửa mô hình trả dữ liệu mới qua cùng RPC, cập nhật ngay các lớp trên giao diện; không cần đồng bộ bản sao bằng trigger. Giữ FK mô hình; không suy đoán mô hình bằng tên hoặc giá trị sĩ số. Chỉ bỏ hàm kiểm tra sĩ số hồ sơ một môn đã hết được sử dụng; nếu còn trigger gọi hàm cũ thì migration dừng.
+
+### Phạm vi 3NF và kiểm thử
+
+Đã loại phụ thuộc bắc cầu LOP_HOC.madinhdanh → mamohinh → sisotoida. Phần quan hệ mô hình–sĩ số này dùng một nguồn dữ liệu, đáp ứng yêu cầu chuẩn hóa theo phụ thuộc đã xác định. Chưa kết luận toàn bộ LOP_HOC/BUOI_HOC đạt 3NF: thời hạn lớp, khung giờ và học liệu vẫn là các nhóm rà tiếp; ngày kết thúc tùy chỉnh có ý nghĩa độc lập nên không được xóa như một ngày suy ra từ tháng.
+
+Kiểm thử migration trên dữ liệu có buổi học và công: chạy hai lần, chặn lớp khác mô hình và hoàn tác, giữ nguyên buổi/công/mô hình, giữ nguyên kết quả đọc lớp/giáo viên, sửa mô hình qua RPC cập nhật mọi lớp cùng mô hình, chặn số không hợp lệ và giảm dưới sĩ số thực tế, chặn ghi bản sao vào lớp, tạo/sửa/xóa lớp và đổi mô hình lớp rỗng, kiểm tra FK, chẩn đoán ở giao dịch chỉ đọc và reset fixture sau nâng cấp. Bộ reset demo tương thích trước/sau bỏ cột, chỉ dùng trong môi trường mẫu có chủ ý xóa dữ liệu.
+
+## Lần 9 — Thời hạn lớp liên kết danh mục, ngày kết thúc lấy qua truy vấn
+
+Migration: [20261124_normalize_class_terms.sql](migrations/20261124_normalize_class_terms.sql), chạy sau 20261123. Chạy nguyên câu DO; mọi thay đổi nguyên tử và có thể chạy lại. Không tạo bảng nghiệp vụ mới, không thêm cột JSON/JSONB.
+
+| Bảng / đối tượng | Trước đây | Sau sửa | Nơi truy vấn sang |
+|---|---|---|---|
+| LOP_HOC | thoihanthang chép số từ mã mục danh mục; ngayketthuc lưu cả ngày tính từ tháng lẫn ngày nhập riêng | Bỏ thoihanthang và ngayketthuc. Giữ ngaybatdau; thêm cặp FK madanhmucthoihan–mathoihan và ngayketthuctuychinh | MUC_DANH_MUC theo đúng cặp madanhmuc–madinhdanh, JOIN DANH_MUC_BO_SUNG để xác nhận CLASS_DURATION |
+| MUC_DANH_MUC | ma chứa số tháng, ten chứa nhãn hiển thị | Giữ nguyên cột và dữ liệu; là nguồn số tháng duy nhất | LOP_HOC, biểu mẫu lớp, danh sách/báo cáo, bộ sinh buổi và kiểm tra thời hạn |
+| DANH_MUC_BO_SUNG | Định danh danh mục thời hạn | Giữ nguyên cột và dữ liệu | Xác định nhóm CLASS_DURATION, không dựa vào tên hiển thị |
+| V_THOI_HAN_LOP | Chưa có | View thường, không lưu kết quả; bổ sung thoihanthang và ngayketthuc tính từ nguồn | Chẩn đoán và script thời hạn demo |
+
+Khóa mục danh mục hiện là khóa ghép (madanhmuc, madinhdanh); mã mục có thể trùng giữa hai nhóm. Vì vậy lớp giữ đủ hai phần của khóa ngoại MATCH FULL, không tạo ràng buộc UNIQUE toàn cục cho mã mục và không chọn mục chỉ theo tên/số tháng. Cặp mã này là một liên kết có phạm vi, không phải bản sao tên/số tháng của danh mục.
+
+### Một nguồn cho mỗi cách đặt thời hạn
+
+Lớp theo tháng giữ cặp FK và ngaybatdau; ngayketthuctuychinh phải NULL. thang_thoi_han JOIN danh mục lấy số tháng 1–120 từ ma; ngay_ket_thuc_lop tính ngày cuối bao gồm trong kỳ theo quy tắc tháng lịch hiện có. Ví dụ 31/01/2028 + một tháng cho ngày cuối 28/02/2028. Không lưu ngày tính được trở lại bảng.
+
+Lớp có ngày kết thúc tùy chỉnh giữ ngayketthuctuychinh và ngaybatdau; hai phần FK phải NULL. Đây là ngày người dùng chọn độc lập, không phải bản sao của danh mục. CHECK không cho đồng thời hai nguồn; FK MATCH FULL không cho mã nhóm/mục bị khuyết một phần. Lớp cũ chưa từng có thời hạn được giữ nguyên ba giá trị NULL; lớp đã có thời hạn không được xóa trắng khi sửa. Chuyển giữa tháng và tùy chỉnh phải đổi đủ các trường trong cùng giao dịch.
+
+### Luồng đọc/ghi và đồng bộ
+
+Biểu mẫu chọn ID mục từ danh mục Supabase, gửi cặp FK hoặc ngày tùy chỉnh. Mapper bỏ durationMonths/endDate khỏi dữ liệu ghi; SQL cũng từ chối trình duyệt cố ghi thoihanthang/ngayketthuc. Các tên này vẫn có trong kết quả đọc để giữ báo cáo/cổng giáo viên và các bộ lọc ngày hoạt động qua truy vấn. Số tính trên biểu mẫu là bản xem trước, kết quả lưu được lấy lại từ RPC.
+
+Hợp đồng lớp được bảo đảm có ngaybatdau: một số chuỗi nâng cấp cũ đã có cột vật lý nhưng bỏ sót cột này trong business_config, làm biểu mẫu không ghi/đọc được đúng ngày gốc. Không thêm bản sao ngày bắt đầu.
+
+Đã chuyển bộ sinh buổi, kiểm tra buổi ngoài hạn, chặn học liệu lớp hết hạn và tự kết thúc lớp sang cùng hàm ngày kết thúc. Đổi tên mục giữ liên kết; đổi số tháng của mục làm các lớp liên kết truy vấn ra ngày mới ngay trong kết quả RPC. Không đổi ngày giờ buổi, trạng thái hay công chỉ vì chạy migration.
+
+Mục ngừng hoạt động vẫn được đọc cho lớp cũ, nhưng không chọn mới. FK chặn xóa mục/nhóm còn được lớp tham chiếu. Ràng buộc FK và kiểm tra danh mục được trì hoãn đến cuối giao dịch để tương thích luồng lưu danh mục xóa–chèn lại các ID giữ nguyên. Đổi số tháng/nhóm danh mục không được làm mất nguồn hợp lệ hoặc đẩy buổi đang có ra ngoài thời hạn mới; toàn bộ giao dịch bị hủy, không xóa buổi để hợp thức hóa. Khi tạo/đổi ngày buổi, trigger khóa SHARE hàng lớp và hàng danh mục để phối hợp với UPDATE thời hạn, kể cả ghi SQL trực tiếp.
+
+### Đối soát và bảo toàn
+
+[class_terms_legacy.sql](diagnostics/class_terms_legacy.sql) chạy chỉ đọc trước/sau migration, trả mã lớp và lý do. Migration dừng nếu số tháng cũ không khớp duy nhất một mục, ngày tính cũ khác công thức, ngày tùy chỉnh không hợp lệ hoặc lịch buổi ngoài hạn. Không tự chọn một mục, sửa ngày hoặc tạo danh mục để vượt qua đối soát. Mục đang ngừng hoạt động vẫn được chuyển nếu đó là nguồn cũ xác định duy nhất.
+
+Chuyển FK/ngày tùy chỉnh bằng backfill giới hạn trong giao dịch DDL: lưu đúng trạng thái các user trigger của LOP_HOC, tạm ngắt để không chạy vòng đời/công khi chuyển dữ liệu, trả lại trạng thái từng trigger rồi bỏ trigger tính/ngày lưu cũ. Không cập nhật thời gian hệ thống hoặc các bảng buổi/công. Lỗi bất kỳ hoàn tác cả dữ liệu và schema.
+
+backfill_demo_class_end_dates.sql dùng view đọc mới sau nâng cấp và chỉ ghi FK, không tái tạo cột bị bỏ; vẫn tương thích trước nâng cấp. apply_demo_class_terms.sql là gói nâng cấp cũ nên từ chối chạy sau 20261124 để không đưa cột/hàm cũ trở lại. Các script demo không phải bước áp dụng lên dữ liệu thật.
+
+### Phạm vi 3NF và kiểm thử
+
+Đã loại thuộc tính chép từ danh mục và ngày kết thúc dẫn xuất khỏi LOP_HOC. Phần thời hạn dùng đúng một nguồn theo từng loại, có FK thật và CHECK loại trừ; view/hàm chỉ truy vấn. Không khẳng định toàn bộ bảng lớp/buổi hoặc toàn hệ thống đã đạt 3NF: khung giờ, lịch và học liệu còn là các bước rà sau.
+
+Kiểm thử trên CSDL cục bộ có buổi/công thực: hai lần migration, mâu thuẫn ngày cũ và mục trùng đều hoàn tác, số bảng không tăng, cột cũ bị bỏ, nguồn danh mục/buổi/công giữ nguyên, trạng thái trigger được bảo toàn. Qua RPC thực: tạo lớp chỉ bằng FK, chuyển tháng/tùy chỉnh, ngày cuối tháng nhuận, sửa tên/mã mục, từ chối xóa/đổi nhóm sai/mã sai/mục ngừng dùng, chặn ghi trường tính được và giảm thời hạn qua lịch đã có. Bộ sinh được thử với học liệu thật ở hai tuần hai phía ngày kết thúc; có buổi được sinh và không buổi nào vượt hạn. Kiểm tra tự kết thúc lớp, chặn học liệu hết hạn, FK, chẩn đoán và reset/backfill demo sau nâng cấp; bộ nâng cấp cũ bị chặn trước khi tái tạo schema dư.
+
+## Lần 10 — Khung giờ chuẩn và các lịch liên kết
+
+Migration: [20261125_normalize_time_slots.sql](migrations/20261125_normalize_time_slots.sql), chạy nguyên câu DO sau 20261124; chạy lại an toàn. Không tạo bảng nghiệp vụ hoặc cột JSON/JSONB mới.
+
+| Bảng / đối tượng | Trước đây | Sau sửa | Các nơi truy vấn sang |
+|---|---|---|---|
+| KHUNG_GIO | Chuỗi khoanggio và số sophut tính từ chuỗi nhưng lưu độc lập | Bỏ khoanggio, sophut. Thêm giobatdau, gioketthuc kiểu time, là nguồn giờ chuẩn duy nhất. Giữ madinhdanh, makhunggio, tenkhunggio, danghoatdong và hai mốc thời gian hệ thống | V_KHUNG_GIO truy vấn chuỗi hiển thị và số phút; các bảng lịch JOIN qua makhunggio → madinhdanh |
+| LICH_LOP | malop, thutu, thutrongtuan, makhunggio và FK đã có | Giữ nguyên bốn cột, PK/FK/UNIQUE; không thêm giờ, tên ca hoặc số phút | JOIN LOP_HOC và KHUNG_GIO/V_KHUNG_GIO |
+| LICH_RANH_DINH_KY | Mã giáo viên, khung giờ, thứ và trạng thái khai báo | Giữ nguyên cột và FK; cập nhật truy vấn đọc giờ chuẩn | JOIN KHUNG_GIO theo makhunggio |
+| LICH_DANG_KY_MON_HOC, LICH_SU_CA_DANG_KY_HOC | Lịch mong muốn theo đăng ký/đợt, liên kết mã khung giờ | Giữ nguyên cột và FK; không chép giờ/nhãn | JOIN KHUNG_GIO theo makhunggio |
+| BUOI_HOC | Mã khung giờ gốc và batdau–ketthuc thực tế của từng buổi | Giữ nguyên dữ liệu/cột/FK; không đồng bộ đè giờ thực tế khi sửa giờ chuẩn | Bộ sinh buổi lấy giờ chuẩn khi tạo; lịch sử, công và giải trình đọc giờ thực tế của BUOI_HOC |
+| V_KHUNG_GIO | Chưa có | View thường, không lưu kết quả; khoanggio và sophut là giá trị truy vấn | Danh mục, lịch lớp, lịch rảnh, ghép lớp, cổng giáo viên và các truy vấn nghiệp vụ |
+
+### Một nguồn lưu, các trường còn lại là kết quả đọc
+
+Giờ chuẩn chỉ nằm ở KHUNG_GIO.giobatdau–gioketthuc, có NOT NULL và CHECK giờ khác nhau, chính xác đến phút, trong 00:00–23:59. Số phút và chuỗi HH:MM - HH:MM được tính qua so_phut_khoang_gio/khoang_gio_hien_thi. Giữ cách tính ca qua nửa đêm của biểu mẫu cũ: 23:30–00:15 là 45 phút, không phải số âm; hai đầu giống nhau không được coi là ca 24 giờ.
+
+Không đổi tên/ID ca theo suy đoán; tenkhunggio là nhãn người dùng đặt độc lập. Các khoảng giờ chuẩn phải duy nhất để luồng nhập lịch bằng nhãn có thể tìm đúng một FK thay vì lấy tùy ý một mã. Migration dừng khi có nhiều ID cùng giờ; không tự gộp ID hoặc chuyển liên kết. UNIQUE(giobatdau,gioketthuc) ngăn lặp lại sau sửa.
+
+Biểu mẫu nhập hai giờ, không còn ba state độc lập cho chuỗi/số phút/giờ. Chuỗi và thời lượng chỉ xem trước trong biểu mẫu; giá trị sau lưu lấy lại từ RPC. Mapper bỏ timeRange/durationMinutes khỏi dữ liệu ghi và chuẩn hóa HH:MM thành HH:MM:SS cho hai giờ gốc. SQL chặn trình duyệt cố ghi khoanggio/sophut; before cũ được bỏ hai trường dẫn xuất, các trường gốc khác vẫn so sánh để tránh ghi đè thay đổi từ phiên khác.
+
+### Truy vấn liên quan và lịch sử buổi
+
+Đã chuyển các hàm đọc lịch, kiểm tra ghép lớp/lịch rảnh, thống kê ca, sinh buổi theo học liệu, hồ sơ giáo viên, truy vấn công/giải trình và báo sự cố sang view/giờ gốc. Các phép so giờ chuẩn ở những truy vấn đã có chuyển sang cột time, không cần tách chuỗi để lấy giờ. Hợp đồng đọc giữ khoanggio/sophut để các màn hình/báo cáo hiện có đọc kết quả truy vấn; hai cột không còn trong bảng vật lý.
+
+Mã khung giờ của BUOI_HOC chỉ xác định khung gốc; thời điểm cụ thể của buổi có thể được điều chỉnh hoặc đã xảy ra trước lần sửa danh mục. Vì vậy batdau/ketthuc của buổi là sự thật có phạm vi ngày, không phải bản sao bắt buộc luôn bằng khung chuẩn hiện tại. Migration không UPDATE các buổi, lịch, lịch rảnh hoặc công đã ghi. Buổi đã tồn tại giữ giờ; buổi được tạo mới lấy giờ chuẩn đang có.
+
+Sửa thêm lỗi nguồn của các truy vấn lịch sử: ca_cong_truy_van, giai_trinh_truy_van, danh sách ca hoàn thành trong hồ sơ giáo viên và hàm tìm buổi để ghi công trước đây dùng giờ danh mục. Nay các thông tin giờ buổi đó lấy BUOI_HOC, nên sửa danh mục không làm đổi giờ hiển thị của lịch sử công. Thời lượng công được truy vấn từ giờ thực tế, không tạo thêm cột lưu phút trong bảng công.
+
+RPC báo sự cố theo ngày/giờ tìm buổi thực tế trước rồi dùng mã khung gốc, kể cả khi danh mục đã đổi giờ. Nếu người dùng gửi giờ chuẩn mới nhưng ngày đó đã có buổi cùng mã với giờ thực tế khác thì báo lỗi, không gắn sự cố sang nhầm buổi. Giữ kiểm tra quyền, giáo viên được phân công, danh mục sự cố và khóa công hiện có.
+
+### Đối soát và kiểm thử
+
+[time_slot_legacy.sql](diagnostics/time_slot_legacy.sql) là truy vấn chỉ đọc dùng trước/sau nâng cấp. Dừng khi chuỗi giờ không hợp lệ, số phút không khớp, hai đầu bằng nhau hoặc có nhiều ID cùng khoảng. Không sửa số phút hoặc chọn một ID để vượt qua đối soát. Backfill hai giờ từ chuỗi hợp lệ trong giao dịch DDL, lưu/trả trạng thái trigger để không thay đổi thời gian hệ thống hay kích hoạt tác dụng phụ khi chuyển cấu trúc.
+
+Các chẩn đoán FK/dữ liệu được cập nhật cho cột mới; chẩn đoán công thiếu dùng giờ buổi thực tế. Reset demo dùng view đọc tạm có phạm vi bên trong câu DO, tự bỏ trước khi kết thúc, tương thích trước/sau nâng cấp và chạy lại; đây không phải bước chạy trên dữ liệu thật.
+
+Kiểm thử SQL với dữ liệu có buổi/công/lịch/lịch rảnh: migration hai lần; sai phút, sai chuỗi và ID trùng giờ đều hoàn tác; không tăng số bảng; hai cột cũ bị bỏ; dữ liệu gốc của lịch/buổi/công giữ nguyên. RPC thực tạo/sửa/xóa ca, ca qua nửa đêm, chặn giờ rỗng/bằng nhau/giây lẻ/24:00/trùng khoảng, chặn ghi trường dẫn xuất, chặn xóa ca đang được FK tham chiếu. Sửa giờ chuẩn cập nhật nhãn lịch và API giáo viên; báo cáo công và ca hoàn thành giữ giờ thực tế. Thử báo sự cố sau đổi danh mục, bộ sinh lấy giờ mới cho buổi tạo mới trong fixture có rollback, FK, chẩn đoán chỉ đọc và reset lặp lại. Kiểm thử mapper/biểu mẫu xác nhận chỉ gửi hai giờ gốc và so sánh phiên bản đúng dạng SQL time.
+
+### Phạm vi 3NF
+
+KHUNG_GIO không còn thuộc tính dẫn xuất được lưu độc lập; các thuộc tính giữ lại phụ thuộc vào mã định danh/khóa ứng viên. LICH_LOP giữ lịch theo khóa lớp–thứ tự và các FK, không lưu tên hoặc giờ chép từ khung. Nhóm khung giờ chuẩn–lịch định kỳ đã loại các bản sao trong phạm vi được rà. Giờ thực tế của buổi có ý nghĩa khác nên được giữ. Chưa kết luận toàn bộ BUOI_HOC, học liệu, biên bản dự giờ, đối soát hay toàn CSDL đã hoàn tất 3NF.

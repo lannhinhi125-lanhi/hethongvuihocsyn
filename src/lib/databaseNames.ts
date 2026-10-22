@@ -69,6 +69,8 @@ export const DATABASE_NAMES = {
       "name": "tenkhunggio",
       "time_range": "khoanggio",
       "duration_minutes": "sophut",
+      "start_time": "giobatdau",
+      "end_time": "gioketthuc",
       "is_active": "danghoatdong",
       "created_at": "ngaytao",
       "updated_at": "ngaycapnhat"
@@ -513,6 +515,8 @@ export const APP_DATABASE_FIELDS = {
     "name": "tenkhunggio",
     "timeRange": "khoanggio",
     "durationMinutes": "sophut",
+    "startTime": "giobatdau",
+    "endTime": "gioketthuc",
     "status": "danghoatdong",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
@@ -609,6 +613,9 @@ export const APP_DATABASE_FIELDS = {
     "startDate": "ngaybatdau",
     "durationMonths": "thoihanthang",
     "endDate": "ngayketthuc",
+    "durationCatalogGroupId": "madanhmucthoihan",
+    "durationCatalogId": "mathoihan",
+    "customEndDate": "ngayketthuctuychinh",
     "roomLink": "lienketphonghoc",
     "teacherId": "magiaovien",
     "materials": "hoclieu",

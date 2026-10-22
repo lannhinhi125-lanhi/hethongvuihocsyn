@@ -2,11 +2,15 @@ import assert from 'node:assert/strict';
 import type {ClassItem} from '../src/types';
 import {classBindingEditIssue,canKeepAssignedTeacher,nextClassTeacherSelection,studentsNeedingClassValidation,studentsNeedingScheduleValidation} from '../src/lib/classEditing';
 import {studentForSubject,studentScheduleConflict} from '../src/lib/studentRegistrations';
+import {fromSupabaseRow,toSupabaseRow} from '../src/lib/supabaseMapper';
 
 const existing:ClassItem={id:'SEEDED-CLASS',code:'T-001',name:'Sample class',status:'Đang học',grade:'GRADE-3',subject:'MATH',
  level:'LEVEL-2',model:'1-3',maxStudents:3,teacherId:'SEEDED-TEACHER',teacherName:'Current teacher',
  studentIds:['S1','S2'],schedule:'T7 (12:50 - 13:50)',roomLink:'https://room.example',materials:[]};
 const renamed={...existing,name:'Updated name',roomLink:'https://room.example/new'};
+assert.equal(Object.hasOwn(toSupabaseRow('classes',existing),'sisotoida'),false,'class writes must not recreate the model capacity copy');
+assert.equal(toSupabaseRow('class_models',{id:'MODEL',maxStudents:3}).sisotoida,3,'capacity is writable at its model source');
+assert.equal(fromSupabaseRow('classes',{madinhdanh:'CLASS',sisotoida:3}).maxStudents,3,'queried capacity remains available to screens and reports');
 // Seeded or ongoing classes keep their existing assignments for metadata edits,
 // even if the teacher has no current availability record or students' profiles changed.
 assert.equal(canKeepAssignedTeacher(existing,renamed,'SEEDED-TEACHER'),true);

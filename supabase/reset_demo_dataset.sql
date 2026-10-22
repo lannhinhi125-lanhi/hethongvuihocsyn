@@ -5,6 +5,8 @@
 DO $demo_reset$
 BEGIN
 SET CONSTRAINTS ALL DEFERRED;
+IF to_regclass('vuihoc."V_KHUNG_GIO"') IS NOT NULL THEN EXECUTE 'CREATE TEMP VIEW demo_slot_source AS SELECT * FROM vuihoc."V_KHUNG_GIO"';
+ELSE EXECUTE 'CREATE TEMP VIEW demo_slot_source AS SELECT * FROM vuihoc."KHUNG_GIO"'; END IF;
 PERFORM pg_advisory_xact_lock(hashtextextended('vuihoc-lifecycle-clock',0));
 LOCK TABLE vuihoc."NGUOI_DUNG",vuihoc."GIAO_VIEN",vuihoc."HOC_SINH",vuihoc."LOP_HOC",
  vuihoc."BUOI_HOC",vuihoc."BANG_CONG_THANG",vuihoc."BIEN_BAN_DU_GIO" IN ACCESS EXCLUSIVE MODE;
@@ -25,7 +27,7 @@ DO $preflight$ BEGIN
  OR (SELECT count(*) FROM vuihoc."TRINH_DO" WHERE matrinhdo IN ('LVL-F1','LVL-F2','LVL-STD','LVL-ADV'))<>4 THEN
   RAISE EXCEPTION 'Thiếu danh mục Toán/Anh, mô hình 1-1/1-3/1-5, khối tiểu học hoặc trình độ. Không xóa dữ liệu.';
  END IF;
- IF (SELECT count(*) FROM vuihoc."KHUNG_GIO" WHERE regexp_replace(khoanggio,'\s','','g') IN ('16:15-17:45','18:00-19:30','19:45-21:15') AND danghoatdong)<3 THEN
+ IF (SELECT count(*) FROM demo_slot_source WHERE regexp_replace(khoanggio,'\s','','g') IN ('16:15-17:45','18:00-19:30','19:45-21:15') AND danghoatdong)<3 THEN
   RAISE EXCEPTION 'Cần 3 khung giờ hoạt động: 16:15–17:45, 18:00–19:30, 19:45–21:15. Không xóa dữ liệu.';
  END IF;
 END $preflight$;
@@ -185,7 +187,9 @@ CREATE TEMP TABLE demo_classes ON COMMIT DROP AS
  CASE WHEN i%2=1 THEN 1 ELSE 2 END AS firstday
  FROM generate_series(1,12) n(i);
 ALTER TABLE demo_classes ADD COLUMN slot text;
-UPDATE demo_classes c SET slot=(SELECT madinhdanh FROM vuihoc."KHUNG_GIO" WHERE regexp_replace(khoanggio,'\s','','g')=c.hours AND danghoatdong ORDER BY madinhdanh LIMIT 1);
+UPDATE demo_classes c SET slot=(SELECT madinhdanh FROM demo_slot_source WHERE regexp_replace(khoanggio,'\s','','g')=c.hours AND danghoatdong ORDER BY madinhdanh LIMIT 1);
+DO $demo_class_capacity$
+DECLARE statement text:=$insert$
 INSERT INTO vuihoc."LOP_HOC"(madinhdanh,malophoc,tenlophoc,mamonhoc,matrinhdo,mamohinh,sisotoida,macaphoc,makhoi,
  trangthai,ngaybatdau,lienketphonghoc,magiaovien,ngaytao)
  SELECT c.id,(CASE WHEN c.subject='SUB-MATH' THEN 'TOAN' ELSE 'ENG' END)||'_K'||c.grade||'_2026_'||lpad(c.i::text,2,'0'),
@@ -197,6 +201,13 @@ INSERT INTO vuihoc."LOP_HOC"(madinhdanh,malophoc,tenlophoc,mamonhoc,matrinhdo,ma
  'DEMO-GV-'||lpad(c.i::text,3,'0'),'2026-08-25'
  FROM demo_classes c JOIN vuihoc."MO_HINH_LOP" m ON m.mamohinh=c.model
  JOIN vuihoc."LUA_CHON_CAP_HOC" k ON k.macaphoc='CAP-TH' AND k.nhan='Lớp '||c.grade;
+$insert$;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='LOP_HOC' AND column_name='sisotoida') THEN
+  statement:=replace(replace(statement,'mamohinh,sisotoida,macaphoc','mamohinh,macaphoc'),'c.model,m.sisotoida,','c.model,');
+ END IF;
+ EXECUTE statement;
+END $demo_class_capacity$;
 INSERT INTO vuihoc."LICH_LOP" SELECT id,1,firstday,slot FROM demo_classes
  UNION ALL SELECT id,2,firstday+3,slot FROM demo_classes;
 
@@ -257,6 +268,29 @@ INSERT INTO vuihoc."LICH_DANG_KY_MON_HOC" SELECT d.mahocsinh,d.mamonhoc,1,CASE W
 END IF;
 
 -- The existing schedule generator creates lessons. Never INSERT generated rows.
+CREATE TEMP TABLE demo_material_trigger_states ON COMMIT DROP AS
+ SELECT tgname,tgenabled FROM pg_trigger WHERE tgrelid='vuihoc."HOC_LIEU_LOP"'::regclass AND NOT tgisinternal;
+DO $stage_materials$ DECLARE r record; BEGIN
+ FOR r IN SELECT * FROM demo_material_trigger_states LOOP EXECUTE format('ALTER TABLE vuihoc."HOC_LIEU_LOP" DISABLE TRIGGER %I',r.tgname); END LOOP;
+END $stage_materials$;
+-- The current generator requires weekly materials before it can create lessons.
+-- Stage them from the class schedule, not from lessons that do not exist yet.
+WITH planned AS (
+ SELECT DISTINCT c.id AS malop,date_trunc('week',d.day)::date AS monday,
+  CASE WHEN extract(isodow FROM d.day)=c.firstday THEN 1 ELSE 2 END AS session
+ FROM demo_classes c CROSS JOIN generate_series(timestamp '2026-09-01',timestamp '2026-11-30',interval '1 day') d(day)
+ WHERE extract(isodow FROM d.day)::integer IN (c.firstday,c.firstday+3)
+ AND (c.i<=10 OR (c.i=11 AND d.day>=date '2026-11-02') OR (c.i=12 AND d.day<date '2026-09-15'))
+), labeled AS (
+ SELECT *,to_char(monday,'MM/YYYY') AS month,
+ 'Tuần '||(floor((extract(day FROM monday)-1)/7)+1)::integer||': Từ ngày '||to_char(monday,'DD/MM/YYYY')||' đến ngày '||to_char(monday+6,'DD/MM/YYYY') AS week
+ FROM planned
+)
+INSERT INTO vuihoc."HOC_LIEU_LOP"(malop,thutu,thang,tuan,sobuoi,tieude,lienketslide,lienketlms)
+ SELECT malop,row_number() OVER(PARTITION BY malop ORDER BY monday,session)::integer,month,week,session,
+ 'Bài học và luyện tập – Buổi '||session||' – '||to_char(monday,'DD/MM/YYYY'),
+ 'https://example.com/vuihoc/materials/'||malop||'/'||monday||'/buoi-'||session,
+ 'https://example.com/vuihoc/lms/'||malop||'/'||monday||'/buoi-'||session FROM labeled;
 PERFORM vuihoc.dong_bo_ca_theo_lich(date '2026-09-01',date '2026-10-31');
 PERFORM vuihoc.dong_bo_ca_theo_lich(date '2026-11-01',date '2026-11-30');
 -- The paused demo class only operated during the first two weeks of September.
@@ -330,12 +364,18 @@ UPDATE vuihoc."NHAN_XET_BUOI_HOC" n SET noidung=CASE WHEN a.trangthai='absent' T
  AND (x.scenario<>'PARTIAL' OR n.mahocsinh<>(SELECT min(q.mahocsinh) FROM vuihoc."NHAN_XET_BUOI_HOC" q WHERE q.mabuoi=n.mabuoi));
 
 -- Class session projections and materials use the same dated-lesson keys.
+IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='CHI_TIET_CA_LOP' AND column_name='malop') THEN
 INSERT INTO vuihoc."CHI_TIET_CA_LOP"(malop,khoaca,mabuoi,sobuoi,ngaygio,tieude,giovaohienthi,hotennguoivao,magiaoviendaythay,codiemdanh,conhanxet)
  SELECT x.class_id,x.day::text||'-'||CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END,x.id,
  CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END,x.day::text||' '||replace(x.hours,'-',' - '),b.tieude,
  to_char(b.vaolopluc AT TIME ZONE 'Asia/Bangkok','HH24:MI:SS'),g.hoten,b.magiaoviendaythay,b.vaolopluc IS NOT NULL,b.ketthucluc IS NOT NULL
  FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id LEFT JOIN vuihoc."GIAO_VIEN" teacher ON teacher.madinhdanh=coalesce(b.magiaoviendaythay,b.magiaovienchinh)
  LEFT JOIN vuihoc."NGUOI_DUNG" g ON g.madinhdanh=teacher.manguoidung;
+ELSE
+ INSERT INTO vuihoc."CHI_TIET_CA_LOP"(mabuoi,khoaca,sobuoi)
+ SELECT x.id,x.day::text||'-'||CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END,
+ CASE WHEN extract(isodow FROM x.day)=x.firstday THEN 1 ELSE 2 END FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id;
+END IF;
 WITH slots AS (
  SELECT DISTINCT b.malop,date_trunc('week',b.ngayhoc)::date AS monday,l.thutu AS session
  FROM vuihoc."BUOI_HOC" b JOIN vuihoc."LICH_LOP" l
@@ -402,8 +442,15 @@ INSERT INTO vuihoc."BIEN_BAN_DU_GIO"(madinhdanh,magiaovien,mabienban,mabuoi,malo
  FROM demo_lessons x JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=x.id JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=x.class_id
  WHERE x.class_i<=10 AND x.lesson_no IN (3,10) AND x.scenario IN ('COMPLETE','LATE');
 
+SET CONSTRAINTS ALL IMMEDIATE;
+DO $restore_materials$ DECLARE r record; BEGIN
+ FOR r IN SELECT * FROM demo_material_trigger_states LOOP
+  EXECUTE format('ALTER TABLE vuihoc."HOC_LIEU_LOP" %s TRIGGER %I',CASE r.tgenabled WHEN 'D' THEN 'DISABLE' WHEN 'R' THEN 'ENABLE REPLICA' WHEN 'A' THEN 'ENABLE ALWAYS' ELSE 'ENABLE' END,r.tgname);
+ END LOOP;
+END $restore_materials$;
 PERFORM vuihoc.kiem_tra_dang_ky_mon();
 SET CONSTRAINTS ALL IMMEDIATE;
+DROP VIEW demo_slot_source;
 END $demo_reset$;
 
 -- Read-only summary; payroll totals are queried from generated work rows.

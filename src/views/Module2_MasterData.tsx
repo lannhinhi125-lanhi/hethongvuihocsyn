@@ -10,6 +10,7 @@ import { IncidentCatalog } from '../components/IncidentCatalog';
 import { CatalogWorkspace } from '../components/CatalogWorkspace';
 import { TeachingCatalog } from '../components/TeachingCatalog';
 import { ClassDurationCatalog } from '../components/ClassDurationCatalog';
+import { timeSlotPreview } from '../lib/timeSlot';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { IncidentCategory } from '../types';
@@ -71,10 +72,9 @@ export const Module2_MasterData: React.FC = () => {
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [slotCode, setSlotCode] = useState('');
   const [slotName, setSlotName] = useState('');
-  const [slotRange, setSlotRange] = useState('18:00 - 19:30');
-  const [slotDuration, setSlotDuration] = useState(90);
-  const [slotStartTime, setSlotStartTime] = useState('18:00');
-  const [slotEndTime, setSlotEndTime] = useState('19:30');
+  const [slotStartTime, setSlotStartTime] = useState('');
+  const [slotEndTime, setSlotEndTime] = useState('');
+  const {timeRange:slotRange,durationMinutes:slotDuration}=timeSlotPreview(slotStartTime,slotEndTime);
 
 
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
@@ -197,21 +197,15 @@ export const Module2_MasterData: React.FC = () => {
       setEditingSlotId(item.id);
       setSlotCode(item.code);
       setSlotName(item.name);
-      setSlotRange(item.timeRange);
-      setSlotDuration(item.durationMinutes);
       const parts = item.timeRange.split('-');
-      if (parts.length === 2) {
-        setSlotStartTime(parts[0].trim());
-        setSlotEndTime(parts[1].trim());
-      }
+      setSlotStartTime(item.startTime?.slice(0,5) || parts[0]?.trim() || '');
+      setSlotEndTime(item.endTime?.slice(0,5) || parts[1]?.trim() || '');
     } else {
       setEditingSlotId(null);
       setSlotCode(`SLOT-N${timeSlots.length + 1}`);
       setSlotName('');
-      setSlotStartTime('18:00');
-      setSlotEndTime('19:30');
-      setSlotRange('18:00 - 19:30');
-      setSlotDuration(90);
+      setSlotStartTime('');
+      setSlotEndTime('');
     }
     setIsSlotModalOpen(true);
   };
@@ -219,16 +213,6 @@ export const Module2_MasterData: React.FC = () => {
   const handleTimeChange = (start: string, end: string) => {
     setSlotStartTime(start);
     setSlotEndTime(end);
-    try {
-      const [h1, m1] = start.split(':').map(Number);
-      const [h2, m2] = end.split(':').map(Number);
-      let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
-      if (diff < 0) diff += 24 * 60;
-      if (diff > 0) {
-        setSlotDuration(diff);
-      }
-    } catch {}
-    setSlotRange(`${start} - ${end}`);
   };
 
   const handleSaveSlot = (e: React.FormEvent) => {
@@ -237,12 +221,13 @@ export const Module2_MasterData: React.FC = () => {
     if (!requirePermission("Cấu hình Khung giờ ca dạy chuẩn (Time Slot)")) return;
     e.preventDefault();
     if (!slotName.trim()) return;
+    if (!slotDuration) {showToast('Chọn giờ bắt đầu và kết thúc hợp lệ, khác nhau.', 'error');return;}
 
     if (editingSlotId) {
       setTimeSlots(prev =>
         prev.map(s =>
           s.id === editingSlotId
-            ? { ...s, code: slotCode, name: slotName.trim(), timeRange: slotRange.trim(), durationMinutes: slotDuration }
+            ? { ...s, code: slotCode, name: slotName.trim(), startTime:slotStartTime, endTime:slotEndTime, timeRange: slotRange, durationMinutes: slotDuration }
             : s
         )
       );
@@ -254,6 +239,8 @@ export const Module2_MasterData: React.FC = () => {
           id: `SLOT-${Date.now()}`,
           code: slotCode,
           name: slotName.trim(),
+          startTime: slotStartTime,
+          endTime: slotEndTime,
           timeRange: slotRange.trim(),
           durationMinutes: slotDuration,
           status: true

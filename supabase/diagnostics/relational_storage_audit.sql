@@ -47,7 +47,7 @@ WITH columns AS (
  SELECT 'TEXT_DATE',table_name,column_name,data_type,
   'Date stored as text: verify format and migrate to date if semantically a date.'
  FROM columns WHERE data_type IN ('text','character varying')
-  AND column_name IN ('ngaybatdau','ngayketthuc','ngaycapnhat','ngaytao','ngayhoc','ngaydanhgia')
+  AND column_name IN ('ngaybatdau','ngayketthuc','ngayketthuctuychinh','ngaycapnhat','ngaytao','ngayhoc','ngaydanhgia')
  UNION ALL
  SELECT 'MISSING_TABLE',r.table_name,NULL,NULL,'Expected after the combined relational update.'
  FROM relations r WHERE NOT EXISTS (

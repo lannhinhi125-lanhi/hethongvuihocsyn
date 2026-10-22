@@ -3,6 +3,7 @@ import { inspectionDate } from './inspectionReport';
 export type SupabaseDataset = keyof typeof APP_DATABASE_FIELDS;
 type DataRow = Record<string, unknown>;
 export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly string[]>> = {
+  time_slots: ['timeRange', 'durationMinutes'],
   users: ['role', 'subject', 'avatarInitials'],
   role_groups: ['userCount'],
   lesson_incidents: ['fromClassPause'],
@@ -13,7 +14,7 @@ export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly s
   rag_bot_config: ['quickPrompts'],
   teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull', 'evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores'],
   "classes": [
-    "teacherName"
+    "teacherName", "maxStudents", "durationMonths", "endDate"
   ],
   "teacher_evaluations": [
     "evaluatorName",
@@ -66,6 +67,7 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
     const codes = STATUS_CODES[dataset as keyof typeof STATUS_CODES] as Record<string,string> | undefined;
     const normalized = field === 'status' && codes ? codes[String(content)] || content : content;
     let stored = normalized;
+    if (dataset === 'time_slots' && ['startTime','endTime'].includes(field) && typeof stored === 'string' && /^\d{2}:\d{2}$/.test(stored)) stored += ':00';
     if (dataset === 'dated_lessons' && ['startsAt','endsAt'].includes(field) && typeof stored === 'string') {
       stored = stored.includes('T')
         ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(stored))

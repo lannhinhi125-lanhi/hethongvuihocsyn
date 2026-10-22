@@ -1,6 +1,11 @@
 -- Run this entire file once in Supabase SQL Editor.
 -- Schema upgrade and existing demo class terms are committed atomically.
 BEGIN;
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='LOP_HOC' AND column_name='mathoihan') THEN
+  RAISE EXCEPTION 'Thời hạn đã chuẩn hóa bằng 20261124. Không chạy lại bộ nâng cấp cũ; dùng backfill_demo_class_end_dates.sql nếu cần dữ liệu mẫu.';
+ END IF;
+END $$;
 -- Source: migrations/20261109_reenrollment_class_duration.sql
 -- Run after 20261108. No tuition or revenue data is introduced.
 
@@ -183,7 +188,8 @@ WHERE l.thoihanthang IS NULL AND l.ngayketthuc IS NULL;
   OR EXISTS(SELECT 1 FROM vuihoc."SU_CO_BUOI_HOC" s WHERE s.mabuoi=b.madinhdanh)
   OR EXISTS(SELECT 1 FROM vuihoc."NHAN_XET_BUOI_HOC" n WHERE n.mabuoi=b.madinhdanh)
   OR EXISTS(SELECT 1 FROM vuihoc."DIEM_DANH_BUOI_HOC" d WHERE d.mabuoi=b.madinhdanh)
-  OR EXISTS(SELECT 1 FROM vuihoc."CHI_TIET_CA_LOP" c WHERE c.mabuoi=b.madinhdanh AND (c.codiemdanh OR c.conhanxet OR c.magiaoviendaythay IS NOT NULL OR nullif(c.giovaohienthi,'') IS NOT NULL))
+  OR nullif(b.hoclieugiaovien,'') IS NOT NULL OR nullif(b.hoclieuhocsinh,'') IS NOT NULL OR nullif(b.baitaplms,'') IS NOT NULL
+  OR EXISTS(SELECT 1 FROM vuihoc."CHI_TIET_CA_LOP" c WHERE c.mabuoi=b.madinhdanh AND (coalesce((to_jsonb(c)->>'codiemdanh')::boolean,false) OR coalesce((to_jsonb(c)->>'conhanxet')::boolean,false) OR to_jsonb(c)->>'magiaoviendaythay' IS NOT NULL OR nullif(to_jsonb(c)->>'giovaohienthi','') IS NOT NULL OR nullif(to_jsonb(c)->>'hoclieugiaovien','') IS NOT NULL OR nullif(to_jsonb(c)->>'hoclieuhocsinh','') IS NOT NULL OR nullif(to_jsonb(c)->>'baitaplms','') IS NOT NULL))
   OR EXISTS(SELECT 1 FROM vuihoc."BIEN_BAN_DU_GIO" d WHERE d.mabuoi=b.madinhdanh)
   OR EXISTS(SELECT 1 FROM vuihoc."PHAN_CONG_DAY_THAY" a WHERE a.mabuoi=b.madinhdanh)
  )) THEN RAISE EXCEPTION 'Có buổi sau hạn đã phát sinh dữ liệu hoặc đã đến ngày học. Toàn bộ cập nhật được hủy; cần đối chiếu riêng.'; END IF;

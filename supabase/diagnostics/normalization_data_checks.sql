@@ -15,9 +15,9 @@ WITH teacher_scores AS (
   SELECT vuihoc.dang_ky_mon_truy_van(h.madinhdanh)->0 AS d
  ) q ON true WHERE to_jsonb(h) ? 'mamonhoc'
 ), intervals AS (
- SELECT k.*,CASE WHEN khoanggio ~ '^([01][0-9]|2[0-3]):[0-5][0-9] *- *([01][0-9]|2[0-3]):[0-5][0-9]$'
-  THEN extract(epoch FROM (btrim(split_part(khoanggio,'-',2))::time-btrim(split_part(khoanggio,'-',1))::time))/60 END AS calculated
- FROM vuihoc."KHUNG_GIO" k
+ SELECT (to_jsonb(k)->>'sophut')::numeric AS sophut,CASE WHEN to_jsonb(k)->>'khoanggio' ~ '^\s*([01]?[0-9]|2[0-3]):[0-5][0-9]\s*-\s*([01]?[0-9]|2[0-3]):[0-5][0-9]\s*$'
+  THEN extract(epoch FROM (split_part(to_jsonb(k)->>'khoanggio','-',2)::time-split_part(to_jsonb(k)->>'khoanggio','-',1)::time+CASE WHEN split_part(to_jsonb(k)->>'khoanggio','-',2)::time<split_part(to_jsonb(k)->>'khoanggio','-',1)::time THEN interval '1 day' ELSE interval '0' END))/60 END AS calculated
+ FROM vuihoc."KHUNG_GIO" k WHERE to_jsonb(k) ? 'sophut'
 ), checks AS (
  SELECT '01_GROUP_ACCOUNT_COUNT' AS check_id,'NHOM_QUYEN.soluongnguoidung vs linked account count' AS subject,
   count(*) AS checked_rows,count(*) FILTER(WHERE (to_jsonb(n)->>'soluongnguoidung')::numeric IS DISTINCT FROM (SELECT count(*) FROM vuihoc."NGUOI_DUNG" u WHERE u.manhomquyen=n.madinhdanh)) AS review_rows
@@ -35,7 +35,7 @@ WITH teacher_scores AS (
  UNION ALL
  SELECT '03_INSPECTION_WITHOUT_LESSON','Legacy inspections requiring context reconciliation before removing copies',count(*),count(*) FILTER(WHERE mabuoi IS NULL) FROM vuihoc."BIEN_BAN_DU_GIO"
  UNION ALL
- SELECT '04_CLASS_CAPACITY','Class-specific capacity different from model default: review override policy',count(*),count(*) FILTER(WHERE l.sisotoida IS DISTINCT FROM m.sisotoida)
+ SELECT '04_CLASS_CAPACITY','Legacy class capacity differs from the source model',count(*),count(*) FILTER(WHERE to_jsonb(l) ? 'sisotoida' AND (to_jsonb(l)->>'sisotoida')::numeric IS DISTINCT FROM m.sisotoida)
  FROM vuihoc."LOP_HOC" l JOIN vuihoc."MO_HINH_LOP" m ON m.mamohinh=l.mamohinh
 )
 SELECT * FROM checks ORDER BY check_id;

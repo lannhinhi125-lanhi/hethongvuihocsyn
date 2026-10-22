@@ -34,7 +34,7 @@ LEFT JOIN LATERAL (
          WHEN left(s.ngay_json,10) ~ '^\d{4}-\d{2}-\d{2}$'
            THEN left(s.ngay_json,10)::date
          ELSE to_date(left(s.ngay_json,10),'DD/MM/YYYY') END
-       AND regexp_replace(k.khoanggio,'\s','','g')=
+       AND to_char(b2.batdau,'HH24:MI')||'-'||to_char(b2.ketthuc,'HH24:MI')=
            regexp_replace(coalesce(s.khunggio,''),'\s','','g'))
   ORDER BY CASE WHEN b2.madinhdanh=coalesce(s.mabuoi_json,s.maca) THEN 0 ELSE 1 END
   LIMIT 1

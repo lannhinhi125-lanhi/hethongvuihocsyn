@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+
+export async function verifyClassCapacityNormalization(db,token){
+ const file=p=>readFileSync(p,'utf8');
+ const migration=file('supabase/migrations/20261123_normalize_class_capacity.sql');
+ const business=async()=>(await db.query('SELECT public.vuihoc_business_data($1) AS value',[token])).rows[0].value;
+ const save=changes=>db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify(changes)]);
+ const original=await business();
+ const physical=async name=>(await db.query(`SELECT to_jsonb(t) AS row FROM vuihoc."${name}" t ORDER BY to_jsonb(t)::text`)).rows;
+ const lessons=await physical('BUOI_HOC'),work=await physical('CONG_DAY_BUOI_HOC'),models=await physical('MO_HINH_LOP');
+ const tables=async()=>(await db.query(`SELECT tablename FROM pg_tables WHERE schemaname='vuihoc' ORDER BY tablename`)).rows;
+ const beforeTables=await tables();
+ assert.ok(original.classes.length&&lessons.length&&work.length);
+ assert.deepEqual((await db.query(file('supabase/diagnostics/class_capacity_legacy.sql'))).rows,[]);
+ await db.exec('BEGIN');
+ await db.query('UPDATE vuihoc."LOP_HOC" SET sisotoida=sisotoida+1 WHERE madinhdanh=$1',[original.classes[0].madinhdanh]);
+ assert.ok((await db.query(file('supabase/diagnostics/class_capacity_legacy.sql'))).rows.length);
+ await assert.rejects(()=>db.exec(migration),/chưa khớp mô hình/);
+ await db.exec('ROLLBACK');
+ await db.exec(migration);await db.exec(migration);
+ assert.deepEqual(await tables(),beforeTables);
+ assert.deepEqual(await physical('BUOI_HOC'),lessons);assert.deepEqual(await physical('CONG_DAY_BUOI_HOC'),work);assert.deepEqual(await physical('MO_HINH_LOP'),models);
+ assert.deepEqual((await business()).classes,original.classes);
+ assert.deepEqual((await business()).teachers,original.teachers,'inspection/session summaries must use the same queried capacity');
+ assert.equal((await db.query(`SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='LOP_HOC' AND column_name='sisotoida'`)).rows[0].n,0);
+ const source=original.class_models.find(m=>original.classes.some(c=>c.mamohinh===m.mamohinh&&c.danhsachmahocsinh.length>0));
+ assert.ok(source);
+ const affected=original.classes.filter(c=>c.mamohinh===source.mamohinh);
+ const restore=()=>save([{dataset:'class_models',before:{madinhdanh:source.madinhdanh,sisotoida:source.sisotoida+1},after:{madinhdanh:source.madinhdanh,sisotoida:source.sisotoida}}]);
+ const receipt=(await save([{dataset:'class_models',before:{madinhdanh:source.madinhdanh,sisotoida:source.sisotoida},after:{madinhdanh:source.madinhdanh,sisotoida:source.sisotoida+1}}])).rows[0].vuihoc_save_business;
+ assert.ok(receipt.saved);for(const c of affected)assert.equal(receipt.data.classes.find(x=>x.madinhdanh===c.madinhdanh).sisotoida,source.sisotoida+1);
+ await restore();
+ for(const invalid of [0,-1,1.5])await assert.rejects(()=>save([{dataset:'class_models',before:{madinhdanh:source.madinhdanh,sisotoida:source.sisotoida},after:{madinhdanh:source.madinhdanh,sisotoida:invalid}}]));
+ // Shrinking a populated model must fail rather than silently overfill its classes.
+ const fullModel=original.class_models.find(m=>m.sisotoida>1&&original.classes.some(c=>c.mamohinh===m.mamohinh&&c.danhsachmahocsinh.length===m.sisotoida));
+ assert.ok(fullModel);
+ await assert.rejects(()=>save([{dataset:'class_models',before:{madinhdanh:fullModel.madinhdanh,sisotoida:fullModel.sisotoida},after:{madinhdanh:fullModel.madinhdanh,sisotoida:fullModel.sisotoida-1}}]),/Sĩ số/);
+ const cls=(await business()).classes.find(c=>c.trangthai==='DANG_HOC');
+ await assert.rejects(()=>save([{dataset:'classes',before:{madinhdanh:cls.madinhdanh},after:{madinhdanh:cls.madinhdanh,sisotoida:99}}]),/dữ liệu truy vấn/);
+ await save([{dataset:'classes',before:{madinhdanh:cls.madinhdanh,tenlophoc:cls.tenlophoc,sisotoida:cls.sisotoida},after:{madinhdanh:cls.madinhdanh,tenlophoc:cls.tenlophoc+' CHECK'}}]);
+ assert.equal((await business()).classes.find(c=>c.madinhdanh===cls.madinhdanh).tenlophoc,cls.tenlophoc+' CHECK');
+ await save([{dataset:'classes',before:{madinhdanh:cls.madinhdanh,tenlophoc:cls.tenlophoc+' CHECK'},after:{madinhdanh:cls.madinhdanh,tenlophoc:cls.tenlophoc}}]);
+ // Actual class creation supplies a model FK and no capacity copy.
+ const newClass={...cls,madinhdanh:'TEST-CAPACITY-CLASS',malophoc:'TEST-CAPACITY-CLASS',tenlophoc:'Class capacity source',magiaovien:null,danhsachmahocsinh:[],hoclieu:[],chitietcahoc:{},phancongdaythay:[],trangthai:'CHO_KHAI_GIANG'};
+ const conf=(await db.query('SELECT vuihoc.business_config() AS c')).rows[0].c;
+ for(const k of Object.keys(newClass))if(!conf.classes.columns.includes(k)||k==='sisotoida')delete newClass[k];
+ await save([{dataset:'classes',before:null,after:newClass}]);
+ assert.equal((await business()).classes.find(c=>c.madinhdanh===newClass.madinhdanh).sisotoida,cls.sisotoida);
+ const otherModel=original.class_models.find(m=>m.mamohinh!==cls.mamohinh);
+ await save([{dataset:'classes',before:{madinhdanh:newClass.madinhdanh,mamohinh:cls.mamohinh},after:{madinhdanh:newClass.madinhdanh,mamohinh:otherModel.mamohinh}}]);
+ assert.equal((await business()).classes.find(c=>c.madinhdanh===newClass.madinhdanh).sisotoida,otherModel.sisotoida,'changing an empty class model changes capacity without storing a copy');
+ await save([{dataset:'classes',before:{madinhdanh:newClass.madinhdanh},after:null}]);
+ assert.deepEqual((await db.query(file('supabase/diagnostics/class_capacity_legacy.sql'))).rows,[]);
+ assert.ok((await db.query(file('supabase/diagnostics/foreign_key_audit.sql'))).rows.every(r=>r.trangthai==='OK'));
+ await db.exec('BEGIN TRANSACTION READ ONLY');await db.query(file('supabase/diagnostics/normalization_data_checks.sql'));await db.exec('COMMIT');
+ await db.exec(file('supabase/reset_demo_dataset.sql'));
+ const reset=await business();assert.ok(reset.classes.length);
+ for(const c of reset.classes)assert.equal(c.sisotoida,reset.class_models.find(m=>m.mamohinh===c.mamohinh).sisotoida);
+ console.log('PASS class capacity normalization: no new tables, FK retained, source model queried by reads/reports, repeated migration, preflight rollback, unchanged lessons/work, real model/class CRUD, overcapacity and derived-write guards, compatible diagnostics/reset');
+}

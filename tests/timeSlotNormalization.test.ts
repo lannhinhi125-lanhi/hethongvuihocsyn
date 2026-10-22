@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {timeSlotPreview} from '../src/lib/timeSlot';
+import {toSupabaseRow,fromSupabaseRow} from '../src/lib/supabaseMapper';
+import {recordChanges} from '../src/lib/recordChanges';
+assert.deepEqual(timeSlotPreview('18:00','19:30'),{timeRange:'18:00 - 19:30',durationMinutes:90});
+assert.equal(timeSlotPreview('23:30','00:15').durationMinutes,45);
+for(const [start,end] of [['','19:30'],['24:00','01:00'],['12:60','13:00'],['12:00','12:00']])assert.equal(timeSlotPreview(start,end).durationMinutes,0);
+const stored={madinhdanh:'S',makhunggio:'SLOT',tenkhunggio:'Slot',giobatdau:'18:00:00',gioketthuc:'19:30:00',khoanggio:'18:00 - 19:30',sophut:90,danghoatdong:true};
+const decoded=fromSupabaseRow('time_slots',stored);
+const encoded=toSupabaseRow('time_slots',decoded);
+assert.equal(encoded.giobatdau,'18:00:00');assert.ok(!Object.hasOwn(encoded,'sophut')&&!Object.hasOwn(encoded,'khoanggio'));
+const edited=toSupabaseRow('time_slots',{...decoded,startTime:'18:05',timeRange:'ignored',durationMinutes:999});
+assert.equal(edited.giobatdau,'18:05:00');
+assert.deepEqual(recordChanges('time_slots',[encoded],[edited],[stored]),[{dataset:'time_slots',before:{madinhdanh:'S',giobatdau:'18:00:00'},after:{madinhdanh:'S',giobatdau:'18:05:00'}}]);
+console.log('PASS slot form preview, overnight/invalid clocks, typed source-only writes and conflict-safe patches');

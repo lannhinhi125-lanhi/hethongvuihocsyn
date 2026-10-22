@@ -334,10 +334,12 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [clsRoomLink, setClsRoomLink] = useState('');
   const [clsSchedule, setClsSchedule] = useState('');
   const [clsStartDate, setClsStartDate] = useState('');
-  const [clsDurationMonths,setClsDurationMonths]=useState('');
+  const [clsDurationId,setClsDurationId]=useState('');
   const [clsCustomEndDate,setClsCustomEndDate]=useState('');
   const [durationCatalogs]=useBusinessValue<ClassDurationCatalog[]>('custom_catalogs');
-  const durationEntries=durationCatalogs.find(row=>row.code===CLASS_DURATION_CODE)?.entries||[];
+  const durationCatalog=durationCatalogs.find(row=>row.code===CLASS_DURATION_CODE);
+  const durationEntries=durationCatalog?.entries||[];
+  const selectedDuration=durationEntries.find(row=>row.id===clsDurationId);
   const [isReenrolling,setIsReenrolling]=useState(false);
   const [clsTeacher, setClsTeacher] = useState('');
   const [clsSelectedStudentIds, setClsSelectedStudentIds] = useState<string[]>([]);
@@ -940,7 +942,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsCode(generateClassCode(targetSub, targetLvl));
     setClsRoomLink('');
     setClsSchedule(preStudent ? preStudent.scheduleSlots.join(', ') : '');
-    setClsStartDate(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));setClsDurationMonths('');setClsCustomEndDate('');
+    setClsStartDate(new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }));setClsDurationId('');setClsCustomEndDate('');
     setClsSelectedStudentIds(preStudent ? [preStudent.id] : []);
 
     setClsTeacher('');
@@ -960,7 +962,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClsModel(c.model);
     setClsRoomLink(c.roomLink);
     setClsSchedule(c.schedule);
-    setClsStartDate(c.startDate || '');setClsDurationMonths(c.durationMonths?String(c.durationMonths):c.endDate?'CUSTOM':'');setClsCustomEndDate(c.endDate || '');
+    setClsStartDate(c.startDate || '');setClsDurationId(c.durationCatalogId || (c.customEndDate?'CUSTOM':''));setClsCustomEndDate(c.customEndDate || '');
     setClsTeacher(c.teacherId || '');
     setClsSelectedStudentIds(c.studentIds);
     setIsClassModalOpen(true);
@@ -991,9 +993,9 @@ export const Module4_StudentsClasses: React.FC = () => {
     if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
     if (!clsName.trim()) return;
     const existingClass=classes.find(item=>item.id===editingClassId);
-    const customTerm=clsDurationMonths==='CUSTOM';
-    const endDate=customTerm?clsCustomEndDate:classEndDate(clsStartDate,Number(clsDurationMonths));
-    if (customTerm ? (!clsStartDate || !endDate || endDate<clsStartDate) : ((!editingClassId || clsDurationMonths) && (!endDate || !durationEntries.some(row=>row.code===clsDurationMonths&&(row.status||existingClass?.durationMonths===Number(clsDurationMonths)))))) {showToast(customTerm?'Ngày kết thúc phải từ ngày bắt đầu lớp trở đi.':'Chọn ngày bắt đầu và thời hạn lớp hợp lệ từ danh mục.','error');return;}
+    const customTerm=clsDurationId==='CUSTOM';
+    const endDate=customTerm?clsCustomEndDate:classEndDate(clsStartDate,Number(selectedDuration?.code));
+    if (customTerm ? (!clsStartDate || !endDate || endDate<clsStartDate) : ((!editingClassId || clsDurationId) && (!endDate || !selectedDuration || !(selectedDuration.status||existingClass?.durationCatalogId===selectedDuration.id)))) {showToast(customTerm?'Ngày kết thúc phải từ ngày bắt đầu lớp trở đi.':'Chọn ngày bắt đầu và thời hạn lớp hợp lệ từ danh mục.','error');return;}
     if(editingClassId && !existingClass){setClassSaveError('Lớp học không còn tồn tại. Hãy tải lại dữ liệu.');return;}
     const draft={subject:clsSubject,grade:clsGrade,model:clsModel,level:clsLevel,schedule:clsSchedule,studentIds:clsSelectedStudentIds};
     if (!editingClassId && !clsStartDate) { showToast('Chọn ngày bắt đầu lớp học.', 'error'); return; }
@@ -1019,7 +1021,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
     const assignedTeacher = eligibleTeachersForClass.find(t => t.id === clsTeacher);
 
-    const max = existingClass?.model===clsModel ? existingClass.maxStudents : models.find(item => item.code === clsModel)?.maxStudents;
+    const max = models.find(item => item.code === clsModel)?.maxStudents;
     if (!max) { showToast('Chọn mô hình lớp hợp lệ từ danh mục.', 'error'); return; }
 
     if (clsSelectedStudentIds.length > max) {
@@ -1044,7 +1046,10 @@ export const Module4_StudentsClasses: React.FC = () => {
           roomLink: clsRoomLink.trim(),
           schedule: clsSchedule.trim(),
           startDate: clsStartDate || undefined,
-          durationMonths: !customTerm&&clsDurationMonths?Number(clsDurationMonths):null,
+          durationMonths: !customTerm&&selectedDuration?Number(selectedDuration.code):null,
+          durationCatalogGroupId: !customTerm&&selectedDuration?durationCatalog!.id:null,
+          durationCatalogId: !customTerm&&selectedDuration?selectedDuration.id:null,
+          customEndDate: customTerm?endDate:null,
           endDate: endDate || null,
           teacherName: assignedTeacher?.name || '',
           teacherId: assignedTeacher?.id,
@@ -1066,7 +1071,10 @@ export const Module4_StudentsClasses: React.FC = () => {
           studentIds: clsSelectedStudentIds,
           schedule: clsSchedule.trim(),
           startDate: clsStartDate,
-          durationMonths: customTerm?null:Number(clsDurationMonths),
+          durationMonths: customTerm?null:Number(selectedDuration?.code),
+          durationCatalogGroupId: !customTerm&&selectedDuration?durationCatalog!.id:null,
+          durationCatalogId: !customTerm&&selectedDuration?selectedDuration.id:null,
+          customEndDate: customTerm?endDate:null,
           endDate: endDate || null,
           roomLink: clsRoomLink.trim(),
           teacherName: assignedTeacher?.name || '',
@@ -1980,8 +1988,8 @@ export const Module4_StudentsClasses: React.FC = () => {
 
               {/* Lịch học & Giáo viên */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="font-semibold">Thời hạn lớp học<ReportSelect required={!editingClassId} value={clsDurationMonths} onChange={event=>setClsDurationMonths(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"><option value="">{editingClassId?'Chưa có thời hạn':'Chọn thời hạn'}</option><option value="CUSTOM">Ngày kết thúc tùy chỉnh</option>{durationEntries.filter(row=>row.status||row.code===clsDurationMonths).map(row=><option key={row.id} value={row.code}>{row.name}</option>)}</ReportSelect></label>
-                <label className="font-semibold">Ngày kết thúc{clsDurationMonths==='CUSTOM'?<input type="date" required min={clsStartDate || undefined} value={clsCustomEndDate} onChange={event=>setClsCustomEndDate(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"/>:<input type="text" readOnly value={classEndDate(clsStartDate,Number(clsDurationMonths)).split('-').reverse().join('/')} className="block w-full mt-1 border rounded-lg bg-slate-50 p-2"/>}<span className="text-xs text-slate-500 font-normal">{clsDurationMonths==='CUSTOM'?'Chọn ngày kết thúc theo nhu cầu.':'Tự tính từ ngày bắt đầu và thời hạn.'} Không sinh buổi sau ngày này.</span></label>
+                <label className="font-semibold">Thời hạn lớp học<ReportSelect required={!editingClassId} value={clsDurationId} onChange={event=>setClsDurationId(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"><option value="">{editingClassId?'Chưa có thời hạn':'Chọn thời hạn'}</option><option value="CUSTOM">Ngày kết thúc tùy chỉnh</option>{durationEntries.filter(row=>row.status||row.id===clsDurationId).map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</ReportSelect></label>
+                <label className="font-semibold">Ngày kết thúc{clsDurationId==='CUSTOM'?<input type="date" required min={clsStartDate || undefined} value={clsCustomEndDate} onChange={event=>setClsCustomEndDate(event.target.value)} className="block w-full mt-1 border rounded-lg p-2"/>:<input type="text" readOnly value={classEndDate(clsStartDate,Number(selectedDuration?.code)).split('-').reverse().join('/')} className="block w-full mt-1 border rounded-lg bg-slate-50 p-2"/>}<span className="text-xs text-slate-500 font-normal">{clsDurationId==='CUSTOM'?'Chọn ngày kết thúc theo nhu cầu.':'Tự tính từ ngày bắt đầu và thời hạn.'} Không sinh buổi sau ngày này.</span></label>
               </div>
               <label className="block font-semibold text-slate-700">
                 Ngày bắt đầu lớp học {!editingClassId && <span className="text-rose-500">*</span>}

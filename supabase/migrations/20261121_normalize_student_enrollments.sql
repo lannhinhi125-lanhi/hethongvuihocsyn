@@ -8,8 +8,22 @@ BEGIN
  SET CONSTRAINTS ALL IMMEDIATE;
  SELECT string_agg(h.madinhdanh,', ' ORDER BY h.madinhdanh) INTO pending FROM vuihoc."HOC_SINH" h
  WHERE NOT EXISTS(SELECT 1 FROM vuihoc."DANG_KY_MON_HOC" d LEFT JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=d.malop
-  WHERE d.mahocsinh=h.madinhdanh AND (h.mamonhoc,h.mamohinh,h.matrinhdo,h.trangthai,nullif(h.malophientai,''))
-   IS NOT DISTINCT FROM (d.mamonhoc,d.mamohinh,d.matrinhdo,d.trangthai,l.malophoc));
+  WHERE d.mahocsinh=h.madinhdanh AND (h.mamonhoc,h.mamohinh,h.matrinhdo)
+   IS NOT DISTINCT FROM (d.mamonhoc,d.mamohinh,d.matrinhdo)
+  -- A missing old class copy is not a contradictory assignment. Accept an old
+  -- stopped class only when the actual trace proves it was released.
+  AND (nullif(h.malophientai,'') IS NULL OR h.malophientai=l.malophoc OR EXISTS(
+   SELECT 1 FROM vuihoc."TRUY_VET_XEP_LOP" t JOIN vuihoc."LOP_HOC" prev ON prev.madinhdanh=t.malopcu
+   WHERE t.mahocsinh=h.madinhdanh AND t.mamonhoc=d.mamonhoc AND t.malopmoi IS NULL
+    AND prev.malophoc=h.malophientai AND prev.trangthai IN ('TAM_DUNG','DA_KET_THUC')))
+  AND (h.trangthai=d.trangthai
+   OR (h.trangthai='CHO_XEP_LOP' AND nullif(h.malophientai,'') IS NULL AND d.trangthai='DANG_HOC' AND d.malop IS NOT NULL AND EXISTS(
+    SELECT 1 FROM vuihoc."TRUY_VET_XEP_LOP" t WHERE t.mahocsinh=h.madinhdanh AND t.mamonhoc=d.mamonhoc
+     AND t.malopcu IS NULL AND t.malopmoi=d.malop))
+   OR (h.trangthai='DANG_HOC' AND d.trangthai='CHO_XEP_LOP' AND EXISTS(
+   SELECT 1 FROM vuihoc."TRUY_VET_XEP_LOP" t JOIN vuihoc."LOP_HOC" prev ON prev.madinhdanh=t.malopcu
+   WHERE t.mahocsinh=h.madinhdanh AND t.mamonhoc=d.mamonhoc AND t.malopmoi IS NULL
+    AND prev.trangthai IN ('TAM_DUNG','DA_KET_THUC')))));
  IF pending IS NOT NULL THEN RAISE EXCEPTION 'Còn hồ sơ có thông tin đăng ký cũ chưa khớp nguồn đăng ký; chưa xóa cột nào.'
   USING DETAIL=pending,HINT='Chạy supabase/diagnostics/student_enrollment_legacy.sql để đối soát trước.'; END IF;
  IF to_regclass('vuihoc."LICH_DANG_KY_HOC_SINH"') IS NOT NULL THEN
@@ -67,12 +81,14 @@ BEGIN
  BEGIN
   INSERT INTO vuihoc."DANG_KY_MON_HOC"(mahocsinh,mamonhoc,matrinhdo,mamohinh,trangthai,ngaydangky)
   VALUES(p->>'mahocsinh',p->>'mamonhoc',p->>'matrinhdo',p->>'mamohinh',p->>'trangthai',coalesce((p->>'ngaydangky')::timestamptz,statement_timestamp()))
-  ON CONFLICT(mahocsinh,mamonhoc) DO UPDATE SET matrinhdo=excluded.matrinhdo,mamohinh=excluded.mamohinh,trangthai=excluded.trangthai;
+  ON CONFLICT(mahocsinh,mamonhoc) DO UPDATE SET matrinhdo=excluded.matrinhdo,mamohinh=excluded.mamohinh,trangthai=excluded.trangthai
+  WHERE (vuihoc."DANG_KY_MON_HOC".matrinhdo,vuihoc."DANG_KY_MON_HOC".mamohinh,vuihoc."DANG_KY_MON_HOC".trangthai)
+   IS DISTINCT FROM (excluded.matrinhdo,excluded.mamohinh,excluded.trangthai);
   IF nullif(p->>'malop','') IS NULL THEN
    DELETE FROM vuihoc."XEP_LOP_DANG_KY" WHERE mahocsinh=p->>'mahocsinh' AND mamonhoc=p->>'mamonhoc';
   ELSE
    INSERT INTO vuihoc."XEP_LOP_DANG_KY" VALUES(p->>'mahocsinh',p->>'mamonhoc',p->>'malop')
-   ON CONFLICT(mahocsinh,mamonhoc) DO UPDATE SET malop=excluded.malop;
+   ON CONFLICT(mahocsinh,mamonhoc) DO UPDATE SET malop=excluded.malop WHERE vuihoc."XEP_LOP_DANG_KY".malop IS DISTINCT FROM excluded.malop;
   END IF;
  END $writer$;
  CREATE OR REPLACE FUNCTION vuihoc.ghi_view_dang_ky() RETURNS trigger
@@ -142,11 +158,16 @@ BEGIN
  FOR r IN SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname='vuihoc' AND p.prokind='f' AND p.prosrc LIKE '%ON CONFLICT(mahocsinh,mamonhoc) DO UPDATE SET matrinhdo%' AND p.proname<>'luu_dang_ky_chuan' LOOP
   f:=pg_get_functiondef(r.oid);
+  -- 20261105/fix_student_available_slots adds a no-op UPDATE guard. Recognize
+  -- that exact supported variant; retain its semantics in the scalar helper.
+  f:=replace(f,$old$trangthai=excluded.trangthai WHERE (vuihoc."V_DANG_KY_MON_HOC".matrinhdo,vuihoc."V_DANG_KY_MON_HOC".mamohinh,vuihoc."V_DANG_KY_MON_HOC".malop,vuihoc."V_DANG_KY_MON_HOC".trangthai) IS DISTINCT FROM (excluded.matrinhdo,excluded.mamohinh,excluded.malop,excluded.trangthai);$old$,
+   $new$trangthai=excluded.trangthai;$new$);
   f:=replace(f,$old$INSERT INTO vuihoc."V_DANG_KY_MON_HOC"(mahocsinh,mamonhoc,matrinhdo,mamohinh,malop,trangthai)
     VALUES(id,x->>'subject',x->>'level',x->>'model',target,x->>'status')
     ON CONFLICT(mahocsinh,mamonhoc) DO UPDATE SET matrinhdo=excluded.matrinhdo,mamohinh=excluded.mamohinh,malop=excluded.malop,trangthai=excluded.trangthai;$old$,
    $new$PERFORM vuihoc.luu_dang_ky_chuan(jsonb_build_object('mahocsinh',id,'mamonhoc',x->>'subject','matrinhdo',x->>'level','mamohinh',x->>'model','malop',target,'trangthai',x->>'status'));$new$);
-  IF strpos(f,'INSERT INTO vuihoc."V_DANG_KY_MON_HOC"')>0 THEN RAISE EXCEPTION 'Chưa chuyển được hàm ghi đăng ký sang nguồn chuẩn hóa.'; END IF;
+  IF strpos(f,'INSERT INTO vuihoc."V_DANG_KY_MON_HOC"')>0 THEN RAISE EXCEPTION 'Chưa chuyển được hàm ghi đăng ký sang nguồn chuẩn hóa.'
+   USING DETAIL=r.oid::regprocedure::text; END IF;
   EXECUTE f;
  END LOOP;
  -- Entry grade is historical context, not a live mirror of the current profile grade.

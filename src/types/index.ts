@@ -51,6 +51,8 @@ export interface TimeSlotItem {
   id: string;
   code: string;
   name: string;
+  startTime?: string;
+  endTime?: string;
   timeRange: string;
   durationMinutes: number;
   status: boolean;
@@ -216,8 +218,11 @@ export interface ClassItem {
   pauseReason?: string | null;
   pauseCategoryId?: string | null;
   pauseNote?: string | null;
-  durationMonths?: number | null;
-  endDate?: string | null;
+  durationMonths?: number | null; // Queried from the scoped catalog FK.
+  endDate?: string | null; // Queried effective end, never a stored copy.
+  durationCatalogGroupId?: string | null;
+  durationCatalogId?: string | null;
+  customEndDate?: string | null;
   created_at?: string;
   categoryId?: string;
   status?: 'Chờ khai giảng' | 'Đang học' | 'Dừng lớp' | 'Đã kết thúc';

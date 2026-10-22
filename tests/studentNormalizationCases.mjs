@@ -6,6 +6,30 @@ export async function verifyStudentNormalization(db,token){
  const save=changes=>db.query('SELECT public.vuihoc_save_business($1,$2::jsonb)',[token,JSON.stringify(changes)]);
  const migration=file('supabase/migrations/20261121_normalize_student_enrollments.sql');
  const first=await business();
+ // The real unmodified demo baseline contains NULL old class copies and stale
+ // DANG_HOC states after automatic class completion. Do not repair it first.
+ assert.deepEqual((await db.query(file('supabase/diagnostics/student_enrollment_legacy.sql'))).rows,[],'safe stale demo copies must not be reported as unresolved contradictions');
+ await db.exec('BEGIN');await db.exec(migration);await db.exec('ROLLBACK');
+ // Also migrate the deployed availability/minimal-write writer, whose UPSERT
+ // has an additional WHERE ... IS DISTINCT FROM clause.
+ await db.exec(file('supabase/migrations/20261105_student_available_slots.sql'));
+ // Regression for the exported DEMO-HS-036 pattern: an initial assignment was
+ // persisted/traced while the old profile still says waiting with a NULL class.
+ await db.exec('BEGIN');
+ const staleWaiting=(await db.query(`SELECT h.madinhdanh FROM vuihoc."HOC_SINH" h JOIN vuihoc."DANG_KY_MON_HOC" d ON d.mahocsinh=h.madinhdanh
+ WHERE (h.mamonhoc,h.mamohinh,h.matrinhdo)=(d.mamonhoc,d.mamohinh,d.matrinhdo) AND d.trangthai='DANG_HOC'
+ AND EXISTS(SELECT 1 FROM vuihoc."TRUY_VET_XEP_LOP" t WHERE t.mahocsinh=h.madinhdanh AND t.mamonhoc=d.mamonhoc AND t.malopcu IS NULL AND t.malopmoi=d.malop) LIMIT 1`)).rows[0];
+ assert.ok(staleWaiting);
+ await db.query(`UPDATE vuihoc."HOC_SINH" SET trangthai='CHO_XEP_LOP',malophientai=NULL WHERE madinhdanh=$1`,[staleWaiting.madinhdanh]);
+ assert.deepEqual((await db.query(file('supabase/diagnostics/student_enrollment_legacy.sql'))).rows,[]);
+ const tracedAssignment=(await db.query('SELECT * FROM vuihoc."DANG_KY_MON_HOC" WHERE mahocsinh=$1 ORDER BY mamonhoc',[staleWaiting.madinhdanh])).rows;
+ await db.exec('SAVEPOINT without_assignment_trace');
+ await db.query(`DELETE FROM vuihoc."TRUY_VET_XEP_LOP" WHERE mahocsinh=$1 AND malopcu IS NULL`,[staleWaiting.madinhdanh]);
+ await assert.rejects(()=>db.exec(migration),/chưa khớp/);
+ await db.exec('ROLLBACK TO SAVEPOINT without_assignment_trace');
+ await db.exec(migration);
+ assert.deepEqual((await db.query('SELECT * FROM vuihoc."V_DANG_KY_MON_HOC" WHERE mahocsinh=$1 ORDER BY mamonhoc',[staleWaiting.madinhdanh])).rows.map(({macaphocdangky,...row})=>row),tracedAssignment);
+ await db.exec('ROLLBACK');
  const withdrawn=first.students.find(h=>h.dangkymonhoc.some(d=>d.status==='DA_THOI_HOC'));
  await save([{dataset:'students',before:{madinhdanh:withdrawn.madinhdanh,dangkymonhoc:withdrawn.dangkymonhoc},after:{madinhdanh:withdrawn.madinhdanh,dangkymonhoc:withdrawn.dangkymonhoc.map(d=>d.status==='DA_THOI_HOC'?{...d,status:'CHO_XEP_LOP'}:d)}}]);
  const before=await business();
