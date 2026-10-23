@@ -135,6 +135,8 @@ export const DATABASE_NAMES = {
       "evaluation_reports": "baocaodanhgia",
       "successful_sessions": "cahochoanthanh",
       "schedule": "lichranh",
+      "schedule_effective_from": "lichranhhieuluctu",
+      "schedule_history": "lichsuphienbanlichranh",
       "user_id": "manguoidung",
       "created_at": "ngaytao",
       "updated_at": "ngaycapnhat"
@@ -282,28 +284,22 @@ export const DATABASE_NAMES = {
       "updated_at": "ngaycapnhat"
     }
   },
-  "weekly_availability": {
-    "table": "LICH_RANH_TUAN",
+  "availability_versions": {
+    "table": "PHIEN_BAN_LICH_RANH",
     "columns": {
       "id": "madinhdanh",
       "teacherId": "magiaovien",
-      "weekStart": "ngaydautuan",
-      "weekEnd": "ngaycuoituan",
-      "schoolYear": "namhoc",
-      "updatedBy": "manguoicapnhat",
-      "created_at": "ngaytao",
-      "updated_at": "ngaycapnhat"
+      "effectiveFrom": "hieuluctu",
+      "updatedBy": "manguoicapnhat"
     }
   },
-  "availability_slots": {
-    "table": "CHI_TIET_LICH_RANH",
+  "availability_version_slots": {
+    "table": "CHI_TIET_PHIEN_BAN_LICH_RANH",
     "columns": {
-      "weekId": "malichtuan",
-      "date": "ngay",
+      "versionId": "maphienban",
+      "dayIndex": "thutrongtuan",
       "timeSlotId": "makhunggio",
-      "status": "trangthai",
-      "created_at": "ngaytao",
-      "updated_at": "ngaycapnhat"
+      "status": "trangthai"
     }
   },
   "dated_lessons": {
@@ -558,6 +554,8 @@ export const APP_DATABASE_FIELDS = {
     "evaluationReports": "baocaodanhgia",
     "successfulSessions": "cahochoanthanh",
     "schedule": "lichranh",
+    "scheduleEffectiveFrom": "lichranhhieuluctu",
+    "scheduleHistory": "lichsuphienbanlichranh",
     "user_id": "manguoidung",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
@@ -685,23 +683,17 @@ export const APP_DATABASE_FIELDS = {
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"
   },
-  "weekly_availability": {
+  "availability_versions": {
     "id": "madinhdanh",
     "teacherId": "magiaovien",
-    "weekStart": "ngaydautuan",
-    "weekEnd": "ngaycuoituan",
-    "schoolYear": "namhoc",
-    "updatedBy": "manguoicapnhat",
-    "created_at": "ngaytao",
-    "updated_at": "ngaycapnhat"
+    "effectiveFrom": "hieuluctu",
+    "updatedBy": "manguoicapnhat"
   },
-  "availability_slots": {
-    "weekId": "malichtuan",
-    "date": "ngay",
+  "availability_version_slots": {
+    "versionId": "maphienban",
+    "dayIndex": "thutrongtuan",
     "timeSlotId": "makhunggio",
-    "status": "trangthai",
-    "created_at": "ngaytao",
-    "updated_at": "ngaycapnhat"
+    "status": "trangthai"
   },
   "dated_lessons": {
     "displayCode": "mabuoihienthi",

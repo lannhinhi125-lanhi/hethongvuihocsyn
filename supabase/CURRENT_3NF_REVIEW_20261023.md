@@ -1,5 +1,13 @@
 # Rà soát tiếp nối theo mã hiện tại — 23/10/2026
 
+Đã chuẩn bị xử lý nhóm lịch ở mục 4 bằng **20261209**, theo quy tắc mới người dùng chốt: [AVAILABILITY_VERSION_3NF_CHANGES.md](AVAILABILITY_VERSION_3NF_CHANGES.md). Lịch theo phiên bản hiệu lực đến lần cập nhật sau, ba bảng thành hai, không đăng ký lại từng tuần; lịch tuần cũ có dữ liệu sẽ chặn chuyển đổi để đối soát. Các nhận định mục 4 phía dưới ghi trạng thái trước bản sửa. Chưa chạy lên Supabase thật.
+
+Đã chuẩn bị xử lý bản sao môn ở mục 3 bằng **20261208**: [CLASS_TRACE_3NF_CHANGES.md](CLASS_TRACE_3NF_CHANGES.md). `TRUY_VET_XEP_LOP` 8→7 cột; môn truy vấn từ lớp, bộ ghi và lịch sử dùng cùng nguồn. Các nhận định ở mục 3 bên dưới ghi trạng thái trước bản sửa. Chưa chạy lên Supabase thật.
+
+Đã chuẩn bị sửa lỗi ghi cấp/khối ở mục 2 bằng **20261207**: [GRADE_CATALOG_WRITE_CHANGES.md](GRADE_CATALOG_WRITE_CHANGES.md). Giữ nguyên cấu trúc 20261205; không xóa/chèn lại các lựa chọn được giữ. Chưa chạy Supabase thật. Các nhận định lỗi bên dưới là phát hiện trước bản sửa này.
+
+Đã chuẩn bị sửa riêng mục giờ buổi bằng đợt **20261206**: [LESSON_CLOCK_3NF_CHANGES.md](LESSON_CLOCK_3NF_CHANGES.md). Kiểm thử cục bộ đạt cho đợt này; chưa chạy Supabase thật. Các mục phát hiện bên dưới ghi trạng thái trước bản sửa giờ. Lỗi ghi danh mục cấp/khối còn tồn tại tại thời điểm đợt 20261206; bản sửa tiếp nối là 20261207 nêu ở trên.
+
 Phạm vi: repository hiện có các migration đến `20261205_normalize_teacher_grade_links.sql`, cùng thay đổi tài liệu/AI và RPC V2 chưa commit. Tên migration là thứ tự phiên bản, không phải xác nhận ngày chạy thật. Không kết nối hoặc sửa dữ liệu Supabase thật trong lượt rà này.
 
 ## Các đợt mới đã có trong mã

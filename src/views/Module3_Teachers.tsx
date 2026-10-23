@@ -681,7 +681,7 @@ export const Module3_Teachers: React.FC = () => {
                     <th className="py-3 px-4">{fieldHeading('availability', 'grades', 'Khối lớp', availSubOptions.length > 0)}</th>
                     <th className="py-3 px-4 text-center">{fieldHeading('availability', 'free', 'Số ca đăng ký rảnh', Boolean(availabilityFields.minFree || availabilityFields.maxFree))}</th>
                     <th className="py-3 px-4 text-center">{fieldHeading('availability', 'busy', 'Số ca đã xếp lớp', Boolean(availabilityFields.minBusy || availabilityFields.maxBusy))}</th>
-                    <th className="py-3 px-4 text-center">{fieldHeading('availability', 'status', 'Tình trạng tuần', availStatus !== 'ALL')}</th>
+                    <th className="py-3 px-4 text-center">{fieldHeading('availability', 'status', 'Tình trạng lịch', availStatus !== 'ALL')}</th>
                     <th className="py-3 px-4 text-center">Thời khóa biểu</th>
                   </tr>
                 </thead>

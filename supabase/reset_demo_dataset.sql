@@ -93,9 +93,15 @@ DO $optional$ DECLARE tab text; BEGIN
 END $optional$;
 DELETE FROM vuihoc."HOC_SINH";
 DELETE FROM vuihoc."LOP_HOC";
-DELETE FROM vuihoc."CHI_TIET_LICH_RANH";
-DELETE FROM vuihoc."LICH_RANH_TUAN";
-DELETE FROM vuihoc."LICH_RANH_DINH_KY";
+DO $availability_cleanup$ BEGIN
+ IF to_regclass('vuihoc."PHIEN_BAN_LICH_RANH"') IS NOT NULL THEN
+  DELETE FROM vuihoc."PHIEN_BAN_LICH_RANH";
+ ELSE
+  DELETE FROM vuihoc."CHI_TIET_LICH_RANH";
+  DELETE FROM vuihoc."LICH_RANH_TUAN";
+  DELETE FROM vuihoc."LICH_RANH_DINH_KY";
+ END IF;
+END $availability_cleanup$;
 DELETE FROM vuihoc."GIAO_VIEN_KHOI";
 DELETE FROM vuihoc."GIAO_VIEN_MO_HINH";
 -- Teacher-owned chat is removed with accounts; administrator history is retained.
@@ -184,9 +190,18 @@ DO $teacher_grades$ BEGIN
 END $teacher_grades$;
 INSERT INTO vuihoc."GIAO_VIEN_MO_HINH" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),m.mamohinh,row_number() OVER(PARTITION BY t.i ORDER BY m.mamohinh)
  FROM demo_teachers t CROSS JOIN vuihoc."MO_HINH_LOP" m WHERE m.mamohinh IN ('1-1','1-3','1-5');
-INSERT INTO vuihoc."LICH_RANH_DINH_KY" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),k.madinhdanh,d.day,
- CASE WHEN t.i=12 OR (d.day=6 AND t.i%3=0) THEN 'none' ELSE 'free' END
- FROM demo_teachers t CROSS JOIN vuihoc."KHUNG_GIO" k CROSS JOIN generate_series(0,6) d(day) WHERE k.danghoatdong;
+DO $availability_seed$ BEGIN
+ IF to_regclass('vuihoc."PHIEN_BAN_LICH_RANH"') IS NOT NULL THEN
+  INSERT INTO vuihoc."PHIEN_BAN_LICH_RANH"(magiaovien) SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0') FROM demo_teachers t;
+  INSERT INTO vuihoc."CHI_TIET_PHIEN_BAN_LICH_RANH"(maphienban,makhunggio,thutrongtuan,trangthai)
+   SELECT p.madinhdanh,k.madinhdanh,d.day,CASE WHEN t.i=12 OR (d.day=6 AND t.i%3=0) THEN 'none' ELSE 'free' END
+   FROM demo_teachers t JOIN vuihoc."PHIEN_BAN_LICH_RANH" p ON p.magiaovien='DEMO-GV-'||lpad(t.i::text,3,'0') CROSS JOIN vuihoc."KHUNG_GIO" k CROSS JOIN generate_series(0,6) d(day) WHERE k.danghoatdong;
+ ELSE
+  INSERT INTO vuihoc."LICH_RANH_DINH_KY" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),k.madinhdanh,d.day,
+   CASE WHEN t.i=12 OR (d.day=6 AND t.i%3=0) THEN 'none' ELSE 'free' END
+   FROM demo_teachers t CROSS JOIN vuihoc."KHUNG_GIO" k CROSS JOIN generate_series(0,6) d(day) WHERE k.danghoatdong;
+ END IF;
+END $availability_seed$;
 
 CREATE TEMP TABLE demo_classes ON COMMIT DROP AS
  SELECT i,'DEMO-LOP-'||lpad(i::text,3,'0') AS id,
@@ -352,6 +367,8 @@ END $demo_actual_materials$;
 -- Existing stopped classes cannot be newly checked in. Their historical lessons
 -- are staged while temporarily active, then stopped after history is populated.
 UPDATE vuihoc."LOP_HOC" SET trangthai='DANG_HOC' WHERE madinhdanh='DEMO-LOP-012';
+DO $demo_source_clocks$
+DECLARE statement text:=$actual$
 UPDATE vuihoc."BUOI_HOC" b SET vaolopluc=(b.ngayhoc+b.batdau) AT TIME ZONE 'Asia/Bangkok'
  +CASE WHEN x.scenario='LATE' THEN interval '8 minutes' ELSE interval '-2 minutes' END,
  manguoivaolop=coalesce(b.magiaoviendaythay,b.magiaovienchinh),chuyencan=CASE WHEN x.scenario='LATE' THEN 'LATE' ELSE 'ATTENDED' END
@@ -362,6 +379,12 @@ UPDATE vuihoc."BUOI_HOC" b SET ketthucluc=vuihoc.gio_ket_thuc_ca(b.ngayhoc,b.bat
  nhatky=CASE WHEN x.scenario='EARLY' THEN 'Kết thúc sớm do gián đoạn đường truyền; vận hành cần đối soát.' ELSE 'Hoàn thành nội dung bài học, giao bài luyện tập sau buổi.' END,
  lienketbanghi='https://example.com/vuihoc/recordings/'||b.madinhdanh
  FROM demo_lessons x WHERE x.id=b.madinhdanh AND b.vaolopluc IS NOT NULL;
+$actual$;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='BUOI_HOC' AND column_name='batdau') THEN
+  statement:=replace(replace(statement,'b.batdau','vuihoc.gio_bat_dau_khung(b.makhunggio)'),'b.ketthuc','vuihoc.gio_ket_thuc_khung(b.makhunggio)');
+ END IF;EXECUTE statement;
+END $demo_source_clocks$;
 UPDATE vuihoc."BUOI_HOC" b SET trangthai='NGHI_HOC',nhatky='Phụ huynh xin nghỉ trước buổi học.'
  FROM demo_lessons x WHERE x.id=b.madinhdanh AND x.scenario='CANCELLED';
 UPDATE vuihoc."LOP_HOC" SET trangthai='TAM_DUNG' WHERE madinhdanh='DEMO-LOP-012';

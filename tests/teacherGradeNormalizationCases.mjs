@@ -37,5 +37,8 @@ export async function verifyTeacherGradeNormalization(db,token){
  const foreign=(await db.query('SELECT maluachon FROM vuihoc."LUA_CHON_CAP_HOC" WHERE macaphoc<>$1 LIMIT 1',[teacher.macaphoc])).rows[0];
  if(foreign)await assert.rejects(()=>db.query('INSERT INTO vuihoc."GIAO_VIEN_KHOI"(magiaovien,maluachon,thutu) VALUES($1,$2,999)',[teacher.madinhdanh,foreign.maluachon]),/cấp học/);
  if(anotherCategory)await assert.rejects(()=>db.query('UPDATE vuihoc."GIAO_VIEN" SET macaphoc=$1 WHERE madinhdanh=$2',[anotherCategory.madinhdanh,teacher.madinhdanh]),/cấp học/);
+ // Restore fixture catalog labels before later suites run their demo-data preflight.
+ const editedCategory=(await data()).teaching_categories.find(x=>x.madinhdanh===category.madinhdanh);
+ await write([{dataset:'teaching_categories',before:{madinhdanh:category.madinhdanh,danhsachluachon:editedCategory.danhsachluachon},after:{madinhdanh:category.madinhdanh,danhsachluachon:category.danhsachluachon}}]);
  console.log('PASS teacher grades: source links/order preserved, repeated migration, real RPC edits and invalid/scoped grade guards');
 }

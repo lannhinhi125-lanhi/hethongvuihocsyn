@@ -13,6 +13,10 @@ WITH lesson_clock AS (
 SELECT 'CLOCK_RECONCILIATION' AS loai,'BUOI_HOC → KHUNG_GIO' AS doi_tuong,
  format('checked=%s; missing_slot=%s; different_clocks=%s. Differences require reconciliation; never drop or overwrite them automatically.',checked,missing_slot,differs) AS chitiet
 FROM counts
+UNION ALL SELECT 'CLOCK_MISMATCH',b->>'madinhdanh',
+ format('slot=%s; lesson=%s–%s; source=%s–%s',b->>'makhunggio',b->>'batdau',b->>'ketthuc',k->>'giobatdau',k->>'gioketthuc')
+FROM lesson_clock WHERE b ?& ARRAY['batdau','ketthuc'] AND (k IS NULL OR
+ ((b->>'batdau')::time,(b->>'ketthuc')::time) IS DISTINCT FROM ((k->>'giobatdau')::time,(k->>'gioketthuc')::time))
 UNION ALL SELECT 'PHYSICAL_COLUMN',c.table_name||'.'||c.column_name,c.data_type||'; generated='||c.is_generated
 FROM information_schema.columns c JOIN information_schema.tables t USING(table_catalog,table_schema,table_name)
 WHERE c.table_schema='vuihoc' AND t.table_type='BASE TABLE'

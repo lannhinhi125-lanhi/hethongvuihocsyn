@@ -7,12 +7,12 @@ export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly s
   users: ['role', 'subject', 'avatarInitials'],
   role_groups: ['userCount'],
   lesson_incidents: ['fromClassPause', 'incidentName'],
-  dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseCategoryId', 'pauseNote'],
+  dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseCategoryId', 'pauseNote', 'startsAt', 'endsAt'],
   // Student scalar study fields are a read projection; only registrations writes study data.
   students: ['classHistory','registrationHistory','subject','model','level','status','currentClassCode','scheduleSlots'],
   sop_documents: ['category', 'uploadedBy', 'uploaderName'],
   rag_bot_config: ['quickPrompts'],
-  teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull', 'evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores'],
+  teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull', 'evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores', 'scheduleEffectiveFrom', 'scheduleHistory'],
   "classes": [
     "teacherName", "maxStudents", "durationMonths", "endDate"
   ],
@@ -42,11 +42,11 @@ const STATUS_CODES = {
 /** Chuyển object UI sang cột SQL. Không gọi API, không tự lưu dữ liệu. */
 export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow {
   if (dataset === 'teaching_sessions') throw new Error('CA_HOC đã bỏ; sử dụng dated_lessons và các bảng nghiệp vụ theo mã buổi.');
+  if (dataset === 'availability_versions' || dataset === 'availability_version_slots') throw new Error('Cập nhật schedule của giáo viên để tạo phiên bản lịch rảnh đầy đủ.');
   const fields = APP_DATABASE_FIELDS[dataset] as Record<string,string>;
   const result: DataRow = {};
   for (const [field,content] of Object.entries(value)) {
     if (DERIVED_DATABASE_FIELDS[dataset]?.includes(field)) continue;
-    if (dataset === 'weekly_availability' && field === 'weekEnd') continue;
     if (field === 'auth_user_id' || field === 'passwordRaw' || field === 'created_at' || field === 'updated_at') continue;
     if (!Object.hasOwn(fields,field)) throw new Error('Chưa ánh xạ trường ' + dataset + '.' + field);
     if (dataset === 'students' && field === 'registrations') {
@@ -70,11 +70,6 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
     const normalized = field === 'status' && codes ? codes[String(content)] || content : content;
     let stored = normalized;
     if (dataset === 'time_slots' && ['startTime','endTime'].includes(field) && typeof stored === 'string' && /^\d{2}:\d{2}$/.test(stored)) stored += ':00';
-    if (dataset === 'dated_lessons' && ['startsAt','endsAt'].includes(field) && typeof stored === 'string') {
-      stored = stored.includes('T')
-        ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(stored))
-        : stored;
-    }
     if (dataset === 'lesson_incidents' && ['reportedAt','handledAt'].includes(field) && typeof stored === 'string' && stored) {
       stored = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(stored));
     }
@@ -110,7 +105,13 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
   if (dataset === 'dated_lessons') {
     for (const field of ['startsAt','endsAt']) {
       if (typeof result[field] === 'string' && /^\d{2}:\d{2}/.test(result[field] as string)) {
-        result[field] = `${result.date}T${result[field]}+07:00`;
+        let date = String(result.date);
+        if (field === 'endsAt' && typeof row.batdau === 'string' && typeof row.ketthuc === 'string' && row.ketthuc < row.batdau) {
+          const next = new Date(date + 'T00:00:00Z');
+          next.setUTCDate(next.getUTCDate() + 1);
+          date = next.toISOString().slice(0, 10);
+        }
+        result[field] = `${date}T${result[field]}+07:00`;
       }
     }
   }

@@ -1,4 +1,5 @@
 import { lessonPauseLabel } from '../lib/classPause';
+import { teacherScheduleAt } from '../lib/teacherAvailability';
 import { ReportSelect } from '../components/ReportSelect';
 import { MultiSelectColumnFilter, CheckboxFilterOptions } from '../components/MultiSelectColumnFilter';
 import { canTeachClassModel } from '../lib/teachingModelGroups';
@@ -227,7 +228,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
     return teachers.filter(teacher => {
       const subjectMatches = teacher.subject === monitoringSubjectCode(session,classes);
-      const availability = teacher.schedule?.[slot.code] || teacher.schedule?.[slot.id];
+      const effectiveSchedule = teacherScheduleAt(teacher, `${session.sessionDate}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00+07:00`);
+      const availability = effectiveSchedule?.[slot.code] || effectiveSchedule?.[slot.id];
       return subjectMatches && canTeachClassModel(teacher.models,targetClass.model) && availability?.[weekday] === 'free' &&
         teacher.id !== targetClass.teacherId &&
         normalizeTeacherName(teacher.name) !== normalizeTeacherName(targetClass.teacherName) &&

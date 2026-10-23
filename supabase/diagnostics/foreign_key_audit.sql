@@ -15,6 +15,8 @@ WITH candidates(bang,cot,bang_tham_chieu) AS (VALUES
  ('LICH_DANG_KY_HOC_SINH','makhunggio','KHUNG_GIO'),
  ('LICH_LOP','malop','LOP_HOC'),('LICH_LOP','makhunggio','KHUNG_GIO'),
  ('BUOI_HOC','makhunggio','KHUNG_GIO'),('LICH_RANH_DINH_KY','makhunggio','KHUNG_GIO'),
+ ('PHIEN_BAN_LICH_RANH','magiaovien','GIAO_VIEN'),('PHIEN_BAN_LICH_RANH','manguoicapnhat','NGUOI_DUNG'),
+ ('CHI_TIET_PHIEN_BAN_LICH_RANH','maphienban','PHIEN_BAN_LICH_RANH'),('CHI_TIET_PHIEN_BAN_LICH_RANH','makhunggio','KHUNG_GIO'),
  ('BUOI_HOC','malop,mahoclieu','HOC_LIEU_LOP'),('HOC_LIEU_LOP','malop','LOP_HOC'),
  ('LICH_DANG_KY_MON_HOC','makhunggio','KHUNG_GIO'),('LICH_SU_CA_DANG_KY_HOC','makhunggio','KHUNG_GIO'),
  ('LOP_HOC','mamohinh','MO_HINH_LOP'),

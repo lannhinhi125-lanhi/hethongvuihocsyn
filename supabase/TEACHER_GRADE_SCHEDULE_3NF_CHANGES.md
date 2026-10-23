@@ -1,5 +1,9 @@
 # Khối được dạy, mô hình và lịch rảnh — đợt 20261205
 
+Theo dõi tiếp nhóm lịch: [20261209 — phiên bản có hiệu lực đến lần cập nhật sau](AVAILABILITY_VERSION_3NF_CHANGES.md), thay mô hình lịch hiện hành/theo tuần bên dưới theo quy tắc nghiệp vụ mới. Dữ liệu lịch tuần chưa đối soát sẽ chặn migration; không tự xóa.
+
+Theo dõi tiếp: [20261207 — sửa cách ghi danh mục đang được tham chiếu](GRADE_CATALOG_WRITE_CHANGES.md). Đợt mới giữ cấu trúc của bản này, sửa lỗi xóa/chèn danh mục khi có FK đăng ký kiểm tra ngay; không yêu cầu chạy lại 20261205.
+
 Chạy sau bản cập nhật tài liệu/AI đã thành công (`20261204`, hoặc file gộp/V2). File mới: [20261205_normalize_teacher_grade_links.sql](migrations/20261205_normalize_teacher_grade_links.sql). Chưa chạy lên Supabase thật trong phiên này.
 
 ## Sáu bảng được rà

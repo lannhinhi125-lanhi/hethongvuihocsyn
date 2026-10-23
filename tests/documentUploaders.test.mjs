@@ -28,5 +28,7 @@ try{
  const assert=(await import('node:assert/strict')).default;
  await assert.rejects(()=>db.exec(file('supabase/apply_documents_ai_update.sql')),/hoàn tất migration 20261202/);
  await db.exec('ROLLBACK');
+ await db.exec(file('supabase/migrations/20261207_stable_grade_catalog_writes.sql'));
  await (await import('./teacherGradeNormalizationCases.mjs')).verifyTeacherGradeNormalization(db,token);
+ await (await import('./stableGradeCatalogCases.mjs')).verifyStableGradeCatalog(db,token);
 }catch(e){console.error(e);process.exitCode=1;}finally{await db.close();}

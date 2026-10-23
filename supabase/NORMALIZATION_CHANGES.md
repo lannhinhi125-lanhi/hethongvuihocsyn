@@ -1,5 +1,13 @@
 # Theo dõi thay đổi chuẩn hóa
 
+Đợt **20261209 — lịch rảnh theo lần cập nhật**: [đủ bảng/cột trước–sau, PK/FK, nguồn và luồng](AVAILABILITY_VERSION_3NF_CHANGES.md). Ba bảng cũ thành hai bảng phiên bản/chi tiết; lịch có hiệu lực đến lần cập nhật tiếp theo, không đăng ký lại mỗi tuần. Lịch hiện tại là view, ngày hết hiệu lực được truy vấn. Giữ ô lịch định kỳ cũ; có dữ liệu lịch tuần hoặc thiếu ngày thì dừng toàn bộ để đối soát. Không lưu JSON. Chạy sau 20261208; chưa chạy Supabase thật.
+
+Đợt **20261208 — môn của lịch sử xếp lớp**: [đủ cột trước/sau, FK, nguồn và luồng liên quan](CLASS_TRACE_3NF_CHANGES.md). `TRUY_VET_XEP_LOP` 8→7 cột, bỏ `mamonhoc` sao chép; giữ mã lớp cũ/mới và JOIN `LOP_HOC`. Cập nhật bộ ghi/lịch sử, bảo vệ môn lớp đã có truy vết, chặn dữ liệu lệch nguồn trước khi bỏ cột. Không thêm bảng/cột JSON hoặc xóa sự kiện. Chạy sau 20261207; chưa chạy Supabase thật.
+
+Đợt **20261207 — đường ghi danh mục cấp/khối**: [trước/sau, khóa và luồng liên quan](GRADE_CATALOG_WRITE_CHANGES.md). Giữ cấu trúc chuẩn hóa 20261205, thay xóa/chèn toàn bộ bằng cập nhật theo khóa ổn định. Không thêm/bỏ cột/bảng/FK, không backfill dữ liệu. Đổi nhãn mục đang dùng được; xóa mục đang dùng vẫn bị chặn. Chưa chạy Supabase thật.
+
+Đợt **20261206 — giờ buổi học**: [đủ cột trước/sau, FK và luồng đọc/ghi](LESSON_CLOCK_3NF_CHANGES.md). `BUOI_HOC` 30→28 cột, bỏ `batdau/ketthuc`; giữ FK và JOIN `KHUNG_GIO` làm nguồn duy nhất. Khung đã có buổi sử dụng không sửa giờ trực tiếp. Không tạo bảng nghiệp vụ/cột JSON; giữ thời điểm check-in/out thực tế. Migration chạy sau 20261205; chưa chạy lên Supabase thật.
+
 Đợt **20261202 — mẫu/chỉ số/bộ lọc báo cáo**: [đủ cột trước/sau, PK/FK và luồng](REPORT_TEMPLATE_3NF_CHANGES.md). Bộ lọc tách từng lựa chọn thành dòng (3→4 cột), chỉ số giữ ba cột, mẫu bổ sung bảy tham số chưa được lưu (11→18); không tạo bảng hay cột JSON. Giữ mã nguồn và truy vấn nhãn hiện tại. [Migration](migrations/20261202_normalize_report_templates.sql) sau 20261201; chưa chạy lên Supabase thật.
 
 Đợt **20261201 — nhận xét/danh mục bổ sung**: [đủ cột trước/sau, PK/FK và nguồn truy vấn](FEEDBACK_CATALOG_3NF_CHANGES.md). Ba bảng giữ 6/7/7 cột, không thêm nơi lưu; bổ sung kiểm tra mã trùng/cây vòng lặp và gỡ hợp đồng tiêu chí cũ khỏi giao diện. Bốn bảng tiêu chí đã nghỉ từ 20261021, không phải các bảng cần chuẩn hóa tiếp. Migration chạy sau 20261130; chưa áp dụng lên Supabase thật trong phiên này.

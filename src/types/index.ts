@@ -136,6 +136,8 @@ export interface TeacherProfile {
   evaluationReports?: EvaluationRecord[];
   successfulSessions: SuccessfulSession[];
   schedule: Record<string, ('free' | 'busy' | 'none')[]>; // slotId -> 7 days (Thứ 2 - CN)
+  scheduleEffectiveFrom?: string | null;
+  scheduleHistory?: { id: string; effectiveFrom: string; effectiveUntil: string | null; schedule: Record<string, ('free' | 'busy' | 'none')[]> }[];
 }
 
 // Phân hệ 4 & 5: Lớp học & Học sinh

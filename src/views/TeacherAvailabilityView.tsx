@@ -1,7 +1,5 @@
-import {availabilityWeeks} from '../lib/availabilityCalendar';
 import {workbenchRange} from '../lib/workbenchTime';
 import {reportToday} from '../lib/customReports';
-import {moveCalendarDate} from '../lib/vietnameseCalendar';
 import { ReportSelect } from '../components/ReportSelect';
 import { usePermissions } from '../hooks/usePermissions';
 import {useSaveConfirmation} from '../hooks/useSaveConfirmation';
@@ -28,25 +26,15 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
 
   const ownTeacher = teachers.find(t => canEditTeacherAvailability(currentUser, t));
   const activeTeacher = initialTeacherId ? teachers.find(t => t.id === initialTeacherId) : ownTeacher;
-  const canEdit = !readOnly && can('Giáo viên đăng ký lịch rảnh theo tuần') && canEditTeacherAvailability(currentUser, activeTeacher);
-
-  // BỘ LỌC THỜI GIAN THEO YÊU CẦU: Năm học hiện tại, Tháng, Tuần, Từ ngày - Đến ngày
-  const initialWeek = workbenchRange(reportToday(), 'week');
-  const [selectedMonth, setSelectedMonth] = useState(() => reportToday().slice(0, 7));
-  const [selectedWeek, setSelectedWeek] = useState(initialWeek.start);
-  const [fromDate, setFromDate] = useState(initialWeek.start);
-  const [toDate, setToDate] = useState(initialWeek.end);
-  const weekOptions = availabilityWeeks(selectedMonth);
-  const showWeek = (from: string) => { const range = workbenchRange(from, 'week'); setSelectedMonth(from.slice(0,7)); setSelectedWeek(range.start); setFromDate(range.start); setToDate(range.end); };
-
-  const handleWeekChange = (weekId: string) => {
-    setSelectedWeek(weekId);
-    const found = weekOptions.find(w => w.id === weekId);
-    if (found) {
-      setFromDate(found.from);
-      setToDate(found.to);
-    }
-  };
+  const [historyVersionId, setHistoryVersionId] = useState('');
+  const historyVersion = activeTeacher?.scheduleHistory?.find(v => v.id === historyVersionId);
+  const canEdit = !historyVersion && !readOnly && can('Giáo viên đăng ký lịch rảnh theo tuần') && canEditTeacherAvailability(currentUser, activeTeacher);
+  const displayedSchedule = historyVersion?.schedule ?? activeTeacher?.schedule;
+  const formatTime = (value?: string | null) => value ? new Date(value).toLocaleString('vi-VN', {timeZone: 'Asia/Bangkok'}) : 'Chưa cập nhật';
+  const effectiveLabel = historyVersion
+    ? `${formatTime(historyVersion.effectiveFrom)} đến trước ${formatTime(historyVersion.effectiveUntil)}`
+    : `${formatTime(activeTeacher?.scheduleEffectiveFrom)} — đến lần cập nhật tiếp theo`;
+  useEffect(() => { setHistoryVersionId(''); }, [activeTeacher?.id]);
 
   const days = [
     { key: 0, label: 'Thứ Hai', short: 'T2', sub: 'MON' },
@@ -59,7 +47,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
   ];
 
   // Danh mục ca học
-  const activeSlots = timeSlots.filter(slot => slot.status !== false);
+  const activeSlots = timeSlots.filter(slot => slot.status !== false || (historyVersion && displayedSchedule?.[slot.id]));
 
   // Bước 1: Thứ được chọn để cấu hình (0 = Thứ Hai, ..., 6 = Chủ Nhật)
   const [selectedDayKey, setSelectedDayKey] = useState<number>(0);
@@ -75,16 +63,16 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     if (!activeTeacher) return;
     const initial: Record<string, ('free' | 'busy' | 'none')[]> = {};
     activeSlots.forEach(s => {
-      if (activeTeacher?.schedule && activeTeacher.schedule[s.code]) {
-        initial[s.code] = [...activeTeacher.schedule[s.code]];
-      } else if (activeTeacher?.schedule && activeTeacher.schedule[s.id]) {
-        initial[s.code] = [...activeTeacher.schedule[s.id]];
+      if (displayedSchedule?.[s.code]) {
+        initial[s.code] = [...displayedSchedule[s.code]];
+      } else if (displayedSchedule?.[s.id]) {
+        initial[s.code] = [...displayedSchedule[s.id]];
       } else {
         initial[s.code] = ['none', 'none', 'none', 'none', 'none', 'none', 'none'];
       }
     });
     setScheduleState(initial);
-  }, [activeTeacher?.id, activeTeacher?.schedule]);
+  }, [activeTeacher?.id, displayedSchedule, timeSlots]);
 
   // Helper tìm lớp học được gán cho giáo viên/gia sư tại thứ và khung giờ này
   const getAssignedClassForSlot = (dayKey: number, _slotCode: string, slotTimeRange: string) => {
@@ -92,8 +80,8 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
       0: 'T2', 1: 'T3', 2: 'T4', 3: 'T5', 4: 'T6', 5: 'T7', 6: 'CN'
     };
     const targetDay = dayShortMap[dayKey];
-    if (!activeTeacher) return undefined;
-    const targetDate = new Date(`${workbenchRange(fromDate, 'week').start}T00:00:00`);
+    if (!activeTeacher || historyVersion) return undefined;
+    const targetDate = new Date(`${workbenchRange(reportToday(), 'week').start}T00:00:00`);
     targetDate.setDate(targetDate.getDate()+dayKey);
     const targetDateString=`${targetDate.getFullYear()}-${String(targetDate.getMonth()+1).padStart(2,'0')}-${String(targetDate.getDate()).padStart(2,'0')}`;
 
@@ -184,7 +172,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
     });
     if (!saved) return;
 
-    void confirmSave(()=>showToast(`Đã lưu lịch rảnh định kỳ cho ${activeTeacher.name}. Khoảng ngày chỉ dùng để đối chiếu lớp đang xếp lịch.`, 'success'));
+    void confirmSave(()=>showToast(`Đã lưu lịch rảnh cho ${activeTeacher.name}. Lịch có hiệu lực từ lúc lưu đến lần cập nhật tiếp theo.`, 'success'));
   };
 
   const currentSelectedDay = days.find(d => d.key === selectedDayKey) || days[0];
@@ -213,7 +201,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
 
   return (
     <div className="space-y-5 font-infer">
-      {!canEdit && <p className="p-3 rounded-xl bg-slate-100 text-slate-600 text-xs">Chỉ xem lịch giáo viên đã đăng ký. Chỉ giáo viên được thay đổi lựa chọn của mình.</p>}
+      {!canEdit && <p className="p-3 rounded-xl bg-slate-100 text-slate-600 text-xs">{historyVersion ? 'Đang xem lịch sử. Chọn lịch hiện tại để cập nhật.' : 'Chỉ xem lịch giáo viên đã đăng ký. Chỉ giáo viên được thay đổi lựa chọn của mình.'}</p>}
       {/* Header Banner phong cách Figma tối giản */}
       <div className="bg-white p-3 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -252,7 +240,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Ma trận Tuần
+              Ma trận lịch lặp
             </button>
           </div>
 
@@ -275,28 +263,16 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
         </div>
       </div>
 
-      {/* Bộ lọc thời gian gọn theo hàng ngang, dùng chung cho quản trị và giáo viên. */}
+      {/* Versions come from Supabase; weeks are the recurrence pattern, not an expiry. */}
       <div className="bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex flex-wrap items-end gap-2 text-[11px]">
-
-          <label className="flex-1 sm:flex-none min-w-[95px] text-slate-500">Tháng
-            <input aria-label="Tháng" type="month" value={selectedMonth} onChange={event => { const value=event.target.value; if(value) { setSelectedMonth(value); const week=availabilityWeeks(value)[0]; if(week) {setSelectedWeek(week.id);setFromDate(week.from);setToDate(week.to);} } }} className="block w-full mt-1 h-8 px-2 rounded-lg border border-slate-200" />
-          </label>
-          <label className="flex-1 sm:flex-none min-w-[170px] text-slate-500">Tuần
-            <ReportSelect aria-label="Tuần" value={selectedWeek} onChange={e => handleWeekChange(e.target.value)} className="block w-full sm:w-48 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
-              {weekOptions.map(week => <option key={week.id} value={week.id}>{week.label}</option>)}
+          <label className="flex-1 min-w-[220px] text-slate-500">Lần cập nhật
+            <ReportSelect aria-label="Phiên bản lịch rảnh" value={historyVersionId} onChange={e => setHistoryVersionId(e.target.value)} className="block w-full mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800">
+              <option value="">Lịch hiện tại</option>
+              {activeTeacher.scheduleHistory?.filter(version => version.effectiveUntil).map(version => <option key={version.id} value={version.id}>{formatTime(version.effectiveFrom)}</option>)}
             </ReportSelect>
           </label>
-          <label className="flex-1 sm:flex-none text-slate-500">Từ ngày
-            <input aria-label="Từ ngày" type="date" value={fromDate} max={toDate || undefined} onChange={e => setFromDate(e.target.value)} className="block w-full sm:w-32 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800" />
-          </label>
-          <label className="flex-1 sm:flex-none text-slate-500">Đến ngày
-            <input aria-label="Đến ngày" type="date" value={toDate} min={fromDate || undefined} onChange={e => setToDate(e.target.value)} className="block w-full sm:w-32 mt-1 h-8 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800" />
-          </label>
-          <div className="flex gap-1.5">
-            <button type="button" onClick={() => showWeek(reportToday())} className={selectedWeek === workbenchRange(reportToday(),'week').start ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần này</button>
-            <button type="button" onClick={() => showWeek(moveCalendarDate(reportToday(),7))} className={selectedWeek === workbenchRange(moveCalendarDate(reportToday(),7),'week').start ? 'h-8 px-2 rounded-lg bg-indigo-600 text-white' : 'h-8 px-2 rounded-lg border border-slate-200 text-slate-600'}>Tuần sau</button>
-          </div>
+          <p className="flex-1 min-w-[220px] text-slate-600">Hiệu lực: {effectiveLabel}. Lặp hằng tuần, không cần đăng ký lại.</p>
         </div>
       </div>
 
@@ -315,7 +291,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
                 </span>
               </div>
               <span className="text-xs text-slate-400">
-                Hiệu lực: {fromDate} đến {toDate}
+                Lịch lặp từ Thứ Hai đến Chủ Nhật
               </span>
             </div>
 
@@ -461,7 +437,7 @@ export const TeacherAvailabilityView: React.FC<{ initialTeacherId?: string; read
             </div>
 
             <div className="text-slate-500 text-[11px] italic">
-              Khoảng thời gian: {fromDate} đến {toDate} (Lịch rảnh định kỳ)
+              Hiệu lực: {effectiveLabel}
             </div>
           </div>
 

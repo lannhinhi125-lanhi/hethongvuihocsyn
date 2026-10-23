@@ -482,5 +482,16 @@ try {
  await (await import('./aiConfigurationChatCases.mjs')).verifyAIConfigurationChat(db,token);
  await db.exec(file('supabase/apply_documents_ai_update.sql'));
  await db.exec(file('supabase/apply_documents_ai_update.sql'));
- await (await import('./teacherGradeNormalizationCases.mjs')).verifyTeacherGradeNormalization(db,token);
+ // The catalog writer fix is layout-compatible; apply it before testing the 20261205 upgrade.
+ await db.exec(file('supabase/migrations/20261207_stable_grade_catalog_writes.sql'));
+ if(process.argv.includes('--lesson-clocks')){
+  // Focused mode applies the prerequisite; default mode also exercises its catalog CRUD upgrade cases.
+  await db.exec(file('supabase/migrations/20261205_normalize_teacher_grade_links.sql'));
+ } else {
+  await (await import('./teacherGradeNormalizationCases.mjs')).verifyTeacherGradeNormalization(db,token);
+ }
+ await (await import('./lessonClockNormalizationCases.mjs')).verifyLessonClockNormalization(db,token);
+ await (await import('./stableGradeCatalogCases.mjs')).verifyStableGradeCatalog(db,token);
+ await (await import('./classTraceNormalizationCases.mjs')).verifyClassTraceNormalization(db,token);
+ await (await import('./availabilityVersionCases.mjs')).verifyAvailabilityVersions(db,token);
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}
