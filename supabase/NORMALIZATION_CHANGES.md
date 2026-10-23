@@ -1,5 +1,7 @@
 # Theo dõi thay đổi chuẩn hóa
 
+**Rà soát cuối sau 20261209:** [kết luận, nhóm bảng cuối trước/sau và cách kiểm tra Supabase](FINAL_3NF_REVIEW.md); [kiểm kê đủ 50 bảng/392 cột](FINAL_3NF_TABLE_INVENTORY.md). Không cần thêm migration thay đổi bảng cho nhóm còn lại. Giữ nguyên cột/dữ liệu; bổ sung SQL kiểm tra toàn bộ cấu trúc và dữ liệu nhóm cuối, sửa diagnostic tương thích cột giáo viên dự giờ đã bỏ. Chưa chạy đối soát trên Supabase thật.
+
 Đợt **20261209 — lịch rảnh theo lần cập nhật**: [đủ bảng/cột trước–sau, PK/FK, nguồn và luồng](AVAILABILITY_VERSION_3NF_CHANGES.md). Ba bảng cũ thành hai bảng phiên bản/chi tiết; lịch có hiệu lực đến lần cập nhật tiếp theo, không đăng ký lại mỗi tuần. Lịch hiện tại là view, ngày hết hiệu lực được truy vấn. Giữ ô lịch định kỳ cũ; có dữ liệu lịch tuần hoặc thiếu ngày thì dừng toàn bộ để đối soát. Không lưu JSON. Chạy sau 20261208; chưa chạy Supabase thật.
 
 Đợt **20261208 — môn của lịch sử xếp lớp**: [đủ cột trước/sau, FK, nguồn và luồng liên quan](CLASS_TRACE_3NF_CHANGES.md). `TRUY_VET_XEP_LOP` 8→7 cột, bỏ `mamonhoc` sao chép; giữ mã lớp cũ/mới và JOIN `LOP_HOC`. Cập nhật bộ ghi/lịch sử, bảo vệ môn lớp đã có truy vết, chặn dữ liệu lệch nguồn trước khi bỏ cột. Không thêm bảng/cột JSON hoặc xóa sự kiện. Chạy sau 20261207; chưa chạy Supabase thật.

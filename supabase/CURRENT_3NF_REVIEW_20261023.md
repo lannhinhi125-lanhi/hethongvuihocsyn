@@ -1,5 +1,7 @@
 # Rà soát tiếp nối theo mã hiện tại — 23/10/2026
 
+**Đã khép kín kiểm kê sau 20261209:** xem [FINAL_3NF_REVIEW.md](FINAL_3NF_REVIEW.md) và [đủ 50 bảng/392 cột, khóa và nguồn](FINAL_3NF_TABLE_INVENTORY.md). Nhóm lịch đăng ký, điểm danh và quyền giữ nguyên cấu trúc đã có. Hai SQL cuối chỉ đọc dùng để phát hiện khác biệt trên Supabase thật. Các phần dưới là ghi nhận lịch sử trước các bản sửa, không phải danh sách việc còn mở hiện tại.
+
 Đã chuẩn bị xử lý nhóm lịch ở mục 4 bằng **20261209**, theo quy tắc mới người dùng chốt: [AVAILABILITY_VERSION_3NF_CHANGES.md](AVAILABILITY_VERSION_3NF_CHANGES.md). Lịch theo phiên bản hiệu lực đến lần cập nhật sau, ba bảng thành hai, không đăng ký lại từng tuần; lịch tuần cũ có dữ liệu sẽ chặn chuyển đổi để đối soát. Các nhận định mục 4 phía dưới ghi trạng thái trước bản sửa. Chưa chạy lên Supabase thật.
 
 Đã chuẩn bị xử lý bản sao môn ở mục 3 bằng **20261208**: [CLASS_TRACE_3NF_CHANGES.md](CLASS_TRACE_3NF_CHANGES.md). `TRUY_VET_XEP_LOP` 8→7 cột; môn truy vấn từ lớp, bộ ghi và lịch sử dùng cùng nguồn. Các nhận định ở mục 3 bên dưới ghi trạng thái trước bản sửa. Chưa chạy lên Supabase thật.

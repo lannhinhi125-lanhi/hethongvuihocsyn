@@ -494,4 +494,5 @@ try {
  await (await import('./stableGradeCatalogCases.mjs')).verifyStableGradeCatalog(db,token);
  await (await import('./classTraceNormalizationCases.mjs')).verifyClassTraceNormalization(db,token);
  await (await import('./availabilityVersionCases.mjs')).verifyAvailabilityVersions(db,token);
+ await (await import('./finalNormalizationReviewCases.mjs')).verifyFinalNormalizationReview(db,token);
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}

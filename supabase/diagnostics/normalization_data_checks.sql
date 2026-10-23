@@ -1,12 +1,14 @@
--- Read-only counts for the schema upgraded through 20261115.
--- Also supports 20261116: teacher-score-copy checked_rows becomes zero after removing the old columns.
+-- Read-only legacy-copy counts; compatible with normalized inspection teacher links.
+-- Removed legacy columns result in zero checked rows, not a missing-column error.
 -- Outputs no names, contacts, passwords or individual record contents.
 -- A difference is a review candidate, NOT proof that the stored value is wrong.
 WITH teacher_scores AS (
  SELECT g.madinhdanh,((to_jsonb(g)->>'diemtc1')::numeric,(to_jsonb(g)->>'diemtc2')::numeric,(to_jsonb(g)->>'diemtc3')::numeric) IS DISTINCT FROM (e.diemtc1,e.diemtc2,e.diemtc3) AS differs
  FROM vuihoc."GIAO_VIEN" g LEFT JOIN LATERAL (
-  SELECT diemtc1,diemtc2,diemtc3 FROM vuihoc."BIEN_BAN_DU_GIO" e
-  WHERE e.magiaovien=g.madinhdanh ORDER BY e.ngaydanhgia DESC,e.madinhdanh DESC LIMIT 1
+  SELECT e.diemtc1,e.diemtc2,e.diemtc3 FROM vuihoc."BIEN_BAN_DU_GIO" e
+  LEFT JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=e.mabuoi
+  WHERE coalesce(to_jsonb(e)->>'magiaovien',b.magiaoviendaythay,b.magiaovienchinh)=g.madinhdanh
+  ORDER BY e.ngaydanhgia DESC,e.madinhdanh DESC LIMIT 1
  ) e ON true WHERE to_jsonb(g) ?| ARRAY['diemtc1','diemtc2','diemtc3']
 ), student_legacy AS (
  SELECT h.madinhdanh,(to_jsonb(h)->>'mamonhoc',to_jsonb(h)->>'mamohinh',to_jsonb(h)->>'matrinhdo',to_jsonb(h)->>'trangthai',to_jsonb(h)->>'malophientai')
