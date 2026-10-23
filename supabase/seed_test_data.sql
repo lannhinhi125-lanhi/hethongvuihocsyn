@@ -129,10 +129,7 @@ INSERT INTO vuihoc."MAU_BAO_CAO" ("madinhdanh", "manguoidung", "tenmaubaocao", "
 ('TEST-REPORT-DEMO-001', 'TEST-USR-01', 'Lớp học theo môn', '{"datasetId":"classes","metricIds":["count"],"groupBy":"subject","datePreset":"all","from":"","to":"","filters":{},"sort":"label_asc"}'::jsonb)
 ON CONFLICT DO NOTHING;
 
-INSERT INTO vuihoc."DANH_MUC_BO_SUNG" ("madinhdanh", "madanhmuc", "tendanhmuc", "mota", "danhsachmuc", "madanhmuccha") VALUES
-('CAT-DEMO', 'DEMO', 'Danh mục thử nghiệm', 'Dữ liệu mẫu', '[{"id":"ENTRY-DEMO","code":"DEMO-01","name":"Mục thử nghiệm","desc":"Dùng kiểm tra CRUD danh mục","status":true}]'::jsonb, NULL),
-('CAT-DEMO-CHILD', 'DEMO-CHILD', 'Danh mục con', 'Kiểm tra cây danh mục', '[]'::jsonb, 'CAT-DEMO')
-ON CONFLICT DO NOTHING;
+-- Experimental catalog removed; do not recreate it when loading sample data.
 
 INSERT INTO vuihoc."VAN_PHONG_NHAN_XET" ("madinhdanh", "tenvanphong", "chidan") VALUES
 ('khich-le', 'Khích lệ, ân cần & Khen ngợi (Khuyến nghị cho Tiểu học)', 'Bạn là giáo viên Vuihoc tâm lý, ân cần. Hãy tổng hợp các tiêu chí giáo viên đã tick để viết một đoạn nhận xét ấm áp, khen ngợi nỗ lực của con và dặn dò bài tập chu đáo.'),
