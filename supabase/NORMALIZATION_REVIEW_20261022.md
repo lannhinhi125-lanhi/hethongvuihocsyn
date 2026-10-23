@@ -1,5 +1,13 @@
 # Rà soát nguồn dữ liệu và cột dư — 22/10/2026
 
+Rà tiếp ngày **23/10/2026** theo mã hiện tại đến 20261205: [tiến độ và các bảng cần làm tiếp](CURRENT_3NF_REVIEW_20261023.md). Giờ sao chép của `BUOI_HOC` vẫn chưa được xử lý; kết luận cũ rằng đây luôn là giờ độc lập không phù hợp nghiệp vụ người dùng vừa xác định. Lượt này kiểm tra/ghi nhận, không xóa cột nghiệp vụ.
+
+Đợt 20261205 rà sáu bảng khối/mô hình được dạy và lịch rảnh: sửa phụ thuộc bộ phận trong `GIAO_VIEN_KHOI`, giữ FK danh mục bằng một mã lựa chọn toàn cục. [Đủ cột trước/sau, các bảng giữ nguyên và giới hạn kiểm thử](TEACHER_GRADE_SCHEDULE_3NF_CHANGES.md). Chưa áp dụng Supabase thật.
+
+Đợt 20261204 tiếp tục năm bảng cấu hình AI/văn phong/phiên chat/câu hỏi: bỏ mã giáo viên lưu trùng ở phiên, cập nhật RPC và ràng buộc một cấu hình dùng chung. [Đủ cột trước/sau, khóa và phạm vi kiểm thử](AI_CONFIGURATION_CHAT_3NF_CHANGES.md). Chưa triển khai Supabase thật.
+
+Đợt 20261203 rà tiếp tài liệu và loại tài liệu: bổ sung liên kết tài khoản tải lên, ghi từ phiên đăng nhập và truy vấn tên từ nguồn. [Cột trước/sau, FK và cách xử lý tài liệu cũ](DOCUMENT_UPLOADER_3NF_CHANGES.md). Chưa áp dụng lên Supabase thật.
+
 Đợt 20261202: chuẩn hóa bộ lọc nhiều lựa chọn, bảo toàn đầy đủ cấu hình mẫu báo cáo. [Chi tiết ba bảng, trước/sau và giới hạn FK](REPORT_TEMPLATE_3NF_CHANGES.md). Không tạo bảng danh mục sao chép hay cột JSON; chưa áp dụng lên Supabase thật.
 
 Đợt 20261201 rà ba bảng nhận xét/danh mục còn hoạt động: [đủ cột trước/sau và các nguồn liên kết](FEEDBACK_CATALOG_3NF_CHANGES.md). Không xóa cột hay thêm bảng; củng cố khóa nghiệp vụ và cây danh mục. Bốn bảng tiêu chí đã nghỉ không còn nằm trong danh sách bảng cần kiểm kê. Kiểm thử cục bộ; chưa thực thi lên Supabase thật.

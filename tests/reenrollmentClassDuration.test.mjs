@@ -478,4 +478,9 @@ try {
  await (await import('./payrollSourceNormalizationCases.mjs')).verifyPayrollSourceNormalization(db,token);
  await (await import('./feedbackCatalogNormalizationCases.mjs')).verifyFeedbackCatalogNormalization(db,token);
  await (await import('./reportTemplateNormalizationCases.mjs')).verifyReportTemplateNormalization(db,token);
+ await (await import('./documentUploaderCases.mjs')).verifyDocumentUploaders(db,token);
+ await (await import('./aiConfigurationChatCases.mjs')).verifyAIConfigurationChat(db,token);
+ await db.exec(file('supabase/apply_documents_ai_update.sql'));
+ await db.exec(file('supabase/apply_documents_ai_update.sql'));
+ await (await import('./teacherGradeNormalizationCases.mjs')).verifyTeacherGradeNormalization(db,token);
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}

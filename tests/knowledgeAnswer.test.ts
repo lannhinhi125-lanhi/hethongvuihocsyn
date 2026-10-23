@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {knowledgeAnswerPrompt} from '../src/lib/knowledgeAnswer';
+import {knowledgeAnswerPrompt,knowledgeFallbackResponse} from '../src/lib/knowledgeAnswer';
 import type {SOPDocument} from '../src/types';
 
 const doc=(id:string,content:string,isEnabled=true):SOPDocument=>({id,title:id,content,isEnabled,category:'Demo',summary:'',updatedAt:''});
@@ -24,3 +24,16 @@ assert.ok(bounded.reduce((total:number,item:any)=>total+item.content.length,0)<=
 assert.ok(bounded[0].content.includes('xin nghỉ trước 2 ngày'),'relevant passage near end of long document is prioritized');
 assert.deepEqual(parse(knowledgeAnswerPrompt('Xin nghỉ?',[], '', '')),[]);
 console.log('PASS: multiple enabled sources, original deadlines, natural-answer instructions, missing evidence, disabled/link-only exclusions and bounded long-document retrieval');
+const custom=knowledgeAnswerPrompt('Xin nghỉ?',documents,'Trang trọng, xưng hô thầy/cô','Hãy liên hệ điều phối.','Trả lời ngắn trong 2 câu.',true);
+assert.ok(custom.includes(JSON.stringify('Trang trọng, xưng hô thầy/cô')));
+assert.ok(custom.includes(JSON.stringify('Trả lời ngắn trong 2 câu.')));
+assert.match(custom,/Chế độ chỉ dựa trên tài liệu/);
+assert.match(custom,/trả nguyên văn thông điệp dự phòng/);
+const general=knowledgeAnswerPrompt('Giải thích thêm',[],'','Không rõ.','',false);
+assert.match(general,/Chế độ cho phép kiến thức chung/);
+assert.ok(!general.includes('Chế độ chỉ dựa trên tài liệu'));
+assert.equal(knowledgeFallbackResponse([], 'Liên hệ điều phối.',true),'Liên hệ điều phối.');
+assert.equal(knowledgeFallbackResponse([doc('Disabled','Content',false),doc('Link','')],'Dự phòng',true),'Dự phòng');
+assert.equal(knowledgeFallbackResponse(documents,'Dự phòng',true),null);
+assert.equal(knowledgeFallbackResponse([],'Dự phòng',false),null);
+console.log('PASS: configured tone/instructions, strict/general scope and exact no-document fallback');

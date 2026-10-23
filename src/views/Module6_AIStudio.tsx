@@ -1,16 +1,15 @@
 import { ReportSelect } from '../components/ReportSelect';
-import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { TeacherChatThread } from '../components/TeacherChatThread';
 import { ChatHistoryControls } from '../components/ChatHistoryControls';
 import {additionalAIInstructions,responseLength,responseStylePrompt,type ResponseLength} from '../lib/aiResponseStyle';
-import { useBusinessValue,waitForBusinessSave } from '../lib/businessPersistence';
+import { useBusinessValue,useBusinessStatus,waitForBusinessSave } from '../lib/businessPersistence';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { confirmAction } from '../components/ConfirmAction';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { SOPDocument, RAGBotConfig, DocumentCategory } from '../types';
 import { useTeacherChatHistory } from '../hooks/useTeacherChatHistory';
@@ -35,7 +34,6 @@ import {
 } from 'lucide-react';
 
 export const Module6_AIStudio: React.FC = () => {
-  const {confirmSave,isSavingChanges}=useSaveConfirmation();
   const { can, requirePermission } = usePermissions();
   const {
     currentUser,
@@ -45,6 +43,30 @@ export const Module6_AIStudio: React.FC = () => {
     setRagBotConfig,
     showToast
   } = useApp();
+
+  const businessStatus=useBusinessStatus();
+  const [configDraft,setConfigDraft]=useState<RAGBotConfig>(ragBotConfig);
+  const [configBase,setConfigBase]=useState<RAGBotConfig>(ragBotConfig);
+  const [savingConfig,setSavingConfig]=useState(false);
+  const configDirty=JSON.stringify(configDraft)!==JSON.stringify(configBase);
+  const canConfigure=can('Cấu hình Prompt văn phong & Tiêu chí nhận xét môn');
+  useEffect(()=>{
+    if(!configDirty){setConfigDraft(ragBotConfig);setConfigBase(ragBotConfig);}
+  },[ragBotConfig,configDirty]);
+  const saveConfiguration=async()=>{
+    if(savingConfig || !configDirty || !requirePermission('Cấu hình Prompt văn phong & Tiêu chí nhận xét môn'))return;
+    if(JSON.stringify(configBase)!==JSON.stringify(ragBotConfig)){
+      showToast('Cấu hình đã thay đổi. Bấm Hủy thay đổi để tải bản mới rồi chỉnh sửa lại.','error');return;
+    }
+    setSavingConfig(true);
+    try{
+      setRagBotConfig(configDraft);
+      await waitForBusinessSave();
+      setConfigBase(configDraft);
+      showToast('Đã lưu cấu hình AI vào Supabase. Áp dụng từ câu hỏi tiếp theo.','success');
+    }catch(error){showToast(error instanceof Error?error.message:'Chưa lưu được cấu hình AI.','error');}
+    finally{setSavingConfig(false);}
+  };
 
   const [documentCategories]=useBusinessValue<DocumentCategory[]>('document_categories');
   const [savingDocument,setSavingDocument]=useState(false);
@@ -195,7 +217,7 @@ export const Module6_AIStudio: React.FC = () => {
     e.preventDefault();
     if(!requirePermission('Sử dụng chatbot tra cứu quy chế và nghiệp vụ'))return;
     const query=sandboxInput.trim();
-    if(!query||sandboxChat.isBusy)return;
+    if(!query||sandboxChat.isBusy||savingConfig)return;
     setSandboxInput('');
     if(!await sandboxChat.send(query))setSandboxInput(query);
   };
@@ -298,6 +320,7 @@ export const Module6_AIStudio: React.FC = () => {
                             <div className="mt-0.5 text-[10px] text-slate-400">
                               {doc.sourceFileName || (doc.driveUrl ? 'Google Drive' : 'Nội dung văn bản')}{doc.sourceFileType ? ` · ${doc.sourceFileType}` : ''}
                             </div>
+                            <div className="mt-0.5 text-[10px] text-slate-500">Người tải lên: {doc.uploaderName || 'Chưa xác định'}</div>
                           </div>
                         </div>
                       </td>
@@ -368,7 +391,7 @@ export const Module6_AIStudio: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Cột trái (6/12): Cấu hình */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4 text-xs">
+            <fieldset disabled={savingConfig || businessStatus.loading || !canConfigure} className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4 text-xs disabled:opacity-70">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Cấu hình Bot chat AI</h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">AI Rules</span>
@@ -377,15 +400,19 @@ export const Module6_AIStudio: React.FC = () => {
               <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-bold text-slate-800">Phạm vi trả lời: tài liệu tri thức đang bật</div>
+                    <div className="font-bold text-slate-800">Phạm vi trả lời</div>
                     <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
-                      Bot dùng tài liệu đang bật để tổng hợp và giải thích câu trả lời. Bot có thể thêm gợi ý chung, nhưng không tự đặt thêm quy định khi chưa có căn cứ.
+                      Bot dùng tài liệu đang bật để tra cứu quy định. Bạn có thể cho phép kiến thức chung để giải thích thêm; bot vẫn phải phân biệt với quy định của trung tâm.
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-orange-700">
                     {enabledKnowledgeDocuments.length} tài liệu
                   </span>
                 </div>
+                <label className="mt-3 flex items-start gap-2 font-semibold text-slate-700">
+                  <input type="checkbox" checked={configDraft.strictGroundingOnly} onChange={e=>setConfigDraft(prev=>({...prev,strictGroundingOnly:e.target.checked}))} className="mt-0.5" />
+                  Chỉ trả lời dựa trên tài liệu đang bật
+                </label>
                 <button
                   type="button"
                   onClick={() => setActiveTab('knowledge')}
@@ -393,7 +420,7 @@ export const Module6_AIStudio: React.FC = () => {
                 >
                   Quản lý tài liệu tri thức
                 </button>
-                {!enabledKnowledgeDocuments.length && (
+                {!enabledKnowledgeDocuments.length && configDraft.strictGroundingOnly && (
                   <p className="mt-2 text-[11px] font-semibold text-rose-700">
                     Chưa có tài liệu nào được bật. Bot sẽ chỉ hiển thị câu trả lời khi không tìm thấy căn cứ.
                   </p>
@@ -401,29 +428,31 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Câu chào mở đầu</label>
+                <label htmlFor="ai-welcome-greeting" className="block font-semibold text-slate-700 mb-1">Câu chào mở đầu</label>
                 <textarea
+                  id="ai-welcome-greeting"
                   rows={2}
-                  value={ragBotConfig.welcomeGreeting}
-                  onChange={e => setRagBotConfig(prev => ({ ...prev, welcomeGreeting: e.target.value }))}
+                  value={configDraft.welcomeGreeting}
+                  onChange={e => setConfigDraft(prev => ({ ...prev, welcomeGreeting: e.target.value }))}
                   className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Giọng văn &amp; cách xưng hô</label>
+                <label htmlFor="ai-persona-tone" className="block font-semibold text-slate-700 mb-1">Giọng văn &amp; cách xưng hô</label>
                 <input
+                  id="ai-persona-tone"
                   type="text"
-                  value={ragBotConfig.personaTone}
-                  onChange={e => setRagBotConfig(prev => ({ ...prev, personaTone: e.target.value }))}
+                  value={configDraft.personaTone}
+                  onChange={e => setConfigDraft(prev => ({ ...prev, personaTone: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200"
                 />
               </div>
 
               <div>
                 <label htmlFor="ai-response-length" className="block font-semibold text-slate-700 mb-1">Độ dài câu trả lời</label>
-                <ReportSelect id="ai-response-length" value={responseLength(ragBotConfig.systemPrompt)}
-                  onChange={e=>setRagBotConfig(prev=>({...prev,systemPrompt:responseStylePrompt(e.target.value as ResponseLength,additionalAIInstructions(prev.systemPrompt))}))}
+                <ReportSelect id="ai-response-length" value={responseLength(configDraft.systemPrompt)}
+                  onChange={e=>setConfigDraft(prev=>({...prev,systemPrompt:responseStylePrompt(e.target.value as ResponseLength,additionalAIInstructions(prev.systemPrompt))}))}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200">
                   <option value="short">Ngắn gọn — ưu tiên 2–4 câu</option>
                   <option value="balanced">Vừa phải — ý chính và giải thích ngắn</option>
@@ -433,31 +462,34 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
               <div>
                 <label htmlFor="ai-extra-instructions" className="block font-semibold text-slate-700 mb-1">Hướng dẫn bổ sung</label>
-                <textarea id="ai-extra-instructions" rows={3} value={additionalAIInstructions(ragBotConfig.systemPrompt)}
-                  onChange={e=>setRagBotConfig(prev=>({...prev,systemPrompt:responseStylePrompt(responseLength(prev.systemPrompt),e.target.value)}))}
+                <textarea id="ai-extra-instructions" rows={3} value={additionalAIInstructions(configDraft.systemPrompt)}
+                  onChange={e=>setConfigDraft(prev=>({...prev,systemPrompt:responseStylePrompt(responseLength(prev.systemPrompt),e.target.value)}))}
                   placeholder="Ví dụ: Xưng hô thầy/cô. Nêu ý chính trước, sau đó thêm một lời nhắc thân thiện."
                   className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed" />
                 <p className="mt-1 text-[11px] text-slate-500">Bấm Lưu cấu hình để lưu lại. Áp dụng cho câu trả lời tiếp theo ở cả chatbot quản trị và giáo viên.</p>
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Câu trả lời khi không tìm thấy căn cứ trong tài liệu</label>
+                <label htmlFor="ai-fallback-response" className="block font-semibold text-slate-700 mb-1">Câu trả lời khi không tìm thấy căn cứ trong tài liệu</label>
                 <textarea
+                  id="ai-fallback-response"
                   rows={3}
-                  value={ragBotConfig.fallbackResponse}
-                  onChange={e => setRagBotConfig(prev => ({ ...prev, fallbackResponse: e.target.value }))}
+                  value={configDraft.fallbackResponse}
+                  onChange={e => setConfigDraft(prev => ({ ...prev, fallbackResponse: e.target.value }))}
                   className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed"
                 />
               </div>
 
-              <div className="flex justify-end pt-2">
+              <p role="status" className="text-[11px] text-slate-500">{savingConfig?'Đang lưu cấu hình…':configDirty?'Có thay đổi chưa lưu. Chatbot đang dùng cấu hình đã lưu.':'Chatbot đang dùng cấu hình đã lưu.'}</p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" disabled={!configDirty || savingConfig} onClick={()=>{setConfigDraft(ragBotConfig);setConfigBase(ragBotConfig);}} className="px-3 py-2 border border-slate-200 rounded-lg disabled:opacity-50">Hủy thay đổi</button>
                 <button
-                  disabled={isSavingChanges} onClick={() => void confirmSave(()=>showToast('Đã lưu cấu hình Bot chat AI!', 'success'))}
-                  className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg shadow-xs cursor-pointer"
+                  type="button" disabled={savingConfig || businessStatus.saving || !configDirty} onClick={() => void saveConfiguration()}
+                  className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Lưu cấu hình Bot chat AI
+                  {savingConfig?'Đang lưu…':'Lưu cấu hình AI'}
                 </button>
               </div>
-            </div>
+            </fieldset>
           </div>
 
           {/* Cột phải (6/12): Sandbox */}
@@ -493,9 +525,9 @@ export const Module6_AIStudio: React.FC = () => {
               {can('Sử dụng chatbot tra cứu quy chế và nghiệp vụ') && <GeminiConnectionStatus />}
               {canChat && <ChatHistoryControls chat={sandboxChat} onSelect={()=>setSandboxInput('')} />}
               <TeacherChatThread turns={sandboxChat.turns} greeting={ragBotConfig.welcomeGreeting}
-                isBusy={sandboxChat.isBusy||!canChat} isAnswering={sandboxChat.isAnswering} hasOlder={sandboxChat.hasOlderTurns}
+                isBusy={sandboxChat.isBusy||!canChat||savingConfig} isAnswering={sandboxChat.isAnswering} hasOlder={sandboxChat.hasOlderTurns}
                 onOlder={()=>void sandboxChat.olderTurns()}
-                onAskAgain={turn=>{if(requirePermission('Sử dụng chatbot tra cứu quy chế và nghiệp vụ'))void sandboxChat.send(turn.noidung,turn.macauhoi);}} />
+                onAskAgain={turn=>{if(!savingConfig&&requirePermission('Sử dụng chatbot tra cứu quy chế và nghiệp vụ'))void sandboxChat.send(turn.noidung,turn.macauhoi);}} />
 
               {/* Quick prompts */}
               <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-1.5 text-[10px]">
@@ -524,7 +556,7 @@ export const Module6_AIStudio: React.FC = () => {
                 />
                 <button
                   type="submit"
-                  disabled={sandboxChat.isBusy || !canChat || !sandboxInput.trim()}
+                  disabled={sandboxChat.isBusy || savingConfig || !canChat || !sandboxInput.trim()}
                   className="px-3.5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />

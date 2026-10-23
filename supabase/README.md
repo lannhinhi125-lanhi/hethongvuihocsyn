@@ -1,5 +1,7 @@
 # Bộ SQL Supabase Vuihoc
 
+**Gộp tài liệu và cấu hình AI:** sau khi đã nâng cấp đến `20261202`, chạy toàn bộ [apply_documents_ai_update.sql](apply_documents_ai_update.sql), thay cho chạy riêng `20261203` và `20261204`. [Cách lưu cấu hình và áp dụng cho chatbot](../docs/ai-configuration-save.md).
+
 **Thống nhất điểm dự giờ:** sau bản 20261026, chạy
 [migrations/20261027_standardize_inspection_scores.sql](migrations/20261027_standardize_inspection_scores.sql).
 Điểm tổng dùng `(TC1 + 2×TC2 + TC3)/4`, làm tròn hai chữ số; xếp loại A/B/C/D

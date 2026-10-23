@@ -251,6 +251,8 @@ export interface ClassItem {
 // Phân hệ 6: Quản trị AI Studio
 export interface DocumentCategory { id:string; name:string; description:string; isActive:boolean; }
 export interface SOPDocument {
+  uploadedBy?: string | null;
+  uploaderName?: string | null;
   driveUrl?: string;
   categoryId?: string;
   id: string;

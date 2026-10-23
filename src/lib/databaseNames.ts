@@ -617,6 +617,8 @@ export const APP_DATABASE_FIELDS = {
     "id": "madinhdanh",
     "title": "tieude",
     "category": "tenloaitailieu",
+    "uploadedBy": "manguoitailen",
+    "uploaderName": "tennguoitailen",
     "categoryId": "maloaitailieu",
     "summary": "tomtat",
     "updatedAt": "ngaycapnhat",

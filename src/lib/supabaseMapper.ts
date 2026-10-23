@@ -10,7 +10,7 @@ export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly s
   dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseCategoryId', 'pauseNote'],
   // Student scalar study fields are a read projection; only registrations writes study data.
   students: ['classHistory','registrationHistory','subject','model','level','status','currentClassCode','scheduleSlots'],
-  sop_documents: ['category'],
+  sop_documents: ['category', 'uploadedBy', 'uploaderName'],
   rag_bot_config: ['quickPrompts'],
   teachers: ['subjectName', 'levelName', 'statusLabel', 'successfulSessions', 'freeSlots', 'busySlots', 'isFull', 'evalStatus', 'evalScore', 'evalComment', 'evalCriteriaScores'],
   "classes": [

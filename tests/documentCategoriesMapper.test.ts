@@ -20,3 +20,7 @@ assert.equal(findKnowledgeDocument('quy che',[{
   id:'LINK',title:'quy che',category:'Custom type',summary:'',content:'',updatedAt:'',driveUrl:linked.driveUrl
 }]),undefined);
 console.log('PASS: Drive link roundtrip; link-only documents are not treated as extracted knowledge');
+const attributed=fromSupabaseRow('sop_documents',{madinhdanh:'UPLOAD',manguoitailen:'USER-A',tennguoitailen:'Người tải'});
+assert.equal(attributed.uploadedBy,'USER-A');assert.equal(attributed.uploaderName,'Người tải');
+assert.deepEqual(toSupabaseRow('sop_documents',attributed),{madinhdanh:'UPLOAD'});
+console.log('PASS: uploader metadata is displayed and excluded from client writes');

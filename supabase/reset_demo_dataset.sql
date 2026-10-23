@@ -173,8 +173,15 @@ DO $teachers$ DECLARE r record; role_id text; BEGIN
   END IF;
  END LOOP;
 END $teachers$;
-INSERT INTO vuihoc."GIAO_VIEN_KHOI" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),k.macaphoc,k.madinhdanh,k.thutu
- FROM demo_teachers t CROSS JOIN vuihoc."LUA_CHON_CAP_HOC" k WHERE k.macaphoc='CAP-TH';
+DO $teacher_grades$ BEGIN
+ IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='GIAO_VIEN_KHOI' AND column_name='macaphoc') THEN
+  INSERT INTO vuihoc."GIAO_VIEN_KHOI" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),k.macaphoc,k.madinhdanh,k.thutu
+   FROM demo_teachers t CROSS JOIN vuihoc."LUA_CHON_CAP_HOC" k WHERE k.macaphoc='CAP-TH';
+ ELSE
+  INSERT INTO vuihoc."GIAO_VIEN_KHOI"(magiaovien,maluachon,thutu) SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),k.maluachon,k.thutu
+   FROM demo_teachers t CROSS JOIN vuihoc."LUA_CHON_CAP_HOC" k WHERE k.macaphoc='CAP-TH';
+ END IF;
+END $teacher_grades$;
 INSERT INTO vuihoc."GIAO_VIEN_MO_HINH" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),m.mamohinh,row_number() OVER(PARTITION BY t.i ORDER BY m.mamohinh)
  FROM demo_teachers t CROSS JOIN vuihoc."MO_HINH_LOP" m WHERE m.mamohinh IN ('1-1','1-3','1-5');
 INSERT INTO vuihoc."LICH_RANH_DINH_KY" SELECT 'DEMO-GV-'||lpad(t.i::text,3,'0'),k.madinhdanh,d.day,

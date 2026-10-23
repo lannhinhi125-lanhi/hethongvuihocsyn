@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {askGemini} from '../lib/geminiClient';
 import {randomUUID} from '../lib/randomUUID';
-import {knowledgeAnswerPrompt} from '../lib/knowledgeAnswer';
+import {knowledgeAnswerPrompt,knowledgeFallbackResponse} from '../lib/knowledgeAnswer';
 import {deleteTeacherChat,listTeacherChats,openTeacherChat,readTeacherChat,saveTeacherQuestion,teacherChatContext,type ChatSummary,type ChatTurn} from '../lib/teacherChatHistory';
 import type {RAGBotConfig,SOPDocument} from '../types';
 
@@ -99,8 +99,8 @@ export function useTeacherChatHistory(accountId:string|undefined,enabled:boolean
     const controller=new AbortController();request.current=controller;
     const timeout=window.setTimeout(()=>controller.abort(),90_000);
     try{
-      const text=await askGemini(messages,{signal:controller.signal,
-        systemPrompt:knowledgeAnswerPrompt(contextQuery,documents,config.personaTone,config.fallbackResponse,config.systemPrompt)});
+      const text=knowledgeFallbackResponse(documents,config.fallbackResponse,config.strictGroundingOnly) ?? await askGemini(messages,{signal:controller.signal,
+        systemPrompt:knowledgeAnswerPrompt(contextQuery,documents,config.personaTone,config.fallbackResponse,config.systemPrompt,config.strictGroundingOnly)});
       if(version!==generation.current)return;
       setTurns(previous=>previous.map(turn=>turn.macauhoi===questionId?{...turn,traloi:text,thoigiantraloi:new Date().toISOString()}:turn));
     }catch(reason){
