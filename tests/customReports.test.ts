@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   buildCustomReport, customReportCsv, defaultReportConfig, normalizeReportConfig, reportRange, reportToday,
-  validReportDate, type ReportDataset
+  validReportDate, reportTemplateConfig, applyReportTemplate, type ReportDataset
 } from '../src/lib/customReports';
 
 const dataset: ReportDataset = {
@@ -52,3 +52,13 @@ assert.ok(csv.startsWith('\uFEFF'));
 assert.ok(csv.includes("\"'=SUM(1,2)\"\"test\""));
 assert.ok(csv.includes('\r\n'));
 console.log('Passed: custom report ranges, weighted ratios, averages, grouping, filters, snapshots, normalization and CSV escaping.');
+
+const run = {...defaultReportConfig(dataset), datePreset: 'custom' as const, from: '2026-10-01', to: '2026-10-31', comparison: {enabled:true, mode:'custom' as const, start:'2025-10-01',end:'2025-10-31'}};
+const legacy = {...run, from:'2020-01-01',to:'2020-01-31',selection:{by:'subject',key:'Math'},filters:{subject:'Math'}};
+const template = reportTemplateConfig(legacy);
+for(const key of ['datePreset','from','to','comparison','selection'])assert.ok(!(key in template));
+const opened = applyReportTemplate(legacy,[dataset],run);
+assert.equal(opened.from,run.from);assert.equal(opened.to,run.to);assert.equal(opened.datePreset,run.datePreset);
+assert.deepEqual(opened.comparison,run.comparison);assert.deepEqual(opened.filters,{subject:'Math'});assert.equal(opened.selection,undefined);
+assert.deepEqual(reportTemplateConfig({...opened,from:'2030-01-01'}),reportTemplateConfig(opened));
+console.log('Passed: reusable report templates omit run dates and comparisons, ignore legacy dates and preserve current period.');

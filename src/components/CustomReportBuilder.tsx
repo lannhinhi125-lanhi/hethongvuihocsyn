@@ -17,7 +17,7 @@ import { Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizon
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from './FilterDrawer';
 import {
-  buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig, reportCsvCell, reportToday,
+  buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig, reportCsvCell, reportToday, reportTemplateConfig, applyReportTemplate,
   type CustomReportConfig, type ReportDataset, type SavedReportTemplate
 } from '../lib/customReports';
 
@@ -87,7 +87,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
   const currentPage = Math.min(page, pageCount - 1);
   const pageRows = visibleRows.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
   const selectedTemplate = templates.find(item => item.id === templateId);
-  const hasChanges = selectedTemplate && JSON.stringify(selectedTemplate.config) !== JSON.stringify(config);
+  const hasChanges = selectedTemplate && JSON.stringify(reportTemplateConfig(normalizeReportConfig(selectedTemplate.config, datasets))) !== JSON.stringify(reportTemplateConfig(normalizeReportConfig(config, datasets)));
   const groupName = config.groupBy === 'all' ? 'Toàn bộ dữ liệu' : dataset.dimensions.find(item => item.id === config.groupBy)?.label || 'Nhóm';
   const chartMetric = result.metrics.find(metric => metric.id === (config.chartMetricId || chartMetricId)) || (dataset.id === 'incidents' ? result.metrics.find(metric => metric.id === 'rate') : undefined) || result.metrics[0];
   const isTimeGroup = ['day', 'week', 'month', 'period'].includes(config.groupBy);
@@ -133,7 +133,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
       showToast('Tên mẫu đã tồn tại. Hãy đặt tên khác hoặc cập nhật mẫu đang chọn.', 'warning'); return;
     }
     if (!overwrite && templates.length >= 20) { showToast('Đã có 20 mẫu. Hãy xóa một mẫu không dùng trước khi lưu thêm.', 'warning'); return; }
-    const saved = { id: overwrite && selectedTemplate ? templateId : randomUUID(), name, config };
+    const saved = { id: overwrite && selectedTemplate ? templateId : randomUUID(), name, config: reportTemplateConfig(config) };
     const next = overwrite && selectedTemplate ? templates.map(item => item.id === templateId ? saved : item) : [saved, ...templates];
     if (persistTemplates(next)) {
       void confirmSave(()=>{setTemplateId(saved.id); setSaveOpen(false);});
@@ -194,13 +194,13 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
             onChange={event => {
               const item = templates.find(template => template.id === event.target.value);
               setTemplateId(event.target.value);
-              if (item) { setConfig(normalizeReportConfig(item.config, datasets)); setSearch(''); }
+              if (item) { setConfig(previous => applyReportTemplate(item.config, datasets, previous)); setSearch(''); }
             }}>
             <option value="">Mẫu đã lưu ({templates.length})</option>
             {templates.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </ReportSelect>}
           {selectedTemplate && <button type="button" className={button} title="Xóa mẫu đang chọn" aria-label="Xóa mẫu đang chọn" onClick={() => setDeleteOpen(true)}><Trash2 className="h-3.5 w-3.5" /></button>}
-          <button type="button" disabled={result.invalidRange || !can('Lưu và quản lý mẫu báo cáo tùy chỉnh')} className={button + ' border-orange-200 text-orange-700 hover:bg-orange-50'} onClick={() => {
+          <button type="button" disabled={!can('Lưu và quản lý mẫu báo cáo tùy chỉnh')} className={button + ' border-orange-200 text-orange-700 hover:bg-orange-50'} onClick={() => {
             setTemplateName(selectedTemplate?.name || dataset.label + ' theo ' + groupName.toLocaleLowerCase('vi')); setSaveOpen(true);
           }}><Save className="h-3.5 w-3.5" />Lưu mẫu{hasChanges ? ' •' : ''}</button>
         </div>
@@ -358,7 +358,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
       <form className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl" onSubmit={event => { event.preventDefault(); saveTemplate(false); }}>
         <div className="flex items-center justify-between"><h3 id="save-report-title" className="text-sm font-bold text-slate-800">Lưu mẫu báo cáo</h3><button type="button" aria-label="Đóng lưu mẫu" onClick={() => setSaveOpen(false)}><X className="h-4 w-4" /></button></div>
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600">Tên mẫu<input autoFocus required maxLength={80} value={templateName} onChange={event => setTemplateName(event.target.value)} placeholder="Ví dụ: Lớp còn chỗ theo môn" className={control} /></label>
-        <p className="text-xs text-slate-500">Lưu thiết lập, không lưu bản sao dữ liệu. “Tháng này” và “30 ngày gần nhất” sẽ tính lại khi mở. Mẫu được lưu theo quyền tài khoản của bạn.</p>
+        <p className="text-xs text-slate-500">Lưu các trường, điều kiện lọc, cách nhóm và trình bày. Khoảng ngày và kỳ so sánh không lưu vào mẫu; khi mở mẫu sẽ giữ thời gian bạn đang chọn. Dữ liệu được truy vấn lại khi xem báo cáo.</p>
         <div className="flex flex-wrap justify-end gap-2"><button type="button" className={button} onClick={() => setSaveOpen(false)}>Hủy</button>{selectedTemplate && <button type="button" className={button} onClick={() => saveTemplate(true)}>Cập nhật mẫu</button>}<button type="submit" disabled={isSavingChanges} className={button + ' border-[#FF5C00] bg-[#FF5C00] text-white hover:bg-[#e65300]'}>Lưu mẫu mới</button></div>
       </form>
     </div>}

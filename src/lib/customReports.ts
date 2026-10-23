@@ -34,7 +34,18 @@ export interface CustomReportConfig {
   chartMetricId?: string;
 }
 export interface ReportGroup { key: string; label: string; records: ReportRecord[]; values: Record<string, number | null> }
-export interface SavedReportTemplate { id: string; name: string; config: CustomReportConfig }
+export type ReportTemplateConfig = Omit<CustomReportConfig, 'datePreset' | 'from' | 'to' | 'comparison' | 'selection'>;
+export interface SavedReportTemplate { id: string; name: string; config: ReportTemplateConfig }
+
+// A template describes the report; dates and chart drill-down belong to the current run.
+export function reportTemplateConfig(config: Partial<CustomReportConfig>): ReportTemplateConfig {
+  const { datePreset, from, to, comparison, selection, ...template } = config;
+  return template as ReportTemplateConfig;
+}
+export function applyReportTemplate(value: unknown, datasets: ReportDataset[], current: CustomReportConfig): CustomReportConfig {
+  const template = reportTemplateConfig(value && typeof value === 'object' ? value as Partial<CustomReportConfig> : {});
+  return normalizeReportConfig({ ...template, datePreset: current.datePreset, from: current.from, to: current.to, comparison: current.comparison }, datasets);
+}
 
 export function reportToday(now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {

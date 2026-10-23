@@ -1,5 +1,38 @@
 # Vẽ sơ đồ VuiHoc trên dbdiagram.io
 
+## Bản đề xuất mới cho sơ đồ tổng quan — 27 bảng
+
+Dùng [vuihoc_27_bang_chinh.dbml](vuihoc_27_bang_chinh.dbml): sao chép toàn bộ rồi dán vào dbdiagram.io. Bản này có **27 bảng, 277 cột, 49 FK được vẽ và 8 nhóm phân hệ**. Script đã kiểm tra số bảng, các cột, PK và khóa đích FK; bản 27 chưa được kiểm tra lại bằng bộ phân tích DBML chính thức.
+
+So với bản 29, chỉ lược hai bảng khỏi **hình tổng quan**:
+
+| Bảng lược | Vai trò vẫn tồn tại trong hệ thống | Trình bày ở đâu |
+| --- | --- | --- |
+| `HOC_LIEU_LOP` | Kế hoạch học liệu của lớp; buổi học có thể tham chiếu kế hoạch | Sơ đồ chi tiết lớp/buổi học hoặc phụ lục đầy đủ |
+| `NHAN_XET_BUOI_HOC` | Nhận xét học sinh theo buổi | Sơ đồ chi tiết giám sát buổi học hoặc phụ lục đầy đủ |
+
+Giữ 2 bảng tài khoản/quyền, 4 bảng danh mục cốt lõi, 4 bảng giáo viên/lịch rảnh/dự giờ, 6 bảng học sinh/đăng ký/lớp, 5 bảng buổi học/điểm danh/sự cố, 1 bảng tài liệu, 4 bảng công/đối soát/giải trình và 1 bảng mẫu báo cáo. Không gộp bảng, thêm cột sao chép hoặc tạo FK thay thế. Những FK đi tới bảng ngoài hình vẫn được ghi trong Note của bảng con.
+
+**Khuyến nghị 27 bảng cho hình tổng quan.** Giảm tiếp về khoảng 20 sẽ phải lược thêm các phần đang quan trọng với hệ thống, như lịch rảnh có phiên bản, đăng ký học và đối soát công. Hình tổng quan không thay thế sơ đồ đầy đủ hoặc chứng minh độc lập toàn bộ CSDL đạt 3NF.
+
+Chú thích dưới hình:
+
+> Sơ đồ tổng quan trình bày 27 trong tổng số 50 bảng vật lý của hệ thống. Các bảng cấu hình, liên kết và chi tiết được lược bớt để thể hiện các luồng nghiệp vụ chính; cấu trúc đầy đủ trình bày trong phụ lục.
+
+Sinh lại bản 27:
+
+```sh
+node scripts/export-dbdiagram.mjs --compact
+```
+
+## Cập nhật mẫu báo cáo theo 20261211
+
+Cả ba file 27, 29 và 50 bảng đã bổ sung ghi chú đúng với `20261211_reusable_report_templates.sql`: mẫu giữ cấu hình dùng lại, không lưu khoảng ngày/kỳ so sánh/lựa chọn bấm xem của lần chạy. Các cột tương thích cũ vẫn hiện vì chúng còn trong cấu trúc thật: ngày và kỳ so sánh giữ NULL, `khoangngay` giữ `all` và không điều khiển thời gian khi mở mẫu. `ngaytao` là ngày tạo mẫu và vẫn được giữ.
+
+Chỉ số và bộ lọc vẫn nằm trong `CHI_SO_MAU_BAO_CAO` và `BO_LOC_MAU_BAO_CAO`, nối với `MAU_BAO_CAO` qua `mamau`; hai bảng con có trong sơ đồ 50 bảng. Bản tổng quan 27/29 lược chúng khỏi hình và ghi rõ nguồn trong Note, không đưa cấu hình JSON hoặc trường danh sách vào bảng mẫu để thay thế.
+
+Sơ đồ cập nhật theo migration trong mã nguồn, không phải bản xuất trực tiếp từ Supabase. Thao tác sinh DBML không thực thi migration hoặc thay đổi database.
+
 ## Bản chính dành cho đồ án — 29 bảng
 
 Dùng [vuihoc_29_bang_chinh.dbml](vuihoc_29_bang_chinh.dbml): sao chép toàn bộ rồi dán vào ô DBML trên dbdiagram.io. Bản này dưới 30 bảng, chia đúng 8 nhóm phân hệ, giữ toàn bộ cột của các bảng được chọn. Bản đầy đủ 50 bảng vẫn ở file riêng phía dưới.
