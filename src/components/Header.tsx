@@ -4,6 +4,7 @@ import React from 'react';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
 import { useApp } from '../context/AppContext';
 import { TeacherNotifications } from './TeacherNotifications';
+import { SystemGuide } from './SystemGuide';
 import {
   Menu,
   ChevronRight,
@@ -95,7 +96,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         </div>
 
         {/* Thanh công cụ phải */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+          <SystemGuide />
           {workspaceMode === 'TEACHER' && <TeacherNotifications />}
           {/* Nút Xóa sạch dữ liệu (Empty State) */}
           <button
