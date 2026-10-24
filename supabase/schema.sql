@@ -1673,7 +1673,7 @@ GRANT EXECUTE ON FUNCTION public.vuihoc_ai_usage(text,text,text,boolean) TO anon
 CREATE OR REPLACE FUNCTION public.vuihoc_report_lesson_incident(p_token text,p_class_code text,p_date date,p_time_range text,p_incident_code text,p_note text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $report$
 DECLARE actor vuihoc."NGUOI_DUNG"; cls vuihoc."LOP_HOC"; slot vuihoc."KHUNG_GIO"; lesson vuihoc."BUOI_HOC"; own text; cover text; category text; item jsonb; id text; times text[];
 BEGIN
- actor:=vuihoc.nguoi_dung_phien(p_token);
+ actor:=vuihoc.nguoi_dung_phien(p_token); IF NOT vuihoc.business_can(actor.madinhdanh,'PH5','Ghi nhận và xử lý sự cố ca dạy') THEN RAISE EXCEPTION 'Vui lòng liên hệ vận hành để xác minh và ghi nhận sự cố ca dạy'; END IF;'
  SELECT * INTO cls FROM vuihoc."LOP_HOC" WHERE malophoc=p_class_code FOR SHARE;
  SELECT * INTO slot FROM vuihoc."KHUNG_GIO" WHERE regexp_replace(khoanggio,'\s','','g')=regexp_replace(p_time_range,'\s','','g') AND danghoatdong LIMIT 1;
  SELECT madinhdanh INTO own FROM vuihoc."GIAO_VIEN" WHERE manguoidung=actor.madinhdanh;

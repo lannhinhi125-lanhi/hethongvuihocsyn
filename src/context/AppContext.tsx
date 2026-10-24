@@ -409,7 +409,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // PH5: Operations & Monitoring (Điều phối Cover & Báo cáo Sự cố liên thông PH7)
   const reportIncidentToSession: AppContextType['reportIncidentToSession'] = async (classCode,incidentCode,note,date,timeRange) => {
-    if (!can('Ghi nhận và xử lý sự cố ca dạy') && !permit('Báo cáo sự cố ca dạy (đi muộn, lỗi mạng, nghỉ)')) return false;
+    if (!can('Ghi nhận và xử lý sự cố ca dạy')) return false;
     try {
       await teacherSessionRequest('vuihoc_report_lesson_incident',{p_class_code:classCode,p_date:date,p_time_range:timeRange,p_incident_code:incidentCode,p_note:note});
       await loadBusinessData();showToast('Lưu báo cáo sự cố thành công.','success');return true;

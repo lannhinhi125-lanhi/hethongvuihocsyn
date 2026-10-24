@@ -25,7 +25,7 @@ import {
   ChevronLeft,
   X,
   CheckCircle,
-  AlertTriangle,
+  Phone,
   Trash2
 } from 'lucide-react';
 
@@ -35,12 +35,11 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const initialWeek = teachingWeekForDate(new Date());
   const { can, requirePermission, portal } = usePermissions();
   const {
-    incidents, classes, setClasses, students, teachers, reportIncidentToSession, showToast, currentUser,
+    incidents, classes, setClasses, students, teachers, showToast, currentUser,
     timeSlots, subjects, sopDocuments, ragBotConfig, users
   } = useApp();
 
-  const [reportedIncidentCode,setReportedIncidentCode]=useState('');
-  const reportableIncidents=incidents.flatMap(group=>group.subIncidents.filter(item=>item.status&&!item.isScheduledBreak));
+  const contactOperations = () => window.alert('Khi mất điện, mất mạng hoặc cần nghỉ đột xuất, hãy gọi ngay cho Vận hành qua số điện thoại hoặc Zalo đã được trung tâm cung cấp.\n\nCung cấp mã lớp, ngày giờ ca dạy, tình huống và minh chứng nếu có. Vận hành sẽ xác minh và cập nhật trạng thái buổi học.\n\nNếu chưa có thông tin liên hệ, hãy hỏi người phụ trách lớp. Mở hướng dẫn này chưa gửi yêu cầu hỗ trợ.');
   const [fromDate, setFromDate] = useState(initialWeek.from);
   const [toDate, setToDate] = useState(initialWeek.to);
 
@@ -337,10 +336,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => showToast('Đã gửi yêu cầu hỗ trợ ca dạy đến bộ phận Vận hành!', 'info')}
+            onClick={contactOperations}
             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl border border-slate-200 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <span>Yêu cầu hỗ trợ (Support)</span>
+            <span>Liên hệ vận hành</span>
           </button>
         </div>
       </div>
@@ -586,23 +585,13 @@ export const Module4_TeacherSchedule: React.FC = () => {
                       * Đến giờ kết thúc, hệ thống tự ghi checkout và mở nhận xét. Muốn kết thúc sớm, bấm Kết thúc lớp.
                     </div>
                     <div className="flex items-center gap-2">
-                      <ReportSelect aria-label="Loại sự cố ca học" className="rounded-lg border border-amber-200 p-2 text-xs" value={reportedIncidentCode||reportableIncidents[0]?.code||''} onChange={event=>setReportedIncidentCode(event.target.value)}>
-                        {reportableIncidents.map(item=><option key={item.id} value={item.code}>{item.name}</option>)}
-                      </ReportSelect>
                       <button
                         type="button"
-                        onClick={() => {
-                          const reason = window.prompt('Nhập lý do sự cố (mất điện, hỏng mạng, vắng đột xuất):', 'Mất kết nối Internet đột xuất');
-                          if (reason) {
-                            const schedule=selectedClassSchedule.find(entry=>entry.session===selectedSessionNum);
-                            if(!schedule){showToast('Chưa xác định được ngày/khung giờ ca học.','error');return;}
-                            void reportIncidentToSession(selectedClass.code,reportedIncidentCode||reportableIncidents[0]?.code||'',reason,dateStringForWeekDay(schedule.dayIndex),schedule.time);
-                          }
-                        }}
+                        onClick={contactOperations}
                         className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
                       >
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        <span>Báo Sự Cố Ca Học</span>
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Liên hệ vận hành</span>
                       </button>
 
                     </div>
