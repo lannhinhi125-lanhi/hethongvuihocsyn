@@ -6,6 +6,8 @@ DECLARE f text; owner_name text;
 BEGIN
  LOCK TABLE vuihoc."MAU_BAO_CAO" IN SHARE ROW EXCLUSIVE MODE;
  IF to_regprocedure('vuihoc.luu_cau_hinh_mau_bao_cao(text,jsonb)') IS NULL THEN RAISE EXCEPTION 'Chạy bản 20261202 trước.'; END IF;
+ -- A newer migration has already removed these columns; never restore the old behavior.
+ IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='MAU_BAO_CAO' AND column_name='khoangngay') THEN RETURN; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='vuihoc."MAU_BAO_CAO"'::regclass AND tgname='mau_bao_cao_khong_luu_ky') THEN
   f:=pg_get_functiondef('vuihoc.cau_hinh_mau_bao_cao(text)'::regprocedure);
   IF strpos(f,'SELECT jsonb_build_object')=0 OR strpos(f,'FROM vuihoc."MAU_BAO_CAO" m WHERE')=0 THEN RAISE EXCEPTION 'Không nhận diện được hàm đọc mẫu báo cáo.'; END IF;

@@ -1,5 +1,7 @@
 # Mẫu báo cáo dùng lại cho nhiều kỳ
 
+> Bản này ghi nhận cách làm trung gian 20261211. Yêu cầu cuối đã được sửa tại [REPORT_TEMPLATE_FRAME_ONLY.md](REPORT_TEMPLATE_FRAME_ONLY.md): chạy `20261212_drop_report_template_periods.sql` để xóa hẳn 8 cột, không giữ cột tương thích.
+
 Chạy toàn bộ `migrations/20261211_reusable_report_templates.sql` sau bản `20261202_normalize_report_templates.sql`. Có thể chạy lại. Migration thực hiện trong một câu lệnh nguyên tử, không tạo bảng hoặc cột JSON/JSONB.
 
 ## Trước và sau

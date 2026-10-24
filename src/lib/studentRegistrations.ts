@@ -2,15 +2,15 @@ import type { ClassItem, StudentRecord, StudentSubjectRegistration } from '../ty
 import { schedulesOverlap } from './workflow';
 
 export function studentRegistrations(student: StudentRecord): StudentSubjectRegistration[] {
-  return student.registrations?.length ? student.registrations : [{
+  return student.registrations ? student.registrations : student.subject ? [{
     registeredAt: student.created_at,
     subject: student.subject, model: student.model, level: student.level,
     scheduleSlots: student.scheduleSlots, status: student.status, currentClassCode: student.currentClassCode
-  }];
+  }] : [];
 }
 
-export function studentRegistrationRows(students: StudentRecord[]) {
-  return students.flatMap(student => studentRegistrations(student).map(({registeredAt,...registration}) => ({
+export function studentRegistrationRows(students: StudentRecord[], includeUnregisteredProfiles = false) {
+  return students.flatMap<StudentRecord & {registrationKey:string}>(student => !studentRegistrations(student).length ? (includeUnregisteredProfiles ? [{...student,subject:'',model:'',level:'',scheduleSlots:[],status:'Chờ xếp lớp',registrationKey:JSON.stringify([student.id,''])}] : []) : studentRegistrations(student).map(({registeredAt,...registration}) => ({
     ...student, ...registration, registrationKey: JSON.stringify([student.id, registration.subject]),
     created_at: registeredAt || student.created_at
   })));

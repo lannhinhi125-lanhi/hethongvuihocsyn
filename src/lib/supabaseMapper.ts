@@ -118,6 +118,9 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
   const codes = STATUS_CODES[dataset as keyof typeof STATUS_CODES];
   if (codes && result.status != null) result.status = Object.entries(codes).find(([,code])=>code===result.status)?.[0] || result.status;
   const find = (table: SupabaseDataset, key: string, value: unknown) => value == null ? undefined : references[table]?.find(item=>item[key]===value);
+  if (dataset === 'students' && Array.isArray(result.registrations) && !result.registrations.length) {
+    result.subject='';result.model='';result.level='';result.scheduleSlots=[];result.status='Chờ xếp lớp';
+  }
   if (dataset === 'teachers') {
     result.subjectName = find('subjects','mamonhoc',row.mamonhoc)?.tenmonhoc ?? '';
     result.levelName = find('teaching_categories','madinhdanh',row.macaphoc)?.tencaphoc ?? '';

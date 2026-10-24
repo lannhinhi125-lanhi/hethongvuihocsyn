@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const {PGlite}=await import(pathToFileURL(resolve(process.env.PGLITE_MODULE_PATH,'dist/index.js')));
-const db=new PGlite();
+const db=new PGlite({initialMemory:128*1024*1024,postgresqlconf:'shared_buffers=8MB'});
 try {
  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA vuihoc;
  CREATE FUNCTION public.vuihoc_login(text,text) RETURNS text LANGUAGE sql AS 'SELECT $1';
@@ -25,6 +25,9 @@ try {
  const read=async()=>(await db.query("SELECT vuihoc.cau_hinh_mau_bao_cao('T') v")).rows[0].v;
  await write(config);assert.equal((await read()).from,config.from);
  const created=(await db.query('SELECT ngaytao FROM vuihoc."MAU_BAO_CAO"')).rows[0].ngaytao;
+ const dropSql=readFileSync('supabase/migrations/20261212_drop_report_template_periods.sql','utf8');
+ await db.exec('BEGIN');await db.exec(dropSql);await db.exec(dropSql);await write(config);
+ assert.ok(!('from' in await read()));await db.exec('ROLLBACK');
  const sql=readFileSync('supabase/migrations/20261211_reusable_report_templates.sql','utf8');
  await db.exec(sql);const first=await read();await db.exec(sql);assert.deepEqual(await read(),first);
  const {datePreset,from,to,comparison,selection,...expected}=config;
@@ -37,5 +40,14 @@ try {
  assert.equal(row.khoangngay,'all');for(const key of ['tungay','denngay','sosanhbat','kieusosanh','sosanhtungay','sosanhdenngay','giatrichon'])assert.equal(row[key],null,key);
  assert.deepEqual(row.ngaytao,created);assert.deepEqual(await read(),first);
  await assert.rejects(()=>write({...expected,unknown:'invalid'}));
+ await db.exec(dropSql);await db.exec(dropSql);
+ for(const key of ['khoangngay','tungay','denngay','sosanhbat','kieusosanh','sosanhtungay','sosanhdenngay','giatrichon']){
+  assert.equal((await db.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='MAU_BAO_CAO' AND column_name=$1",[key])).rows[0].n,0,key);
+ }
+ await write(expected);assert.deepEqual(await read(),first);
+ await write(config);assert.deepEqual(await read(),first);
+ assert.deepEqual((await db.query('SELECT ngaytao FROM vuihoc."MAU_BAO_CAO"')).rows[0].ngaytao,created);
+ const check=(await db.query("SELECT pg_get_constraintdef(oid) v FROM pg_constraint WHERE conrelid='vuihoc.\"MAU_BAO_CAO\"'::regclass AND conname='mau_bao_cao_khung_hop_le'")).rows[0].v;
+ assert.ok(readFileSync('supabase/diagnostics/final_3nf_schema_review.sql','utf8').includes(JSON.stringify(check).slice(1,-1).replaceAll("'","''")),'review manifest matches: '+check);
  console.log('PASS reusable templates: production SQL functions, repeat migration, preserved structure/filters/creation date, new and old writers, direct SQL guard, no saved dates or drill-down');
 } finally {await db.close();}

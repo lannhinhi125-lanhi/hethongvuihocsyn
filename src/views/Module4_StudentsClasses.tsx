@@ -1,3 +1,4 @@
+import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import {classPauseReasons,pauseReasonKey} from '../lib/classPause';
 import { readRoomLinkFile } from '../lib/roomLinkImport';
 import { ReportSelect } from '../components/ReportSelect';
@@ -137,7 +138,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     showToast
   } = useApp();
 
-  const students = useMemo(() => studentRegistrationRows(studentProfiles), [studentProfiles]);
+  const students = useMemo(() => studentRegistrationRows(studentProfiles,true), [studentProfiles]);
 
   const [activeTab, setActiveTab] = useState<'students' | 'classes' | 'materials'>('students');
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
@@ -231,7 +232,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     {label:'Trình độ',values:stdLevelFilter,onChange:setStdLevelFilter,options:levels.map(item=>({value:item.code,label:item.name}))},
     {label:'Mô hình',values:stdModelFilter,onChange:setStdModelFilter,options:uniqueStudentOptions([...models.map(item=>({value:item.code,label:item.name})),...students.map(item=>({value:item.model,label:item.model}))])},
     {label:'Khung giờ học',values:stdSlotFilter,onChange:setStdSlotFilter,options:timeSlots.map(item=>({value:item.timeRange,label:item.name+' · '+item.timeRange}))},
-    {label:'Trạng thái',values:stdStatusFilter,onChange:setStdStatusFilter,options:['Chờ xếp lớp','Đang học','Bảo lưu','Đã thôi học'].map(value=>({value,label:value}))},
+    {label:'Trạng thái',values:stdStatusFilter,onChange:setStdStatusFilter,options:['Chưa đăng ký học','Chờ xếp lớp','Đang học','Bảo lưu','Đã thôi học'].map(value=>({value,label:value}))},
   ];
 
   const filteredStudents = useMemo(() => {
@@ -246,7 +247,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         (!stdGradeFilter.length || stdGradeFilter.includes(s.grade)) &&
         (!stdSubjectFilter.length || stdSubjectFilter.includes(s.subject)) &&
         (!stdLevelFilter.length || stdLevelFilter.includes(s.level)) &&
-        (!stdStatusFilter.length || stdStatusFilter.includes(s.status)) &&
+        (!stdStatusFilter.length || stdStatusFilter.includes(s.subject?s.status:'Chưa đăng ký học')) &&
         (!stdCodeFilter.length || stdCodeFilter.includes(s.id)) &&
         (!stdNameFilter.length || stdNameFilter.includes(s.name)) &&
         (!stdClassFilter.length || stdClassFilter.includes(assignedClass(s)?.code || 'UNASSIGNED')) &&
@@ -1353,6 +1354,8 @@ export const Module4_StudentsClasses: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+            <ProfileExcelImport kind="students" disabled={!can("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")} />
             <button
               disabled={!can("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")} onClick={openCreateStudent}
               className="w-full sm:w-auto px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-semibold rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
@@ -1360,6 +1363,7 @@ export const Module4_StudentsClasses: React.FC = () => {
               <UserPlus className="w-4 h-4" />
               <span>Tiếp Nhận Học Sinh Mới</span>
             </button>
+            </div>
           </div>
 
           {/* Bảng danh sách học sinh */}
@@ -1380,17 +1384,17 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <td className="px-3 py-3 whitespace-nowrap">{teachingCategories.find(category=>category.options.some(option=>option.id===student.grade))?.name || '?'}</td>
                     <td className="px-3 py-3 whitespace-nowrap">{gradeName(student.grade)}</td>
                     <td className="px-3 py-3 min-w-36">{studentClassInfo(student, true)}</td>
-                    <td className="px-3 py-3">{subjectName(student.subject)}</td>
+                    <td className="px-3 py-3">{student.subject ? subjectName(student.subject) : 'Chưa đăng ký môn'}</td>
                     <td className="px-3 py-3 whitespace-nowrap"><span className="rounded bg-indigo-50 px-2 py-1 text-indigo-700">{levelName(student.level)}</span></td>
                     <td className="px-3 py-3 whitespace-nowrap"><span className="rounded bg-orange-50 px-2 py-1 font-semibold text-[#FF5C00]">{student.model}</span></td>
                     <td className="px-3 py-3 min-w-44 text-[11px] text-slate-600">{student.scheduleSlots.length ? student.scheduleSlots.map(slot => <div key={slot}>{slot}</div>) : 'Chưa đăng ký'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 rounded-full border text-[10px] font-semibold ${statusColor(student.status)}`}>{student.status}</span></td>
+                    <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 rounded-full border text-[10px] font-semibold ${statusColor(student.status)}`}>{student.subject?student.status:'Chưa đăng ký học'}</span></td>
                     <td className="px-3 py-3"><div className="flex items-center justify-center gap-1">
                       <button type="button" onClick={() => setViewingDetailStudent(student)} title="Chi tiết học sinh và phụ huynh" className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><Eye className="w-3.5 h-3.5" /></button>
                       <button type="button" onClick={() => openEditStudent(student)} title="Sửa thông tin và ghép lớp" className="p-1.5 rounded hover:bg-orange-50 text-[#FF5C00]"><Pencil className="w-3.5 h-3.5" /></button>
                       <RowActionMenu label={'Thao tác khác của '+student.name+' · '+student.id} actions={[
                         ...(student.status==='Đã thôi học'?[{label:'Đăng ký học lại',onSelect:()=>openReenrollment(student),disabled:!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')}]:[]),
-                        {label:'Học thêm môn',onSelect:()=>openAddSubject(student),disabled:!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')||!availableAdditionalSubjects(student).length}
+                        {label:student.subject?'Học thêm môn':'Đăng ký học',onSelect:()=>openAddSubject(student),disabled:!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')||!availableAdditionalSubjects(student).length}
                       ]}/>
                       <button type="button" onClick={() => setPendingDelete({ type: 'student', id: student.id, name: student.name })} title="Xóa học sinh" className="p-1.5 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div></td>

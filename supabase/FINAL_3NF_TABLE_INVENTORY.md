@@ -1,3 +1,5 @@
+> Cập nhật 20261212: MAU_BAO_CAO bỏ 8 cột của kỳ chạy, còn 10 cột; tổng cấu trúc mới 50 bảng/384 cột. Các mục khác giữ nguyên như đợt rà 20261209.
+
 # Kiểm kê toàn bộ bảng sau 20261209
 
 Phạm vi: schema `vuihoc` dựng từ toàn bộ chuỗi nâng cấp đến 20261209. Không phải cấu trúc riêng của `schema.sql` khởi tạo cũ. Không kết nối Supabase thật.
@@ -346,7 +348,9 @@ Lựa chọn có mã trong phạm vi cấp học; maluachon là khóa ứng viê
 
 Cấu hình mẫu chủ động lưu; không lưu kết quả báo cáo. Bộ lọc/chỉ số nhiều giá trị ở bảng con.
 
-**Cột trước = sau (18):** `madinhdanh, tenmaubaocao, manguoidung, ngaytao, ngaycapnhat, nguondulieu, nhomtheo, khoangngay, tungay, denngay, sapxep, sosanhbat, kieusosanh, sosanhtungay, sosanhdenngay, giatrichon, kieubieudo, chisobieudo`.
+**Trước (18):** `madinhdanh, tenmaubaocao, manguoidung, ngaytao, ngaycapnhat, nguondulieu, nhomtheo, khoangngay, tungay, denngay, sapxep, sosanhbat, kieusosanh, sosanhtungay, sosanhdenngay, giatrichon, kieubieudo, chisobieudo`.
+
+**Sau 20261212 (10):** `madinhdanh, tenmaubaocao, manguoidung, ngaytao, ngaycapnhat, nguondulieu, nhomtheo, sapxep, kieubieudo, chisobieudo`. Không lưu thời gian của lần chạy.
 
 **Khóa:** `PRIMARY KEY (madinhdanh)`.
 

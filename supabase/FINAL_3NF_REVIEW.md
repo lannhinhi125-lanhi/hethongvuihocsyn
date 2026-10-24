@@ -1,3 +1,5 @@
+> Cập nhật 20261212: cấu trúc mới 50 bảng/384 cột sau khi bỏ 8 cột kỳ chạy của MAU_BAO_CAO. Chi tiết dưới đây ghi nhận lần rà 20261209; xem REPORT_TEMPLATE_FRAME_ONLY.md cho thay đổi mới.
+
 # Kết thúc rà soát cấu trúc 3NF sau 20261209
 
 Đã rà đủ **50 bảng vật lý, 392 cột** của schema `vuihoc` dựng từ chuỗi cập nhật hiện tại. Danh sách có đủ tên cột, khóa và nguồn của từng bảng tại [FINAL_3NF_TABLE_INVENTORY.md](FINAL_3NF_TABLE_INVENTORY.md). Không còn bảng vật lý trong cấu trúc dựng cục bộ nằm ngoài kiểm kê.

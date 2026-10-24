@@ -2,7 +2,7 @@
 
 ## Bản đề xuất mới cho sơ đồ tổng quan — 27 bảng
 
-Dùng [vuihoc_27_bang_chinh.dbml](vuihoc_27_bang_chinh.dbml): sao chép toàn bộ rồi dán vào dbdiagram.io. Bản này có **27 bảng, 277 cột, 49 FK được vẽ và 8 nhóm phân hệ**. Script đã kiểm tra số bảng, các cột, PK và khóa đích FK; bản 27 chưa được kiểm tra lại bằng bộ phân tích DBML chính thức.
+Dùng [vuihoc_27_bang_chinh.dbml](vuihoc_27_bang_chinh.dbml): sao chép toàn bộ rồi dán vào dbdiagram.io. Bản này có **27 bảng, 269 cột, 49 FK được vẽ và 8 nhóm phân hệ**. Script đã kiểm tra số bảng, các cột, PK và khóa đích FK; bản 27 chưa được kiểm tra lại bằng bộ phân tích DBML chính thức.
 
 So với bản 29, chỉ lược hai bảng khỏi **hình tổng quan**:
 
@@ -25,13 +25,9 @@ Sinh lại bản 27:
 node scripts/export-dbdiagram.mjs --compact
 ```
 
-## Cập nhật mẫu báo cáo theo 20261211
+## Mẫu báo cáo sau 20261212
 
-Cả ba file 27, 29 và 50 bảng đã bổ sung ghi chú đúng với `20261211_reusable_report_templates.sql`: mẫu giữ cấu hình dùng lại, không lưu khoảng ngày/kỳ so sánh/lựa chọn bấm xem của lần chạy. Các cột tương thích cũ vẫn hiện vì chúng còn trong cấu trúc thật: ngày và kỳ so sánh giữ NULL, `khoangngay` giữ `all` và không điều khiển thời gian khi mở mẫu. `ngaytao` là ngày tạo mẫu và vẫn được giữ.
-
-Chỉ số và bộ lọc vẫn nằm trong `CHI_SO_MAU_BAO_CAO` và `BO_LOC_MAU_BAO_CAO`, nối với `MAU_BAO_CAO` qua `mamau`; hai bảng con có trong sơ đồ 50 bảng. Bản tổng quan 27/29 lược chúng khỏi hình và ghi rõ nguồn trong Note, không đưa cấu hình JSON hoặc trường danh sách vào bảng mẫu để thay thế.
-
-Sơ đồ cập nhật theo migration trong mã nguồn, không phải bản xuất trực tiếp từ Supabase. Thao tác sinh DBML không thực thi migration hoặc thay đổi database.
+Đã xóa hẳn 8 cột `khoangngay, tungay, denngay, sosanhbat, kieusosanh, sosanhtungay, sosanhdenngay, giatrichon` khỏi `MAU_BAO_CAO`. Mẫu còn 10 cột lưu khung báo cáo, người sở hữu và ngày tạo/sửa. Chỉ số và bộ lọc vẫn lấy từ hai bảng con qua `mamau`. Cả ba bản DBML đã đồng bộ cấu trúc này. Các con số của bản mới được script kiểm tra về cấu trúc; kết quả phân tích DBML chính thức trước đây thuộc bản trước thay đổi.
 
 ## Bản chính dành cho đồ án — 29 bảng
 
@@ -59,7 +55,7 @@ Chú thích dùng dưới hình:
 
 > Sơ đồ các bảng nghiệp vụ chính của hệ thống, trình bày 29 trong tổng số 50 bảng vật lý. Một số bảng cấu hình, danh mục phụ, bảng liên kết và lịch sử chi tiết được lược bớt để làm rõ luồng nghiệp vụ; cấu trúc đầy đủ trình bày tại phụ lục.
 
-Đã kiểm tra bản rút gọn bằng bộ phân tích DBML chính thức: **29 bảng, 291 cột, 54 quan hệ và 8 nhóm**; không có đường nối tới bảng ngoài sơ đồ.
+Script đã kiểm tra cấu trúc bản mới: **29 bảng, 283 cột, 54 quan hệ và 8 nhóm**; không có đường nối tới bảng ngoài sơ đồ. Kết quả phân tích DBML chính thức trước đó thuộc phiên bản 291 cột, trước khi bỏ 8 cột kỳ chạy.
 
 Sinh lại bản rút gọn:
 
@@ -78,8 +74,8 @@ File dùng để dán vào trình soạn thảo DBML: [vuihoc_50_tables.dbml](vu
 
 ## Phạm vi
 
-- **50 bảng vật lý, 392 cột**, schema `vuihoc`, sau chuỗi cập nhật đến 20261209.
-- **50 PK**, **27 khóa UNIQUE**, **90 FK**; **64 CHECK** giữ nguyên ở chú thích SQL để tương thích cả bộ phân tích DBML cũ và mới.
+- **50 bảng vật lý, 384 cột**, schema `vuihoc`, sau chuỗi cập nhật đến 20261212.
+- **50 PK**, **27 khóa UNIQUE**, **90 FK**; **62 CHECK** giữ nguyên ở chú thích SQL để tương thích cả bộ phân tích DBML cũ và mới.
 - Giữ nguyên các khóa ghép và quan hệ FK ghép. FK duy nhất ở phía con được vẽ một–một; các FK còn lại vẽ nhiều–một. Tính nullable của từng cột được giữ.
 - Không vẽ view như bảng vật lý; không thêm bảng nối hoặc quan hệ suy đoán.
 - 6 unique index theo biểu thức/điều kiện của PostgreSQL được ghi nguyên định nghĩa trong ghi chú bảng. Không biến unique index có `WHERE` thành UNIQUE toàn bảng.
@@ -101,6 +97,6 @@ node scripts/export-dbdiagram.mjs
 
 Script không đọc/ghi database, không thêm dependency vào ứng dụng. Nó kiểm tra đủ bảng/cột, PK, cột FK và khóa đích trước khi xuất.
 
-Đã kiểm tra bằng bộ phân tích chính thức `@dbml/core` phiên bản 10.3.1: đọc thành công 50 bảng, 392 cột và 90 quan hệ. Bộ phân tích chỉ được cài tạm để kiểm tra, không thêm vào dependency ứng dụng.
+Phiên bản trước thay đổi đã được kiểm tra bằng `@dbml/core` 10.3.1 với 50 bảng, 392 cột và 90 quan hệ. Bản mới 384 cột được script kiểm tra về cấu trúc; chưa chạy lại bộ phân tích chính thức. Không thêm dependency vào ứng dụng.
 
 Cú pháp tham khảo: [tài liệu DBML chính thức](https://dbml.dbdiagram.io/docs/).

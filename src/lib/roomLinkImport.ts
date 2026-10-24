@@ -42,7 +42,7 @@ export function roomLinkUpdates(rows: string[][], classes: {code: string}[]) {
 }
 
 // Read the first worksheet from the workbook's actual relationship, including shared strings.
-async function xlsxRows(buffer: ArrayBuffer): Promise<string[][]> {
+export async function xlsxRows(buffer: ArrayBuffer, profileImport = false): Promise<string[][]> {
   const view = new DataView(buffer), bytes = new Uint8Array(buffer), decoder = new TextDecoder();
   let end = bytes.length - 22;
   while (end >= Math.max(0, bytes.length - 65557) && view.getUint32(end, true) !== 0x06054b50) end--;
@@ -72,21 +72,26 @@ async function xlsxRows(buffer: ArrayBuffer): Promise<string[][]> {
   };
   const workbook = await read('xl/workbook.xml'), rels = await read('xl/_rels/workbook.xml.rels');
   const sheet = workbook.getElementsByTagName('sheet')[0];
-  const relation = [...rels.getElementsByTagName('Relationship')].find(row => row.getAttribute('Id') === sheet?.getAttribute('r:id'));
+  const relation = Array.from(rels.getElementsByTagName('Relationship')).find(row => row.getAttribute('Id') === sheet?.getAttribute('r:id'));
   const target = relation?.getAttribute('Target'); if (!target) throw new Error('XLSX chưa có trang tính.');
   const path = new URL(target, 'https://xlsx.local/xl/workbook.xml').pathname.slice(1);
-  const strings = entries.has('xl/sharedStrings.xml') ? [...(await read('xl/sharedStrings.xml')).getElementsByTagName('si')].map(row => [...row.getElementsByTagName('t')].map(cell => cell.textContent || '').join('')) : [];
-  return [...(await read(path)).getElementsByTagName('row')].map(row => {
+  const strings = entries.has('xl/sharedStrings.xml') ? Array.from((await read('xl/sharedStrings.xml')).getElementsByTagName('si')).map(row => Array.from(row.getElementsByTagName('t')).map(cell => cell.textContent || '').join('')) : [];
+  const result: string[][] = [];
+  for (const row of Array.from((await read(path)).getElementsByTagName('row'))) {
+    const rowIndex = Number(row.getAttribute('r')) - 1;
+    if (profileImport && (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > 5000)) throw new Error('Trang nhập vượt quá 5000 dòng hoặc có số dòng không hợp lệ.');
     const cells: string[] = [];
-    for (const cell of row.getElementsByTagName('c')) {
+    for (const cell of Array.from(row.getElementsByTagName('c'))) {
+      if (profileImport && cell.getElementsByTagName('f').length) throw new Error(`Dòng ${rowIndex + 1}: hãy nhập giá trị, không dùng công thức.`);
       const column = cell.getAttribute('r')?.match(/^[A-Z]+/)?.[0];
       if (!column) continue;
       const index = [...column].reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0) - 1;
       const value = cell.getElementsByTagName('v')[0]?.textContent || '';
-      cells[index] = cell.getAttribute('t') === 's' ? strings[Number(value)] || '' : cell.getAttribute('t') === 'inlineStr' ? [...cell.getElementsByTagName('t')].map(part => part.textContent || '').join('') : value;
+      cells[index] = cell.getAttribute('t') === 's' ? strings[Number(value)] || '' : cell.getAttribute('t') === 'inlineStr' ? Array.from(cell.getElementsByTagName('t')).map(part => part.textContent || '').join('') : value;
     }
-    return cells;
-  });
+    if (profileImport) result[rowIndex] = cells; else result.push(cells);
+  }
+  return result;
 }
 
 export async function readRoomLinkFile(file: File, classes: {code:string}[]) {

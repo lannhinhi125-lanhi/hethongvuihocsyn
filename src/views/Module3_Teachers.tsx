@@ -1,3 +1,4 @@
+import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import { PeriodToolbar } from '../components/PeriodToolbar';
 import { workbenchRange } from '../lib/workbenchTime';
 import { reportToday } from '../lib/customReports';
@@ -523,6 +524,7 @@ export const Module3_Teachers: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                <ProfileExcelImport kind="teachers" disabled={!canCreateProfiles} />
                 <button
                   disabled={!canCreateProfiles} onClick={() => { if (canCreateProfiles) { setNewTeacherSubject(activeSubjects[0]?.code || ''); setNewTeacherLevel(activeCategories[0]?.id || ''); setIsCreateModalOpen(true); } }}
                   className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"

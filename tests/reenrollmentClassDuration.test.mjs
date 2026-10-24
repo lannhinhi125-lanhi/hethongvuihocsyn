@@ -494,5 +494,8 @@ try {
  await (await import('./stableGradeCatalogCases.mjs')).verifyStableGradeCatalog(db,token);
  await (await import('./classTraceNormalizationCases.mjs')).verifyClassTraceNormalization(db,token);
  await (await import('./availabilityVersionCases.mjs')).verifyAvailabilityVersions(db,token);
+ await db.exec(file('supabase/migrations/20261212_drop_report_template_periods.sql'));
+ await db.exec(file('supabase/migrations/20261212_drop_report_template_periods.sql'));
+ await (await import('./profileImportDatabaseCases.mjs')).verifyProfileOnlyImport(db,token);
  await (await import('./finalNormalizationReviewCases.mjs')).verifyFinalNormalizationReview(db,token);
 } catch(e) {console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position,internalQuery:e.internalQuery,internalPosition:e.internalPosition}));process.exitCode=1;} finally {await db.close();}
