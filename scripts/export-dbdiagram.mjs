@@ -52,7 +52,15 @@ const groups=compactMode?compactGroups:summaryMode?summaryGroups:fullGroups;
 const tables=reducedMode?Object.values(groups).flat().map(name=>{assert.ok(names.has(name),name);return names.get(name);}):allTables;
 const selected=new Set(tables.map(t=>t.name));
 assert.equal(tables.length,expectedCount);
-const columnCount=tables.reduce((n,t)=>n+Object.keys(t.columns).length,0);
+// Compact overview retains every PK, UNIQUE and FK column, plus selected business attributes.
+const businessColumns=new Set('tennhomquyen hoten trangthai tenmonhoc tentrinhdo tenmohinh sisotoida tenkhunggio giobatdau gioketthuc hieuluctu ngaydanhgia ngaydangky thutrongtuan tenlophoc ngayhoc tennhomsuco ten hesocong hesocongapdung tieude dakhoa loaicong trangthaidoisoat tenmaubaocao nguondulieu'.split(' '));
+const visibleColumns=new Map(tables.map(t=>{
+ const keys=new Set(t.constraints.filter(c=>/^(PRIMARY KEY|UNIQUE|FOREIGN KEY) /.test(c)).flatMap(keyColumns));
+ const columns=Object.keys(t.columns).filter(name=>!compactMode||keys.has(name)||businessColumns.has(name));
+ for(const name of keys)assert.ok(columns.includes(name),t.name+'.'+name+' key must remain visible');
+ return [t.name,new Set(columns)];
+}));
+const columnCount=[...visibleColumns.values()].reduce((n,cols)=>n+cols.size,0);
 const projectNote=reducedMode
  ?`Sơ đồ nghiệp vụ chính: rút gọn ${expectedCount}/50 bảng vật lý, chia 8 phân hệ. Các bảng cấu hình/chi tiết/lịch sử bị lược khỏi hình vẫn tồn tại trong CSDL. Chỉ vẽ FK thật giữa các bảng được chọn; không thay thế sơ đồ vật lý đầy đủ và không dùng làm migration.`
  :'50 bảng vật lý, 384 cột sau 20261212. PK/FK/khóa ghép lấy từ cấu trúc đã rà; không bao gồm view. Dùng vẽ ERD, không chạy SQL xuất từ sơ đồ để thay migration.';
@@ -77,6 +85,7 @@ for(const t of tables){
  const unique=t.constraints.filter(c=>c.startsWith('UNIQUE ')).map(keyColumns);
  out+='Table vuihoc.'+t.name+' {\n';
  for(const [name,c] of Object.entries(t.columns)){
+  if(!visibleColumns.get(t.name).has(name))continue;
   const settings=[];
   if(primary.length===1&&primary[0]===name)settings.push('pk');
   settings.push(c.nullable==='NO'?'not null':'null');
@@ -98,7 +107,9 @@ for(const t of tables){
  const extra=t.indexes.length?' Unique index PostgreSQL bổ sung (giữ nguyên định nghĩa, không diễn giải partial index thành UNIQUE toàn bảng): '+t.indexes.join('; '):'';
  const hidden=t.constraints.filter(c=>c.startsWith('FOREIGN KEY ')).filter(c=>!selected.has(c.match(/REFERENCES vuihoc\."([^"]+)"/)[1]));
  const hiddenNote=hidden.length?' FK tới bảng lược khỏi sơ đồ chính (vẫn tồn tại trong CSDL): '+hidden.join('; '):'';
- out+='\n  Note: '+quote(t.note+extra+hiddenNote)+'\n}\n\n';
+ const hiddenColumns=Object.keys(t.columns).filter(name=>!visibleColumns.get(t.name).has(name));
+ const columnNote=hiddenColumns.length?' Cột chỉ ẩn khỏi hình tổng quan, vẫn tồn tại trong CSDL: '+hiddenColumns.join(', ')+'.':'';
+ out+='\n  Note: '+quote(t.note+extra+hiddenNote+columnNote)+'\n}\n\n';
  for(const c of t.constraints.filter(c=>c.startsWith('FOREIGN KEY '))){
   const fk=c.match(/^FOREIGN KEY \(([^)]+)\) REFERENCES vuihoc\."([^"]+)"\(([^)]+)\)(.*)$/);
   assert.ok(fk,'Unsupported FK: '+c);
@@ -109,6 +120,8 @@ for(const t of tables){
   const targetKeys=parent.constraints.filter(k=>/^(PRIMARY KEY|UNIQUE) /.test(k)).map(keyColumns);
   assert.ok(targetKeys.some(k=>sameSet(k,target)),'FK target is not a candidate key: '+c);
   if(!selected.has(parent.name)){omittedForeignKeys++;continue;}
+  for(const column of child)assert.ok(visibleColumns.get(t.name).has(column));
+  for(const column of target)assert.ok(visibleColumns.get(parent.name).has(column));
   const isUnique=[primary,...unique].some(k=>sameSet(k,child));
   const action=kind=>fk[4].match(new RegExp('ON '+kind+' (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION)'))?.[1].toLowerCase()??'no action';
   const left='vuihoc.'+t.name+'.'+list(child),right='vuihoc.'+parent.name+'.'+list(target);

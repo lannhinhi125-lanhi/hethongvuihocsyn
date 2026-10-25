@@ -2,7 +2,7 @@
 
 ## Bản đề xuất mới cho sơ đồ tổng quan — 27 bảng
 
-Dùng [vuihoc_27_bang_chinh.dbml](vuihoc_27_bang_chinh.dbml): sao chép toàn bộ rồi dán vào dbdiagram.io. Bản này có **27 bảng, 269 cột, 49 FK được vẽ và 8 nhóm phân hệ**. Script đã kiểm tra số bảng, các cột, PK và khóa đích FK; bản 27 chưa được kiểm tra lại bằng bộ phân tích DBML chính thức.
+Dùng [vuihoc_27_bang_chinh.dbml](vuihoc_27_bang_chinh.dbml): sao chép toàn bộ rồi dán vào dbdiagram.io. Bản này có **27 bảng, 136 cột, 49 FK được vẽ và 8 nhóm phân hệ**. Script đã kiểm tra số bảng, các cột, PK và khóa đích FK; bản 27 chưa được kiểm tra lại bằng bộ phân tích DBML chính thức.
 
 So với bản 29, chỉ lược hai bảng khỏi **hình tổng quan**:
 
@@ -24,6 +24,17 @@ Sinh lại bản 27:
 ```sh
 node scripts/export-dbdiagram.mjs --compact
 ```
+
+
+### Bản 27 bảng đã ẩn bớt thuộc tính
+
+Bản `--compact` hiện chỉ hiển thị **136 cột**, giảm 133 cột so với bản 27 bảng trước (269 cột), giảm 147 cột so với bản 29 bảng (283 cột). Giữ đầy đủ PK, UNIQUE, FK (kể cả FK tới bảng ngoài hình), khóa ghép và 49 đường quan hệ giữa các bảng trên hình; giữ thêm tên, trạng thái và một số thuộc tính nghiệp vụ để đọc hiểu bảng.
+
+Ẩn khỏi phần liệt kê cột: ngày tạo/cập nhật, mật khẩu và phiên đăng nhập, thông tin liên hệ phụ huynh, đường dẫn phòng học/bản ghi/tệp, nội dung nhận xét và ghi chú dài, điểm tiêu chí dự giờ, các tùy chọn cấu hình chi tiết. Danh sách cột ẩn được ghi trong Note của từng bảng để đối chiếu. Các cột này vẫn tồn tại trong database và các bản DBML đầy đủ; đây chỉ là lựa chọn trình bày.
+
+Chú thích dùng dưới hình đã rút gọn thuộc tính:
+
+> Sơ đồ tổng quan thể hiện 27 bảng nghiệp vụ chính, các khóa và một số thuộc tính tiêu biểu. Một số bảng phụ và thuộc tính chi tiết được lược khỏi hình để tăng khả năng đọc; cấu trúc đầy đủ trình bày trong phụ lục.
 
 ## Mẫu báo cáo sau 20261212
 
