@@ -1,5 +1,20 @@
 # Vẽ sơ đồ VuiHoc trên dbdiagram.io
 
+## Lựa chọn hiện tại cho khóa luận — 29 bảng, ẩn vừa phải
+
+Dùng [vuihoc_29_bang_chinh.dbml](vuihoc_29_bang_chinh.dbml). Giữ đủ 29 bảng (bao gồm `HOC_LIEU_LOP` và `NHAN_XET_BUOI_HOC`), 8 phân hệ và 54 quan hệ. Hiển thị **220/283 cột**, ẩn 63 cột phụ; không áp dụng mức rút gọn mạnh của bản 27 bảng.
+
+Chỉ xét ẩn ở bảng có hơn 8 cột. Giữ mọi PK, UNIQUE, FK và khóa ghép, kể cả FK tới bảng ngoài hình. Giữ phần lớn thuộc tính nghiệp vụ: tên, mã, trạng thái, ngày học/đăng ký, điểm tiêu chí, nhận xét chung, thông tin học sinh/phụ huynh, nội dung sự cố/giải trình và hệ số công. Các bảng ngắn giữ nguyên.
+
+Các trường ẩn chủ yếu là ngày tạo/cập nhật ở bảng dài, mật khẩu/thông tin phiên đăng nhập, đường dẫn phòng học/bản ghi/tệp, nội dung tài liệu dài, ghi chú xử lý phụ và một số phần diễn giải chi tiết của biên bản dự giờ. Đã ẩn thêm 12 trường phụ ở BUOI_HOC (chuyencan, hoclieutieude, tamhoandolop), LOAI_SU_CO (mota, loaithongbao, thutu, nghitheolich), SU_CO_BUOI_HOC (baoluc, xulyluc, dotamdunglop) và CONG_DAY_BUOI_HOC (ghichu, guiluc). Danh sách cụ thể nằm trong Note của từng bảng. Không thay đổi database. Bản 50 bảng vẫn giữ đầy đủ thuộc tính.
+
+Sinh lại bằng `node scripts/export-dbdiagram.mjs --summary`. Script đã kiểm tra các khóa và cột tại cả hai đầu của 54 quan hệ; chưa chạy lại bộ phân tích DBML chính thức cho bản 220 cột.
+
+Chú thích dưới hình:
+
+> Sơ đồ tổng quan gồm 29 bảng nghiệp vụ chính. Một số thuộc tính phụ được lược bớt để thuận tiện trình bày; các khóa và quan hệ giữa các bảng trên hình được giữ nguyên.
+
+
 ## Bản đề xuất mới cho sơ đồ tổng quan — 27 bảng
 
 Dùng [vuihoc_27_bang_chinh.dbml](vuihoc_27_bang_chinh.dbml): sao chép toàn bộ rồi dán vào dbdiagram.io. Bản này có **27 bảng, 136 cột, 49 FK được vẽ và 8 nhóm phân hệ**. Script đã kiểm tra số bảng, các cột, PK và khóa đích FK; bản 27 chưa được kiểm tra lại bằng bộ phân tích DBML chính thức.
@@ -13,7 +28,7 @@ So với bản 29, chỉ lược hai bảng khỏi **hình tổng quan**:
 
 Giữ 2 bảng tài khoản/quyền, 4 bảng danh mục cốt lõi, 4 bảng giáo viên/lịch rảnh/dự giờ, 6 bảng học sinh/đăng ký/lớp, 5 bảng buổi học/điểm danh/sự cố, 1 bảng tài liệu, 4 bảng công/đối soát/giải trình và 1 bảng mẫu báo cáo. Không gộp bảng, thêm cột sao chép hoặc tạo FK thay thế. Những FK đi tới bảng ngoài hình vẫn được ghi trong Note của bảng con.
 
-**Khuyến nghị 27 bảng cho hình tổng quan.** Giảm tiếp về khoảng 20 sẽ phải lược thêm các phần đang quan trọng với hệ thống, như lịch rảnh có phiên bản, đăng ký học và đối soát công. Hình tổng quan không thay thế sơ đồ đầy đủ hoặc chứng minh độc lập toàn bộ CSDL đạt 3NF.
+**Bản 27 là phương án thay thế; lựa chọn hiện tại cho khóa luận là bản 29 bảng ẩn vừa phải thuộc tính.** Giảm tiếp về khoảng 20 sẽ phải lược thêm các phần đang quan trọng với hệ thống, như lịch rảnh có phiên bản, đăng ký học và đối soát công. Hình tổng quan không thay thế sơ đồ đầy đủ hoặc chứng minh độc lập toàn bộ CSDL đạt 3NF.
 
 Chú thích dưới hình:
 
@@ -42,7 +57,7 @@ Chú thích dùng dưới hình đã rút gọn thuộc tính:
 
 ## Bản chính dành cho đồ án — 29 bảng
 
-Dùng [vuihoc_29_bang_chinh.dbml](vuihoc_29_bang_chinh.dbml): sao chép toàn bộ rồi dán vào ô DBML trên dbdiagram.io. Bản này dưới 30 bảng, chia đúng 8 nhóm phân hệ, giữ toàn bộ cột của các bảng được chọn. Bản đầy đủ 50 bảng vẫn ở file riêng phía dưới.
+Dùng [vuihoc_29_bang_chinh.dbml](vuihoc_29_bang_chinh.dbml): sao chép toàn bộ rồi dán vào ô DBML trên dbdiagram.io. Bản này dưới 30 bảng, chia đúng 8 nhóm phân hệ, giữ các khóa và phần lớn thuộc tính nghiệp vụ; chỉ ẩn vừa phải các trường phụ ở bảng dài hơn 8 cột. Bản đầy đủ 50 bảng vẫn ở file riêng phía dưới.
 
 | Phân hệ | Số bảng | Bảng đưa lên sơ đồ chính |
 | --- | ---: | --- |
@@ -66,7 +81,7 @@ Chú thích dùng dưới hình:
 
 > Sơ đồ các bảng nghiệp vụ chính của hệ thống, trình bày 29 trong tổng số 50 bảng vật lý. Một số bảng cấu hình, danh mục phụ, bảng liên kết và lịch sử chi tiết được lược bớt để làm rõ luồng nghiệp vụ; cấu trúc đầy đủ trình bày tại phụ lục.
 
-Script đã kiểm tra cấu trúc bản mới: **29 bảng, 283 cột, 54 quan hệ và 8 nhóm**; không có đường nối tới bảng ngoài sơ đồ. Kết quả phân tích DBML chính thức trước đó thuộc phiên bản 291 cột, trước khi bỏ 8 cột kỳ chạy.
+Script đã kiểm tra cấu trúc bản mới: **29 bảng, 220 cột hiển thị, 54 quan hệ và 8 nhóm**; không có đường nối tới bảng ngoài sơ đồ. Kết quả phân tích DBML chính thức trước đó thuộc phiên bản 291 cột, trước khi bỏ 8 cột kỳ chạy.
 
 Sinh lại bản rút gọn:
 

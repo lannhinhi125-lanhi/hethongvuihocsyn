@@ -54,9 +54,22 @@ const selected=new Set(tables.map(t=>t.name));
 assert.equal(tables.length,expectedCount);
 // Compact overview retains every PK, UNIQUE and FK column, plus selected business attributes.
 const businessColumns=new Set('tennhomquyen hoten trangthai tenmonhoc tentrinhdo tenmohinh sisotoida tenkhunggio giobatdau gioketthuc hieuluctu ngaydanhgia ngaydangky thutrongtuan tenlophoc ngayhoc tennhomsuco ten hesocong hesocongapdung tieude dakhoa loaicong trangthaidoisoat tenmaubaocao nguondulieu'.split(' '));
+// For the 29-table thesis figure, trim only secondary fields in tables longer than 8 columns.
+const summaryHidden={
+ NGUOI_DUNG:['maphien_bam','phienhethan','solansai','tamkhoaden','matkhau'],
+ BIEN_BAN_DU_GIO:['guiluc','uudiem','cancaithien','khuyennghi'],
+ LOP_HOC:['lienketphonghoc','ghichutamdung','batdautamdung','ngayketthuctuychinh'],
+ BUOI_HOC:['lienketphonghoc','nhatky','lienketbanghi','hoclieugiaovien','hoclieuhocsinh','baitaplms','ghichutamdung','batdautamdung','chuyencan','hoclieutieude','tamhoandolop'],
+ TAI_LIEU_QUY_TRINH:['noidung','tentepgoc','loaitepgoc','linkdrive'],
+ LOAI_SU_CO:['mota','loaithongbao','thutu','nghitheolich'],
+ SU_CO_BUOI_HOC:['ghichuxuly','baoluc','xulyluc','dotamdunglop'],
+ CONG_DAY_BUOI_HOC:['ghichu','guiluc'],
+ GIAI_TRINH_CONG_DAY:['ghichuduyet']
+};
 const visibleColumns=new Map(tables.map(t=>{
  const keys=new Set(t.constraints.filter(c=>/^(PRIMARY KEY|UNIQUE|FOREIGN KEY) /.test(c)).flatMap(keyColumns));
- const columns=Object.keys(t.columns).filter(name=>!compactMode||keys.has(name)||businessColumns.has(name));
+ const hidden=new Set(summaryMode&&Object.keys(t.columns).length>8?['ngaytao','ngaycapnhat',...(summaryHidden[t.name]??[])]:[]);
+ const columns=Object.keys(t.columns).filter(name=>keys.has(name)||(compactMode?businessColumns.has(name):!hidden.has(name)));
  for(const name of keys)assert.ok(columns.includes(name),t.name+'.'+name+' key must remain visible');
  return [t.name,new Set(columns)];
 }));
