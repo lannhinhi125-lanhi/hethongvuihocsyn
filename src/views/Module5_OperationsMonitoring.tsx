@@ -25,6 +25,8 @@ import {
   CalendarDays,
   Filter,
   TriangleAlert,
+  Search,
+  X,
 } from 'lucide-react';
 
 // Types cho Phân hệ 5
@@ -151,6 +153,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const selectedSubjectName = selectedSubjectCode==='DASHBOARD_ALL'?'Tất cả môn':subjects.find(subject=>subject.code===selectedSubjectCode)?.name || 'Chưa có môn học';
   const [filterGrade, setFilterGrade] = useState('ALL');
   const [filterLevel, setFilterLevel] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Bộ lọc cột cho Tab 2 (Thông tin Sự cố & Điều phối Dạy thay)
   const [incColFilterCode, setIncColFilterCode] = useState<string[]>([]);
@@ -274,7 +277,16 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     return 'hover:bg-slate-50/80 border-b border-slate-100';
   };
 
-  const dateFilteredSessions=sessions.filter(session=>dashboardFilter?matchesDashboardSelection(dashboardFilter,session.sessionCode):session.sessionDate>=dateFrom&&session.sessionDate<=dateTo);
+  const normalizeSearch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('vi').replace(/đ/g, 'd');
+  const searchTerms = normalizeSearch(searchQuery).trim().split(/\s+/).filter(Boolean);
+  const dateFilteredSessions=sessions.filter(session=>{
+    const inRange=dashboardFilter?matchesDashboardSelection(dashboardFilter,session.sessionCode):session.sessionDate>=dateFrom&&session.sessionDate<=dateTo;
+    if (!inRange || !searchTerms.length) return inRange;
+    const text=normalizeSearch([session.displayCode,session.classCode,session.className,
+      session.primaryTeacher,session.primaryTeacherId,session.coverTeacher,session.coverTeacherId,
+      session.timeSlot].filter(Boolean).join(' '));
+    return searchTerms.every(term=>text.includes(term));
+  });
   const viewingToday=dateFrom===reportToday()&&dateTo===reportToday();
 
   const classForSession = (session: MonitoringSession) => classes.find(item => item.code === session.classCode);
@@ -652,7 +664,17 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           </button>
         </div>
       </div>
-      <MonitoringPeriodToolbar range={monitoringRange} period={monitoringPeriod} onChange={(range,period)=>{setDashboardFilter(null);setMonitoringRange(range);setMonitoringPeriod(period);}}/>
+      <MonitoringPeriodToolbar range={monitoringRange} period={monitoringPeriod} onChange={(range,period)=>{setDashboardFilter(null);setMonitoringRange(range);setMonitoringPeriod(period);}}>
+        <div className="relative w-full sm:ml-auto sm:w-80">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input type="search" value={searchQuery} onChange={event=>setSearchQuery(event.target.value)}
+            aria-label="Tìm buổi học theo mã buổi, lớp hoặc giáo viên"
+            placeholder="Tìm mã buổi, lớp, giáo viên…"
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 [&::-webkit-search-cancel-button]:hidden" />
+          {searchQuery && <button type="button" onClick={()=>setSearchQuery('')} aria-label="Xóa tìm kiếm"
+            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X aria-hidden="true" className="h-4 w-4" /></button>}
+        </div>
+      </MonitoringPeriodToolbar>
       <div role="tablist" aria-label="Môn học giám sát" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1">
         <button id="monitoring-subject-DASHBOARD_ALL" type="button" role="tab" aria-selected={selectedSubjectCode==='DASHBOARD_ALL'} aria-controls="monitoring-subject-content" onClick={()=>selectMonitoringSubject('DASHBOARD_ALL')} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${selectedSubjectCode==='DASHBOARD_ALL'?'bg-orange-50 text-orange-600':'text-slate-600'}`}>Tất cả môn</button>
         {subjectTabs.map(subject=><button key={subject.code} id={'monitoring-subject-'+subject.code} type="button" role="tab" aria-selected={selectedSubjectCode===subject.code} aria-controls="monitoring-subject-content" onClick={()=>selectMonitoringSubject(subject.code)} className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${selectedSubjectCode===subject.code?'bg-orange-50 text-[#FF5C00] ring-1 ring-orange-200':'text-slate-600 hover:bg-slate-50'}`}>
