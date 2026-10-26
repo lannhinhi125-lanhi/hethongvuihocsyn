@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import type {ClassItem} from '../src/types';
-import {classBindingEditIssue,canKeepAssignedTeacher,nextClassTeacherSelection,studentsNeedingClassValidation,studentsNeedingScheduleValidation} from '../src/lib/classEditing';
+import {classEditUpdates,classHasVacancy,classBindingEditIssue,canKeepAssignedTeacher,nextClassTeacherSelection,studentsNeedingClassValidation,studentsNeedingScheduleValidation} from '../src/lib/classEditing';
 import {studentForSubject,studentScheduleConflict} from '../src/lib/studentRegistrations';
 import {fromSupabaseRow,toSupabaseRow} from '../src/lib/supabaseMapper';
 
@@ -8,6 +8,11 @@ const existing:ClassItem={id:'SEEDED-CLASS',code:'T-001',name:'Sample class',sta
  level:'LEVEL-2',model:'1-3',maxStudents:3,teacherId:'SEEDED-TEACHER',teacherName:'Current teacher',
  studentIds:['S1','S2'],schedule:'T7 (12:50 - 13:50)',roomLink:'https://room.example',materials:[]};
 const renamed={...existing,name:'Updated name',roomLink:'https://room.example/new'};
+assert.equal(classHasVacancy(existing),true);
+const full={...existing,studentIds:['S1','S2','S3']};
+assert.equal(classHasVacancy(full),false);
+assert.equal(classHasVacancy({...full,studentIds:['S1','S2']}),true,'removing a member opens enrollment again');
+assert.equal(classHasVacancy({...existing,status:'Dừng lớp'}),false);
 assert.equal(Object.hasOwn(toSupabaseRow('classes',existing),'sisotoida'),false,'class writes must not recreate the model capacity copy');
 assert.equal(toSupabaseRow('class_models',{id:'MODEL',maxStudents:3}).sisotoida,3,'capacity is writable at its model source');
 assert.equal(fromSupabaseRow('classes',{madinhdanh:'CLASS',sisotoida:3}).maxStudents,3,'queried capacity remains available to screens and reports');
@@ -48,3 +53,7 @@ assert.match(classBindingEditIssue(existing,{...existing,schedule:'T2 (12:50 - 1
 assert.equal(classBindingEditIssue(existing,{...existing,studentIds:['S1','S2','S3']}),undefined);
 assert.equal(classBindingEditIssue(existing,{...existing,status:'Dừng lớp',studentIds:[]}),undefined);
 assert.equal(classBindingEditIssue({...existing,status:'Dừng lớp'},{...existing,status:'Dừng lớp',schedule:'T2 (12:50 - 13:50)',teacherId:'OTHER',studentIds:[]}),undefined);
+
+assert.deepEqual(classEditUpdates(existing,{name:'Renamed',roomLink:'https://new.test',subject:'OTHER',teacherId:'OTHER',schedule:'OTHER',grade:'OTHER',model:'OTHER',status:'D\u1eebng l\u1edbp',startDate:'2099-01-01',studentIds:['S1']}),{name:'Renamed',roomLink:'https://new.test'});
+assert.deepEqual(classEditUpdates(existing,{durationMonths:6,durationCatalogId:'TERM',studentIds:['S1','S2','S3']}),{durationMonths:6,durationCatalogId:'TERM',studentIds:['S1','S2','S3']});
+assert.throws(()=>classEditUpdates(full,{studentIds:['S1','S2','S3','S4']}));

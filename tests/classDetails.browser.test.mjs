@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+const {chromium}=await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE_PATH,'index.mjs')));
+const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1100,height:850}});
+ await page.addInitScript(()=>{window.removals=[];window.testCanRemove=true;});
+ await page.route('**/src/context/AppContext.tsx*',r=>r.fulfill({contentType:'application/javascript',body:'export const useApp=()=>({incidents:[]});'}));
+ await page.route('**/src/hooks/usePermissions.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const usePermissions=()=>({can:()=>window.testCanRemove});'}));
+ await page.route('**/src/lib/businessPersistence.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const useBusinessStatus=()=>({saving:false,loading:false});export const removeClassStudent=async(cls,id)=>{window.removals.push({cls,id});window.removeTestMember(id);};'}));
+ const url='http://127.0.0.1:3107/tests/fixtures/classDetails.html';
+ await page.goto(url);
+ const first=page.getByRole('row').filter({hasText:'Học sinh A'});
+ assert.match(await first.innerText(),/Đang học/,'status belongs to class subject');
+ await first.getByRole('button',{name:'Gỡ khỏi lớp'}).click();
+ await page.getByRole('alertdialog').waitFor();
+ assert.match(await page.getByRole('alertdialog').innerText(),/Chờ xếp lớp/);
+ await page.getByRole('button',{name:'Hủy',exact:true}).click();
+ assert.equal((await page.evaluate(()=>window.removals)).length,0);
+ await first.getByRole('button',{name:'Gỡ khỏi lớp'}).click();
+ await page.getByRole('button',{name:'Xác nhận',exact:true}).click();
+ await first.waitFor({state:'detached'});
+ assert.deepEqual(await page.evaluate(()=>window.removals),[{cls:'GROUP',id:'S1'}]);
+ assert.equal(await page.getByRole('row').filter({hasText:'Học sinh B'}).count(),1);
+ await page.screenshot({path:'.tmp/class-details-removal.png'});
+ await page.goto(url+'?solo');
+ assert.equal(await page.getByRole('button',{name:'Gỡ khỏi lớp'}).count(),0);
+ await page.goto(url);await page.evaluate(()=>{window.testCanRemove=false;window.removeTestMember('S2');});
+ assert.equal(await page.getByRole('button',{name:'Gỡ khỏi lớp'}).count(),0);
+ console.log('PASS class details UI: subject status, shared confirmation, cancel, targeted removal, remaining member, 1-1 and permission restrictions');
+}finally{await browser.close();}

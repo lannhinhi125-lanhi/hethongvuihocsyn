@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {supabase} from '../src/config/supabase';
+import {loginAccount,logoutAccount} from '../src/lib/accountSession';
+import {loadBusinessData,removeClassStudent,getBusinessSnapshot,resetBusinessData} from '../src/lib/businessPersistence';
+const actor={madinhdanh:'ADMIN',hoten:'Admin',tendangnhap:'admin',trangthai:'active',manhomquyen:'ROLE'};
+const session={actor,users:[actor],role_groups:[{madinhdanh:'ROLE',tennhomquyen:'Admin',danhsachquyen:['ALL'],congtruycap:'ADMIN'}]};
+let fail=false,release:()=>void=()=>{};
+let data:any={classes:[{madinhdanh:'C1',malophoc:'GROUP',danhsachmahocsinh:['S1','S2'],sisotoida:3}],students:[{madinhdanh:'S1',hoten:'Student',dangkymonhoc:[{subject:'MATH',status:'DANG_HOC',currentClassCode:'GROUP'}]}]};
+(supabase as any).schema=()=>({rpc:async(name:string,args:any)=>{
+ if(name==='vuihoc_login')return {data:{token:'token',...session}};
+ if(name==='vuihoc_session')return {data:session};
+ if(name==='vuihoc_business_data')return {data:structuredClone(data)};
+ if(name==='vuihoc_remove_class_student'){
+  assert.equal(args.p_class_id,'C1');assert.equal(args.p_student_id,'S1');
+  await new Promise<void>(resolve=>{release=resolve;});
+  if(fail)return {error:{message:'Save rejected'}};
+  data=structuredClone(data);data.classes[0].danhsachmahocsinh=['S2'];
+  data.students[0].dangkymonhoc=[{subject:'MATH',status:'CHO_XEP_LOP',currentClassCode:null}];
+  return {data:{saved:true,data}};
+ }return {data:{}};
+}});
+await loginAccount('admin','test');await loadBusinessData();
+fail=true;const rejected=removeClassStudent('C1','S1');
+assert.equal(getBusinessSnapshot().saving,true);
+assert.deepEqual(getBusinessSnapshot().data.classes[0].studentIds,['S1','S2'],'keep member visible until confirmed');
+await assert.rejects(removeClassStudent('C1','S1'),/Đang xử lý/);
+release();await assert.rejects(rejected,/Save rejected/);
+assert.deepEqual(getBusinessSnapshot().data.classes[0].studentIds,['S1','S2']);
+fail=false;const saved=removeClassStudent('C1','S1');release();await saved;
+assert.deepEqual(getBusinessSnapshot().data.classes[0].studentIds,['S2']);
+assert.equal(getBusinessSnapshot().data.students[0].registrations[0].status,'Chờ xếp lớp');
+assert.equal(getBusinessSnapshot().saving,false);
+resetBusinessData();await logoutAccount();
+console.log('PASS removal persistence: confirmed roster/enrollment refresh, busy guard, rejected save retains member');

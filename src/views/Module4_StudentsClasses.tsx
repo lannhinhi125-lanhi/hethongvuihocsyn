@@ -12,7 +12,7 @@ import { RowActionMenu } from '../components/RowActionMenu';
 import { classEndDate, CLASS_DURATION_CODE, type ClassDurationCatalog } from '../lib/classDuration';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
-import {canKeepAssignedTeacher,studentsNeedingClassValidation,studentsNeedingScheduleValidation,nextClassTeacherSelection} from '../lib/classEditing';
+import {classEditUpdates,classHasVacancy,canKeepAssignedTeacher,studentsNeedingClassValidation,studentsNeedingScheduleValidation,nextClassTeacherSelection} from '../lib/classEditing';
 import {studentSlotAssignment} from '../lib/profileEditing';
 import { studentRegistrations, studentRegistrationRows, studentForSubject, studentHistoryForSubject, studentScheduleConflict } from '../lib/studentRegistrations';
 import { waitForBusinessSave } from '../lib/businessPersistence';
@@ -272,14 +272,19 @@ export const Module4_StudentsClasses: React.FC = () => {
   const selectableClasses = filteredClasses.filter(item => !['Dừng lớp', 'Đã kết thúc'].includes(item.status || ''));
   const selectedClasses = selectableClasses.filter(item => selectedClassIds.includes(item.id));
   const allClassesSelected = selectableClasses.length > 0 && selectedClasses.length === selectableClasses.length;
-  const bulkPauseClasses = (paused: boolean) => {
+  const bulkPauseClasses = async (paused: boolean) => {
     if (!requirePermission('Tạo, sửa, xóa lớp và cập nhật link phòng học')) return;
     if (paused) { openPause(selectedClasses); return; }
     const ids = new Set(selectedClasses.filter(item => Boolean(item.paused) !== paused).map(item => item.id));
     if (!ids.size) return;
     setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? { ...item, paused } : item));
-    setSelectedClassIds([]);
-    showToast(paused ? `Đã tạm dừng ${ids.size} lớp, giữ nguyên giáo viên và học sinh.` : `Đã tiếp tục lịch của ${ids.size} lớp từ hôm nay.`, 'success');
+    try {
+      await waitForBusinessSave();
+      setSelectedClassIds([]);
+      showToast(`Đã tiếp tục lịch của ${ids.size} lớp từ hôm nay.`, 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Không lưu được. Vui lòng thử lại.', 'error');
+    }
   };
 
   // Student Modal state
@@ -350,6 +355,9 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [isReenrolling,setIsReenrolling]=useState(false);
   const [clsTeacher, setClsTeacher] = useState('');
   const [clsSelectedStudentIds, setClsSelectedStudentIds] = useState<string[]>([]);
+  const editingClass = classes.find(item=>item.id===editingClassId);
+  const showClassWaitingStudents = !editingClassId || Boolean(editingClass && classHasVacancy(editingClass));
+  const classWaitingStudents = students.filter(student => student.subject===clsSubject && student.status==='Chờ xếp lớp' && !assignedClass(student) && (!editingClassId || (student.grade===editingClass?.grade && student.model===editingClass?.model && student.level===editingClass?.level)));
 
   useEffect(() => {
     if (isClassModalOpen && !editingClassId) setClsCode(generateClassCode(clsSubject, clsLevel));
@@ -1022,12 +1030,12 @@ export const Module4_StudentsClasses: React.FC = () => {
     if (classes.some(item => item.id !== editingClassId && item.code === savedCode)) { showToast('Mã lớp bị trùng. Vui lòng kiểm tra lại.', 'error'); return; }
 
     // Bắt buộc phải có giáo viên HỢP LỆ
-    if (!clsTeacher || !eligibleTeachersForClass.some(t => t.id === clsTeacher)) {
+    if (!editingClassId && (!clsTeacher || !eligibleTeachersForClass.some(t => t.id === clsTeacher))) {
       showToast('Không thể lưu lớp học: Không tìm thấy giáo viên phù hợp hoặc chưa chọn giáo viên hợp lệ!', 'error');
       return;
     }
 
-    const assignedTeacher = eligibleTeachersForClass.find(t => t.id === clsTeacher);
+    const assignedTeacher = editingClassId ? teachers.find(t=>t.id===existingClass?.teacherId) : eligibleTeachersForClass.find(t => t.id === clsTeacher);
 
     const max = models.find(item => item.code === clsModel)?.maxStudents;
     if (!max) { showToast('Chọn mô hình lớp hợp lệ từ danh mục.', 'error'); return; }
@@ -1041,7 +1049,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setClassSaveError('');
     try {
       if (editingClassId) {
-        const accepted = updateClass(editingClassId, {
+        const accepted = updateClass(editingClassId, classEditUpdates(existingClass!, {
           code: savedCode,
           categoryId: clsCategory,
           status: clsStatus,
@@ -1059,10 +1067,8 @@ export const Module4_StudentsClasses: React.FC = () => {
           durationCatalogId: !customTerm&&selectedDuration?selectedDuration.id:null,
           customEndDate: customTerm?endDate:null,
           endDate: endDate || null,
-          teacherName: assignedTeacher?.name || '',
-          teacherId: assignedTeacher?.id,
           studentIds: clsSelectedStudentIds
-        });
+        }));
         if (!accepted) return;
       } else {
         const newClass: ClassItem = {
@@ -1289,7 +1295,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   return (
     <div className="space-y-6">
       <DashboardFilterNotice selection={dashboardFilter} onClear={()=>setDashboardFilter(null)}/>
-      {pauseClassIds.length > 0 && createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-label="Tạm dừng lớp" className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6"><h2 className="text-lg font-bold">Tạm dừng ({pauseClassIds.length} lớp)</h2><p className="text-sm text-slate-600">Giữ nguyên giáo viên và học sinh. Lớp chỉ học lại khi bạn chọn Tiếp tục lớp. Bạn có thể sửa lý do khi lớp đang nghỉ.</p><label className="block text-sm">Loại sự cố / nghỉ học<ReportSelect value={pauseReason} onChange={event => setPauseReason(event.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="" disabled>Chọn từ danh mục sự cố</option>{pauseReasons.map(reason => <option key={reason.key} value={reason.key} disabled={!reason.isScheduledBreak && reason.creditCoeff===undefined}>{reason.group} · {reason.name}{!reason.isScheduledBreak && reason.creditCoeff===undefined ? ' (chưa có hệ số công)' : ''}</option>)}</ReportSelect></label>{!pauseReasons.length && <p className="text-sm text-amber-700">Chưa có lý do đang áp dụng. Vui lòng bật “Cho phép tạm dừng lớp” cho loại tương ứng trong Danh mục sự cố.</p>}<textarea aria-label="Chi tiết lý do khác" placeholder="Nhập lý do tạm dừng" value={pauseNote} onChange={event => setPauseNote(event.target.value)} className="w-full rounded-lg border p-2" /><div className="flex justify-end gap-2"><button type="button" onClick={() => setPauseClassIds([])} className="rounded-lg border px-4 py-2">Hủy</button><button type="button" disabled={!pauseReasons.some(entry => entry.key === pauseReason) || isSavingChanges} onClick={savePause} className="rounded-lg bg-orange-600 px-4 py-2 text-white disabled:opacity-40">Lưu lý do</button></div></div></div>, document.body)}
+      {pauseClassIds.length > 0 && createPortal(<div className="workspace-ui fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 text-slate-800"><div role="dialog" aria-modal="true" aria-label="Tạm dừng lớp" aria-labelledby="class-pause-title" className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl"><div className="border-b border-slate-100 px-5 py-4"><h2 id="class-pause-title" className="text-sm font-bold text-slate-800">Tạm dừng ({pauseClassIds.length} lớp)</h2></div><div className="space-y-4 px-5 py-4 text-xs"><p className="text-sm text-slate-600">Giữ nguyên giáo viên và học sinh. Lớp chỉ học lại khi bạn chọn Tiếp tục lớp. Bạn có thể sửa lý do khi lớp đang nghỉ.</p><label className="block text-sm">Loại sự cố / nghỉ học<ReportSelect value={pauseReason} onChange={event => setPauseReason(event.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="" disabled>Chọn từ danh mục sự cố</option>{pauseReasons.map(reason => <option key={reason.key} value={reason.key} disabled={!reason.isScheduledBreak && reason.creditCoeff===undefined}>{reason.group} · {reason.name}{!reason.isScheduledBreak && reason.creditCoeff===undefined ? ' (chưa có hệ số công)' : ''}</option>)}</ReportSelect></label>{!pauseReasons.length && <p className="text-sm text-amber-700">Chưa có lý do đang áp dụng. Vui lòng bật “Cho phép tạm dừng lớp” cho loại tương ứng trong Danh mục sự cố.</p>}<textarea aria-label="Chi tiết lý do khác" placeholder="Nhập lý do tạm dừng" value={pauseNote} onChange={event => setPauseNote(event.target.value)} className="w-full rounded-lg border p-2" /></div><div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3"><button type="button" disabled={isSavingChanges} onClick={() => setPauseClassIds([])} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Hủy</button><button type="button" disabled={!pauseReasons.some(entry => entry.key === pauseReason) || isSavingChanges} onClick={savePause} className="rounded-lg bg-[#FF5C00] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#E05200] disabled:opacity-40">Lưu lý do</button></div></div></div>, document.body)}
       {/* Header Banner Phân hệ 4 Quản trị chuẩn Figma */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div>
@@ -1602,12 +1608,12 @@ export const Module4_StudentsClasses: React.FC = () => {
         </div>
       )}
 
-      {pendingDelete && <div className="fixed inset-0 z-[100] bg-slate-900/50 flex items-center justify-center p-4" onClick={() => setPendingDelete(null)} onKeyDown={event => { if (event.key === 'Escape') setPendingDelete(null); }}>
-        <div role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={event => event.stopPropagation()}>
-          <h3 id="delete-confirm-title" className="text-base font-bold text-slate-800">Xác nhận xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'}</h3>
-          <p id="delete-confirm-description" className="mt-3 text-sm text-slate-600">Bạn có muốn xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'} <strong>{pendingDelete.name}</strong> không?</p>
+      {pendingDelete && <div className="workspace-ui fixed inset-0 z-[100] bg-slate-900/40 flex items-center justify-center p-4 text-slate-800" onClick={() => setPendingDelete(null)} onKeyDown={event => { if (event.key === 'Escape') setPendingDelete(null); }}>
+        <div role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-description" className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl" onClick={event => event.stopPropagation()}>
+          <div className="border-b border-slate-100 px-5 py-4"><h3 id="delete-confirm-title" className="text-sm font-bold text-slate-800">Xác nhận xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'}</h3></div><div className="px-5 py-4">
+          <p id="delete-confirm-description" className="text-xs leading-relaxed text-slate-600">Bạn có muốn xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'} <strong>{pendingDelete.name}</strong> không?</p>
           <p className="mt-2 text-xs text-slate-500">{pendingDelete.type === 'student' ? 'Hồ sơ học sinh sẽ bị xóa và được gỡ khỏi lớp đang học.' : 'Lớp học sẽ bị xóa. Học sinh trong lớp được đưa về danh sách chờ xếp lớp.'}</p>
-          <div className="mt-5 flex justify-end gap-2">
+          </div><div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
             <button type="button" autoFocus onClick={() => setPendingDelete(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
             <button type="button" onClick={() => { if (pendingDelete.type === 'student') deleteStudent(pendingDelete.id); else deleteClass(pendingDelete.id); setPendingDelete(null); }} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Xóa</button>
           </div>
@@ -1923,7 +1929,7 @@ export const Module4_StudentsClasses: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-base text-slate-800">
-                {editingClassId ? 'Hiệu chỉnh Lớp học' : 'Khởi Tạo Lớp Học Mới'}
+                {editingClassId ? 'Sửa thông tin lớp học' : 'Khởi Tạo Lớp Học Mới'}
               </h3>
               <button disabled={savingClass} onClick={() => setIsClassModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -1938,17 +1944,17 @@ export const Module4_StudentsClasses: React.FC = () => {
                   {Array.from({ length: 12 }, (_, index) => 2020 + index).map(year => <option key={year} value={String(year)}>{year} - {year + 1}</option>)}
                 </ReportSelect>
               </label>}
-              <section className="border border-orange-200 rounded-xl p-3 bg-orange-50/40 space-y-2">
+              {showClassWaitingStudents && (!editingClassId || can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) && <section className="border border-orange-200 rounded-xl p-3 bg-orange-50/40 space-y-2">
                 <div className="flex justify-between gap-2"><h4 className="font-semibold text-[#FF5C00]">Chọn học sinh chờ lớp</h4><span className="text-[11px] text-slate-500">Đã chọn: {clsSelectedStudentIds.length}/{models.find(item => item.code === clsModel)?.maxStudents || 0}</span></div>
                 <p className="text-[11px] text-slate-500">{editingClassId ? 'Thêm học sinh có cùng môn, khối, mô hình và trình độ với lớp.' : 'Chọn học sinh đầu tiên để tự điền loại lớp, khối, môn, mô hình, trình độ, lịch đăng ký và mã lớp.'}</p>
                 <div className="max-h-44 overflow-y-auto divide-y divide-orange-100 rounded-lg border border-orange-100 bg-white">
-                  {students.filter(student => student.subject === clsSubject && (clsSelectedStudentIds.includes(student.id) || (student.status === 'Chờ xếp lớp' && !assignedClass(student)))).map(student => <label key={student.id + student.subject} className="p-2 flex items-start gap-2 hover:bg-orange-50 cursor-pointer">
-                    <input type="checkbox" checked={clsSelectedStudentIds.includes(student.id)} onChange={event => handleSelectClassStudent(student,event.target.checked)} className="mt-1 accent-[#FF5C00]" />
+                  {(!editingClassId ? students.filter(student => student.subject === clsSubject && (clsSelectedStudentIds.includes(student.id) || (student.status === 'Chờ xếp lớp' && !assignedClass(student)))) : classWaitingStudents).map(student => <label key={student.id + student.subject} className="p-2 flex items-start gap-2 hover:bg-orange-50 cursor-pointer">
+                    <input type="checkbox" disabled={Boolean(editingClassId) && !clsSelectedStudentIds.includes(student.id) && clsSelectedStudentIds.length >= (editingClass?.maxStudents || 0)} checked={clsSelectedStudentIds.includes(student.id)} onChange={event => handleSelectClassStudent(student,event.target.checked)} className="mt-1 accent-[#FF5C00]" />
                     <div className="min-w-0"><p><strong>{student.name}</strong> <span className="text-slate-400">({student.id})</span></p><p className="text-[11px] text-slate-500">{gradeName(student.grade)} · {subjectName(student.subject)} · {levelName(student.level)} · {student.model}</p><p className="text-[10px] text-[#FF5C00]">{student.scheduleSlots.join(', ') || 'Chưa đăng ký khung giờ'}</p></div>
                   </label>)}
-                  {!students.some(student => clsSelectedStudentIds.includes(student.id) || (student.status === 'Chờ xếp lớp' && !assignedClass(student))) && <p className="p-3 text-slate-400">Không có học sinh chờ lớp.</p>}
+                  {!(editingClassId ? classWaitingStudents.length : students.some(student => student.subject===clsSubject && (clsSelectedStudentIds.includes(student.id) || (student.status==='Chờ xếp lớp' && !assignedClass(student))))) && <p className="p-3 text-slate-400">Không có học sinh chờ lớp.</p>}
                 </div>
-              </section>
+              </section>}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1975,14 +1981,14 @@ export const Module4_StudentsClasses: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <fieldset disabled={Boolean(editingClassId)} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label className="font-semibold text-slate-700">Loại lớp<ReportSelect required value={clsCategory} onChange={event => { const category = teachingCategories.find(item => item.id === event.target.value); setClsCategory(event.target.value); setClsGrade(category?.options[0]?.id || ''); }} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn loại lớp</option>{teachingCategories.filter(item => item.status !== false || item.id === clsCategory).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportSelect></label>
                 <label className="font-semibold text-slate-700">Khối lớp<ReportSelect required value={clsGrade} onChange={event => setClsGrade(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white"><option value="">Chọn khối lớp</option>{teachingCategories.find(item => item.id === clsCategory)?.options.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label>
                 <label className="font-semibold text-slate-700">Môn học<ReportSelect required value={clsSubject} onChange={event => setClsSubject(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{subjects.filter(item => item.status || item.code === clsSubject).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</ReportSelect></label>
                 <label className="font-semibold text-slate-700">Mô hình lớp<ReportSelect required value={clsModel} onChange={event => setClsModel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{models.filter(item => !isTeachingModelParent(item.code) && (item.status || item.code === clsModel)).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</ReportSelect></label>
                 <label className="font-semibold text-slate-700">Trình độ<ReportSelect required value={clsLevel} onChange={event => setClsLevel(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{levels.filter(item => item.status || item.code === clsLevel).map(item => <option key={item.id} value={item.code}>{item.name}</option>)}</ReportSelect></label>
                 <label className="font-semibold text-slate-700">Trạng thái<ReportSelect value={clsStatus} onChange={event => setClsStatus(event.target.value as NonNullable<ClassItem['status']>)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">{classStatuses.map(value => <option key={value}>{value}</option>)}</ReportSelect></label>
-              </div>
+              </fieldset>
 
               {/* Link phòng học */}
               <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-2">
@@ -2005,7 +2011,7 @@ export const Module4_StudentsClasses: React.FC = () => {
               </div>
               <label className="block font-semibold text-slate-700">
                 Ngày bắt đầu lớp học {!editingClassId && <span className="text-rose-500">*</span>}
-                <input type="date" required={!editingClassId} value={clsStartDate} onChange={event => setClsStartDate(event.target.value)}
+                <input type="date" required={!editingClassId} readOnly={Boolean(editingClassId)} value={clsStartDate} onChange={event => setClsStartDate(event.target.value)}
                   className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-[#FF5C00]" />
                 <span className="mt-1 block text-xs font-normal text-slate-500">Lịch học bắt đầu từ ngày này; nếu chưa trùng thứ đã chọn, ca đầu tiên là ngày học kế tiếp.</span>
               </label>
@@ -2015,7 +2021,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   <input
                     type="text"
                     required
-                    value={clsSchedule}
+                    readOnly={Boolean(editingClassId)} value={clsSchedule}
                     onChange={e => setClsSchedule(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 font-mono text-xs focus:outline-none focus:border-[#FF5C00]"
                   />
@@ -2023,7 +2029,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block font-semibold text-slate-700">Giáo viên phụ trách</label>
-                    {eligibleTeachersForClass.length > 0 ? (
+                    {editingClassId ? null : eligibleTeachersForClass.length > 0 ? (
                       <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                         ✓ Có {eligibleTeachersForClass.length} GV hợp lệ
                       </span>
@@ -2034,6 +2040,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     )}
                   </div>
 
+                  {editingClassId ? <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">{editingClass?.teacherName || 'Chưa phân công'}</p> : (
                   <ReportSelect
                     value={clsTeacher}
                     onChange={e => setClsTeacher(e.target.value)}
@@ -2060,9 +2067,10 @@ export const Module4_StudentsClasses: React.FC = () => {
                       </>
                     )}
                   </ReportSelect>
+                  )}
 
                   {/* THÔNG BÁO RÕ RÀNG KHI KHÔNG TÌM THẤY GIÁO VIÊN PHÙ HỢP */}
-                  {eligibleTeachersForClass.length === 0 && (
+                  {!editingClassId && eligibleTeachersForClass.length === 0 && (
                     <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
                       <div className="font-bold flex items-center gap-1.5 text-amber-800">
                         <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />

@@ -25,6 +25,7 @@ function remember(value: string | null) { token = value; try { if (value) sessio
 async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSignal) {
   const request = supabase.schema('public').rpc(name,args);
   const { data, error } = await (signal ? request.abortSignal(signal) : request);
+  if (error?.code === 'PGRST202' && name === 'vuihoc_remove_class_student') throw new Error('Hãy chạy supabase/apply_class_management_update.sql trong Supabase rồi thử lại.');
   if (error) throw new Error(error.code === 'PGRST202'
     ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261012_plaintext_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
     : saveErrorMessage(error));
@@ -120,9 +121,9 @@ export async function revealAccountPassword(userId: string, signal: AbortSignal)
 }
 
 /** Teacher RPCs share the existing internal login token; no direct table access. */
-export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_report_lesson_incident', args: Record<string,unknown> = {}) {
+export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_report_lesson_incident' | 'vuihoc_remove_class_student', args: Record<string,unknown> = {}) {
   if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
-  const version = generation, writing = name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident';
+  const version = generation, writing = name === 'vuihoc_remove_class_student' || name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident';
   if (writing && (state.saving || flushing || pending.length)) throw new Error('Đang lưu thay đổi khác. Vui lòng thử lại sau.');
   if (writing) { revision++; publish({...state,saving:true,error:'',saved:false}); }
   try {

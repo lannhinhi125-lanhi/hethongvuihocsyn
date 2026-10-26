@@ -65,10 +65,7 @@ const MainLayout: React.FC = () => {
         {/* Scrollable Main Content */}
         <main className="workspace-content relative flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-3 sm:p-4 min-w-0">
           {business.loading && <p role="status" className="mb-4 rounded-lg bg-blue-50 p-3 text-sm">Đang tải dữ liệu…</p>}
-          {business.error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm">{business.error} <button className="underline" onClick={()=>void loadBusinessData()}>Tải lại dữ liệu</button></p>}
           {session.saving && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm">Đang lưu…</p>}
-          {session.error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">Không lưu được: {session.error} <button onClick={()=>void refreshAccountSession()} className="underline">Tải lại dữ liệu</button></p>}
-          {session.saved && !session.saving && !session.error && <p role="status" className="mb-4 text-sm text-green-700">Lưu thành công.</p>}
           <div className={workspaceMode === 'ADMIN' && activeModule === 5 ? 'w-full' : 'max-w-[1600px] mx-auto w-full'}>
             {workspaceMode === 'ADMIN' && accountPortal(currentUser, roleGroups) === 'ADMIN' ? (
               // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================

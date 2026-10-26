@@ -4,6 +4,23 @@ type TeachingContext=Pick<ClassItem,'subject'|'grade'|'model'|'schedule'>;
 type StudentContext=TeachingContext & Pick<ClassItem,'level'|'studentIds'>;
 const normalizedSchedule=(value:string)=>value.replace(/\s/g,'').toLocaleLowerCase('vi');
 
+export function classHasVacancy(item:ClassItem) {
+ return !['Dừng lớp','Đã kết thúc'].includes(item.status||'') && item.maxStudents>item.studentIds.length;
+}
+
+export function classEditUpdates(item:ClassItem,draft:Partial<ClassItem>):Partial<ClassItem> {
+ const updates:Partial<ClassItem>={};
+ for(const key of ['name','roomLink','durationMonths','durationCatalogGroupId','durationCatalogId','customEndDate','endDate'] as const){
+  if(Object.hasOwn(draft,key))(updates as Record<string,unknown>)[key]=draft[key];
+ }
+ const additions=[...new Set(draft.studentIds||[])].filter(id=>!item.studentIds.includes(id));
+ if(additions.length){
+  if(!classHasVacancy(item) || item.studentIds.length+additions.length>item.maxStudents)throw new Error('Lớp đã đủ sĩ số. Hãy tải lại dữ liệu.');
+  updates.studentIds=[...item.studentIds,...additions];
+ }
+ return updates;
+}
+
 export function classBindingEditIssue(before:ClassItem,after:ClassItem):string|undefined {
  if(['Dừng lớp','Đã kết thúc'].includes(before.status||'') || ['Dừng lớp','Đã kết thúc'].includes(after.status||''))return;
  if((before.teacherId && before.teacherId!==after.teacherId) ||

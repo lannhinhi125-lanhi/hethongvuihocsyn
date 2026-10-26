@@ -106,6 +106,21 @@ async function flush(){
 export function useBusinessStatus(){return useSyncExternalStore(fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},()=>state,()=>state);}
 export function useBusinessValue<T>(key:string):[T,(action:SetStateAction<T>)=>void]{const snapshot=useBusinessStatus();const setter=useCallback((action:SetStateAction<T>)=>setBusinessValue(key,action),[key]);return [snapshot.data[key]??initial(key),setter];}
 export function getBusinessSnapshot(){return state;}
+/** Apply the server's class/enrollment/trace projections together after a removal. */
+export async function removeClassStudent(classId:string,studentId:string) {
+ if(state.saving || state.loading)throw new Error('Đang xử lý dữ liệu. Vui lòng đợi rồi thử lại.');
+ const version=generation;
+ publish({...state,saving:true,error:''});
+ try {
+  const receipt=await teacherSessionRequest('vuihoc_remove_class_student',{p_class_id:classId,p_student_id:studentId});
+  if(version!==generation)return;
+  raw=receipt.data;confirmed=decode(raw);
+  publish({...state,data:confirmed,saving:false,error:'',saved:state.saved+1,loadedAt:Date.now(),refreshError:''});
+ }catch(error){
+  if(version===generation)publish({...state,saving:false,error:(error as Error).message});
+  throw error;
+ }
+}
 export function businessSaving(){return state.saving;}
 export function waitForBusinessSave(): Promise<void> {
  const version=generation;

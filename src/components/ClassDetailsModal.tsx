@@ -1,4 +1,8 @@
 import {useApp} from '../context/AppContext';
+import {confirmAction} from './ConfirmAction';
+import {removeClassStudent,useBusinessStatus} from '../lib/businessPersistence';
+import {studentForSubject} from '../lib/studentRegistrations';
+import {usePermissions} from '../hooks/usePermissions';
 import {pauseReasonName} from '../lib/classPause';
 import { PaginatedTableBody } from './Pagination';
 import React, { useEffect, useRef } from 'react';
@@ -18,6 +22,14 @@ type Props = {
 
 export const ClassDetailsModal: React.FC<Props> = ({ item, students, categoryName, gradeName, subjectName, levelName, onClose }) => {
   const {incidents}=useApp();
+  const {can}=usePermissions();
+  const {saving,loading}=useBusinessStatus();
+  const canRemove=item.maxStudents>1 && !['Dừng lớp','Đã kết thúc'].includes(item.status||'') && can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)');
+  const removeMember=async(id:string,name:string)=>{
+    if(saving || loading)return;
+    if(!await confirmAction(`Gỡ học sinh ${name} khỏi lớp ${item.code}? Đăng ký môn sẽ về Chờ xếp lớp để đổi mô hình/trình độ hoặc ghép lớp khác. Lớp tiếp tục với các học sinh còn lại; lịch sử học được giữ nguyên.`))return;
+    try {await removeClassStudent(item.id,id);} catch { /* Shared persistence displays the save error. */ }
+  };
   const reasonName=pauseReasonName(item.pauseReason,incidents,item.pauseCategoryId);
   const closeButton = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -25,6 +37,7 @@ export const ClassDetailsModal: React.FC<Props> = ({ item, students, categoryNam
     const previousFocus = document.activeElement as HTMLElement | null;
     closeButton.current?.focus();
     const keydown = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="alertdialog"]')) return;
       if (event.key === 'Escape') onClose();
       if (event.key === 'Tab') {
         const controls = panel.current?.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex="0"]');
@@ -59,8 +72,8 @@ export const ClassDetailsModal: React.FC<Props> = ({ item, students, categoryNam
       <section className="mt-5">
         <h4 className="flex items-center gap-2 font-semibold text-sm text-slate-800"><Users className="w-4 h-4 text-[#FF5C00]" />Danh sách học sinh ({members.length})</h4>
         <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200"><table className="w-full text-left text-xs">
-          <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2 font-semibold">Mã học sinh</th><th className="px-3 py-2 font-semibold">Tên học sinh</th><th className="px-3 py-2 font-semibold">Trạng thái</th></tr></thead>
-          <PaginatedTableBody className="divide-y divide-slate-100">{members.map(({id,student}) => <tr key={id}><td className="px-3 py-3 font-mono text-slate-500">{id}</td><td className="px-3 py-3 font-semibold text-slate-800">{student?.name || 'Không tìm thấy hồ sơ'}</td><td className="px-3 py-3 text-slate-600">{student?.status || '—'}</td></tr>)}{!members.length && <tr><td colSpan={3} className="p-5 text-center text-slate-400">Lớp chưa có học sinh.</td></tr>}</PaginatedTableBody>
+          <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2 font-semibold">Mã học sinh</th><th className="px-3 py-2 font-semibold">Tên học sinh</th><th className="px-3 py-2 font-semibold">Trạng thái</th>{canRemove && <th className="px-3 py-2 font-semibold">Thao tác</th>}</tr></thead>
+          <PaginatedTableBody className="divide-y divide-slate-100">{members.map(({id,student}) => <tr key={id}><td className="px-3 py-3 font-mono text-slate-500">{id}</td><td className="px-3 py-3 font-semibold text-slate-800">{student?.name || 'Không tìm thấy hồ sơ'}</td><td className="px-3 py-3 text-slate-600">{student ? studentForSubject(student,item.subject)?.status || '—' : '—'}</td>{canRemove && <td className="px-3 py-3"><button type="button" disabled={saving || loading} onClick={()=>void removeMember(id,student?.name||id)} className="whitespace-nowrap rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40">Gỡ khỏi lớp</button></td>}</tr>)}{!members.length && <tr><td colSpan={canRemove?4:3} className="p-5 text-center text-slate-400">Lớp chưa có học sinh.</td></tr>}</PaginatedTableBody>
         </table></div>
       </section>
       <div className="mt-5 flex justify-end border-t border-slate-100 pt-4"><button type="button" onClick={onClose} className="rounded-lg bg-[#FF5C00] px-4 py-2 text-xs font-semibold text-white hover:bg-[#E05200]">Đóng</button></div>

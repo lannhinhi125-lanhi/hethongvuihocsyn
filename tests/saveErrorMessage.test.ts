@@ -15,5 +15,7 @@ const rule='Ca T2 đã gắn với lớp CLASS-01; dừng hoạt động lớp t
 assert.equal(saveErrorMessage({code:'P0001',message:rule}),rule);
 assert.equal(saveErrorMessage(new Error(rule)),rule);
 assert.equal(saveErrorMessage({message:'Failed to fetch'}),'Failed to fetch');
+assert.match(saveErrorMessage({code:'57014',message:'canceling statement due to statement timeout'}),/mất quá nhiều thời gian/);
+assert.doesNotMatch(saveErrorMessage({message:'canceling statement due to statement timeout'}),/canceling statement/);
 assert.equal(saveErrorMessage(null),'Chưa lưu được dữ liệu. Vui lòng thử lại.');
 console.log('PASS: referenced/missing data and duplicate values have actionable messages; business rules and unknown errors stay intact');
