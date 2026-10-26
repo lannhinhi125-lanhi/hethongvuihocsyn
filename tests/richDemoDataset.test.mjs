@@ -77,7 +77,7 @@ async function verify() {
  assert.equal(await scalar(`SELECT count(DISTINCT trangthai)::int n FROM vuihoc."GIAI_TRINH_CONG_DAY"`),3);
  assert.equal(await scalar(`SELECT count(DISTINCT trangthai)::int n FROM vuihoc."SU_CO_BUOI_HOC"`),2);
  assert.ok(await scalar(`SELECT count(*)::int n FROM vuihoc."DOI_SOAT_CONG_GIAO_VIEN" WHERE kycong='2026-10' AND NOT dagui`)>0);
- assert.ok(await scalar(`SELECT count(*)::int n FROM vuihoc."DOI_SOAT_CONG_GIAO_VIEN" WHERE kycong='2026-10' AND dagui`)>0);
+ assert.equal(await scalar(`SELECT count(*)::int n FROM vuihoc."DOI_SOAT_CONG_GIAO_VIEN" WHERE kycong='2026-10' AND dagui`),0);
  const slotSource=(await db.query(`SELECT to_regclass('vuihoc."V_KHUNG_GIO"') IS NOT NULL yes`)).rows[0].yes?'V_KHUNG_GIO':'KHUNG_GIO';
  assert.equal(await scalar(`WITH duties AS (
   SELECT b.madinhdanh,b.ngayhoc,b.magiaovienchinh teacher,k.khoanggio FROM vuihoc."BUOI_HOC" b JOIN vuihoc."${slotSource}" k ON k.madinhdanh=b.makhunggio
@@ -94,6 +94,50 @@ async function verify() {
  }
  const counts=(await db.query(`SELECT (SELECT count(*) FROM vuihoc."BUOI_HOC") lessons,(SELECT count(*) FROM vuihoc."CONG_DAY_BUOI_HOC") work,(SELECT count(*) FROM vuihoc."SU_CO_BUOI_HOC") incidents,(SELECT count(*) FROM vuihoc."GIAI_TRINH_CONG_DAY") disputes`)).rows[0];
  console.log('COUNTS',JSON.stringify(counts));
+ assert.equal(Number(counts.disputes),7,'two resolved claims per historical month and three October claims');
+ const claims=(await db.query(`SELECT d.madinhdanh,d.noidung,d.trangthai,d.guiluc,d.duyetluc,
+  c.guiluc sent,c.hesocong,b.madinhdanh lesson,b.ngayhoc,
+  p.thoigiankhoa locked,i.hesocongapdung expected
+  FROM vuihoc."GIAI_TRINH_CONG_DAY" d JOIN vuihoc."CONG_DAY_BUOI_HOC" c ON c.madinhdanh=d.macong
+  JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi
+  JOIN vuihoc."BANG_CONG_THANG" p ON p.kycong=to_char(b.ngayhoc,'YYYY-MM')
+  JOIN vuihoc."SU_CO_BUOI_HOC" i ON i.mabuoi=b.madinhdanh AND i.masuco='INC-TCH-03'
+  ORDER BY d.madinhdanh`)).rows;
+ assert.equal(claims.length,7,'all examples belong to actual lateness incidents');
+ for(const claim of claims){
+  assert.ok(claim.noidung.includes(claim.lesson),'content identifies the linked lesson');
+  assert.ok(new Date(claim.sent)<=new Date(claim.guiluc),'sent before submission');
+  if(claim.trangthai==='CHO_DUYET'){
+   assert.equal(Number(claim.hesocong),0,'pending discrepancy remains visible');
+   assert.equal(claim.duyetluc,null);
+  }else{
+   assert.equal(Number(claim.hesocong),Number(claim.expected),'resolved credit matches the real incident');
+   // The relational schema stores these as dates; same-day review is valid.
+   assert.ok(new Date(claim.guiluc)<=new Date(claim.duyetluc),JSON.stringify(claim));
+   if(claim.locked)assert.ok(new Date(claim.duyetluc)<new Date(claim.locked),'reviewed before historical close');
+  }
+ }
+ for(const month of ['2026-08','2026-09']){
+  const historical=claims.filter(c=>c.madinhdanh.includes(month));
+  assert.equal(historical.length,2);
+  assert.ok(historical.every(c=>c.trangthai!=='CHO_DUYET'));
+ }
+ const validBeforeRepair=(await db.query(`SELECT madinhdanh,macong,noidung,trangthai,guiluc,duyetluc FROM vuihoc."GIAI_TRINH_CONG_DAY" ORDER BY 1`)).rows;
+ const october=()=>scalar(`SELECT count(*)::int n FROM vuihoc."DOI_SOAT_CONG_GIAO_VIEN" WHERE kycong='2026-10' AND (dagui OR trangthai<>'CHO_GUI')`);
+ assert.ok(await october()>0,'October claims have reconciliation states');
+ const workBeforeRepair=(await db.query('SELECT madinhdanh,hesocong FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY 1')).rows;
+ await db.exec(`INSERT INTO vuihoc."GIAI_TRINH_CONG_DAY"(madinhdanh,macong,noidung,loaisuco,manguoigui)
+ SELECT 'DEMO-GT-1',c.madinhdanh,'Đề nghị kiểm tra nhật ký kết nối và đối soát công buổi học. Đây là tình huống demo số 1','Đối soát thời gian giảng dạy',g.manguoidung
+ FROM vuihoc."CONG_DAY_BUOI_HOC" c JOIN vuihoc."GIAO_VIEN" g ON g.madinhdanh=c.magiaovien
+ JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi
+ WHERE b.ngayhoc>=date '2026-10-01' AND b.ngayhoc<date '2026-11-01' LIMIT 1`);
+ await db.exec(file('supabase/fix_demo_payroll_explanations.sql'));
+ await db.exec(file('supabase/fix_demo_payroll_explanations.sql'));
+ assert.equal(await scalar('SELECT count(*)::int n FROM vuihoc."GIAI_TRINH_CONG_DAY"'),7,'repair replaces placeholders and preserves valid claims on repeat');
+ assert.ok(await october()>0);
+ assert.deepEqual((await db.query(`SELECT madinhdanh,macong,noidung,trangthai,guiluc,duyetluc FROM vuihoc."GIAI_TRINH_CONG_DAY" ORDER BY 1`)).rows,validBeforeRepair,'repair retains existing correct claims and their review history');
+ assert.deepEqual((await db.query('SELECT madinhdanh,hesocong FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY 1')).rows,workBeforeRepair,'repair preserves all work coefficients');
+
  const loads=(await db.query(`SELECT g.madinhdanh,count(c.madinhdanh)::int n FROM vuihoc."GIAO_VIEN" g LEFT JOIN vuihoc."CONG_DAY_BUOI_HOC" c ON c.magiaovien=g.madinhdanh GROUP BY g.madinhdanh`)).rows.map(r=>r.n);
  assert.ok(Math.max(...loads)>Math.min(...loads)+20);
  for(const t of catalogs)assert.deepEqual((await db.query('SELECT * FROM vuihoc."'+t+'" ORDER BY 1')).rows,snapshots.get(t),t+' preserved');

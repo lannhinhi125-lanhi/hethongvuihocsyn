@@ -3,60 +3,38 @@
 DO $demo_payroll$
 DECLARE
  actor text; period record; before_row jsonb; after_row jsonb; teachers jsonb;
- work_source text; candidate record; ordinal integer:=0;
 BEGIN
  SELECT u.madinhdanh INTO STRICT actor FROM vuihoc."NGUOI_DUNG" u
  JOIN vuihoc."NHOM_QUYEN" g ON g.madinhdanh=u.manhomquyen
  WHERE g.congtruycap='ADMIN' AND u.trangthai='active'
  AND 'ALL'=ANY(vuihoc.quyen_nhom(g.madinhdanh)) ORDER BY u.madinhdanh LIMIT 1;
- work_source:=CASE WHEN to_regclass('vuihoc."V_CONG_DAY_BUOI_HOC"') IS NULL
- THEN 'CONG_DAY_BUOI_HOC' ELSE 'V_CONG_DAY_BUOI_HOC' END;
-
- -- Seed actual explanations with evidence: approved, rejected and awaiting review.
- FOR candidate IN EXECUTE format($q$
-  SELECT DISTINCT ON (c.magiaovien) c.madinhdanh,c.magiaovien,c.mabuoi,c.kycong,g.manguoidung,
-   b.ngayhoc FROM vuihoc.%I c JOIN vuihoc."GIAO_VIEN" g ON g.madinhdanh=c.magiaovien
-   JOIN vuihoc."BUOI_HOC" b ON b.madinhdanh=c.mabuoi
-  WHERE c.kycong='2026-10' AND c.loaicong IN ('LATE','COVER','STANDARD')
-  ORDER BY c.magiaovien,b.ngayhoc,c.madinhdanh LIMIT 9$q$,work_source)
- LOOP
-  ordinal:=ordinal+1;
-  INSERT INTO vuihoc."GIAI_TRINH_CONG_DAY"(madinhdanh,macong,noidung,loaisuco,manguoigui,guiluc)
-   VALUES('DEMO-GT-'||ordinal,candidate.madinhdanh,
-    'Đề nghị kiểm tra nhật ký kết nối và đối soát công buổi học. Đây là tình huống demo số '||ordinal,
-    'Đối soát thời gian giảng dạy',candidate.manguoidung,
-    (candidate.ngayhoc+time '23:00') AT TIME ZONE 'Asia/Bangkok');
-  IF to_regprocedure('vuihoc.luu_link_minh_chung_cong(text,text)') IS NOT NULL THEN
-   PERFORM vuihoc.luu_link_minh_chung_cong('DEMO-GT-'||ordinal,'https://example.com/demo/evidence/'||ordinal);
-  ELSIF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='vuihoc' AND table_name='GIAI_TRINH_CONG_DAY' AND column_name='lienketminhchung') THEN
-   UPDATE vuihoc."GIAI_TRINH_CONG_DAY" SET lienketminhchung='https://example.com/demo/evidence/'||ordinal
-    WHERE madinhdanh='DEMO-GT-'||ordinal;
-  END IF;
-  IF ordinal%3<>0 THEN
-   UPDATE vuihoc."GIAI_TRINH_CONG_DAY" SET trangthai=CASE WHEN ordinal%3=1 THEN 'DA_DUYET' ELSE 'TU_CHOI' END,
-    manguoiduyet=actor,duyetluc=(candidate.ngayhoc+1+time '09:00') AT TIME ZONE 'Asia/Bangkok',
-    ghichuduyet=CASE WHEN ordinal%3=1 THEN 'Đã xác minh nhật ký và chấp thuận giải trình.' ELSE 'Nhật ký không đủ cơ sở điều chỉnh công.' END
-    WHERE madinhdanh='DEMO-GT-'||ordinal;
-  END IF;
- END LOOP;
+ -- Specific claims are seeded in demo_valid_explanations.sql first.
+ -- October sends only sample lessons, not the whole unfinished month.
 
  -- Use the same source projection and validation function as saving payroll in UI.
  FOR period IN SELECT madinhdanh,kycong FROM vuihoc."BANG_CONG_THANG"
  WHERE kycong IN ('2026-08','2026-09','2026-10') ORDER BY kycong LOOP
   before_row:=vuihoc.bang_cong_truy_van(period.kycong);
+  IF period.kycong<'2026-10' THEN
+   UPDATE vuihoc."CONG_DAY_BUOI_HOC" c SET dagui=true,
+    guiluc=((period.kycong||'-01')::date+interval '1 month 9 hours') AT TIME ZONE 'Asia/Bangkok'
+   FROM vuihoc."BUOI_HOC" b WHERE b.madinhdanh=c.mabuoi
+    AND to_char(b.ngayhoc,'YYYY-MM')=period.kycong AND c.magiaovien ~ '^DEMO-GV-[0-9]{3}$';
+   before_row:=vuihoc.bang_cong_truy_van(period.kycong);
+  END IF;
   SELECT jsonb_agg(
-   t || jsonb_build_object('payrollSent',period.kycong<'2026-10' OR (right(t->>'teacherId',3)::integer)%4<>0,
+   CASE WHEN t->>'teacherId' !~ '^DEMO-GV-[0-9]{3}$' THEN t ELSE t || jsonb_build_object('payrollSent',period.kycong<'2026-10',
     'reconcileStatus',CASE WHEN period.kycong<'2026-10' THEN 'DA_CHOT'
       WHEN EXISTS(SELECT 1 FROM jsonb_array_elements(t->'sessions') s WHERE s->'dispute'->>'status'='CHO_DUYET') THEN 'CO_GIAI_TRINH'
-      WHEN (right(t->>'teacherId',3)::integer)%4=0 THEN 'CHO_GUI'
-      WHEN EXISTS(SELECT 1 FROM jsonb_array_elements(t->'sessions') s WHERE s->'dispute'->>'status' IN ('DA_DUYET','TU_CHOI')) THEN 'DA_XU_LY_GT'
-      ELSE 'DA_GUI' END,
+      WHEN EXISTS(SELECT 1 FROM jsonb_array_elements(t->'sessions') s WHERE s->'dispute'->>'id' IS NOT NULL) THEN 'DA_XU_LY_GT'
+      ELSE 'CHO_GUI' END,
     'sessions',coalesce((SELECT jsonb_agg(s||jsonb_build_object('reconciliationSent',
-       period.kycong<'2026-10' OR (right(t->>'teacherId',3)::integer)%4<>0,
+       period.kycong<'2026-10' OR s->'dispute'->>'id' IS NOT NULL,
        'reconcileStatus',CASE WHEN period.kycong<'2026-10' THEN 'DA_CHOT'
         WHEN s->'dispute'->>'status'='CHO_DUYET' THEN 'CO_GIAI_TRINH'
-        WHEN (right(t->>'teacherId',3)::integer)%4=0 THEN 'CHO_DOI_SOAT' ELSE 'DA_XAC_NHAN' END))
-     FROM jsonb_array_elements(t->'sessions') s),'[]'::jsonb))) INTO teachers
+        WHEN s->'dispute'->>'id' IS NOT NULL THEN 'DA_XAC_NHAN'
+        ELSE 'CHO_DOI_SOAT' END))
+     FROM jsonb_array_elements(t->'sessions') s),'[]'::jsonb)) END) INTO teachers
    FROM jsonb_array_elements(before_row->'danhsachgiaovien') t;
   after_row:=before_row||jsonb_build_object('danhsachgiaovien',coalesce(teachers,'[]'::jsonb),
    'daguithongbao',true,'dakhoa',period.kycong<'2026-10',

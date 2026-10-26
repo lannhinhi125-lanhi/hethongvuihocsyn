@@ -9,7 +9,7 @@ replace('-- REPLACE ALL teachers, students, classes, lessons and related operati
 -- paused and detached from old teachers. Existing demo classes are recreated.
 -- Lessons on/after today's Bangkok date remain planned, without fabricated work.
 -- August/September payroll is sent/reconciled/locked through the business function.
--- October stays open with disputes; November remains planned.
+-- August/September include resolved claims; October has specific ongoing claims.
 -- Run THIS entire file only; do not run the old reset or seed afterwards.`);
 replace('DELETE FROM vuihoc."LOP_HOC";',`UPDATE vuihoc."LOP_HOC" SET magiaovien=NULL
  WHERE madinhdanh !~ '^DEMO-LOP-[0-9]{3}$';
@@ -169,7 +169,8 @@ END $transfers$;
 
 INSERT INTO vuihoc."DIEM_DANH_BUOI_HOC"`);
 // Append payroll scenarios inside the same atomic block, after all sources exist.
-const payroll=readFileSync('supabase/demo_payroll_scenarios.sql','utf8');
+const validClaims=readFileSync('supabase/demo_valid_explanations.sql','utf8');
+const payroll=validClaims+'\n'+readFileSync('supabase/demo_payroll_scenarios.sql','utf8');
 replace('\n b.magiaovienchinh,\n CASE WHEN x.scenario NOT IN', `
  (SELECT u.madinhdanh FROM vuihoc."NGUOI_DUNG" u JOIN vuihoc."NHOM_QUYEN" g ON g.madinhdanh=u.manhomquyen WHERE g.congtruycap='ADMIN' AND u.trangthai='active' ORDER BY u.madinhdanh LIMIT 1),
  CASE WHEN x.scenario NOT IN`);
@@ -183,4 +184,8 @@ replace('PERFORM vuihoc.kiem_tra_dang_ky_mon();',`UPDATE vuihoc."TRUY_VET_XEP_LO
 PERFORM vuihoc.kiem_tra_dang_ky_mon();`);
 replace('DROP VIEW demo_slot_source;', 'DROP VIEW demo_registration_source;\nDROP VIEW demo_slot_source;');
 writeFileSync('supabase/reset_demo_aug_nov_2026.sql',sql,'utf8');
+writeFileSync('supabase/fix_demo_payroll_explanations.sql',
+ readFileSync('supabase/demo_payroll_repair_prefix.sql','utf8').replace(
+  '-- Build fragment. Run the generated fix_demo_payroll_explanations.sql instead.',
+  '-- Run this entire file in Supabase SQL Editor; no demo reset is needed.')+'\n'+payroll+'\nCOMMIT;\n','utf8');
 console.log('Built supabase/reset_demo_aug_nov_2026.sql');
