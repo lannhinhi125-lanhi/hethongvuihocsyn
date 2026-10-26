@@ -61,7 +61,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [newUserName, setNewUserName] = useState('');
   const [newUserUsername, setNewUserUsername] = useState('');
   const [newUserPass, setNewUserPass] = useState('123456');
-  const [newUserPassVisible, setNewUserPassVisible] = useState(true);
+  const [newUserPassVisible, setNewUserPassVisible] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserRoleGroupId, setNewUserRoleGroupId] = useState('');
@@ -70,7 +70,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [editUserName, setEditUserName] = useState('');
   const [editUserUsername, setEditUserUsername] = useState('');
   const [editUserPass, setEditUserPass] = useState('');
-  const [editUserPassVisible, setEditUserPassVisible] = useState(true);
+  const [editUserPassVisible, setEditUserPassVisible] = useState(false);
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserPhone, setEditUserPhone] = useState('');
   const [editUserRoleGroupId, setEditUserRoleGroupId] = useState('');
@@ -142,7 +142,7 @@ export const Module1_UsersRoles: React.FC = () => {
     setEditUserName(user.name);
     setEditUserUsername(user.username);
     setEditUserPass(user.passwordRaw);
-    setEditUserPassVisible(true);
+    setEditUserPassVisible(false);
     setEditUserEmail(user.email);
     setEditUserPhone(user.phone);
     setEditUserRoleGroupId(user.roleGroupId || '');
@@ -363,7 +363,7 @@ export const Module1_UsersRoles: React.FC = () => {
 
             <button
               disabled={!can('Cấp tài khoản & Mật khẩu người dùng') || !can('Tạo, sửa, xóa & Gán Nhóm quyền')}
-              onClick={() => { setNewUserRoleGroupId(portalRoles[0]?.id || ''); setIsCreateUserModalOpen(true); }}
+              onClick={() => { setNewUserRoleGroupId(portalRoles[0]?.id || ''); setNewUserPassVisible(false); setIsCreateUserModalOpen(true); }}
               className="w-full sm:w-auto px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />

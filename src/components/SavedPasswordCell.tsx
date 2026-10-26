@@ -15,7 +15,6 @@ export function SavedPasswordCell({ userId, pendingPassword, canReveal, onError 
   }
   useEffect(() => {
     hide();
-    if (canReveal) void hold(true);
     return () => { request.current?.abort(); request.current = null; };
   }, [userId, pendingPassword, canReveal]);
   async function hold(pressed: boolean) {
