@@ -817,14 +817,17 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                             {studyStatus(s) === 'CHUA_DIEN_RA' ? (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold text-[11px]">Chưa diễn ra</span>
                             ) : studyStatus(s) === 'CHUA_HOAN_TAT' ? (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-orange-100 text-orange-800 font-bold text-[11px] border border-orange-200">Chưa hoàn tất{isEarlyCheckout(s.sessionDate,s.timeSlot,s.checkoutAt) && <span> · Kết thúc sớm {Math.ceil(minutesEndedEarly(s.sessionDate,s.timeSlot,s.checkoutAt))} phút</span>}</span>
+                              <div className="inline-flex flex-col items-center gap-1">
+                                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200 whitespace-nowrap">Đã học</span>
+                                {isEarlyCheckout(s.sessionDate,s.timeSlot,s.checkoutAt) && <span className="text-[10px] font-normal text-orange-800">Kết thúc sớm {Math.ceil(minutesEndedEarly(s.sessionDate,s.timeSlot,s.checkoutAt))} phút</span>}
+                              </div>
                             ) : studyStatus(s) === 'DANG_HOC' ? (
 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200"><span className="w-2 h-2 rounded-full bg-blue-500" /> Đang học</span>
 ) : studyStatus(s) === 'DA_HOC' ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
-                                <span className="w-2 h-2 rounded-full bg-slate-400" /> Đã học
-                                {sessionCompletionWarning(s,clockNow) && <span className="text-orange-800"> · {sessionCompletionWarning(s,clockNow)}</span>}
-                              </span>
+                              <div className="inline-flex flex-col items-center gap-1">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200 whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-slate-400" /> Đã học</span>
+                                {sessionCompletionWarning(s,clockNow) && <span className="text-[10px] font-normal text-orange-800">{sessionCompletionWarning(s,clockNow).replace('Chưa hoàn tất · ', '')}</span>}
+                              </div>
                             ) : studyStatus(s) === 'CHUA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px] border border-rose-200">
                                 <span className="w-2 h-2 rounded-full bg-rose-500" /> Chưa học

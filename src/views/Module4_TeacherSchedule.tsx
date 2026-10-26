@@ -176,7 +176,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     if (!checkoutFacts.checkinAt || checkoutFacts.checkoutAt || ['HUY','NGHI_HOC'].includes(checkoutFacts.status || '')) {
       showToast('Chỉ kết thúc buổi đã check-in và chưa checkout.', 'warning'); return;
     }
-    if (!window.confirm('Kết thúc lớp và ghi nhận checkout? Kết thúc sớm hơn 5 phút sẽ cảnh báo Chưa hoàn tất.')) return;
+    if (!window.confirm('Kết thúc lớp và ghi nhận checkout? Kết thúc sớm hơn 5 phút sẽ được ghi nhận để lọc ca chưa hoàn tất.')) return;
     const checkoutAt=new Date().toISOString();
     const time=selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time;
     if(!time){showToast('Chưa xác định được khung giờ buổi học.', 'error');return;}
@@ -507,9 +507,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedDetail?.lifecycleStatus==='NGHI_HOC' ? 'border border-[#E8C96D] bg-[#FFE8A3] text-[#805C16]' : selectedDetail?.lifecycleStatus==='CHUA_HOC' ? 'bg-red-100 text-red-800' : selectedDetail?.lifecycleStatus==='CHUA_HOAN_TAT' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'}`}>
-                        Trạng thái: {selectedDetail && {CHUA_DIEN_RA:'Chưa diễn ra',CHUA_HOC:'Chưa học',DANG_HOC:'Đang học',CHUA_HOAN_TAT:'Chưa hoàn tất',DA_HOC:'Đã học',NGHI_HOC:'Nghỉ học'}[selectedDetail.lifecycleStatus]}
+                        Trạng thái: {selectedDetail && {CHUA_DIEN_RA:'Chưa diễn ra',CHUA_HOC:'Chưa học',DANG_HOC:'Đang học',CHUA_HOAN_TAT:'Đã học',DA_HOC:'Đã học',NGHI_HOC:'Nghỉ học'}[selectedDetail.lifecycleStatus]}
                       </span>
-                      {completionWarning && <span className="rounded-full px-2 py-1 text-xs font-bold bg-orange-100 text-orange-800">{completionWarning}</span>}
+                      {completionWarning && <span className="text-[10px] font-normal text-orange-800">{completionWarning.replace('Chưa hoàn tất · ', '')}</span>}
                       <span className="text-xs text-slate-500">Nhận xét: {selectedLesson?.feedbackProgress?.completed ?? selectedStudentIds.filter(id=>selectedClass.activeSessions?.[selectedSessionNum]?.feedback?.[id]?.trim()).length}/{selectedStudentIds.length}</span>
                     </div>
                   </div>

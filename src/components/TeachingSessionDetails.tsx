@@ -32,7 +32,7 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, les
   const cover = cls.coverAssignments?.find(item => item.sessionNum === session && item.dateStr === date);
   const teacherId = detail.lesson ? detail.lesson.coverTeacherId || detail.lesson.primaryTeacherId : cover?.teacherId || detail.active?.coverTeacherId || cls.teacherId;
   const teacherName = teachers.find(item => item.id === teacherId)?.name || cover?.teacherName || detail.active?.coverTeacherName || cls.teacherName;
-  const statusLabel = {CHUA_DIEN_RA:'Chưa diễn ra', CHUA_HOC:'Chưa học', DANG_HOC:'Đang học', CHUA_HOAN_TAT:'Chưa hoàn tất', DA_HOC:'Đã học', NGHI_HOC:'Nghỉ học'}[detail.lifecycleStatus];
+  const statusLabel = {CHUA_DIEN_RA:'Chưa diễn ra', CHUA_HOC:'Chưa học', DANG_HOC:'Đang học', CHUA_HOAN_TAT:'Đã học', DA_HOC:'Đã học', NGHI_HOC:'Nghỉ học'}[detail.lifecycleStatus];
   const completionWarning=sessionCompletionWarning({sessionDate:date,timeSlot:time,status:detail.lesson?.status,
     checkinAt:detail.lesson?.checkinAt,checkoutAt:detail.lesson?.checkoutAt,checkinTime:detail.active?.checkinTime},now);
   const studentIds=detail.lesson?.inspectionData?.studentIds ?? detail.lesson?.feedbackProgress?.studentIds ?? (lessonId ? [] : cls.studentIds);
@@ -71,7 +71,7 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, les
           <div className="font-bold text-slate-800">Phòng học &amp; Bản ghi</div>
           <div className="text-slate-500">{date} · {time}</div>
           <div className="font-semibold text-sky-700">{statusLabel}</div>
-          {completionWarning&&<div className="font-semibold text-orange-700">{completionWarning}</div>}
+          {completionWarning&&<div className="text-[10px] font-normal text-orange-700">{completionWarning.replace('Chưa hoàn tất · ', '')}</div>}
           {!hideFeedback && <div className={feedbackDone ? 'font-semibold text-emerald-700' : 'font-semibold text-amber-700'}>Nhận xét: {feedbackDone ? 'Đã nhận xét' : feedbackCompleted>0 ? 'Chưa nhận xét đủ' : 'Chưa nhận xét'} ({feedbackCompleted}/{feedbackTotal} học sinh)</div>}
           {detail.lesson?.checkoutAt && <div className="text-slate-500">Check-out: {new Date(detail.lesson.checkoutAt).toLocaleTimeString('vi-VN', {timeZone:'Asia/Bangkok'})}</div>}
           {!detail.actionUrl ? <button type="button" disabled className="mt-3 w-full rounded-xl bg-slate-200 px-4 py-2.5 font-bold text-slate-400 disabled:cursor-not-allowed">{detail.actionLabel} · Chưa có link</button> : onEnter && detail.status !== 'DA_HOC' ?

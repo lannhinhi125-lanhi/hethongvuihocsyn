@@ -3,7 +3,7 @@ import type {TeachingLesson} from './teachingSessionDetails';
 import {monitoringSessionStatus} from './sessionAlerts';
 
 export function lessonWorkStatus(status?:string){
- return ({DA_HOC:'Đã học',HOAN_THANH:'Đã học',DA_HOC_CU:'Đã học',DAY_THAY_CU:'Đã học',CHUA_HOAN_TAT:'Chưa hoàn tất',DANG_HOC:'Đang học',CHUA_HOC:'Chưa học',CHUA_DIEN_RA:'Chưa diễn ra',NGHI_HOC:'Nghỉ học',HUY:'Nghỉ học'} as Record<string,string>)[status||'']||status||'—';
+ return ({DA_HOC:'Đã học',HOAN_THANH:'Đã học',DA_HOC_CU:'Đã học',DAY_THAY_CU:'Đã học',CHUA_HOAN_TAT:'Đã học',DANG_HOC:'Đang học',CHUA_HOC:'Chưa học',CHUA_DIEN_RA:'Chưa diễn ra',NGHI_HOC:'Nghỉ học',HUY:'Nghỉ học'} as Record<string,string>)[status||'']||status||'—';
 }
 export function lessonWorkDetails(rows:SessionPayrollRecord[],lessons:TeachingLesson[]):SessionPayrollRecord[]{
  const source=new Map(lessons.map(lesson=>[lesson.id,lesson]));
