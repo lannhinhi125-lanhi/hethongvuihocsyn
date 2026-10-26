@@ -481,6 +481,16 @@ export const Module6_AIStudio: React.FC = () => {
 
               <p role="status" className="text-[11px] text-slate-500">{savingConfig?'Đang lưu cấu hình…':configDirty?'Có thay đổi chưa lưu. Chatbot đang dùng cấu hình đã lưu.':'Chatbot đang dùng cấu hình đã lưu.'}</p>
               <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={!canChat || sandboxChat.isBusy || savingConfig || businessStatus.loading || businessStatus.saving || configDirty}
+                    onClick={() => {
+                      sandboxChat.newChat();
+                      setSandboxInput('');
+                      showToast('Đã làm mới chat theo cấu hình đã lưu.','info');
+                    }}
+                    className="px-3 py-2 border border-slate-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >Làm mới chat</button>
                 <button type="button" disabled={!configDirty || savingConfig} onClick={()=>{setConfigDraft(ragBotConfig);setConfigBase(ragBotConfig);}} className="px-3 py-2 border border-slate-200 rounded-lg disabled:opacity-50">Hủy thay đổi</button>
                 <button
                   type="button" disabled={savingConfig || businessStatus.saving || !configDirty} onClick={() => void saveConfiguration()}
@@ -489,6 +499,7 @@ export const Module6_AIStudio: React.FC = () => {
                   {savingConfig?'Đang lưu…':'Lưu cấu hình AI'}
                 </button>
               </div>
+                <p className="text-[11px] text-slate-500">Sau khi lưu, bấm Làm mới chat để hiện câu chào mới. Lịch sử trò chuyện vẫn được giữ lại.</p>
             </fieldset>
           </div>
 
