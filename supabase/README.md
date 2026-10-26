@@ -1,5 +1,7 @@
 # Bộ SQL Supabase Vuihoc
 
+**Dữ liệu demo 08–11/2026:** xem [hướng dẫn và tình huống](DEMO_AUG_NOV_2026.md), chạy toàn bộ [reset_demo_aug_nov_2026.sql](reset_demo_aug_nov_2026.sql). Bộ này có 24 giáo viên, 120 học sinh, 24 lớp demo, chuyển lớp, sự cố, giải trình và kỳ công đã khóa; thay thế dữ liệu nghiệp vụ cũ, giữ quản trị và danh mục.
+
 **Gộp tài liệu và cấu hình AI:** sau khi đã nâng cấp đến `20261202`, chạy toàn bộ [apply_documents_ai_update.sql](apply_documents_ai_update.sql), thay cho chạy riêng `20261203` và `20261204`. [Cách lưu cấu hình và áp dụng cho chatbot](../docs/ai-configuration-save.md).
 
 **Thống nhất điểm dự giờ:** sau bản 20261026, chạy
