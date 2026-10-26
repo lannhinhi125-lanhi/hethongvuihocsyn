@@ -66,6 +66,15 @@ try {
   assert.equal(failedProbe.body.connected,undefined,'failed upstream never reports connected');
   assert.equal(JSON.stringify(limited).includes(env.GEMINI_API_KEY),false);
   upstreamStatus=403;const rejected=await request();assert.equal(rejected.status,502);
+  assert.match(rejected.body.error,/403/);
   assert.equal(JSON.stringify(rejected).includes(env.GEMINI_API_KEY),false);
+  for(const status of [400,401,404,500,503,504]){
+    upstreamStatus=status;
+    const failure=await request({action:'check'});
+    assert.equal(failure.status,502);
+    assert.match(failure.body.error,new RegExp(String(status)));
+    assert.equal(failure.body.connected,undefined);
+    assert.equal(JSON.stringify(failure).includes(env.GEMINI_API_KEY),false);
+  }
   console.log('PASS: Gemini request, explicit env key, authenticated endpoint, permissions, local/Vercel body formats, limits, no key in errors/URL');
 } finally {globalThis.fetch=originalFetch;}

@@ -43,8 +43,20 @@ export async function generateGeminiText(input: GeminiInput, env: GeminiEnvironm
     }),
   });
   // Never relay upstream error bodies: they can contain configuration or credentials.
-  if (!response.ok) throw new GeminiError(response.status===429 ? 429 : 502,
-    response.status===429 ? 'Gemini đang giới hạn lượt gọi. Vui lòng thử lại sau.' : 'Không gọi được Gemini. Kiểm tra API key và model trên máy chủ.');
+  if (!response.ok) {
+    const errors:Record<number,string>={
+      400:'Google từ chối yêu cầu (400). Kiểm tra API key, model và cấu hình yêu cầu trên máy chủ.',
+      401:'Google không chấp nhận thông tin xác thực (401). Kiểm tra GEMINI_API_KEY trên Vercel.',
+      403:'Google từ chối quyền truy cập (403). Kiểm tra quyền API key và trạng thái dự án/thanh toán trong Google AI Studio.',
+      404:'Không tìm thấy model cho API đang dùng (404). Kiểm tra GEMINI_MODEL và quyền sử dụng model trong Google AI Studio.',
+      429:'Gemini đang giới hạn lượt gọi hoặc hạn mức sử dụng (429). Kiểm tra hạn mức trong Google AI Studio.',
+      500:'Dịch vụ Gemini đang gặp lỗi (500). Vui lòng thử lại sau.',
+      503:'Dịch vụ Gemini tạm thời không khả dụng (503). Vui lòng thử lại sau.',
+      504:'Dịch vụ Gemini phản hồi quá lâu (504). Vui lòng thử lại.',
+    };
+    throw new GeminiError(response.status===429 ? 429 : 502,
+      errors[response.status] || `Không gọi được Gemini (HTTP ${response.status}). Kiểm tra cấu hình máy chủ hoặc thử lại sau.`);
+  }
   const result = await response.json();
   const candidate = result.candidates?.[0];
   if (result.promptFeedback?.blockReason || (candidate?.finishReason && !['STOP','MAX_TOKENS'].includes(candidate.finishReason))) {
