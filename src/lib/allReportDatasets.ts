@@ -120,7 +120,7 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
   const today=reportToday();
   const endingClasses:ReportDataset={
     id:'classes_ending',label:'Lớp sắp kết thúc',dateKind:'event',
-    note:'Lớp đang học hoặc chờ khai giảng có ngày kết thúc trong 30 ngày tới (kể cả hôm nay). Lọc thời gian theo ngày kết thúc; lớp chưa có thời hạn không được suy đoán ngày kết thúc.',
+    note:'Lọc lớp đang học hoặc chờ khai giảng theo ngày kết thúc trong kỳ được chọn. Khi chọn Toàn bộ, mặc định xem 30 ngày tới (kể cả hôm nay). Lớp chưa có thời hạn không được suy đoán ngày kết thúc.',
     records:classes.filter(row=>row.endDate && !['Đã kết thúc','Dừng lớp'].includes(row.status||'')).flatMap(row=>{
       const remaining=Math.round((Date.parse(row.endDate!+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);
       return remaining>=0&&remaining<=30?[{id:row.code,name:row.name,date:row.endDate!,startDate:row.startDate||'',remaining,subject:subject(row.subject),grade:row.grade,model:model(row.model),status:row.status||'Đang học',teacher:row.teacherName,students:row.studentIds.length}]:[];
@@ -128,6 +128,12 @@ export function allReportDatasets({ classes, students, teachers, lessons, incide
     dimensions:[{id:'subject',label:'Môn học'},{id:'status',label:'Trạng thái'}],filters:[{id:'subject',label:'Môn học'},{id:'status',label:'Trạng thái'}],
     detailFields:[{id:'id',label:'Mã lớp'},{id:'name',label:'Tên lớp'},{id:'startDate',label:'Ngày bắt đầu'},{id:'date',label:'Ngày kết thúc'},{id:'remaining',label:'Số ngày còn lại'},{id:'teacher',label:'Giáo viên'},{id:'students',label:'Sĩ số'}]
   };
+  endingClasses.prepareRange=range=>({...endingClasses,prepareRange:undefined,
+    records:range.start||range.end?classes.filter(row=>row.endDate&&!['Đã kết thúc','Dừng lớp'].includes(row.status||'')).map(row=>({
+      id:row.code,name:row.name,date:row.endDate!,startDate:row.startDate||'',
+      remaining:Math.round((Date.parse(row.endDate!+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000),
+      subject:subject(row.subject),grade:row.grade,model:model(row.model),status:row.status||'Đang học',teacher:row.teacherName,students:row.studentIds.length
+    })):endingClasses.records});
   const kinds:Record<string,string>={FIRST:'Đăng ký lần đầu',ADDITIONAL:'Đăng ký thêm môn',RETURNING:'Đăng ký học lại'};
   const registrationPeriods:ReportDataset={
     id:'student_registration_periods',label:'Các đợt đăng ký học',dateKind:'event',

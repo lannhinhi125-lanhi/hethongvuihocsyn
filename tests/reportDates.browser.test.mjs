@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+const {chromium}=await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE_PATH,'index.mjs')));
+const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE||'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1200,height:800}});
+ await page.goto((process.env.REPORT_DATE_TEST_URL||'http://127.0.0.1:3107')+'/tests/fixtures/reportDates.html');
+ await page.getByTestId('records').waitFor();
+ assert.equal(await page.getByTestId('records').textContent(),'A');
+ await page.getByRole('button',{name:'Thời gian: kỳ sau'}).click();
+ assert.equal(await page.getByTestId('applied-range').textContent(),'2026-09-01 / 2026-09-30');
+ assert.equal(await page.getByTestId('records').textContent(),'B,C');
+ await page.getByRole('combobox',{name:'Thời gian: kỳ xem'}).click();
+ await page.getByRole('option',{name:'Tùy chọn',exact:true}).click();
+ const start=page.getByRole('textbox',{name:'Thời gian: từ ngày'}),end=page.getByRole('textbox',{name:'Thời gian: đến ngày'});
+ await start.fill('10/09/2026');await start.press('Tab');
+ await end.fill('20/09/2026');await end.press('Tab');
+ assert.equal(await page.getByTestId('applied-range').textContent(),'2026-09-01 / 2026-09-30','custom edits remain drafts');
+ await page.getByRole('button',{name:'Thời gian: lưu khoảng ngày'}).click();
+ assert.equal(await page.getByTestId('applied-range').textContent(),'2026-09-10 / 2026-09-20');
+ assert.equal(await page.getByTestId('records').textContent(),'C');
+ await page.getByRole('button',{name:'Mở lịch: Thời gian: từ ngày'}).click();
+ const dialog=page.getByRole('dialog',{name:'Chọn ngày: Thời gian: từ ngày'});
+ await dialog.locator('[data-date="2026-09-15"]').click();
+ await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-date="2026-09-15"]')).backgroundColor==='rgb(255, 92, 0)');
+ assert.equal(await start.inputValue(),'10/09/2026','selecting calendar day waits for Save date');
+ await page.screenshot({path:'.tmp/report-date-calendar.png'});
+ await dialog.getByRole('button',{name:'Lưu ngày',exact:true}).click();
+ assert.equal(await start.inputValue(),'15/09/2026');
+ assert.equal(await page.getByTestId('applied-range').textContent(),'2026-09-10 / 2026-09-20');
+ await page.getByRole('button',{name:'Hủy',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('input[aria-label="Thời gian: từ ngày"]').value==='10/09/2026');
+ assert.equal(await start.inputValue(),'10/09/2026');
+ assert.equal(await page.getByTestId('records').textContent(),'C');
+ console.log('PASS browser: monthly report filtering, custom drafts, calendar Save date, Save range and Cancel');
+}finally{await browser.close();}

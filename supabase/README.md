@@ -1,5 +1,9 @@
 # Bộ SQL Supabase Vuihoc
 
+**Bổ sung dữ liệu báo cáo và giáo viên THCS/THPT:** chạy riêng toàn bộ [enrich_demo_reporting.sql](enrich_demo_reporting.sql) sau khi đã nạp bộ demo. Không reset: phân bố ngày tiếp nhận học sinh vào 08–10/2026 và ngày tạo giáo viên qua 07–10/2026, thêm 6 giáo viên (3 THCS, 3 THPT), điền ngày kết thúc 10–12/2026 cho 24 lớp demo thiếu thời hạn. Giữ công và lịch sử đã phát sinh, chỉ bỏ lịch tương lai chưa sử dụng sau ngày kết thúc. Xem [hướng dẫn cập nhật](DEMO_REPORTING_UPDATE.md).
+
+**Đã học kèm cảnh báo chưa hoàn tất:** chạy toàn bộ [migrations/20261214_completed_lessons_credit.sql](migrations/20261214_completed_lessons_credit.sql). Ca đã vào dạy và checkout/hết giờ được tính là Đã học; kết thúc sớm trên 5 phút hoặc thiếu checkout chỉ là cảnh báo. Công vẫn cần checkout đã lưu và đủ nhận xét; không có sự cố thì mặc định 1 công, có sự cố thì lấy hệ số nghiệp vụ hiện có. File bổ sung công còn thiếu ở kỳ đang mở, giữ công đã ghi/điều chỉnh và kỳ đã khóa; không cần reset dữ liệu.
+
 **Dữ liệu demo 08–11/2026:** xem [hướng dẫn và tình huống](DEMO_AUG_NOV_2026.md), chạy toàn bộ [reset_demo_aug_nov_2026.sql](reset_demo_aug_nov_2026.sql). Bộ này có 24 giáo viên, 120 học sinh, 24 lớp demo, chuyển lớp, sự cố, giải trình và kỳ công đã khóa; thay thế dữ liệu nghiệp vụ cũ, giữ quản trị và danh mục.
 
 **Gộp tài liệu và cấu hình AI:** sau khi đã nâng cấp đến `20261202`, chạy toàn bộ [apply_documents_ai_update.sql](apply_documents_ai_update.sql), thay cho chạy riêng `20261203` và `20261204`. [Cách lưu cấu hình và áp dụng cho chatbot](../docs/ai-configuration-save.md).

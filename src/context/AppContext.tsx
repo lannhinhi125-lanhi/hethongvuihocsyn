@@ -13,6 +13,7 @@ import { payrollLockIssue } from '../lib/workflow';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import { canManageTeacherProfiles } from '../lib/teacherAccounts';
 import type { CategoryGroup } from '../components/CategoryMultiFilter';
+import type { DashboardSelection } from '../lib/dashboardNavigation';
 import { clearLegacyBrowserData, runtimeStorage } from '../lib/localData';
 import { canEditTeacherAvailability } from '../lib/teacherAvailability';
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -51,6 +52,8 @@ interface AppContextType {
   setCurrentUser: (user: UserAccount) => void;
   activeModule: number; // 1 -> 8 cho Admin
   setActiveModule: (mod: number) => void;
+  dashboardSelection: DashboardSelection | null;
+  openDashboardDetail: (selection: DashboardSelection) => void;
   reportSection: 'detail' | 'custom';
   setReportSection: React.Dispatch<React.SetStateAction<'detail' | 'custom'>>;
   workspaceMode: WorkspaceMode;
@@ -138,7 +141,10 @@ const EMPTY_RAG_CONFIG: RAGBotConfig = { welcomeGreeting: '',  personaTone: '', 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Không đọc cache hoặc tự sinh dữ liệu mẫu. Dữ liệu mẫu chỉ nằm trong SQL.
   const [currentUser, setCurrentUser] = useState<UserAccount>(PORTAL_PREVIEW_MODE ? PREVIEW_ACCOUNT : EMPTY_USER);
-  const [activeModule, setActiveModule] = useState<number>(0);
+  const [activeModule, setActiveModuleState] = useState<number>(0);
+  const [dashboardSelection, setDashboardSelection] = useState<DashboardSelection|null>(null);
+  const setActiveModule = (mod:number) => {setDashboardSelection(null);setActiveModuleState(mod);};
+  const openDashboardDetail = (selection:DashboardSelection) => {setDashboardSelection(selection);setActiveModuleState(selection.module);};
   const [reportSection, setReportSection] = useState<'detail' | 'custom'>('detail');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('ADMIN');
   const [teacherPortalTab, setTeacherPortalTab] = useState<'schedule' | 'availability' | 'payroll' | 'evaluation' | 'reconcile'>('availability');
@@ -709,6 +715,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser,
         activeModule,
         setActiveModule,
+        dashboardSelection,
+        openDashboardDetail,
         reportSection,
         setReportSection,
         workspaceMode,

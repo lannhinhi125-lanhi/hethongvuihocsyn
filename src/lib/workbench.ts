@@ -1,6 +1,6 @@
 import type {ClassItem,StudentRecord,TeacherProfile,MonthPayrollData} from '../types';
 import {studentRegistrations} from './studentRegistrations';
-import {monitoringSessionStatus,isEarlyCheckout,minutesEndedEarly} from './sessionAlerts';
+import {monitoringSessionStatus,sessionCompletionWarning} from './sessionAlerts';
 import {materialForSessionDate} from './teacherScheduleMaterials';
 import {teachingScheduleEntries} from './teachingSessionDetails';
 
@@ -28,10 +28,7 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
  const reviewReason=(lesson:WorkbenchLesson)=>{
   const current=state(lesson);
   if(current==='CHUA_HOC')return 'Đã đến giờ học, chưa ghi nhận check-in';
-  if(current==='CHUA_HOAN_TAT')return isEarlyCheckout(lesson.date,time(lesson),lesson.checkoutAt)
-   ?`Checkout sớm ${Math.round(minutesEndedEarly(lesson.date,time(lesson),lesson.checkoutAt))} phút`
-   :'Đã hết giờ học, chưa ghi nhận checkout';
-  return '';
+  return sessionCompletionWarning({sessionDate:lesson.date,timeSlot:time(lesson),status:lesson.status,checkinAt:lesson.checkinAt,checkoutAt:lesson.checkoutAt},now);
  };
  const periodLessons=weekly.map(l=>({lesson:l,state:state(l),reviewReason:reviewReason(l),time:time(l),className:classes.find(c=>c.id===l.classId)?.name||l.classId,
   teacherName:teachers.find(t=>t.id===(l.coverTeacherId||l.primaryTeacherId))?.name||'Chưa phân công'}))
@@ -43,7 +40,7 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
   const last=localDay(new Date(first.getTime()+Math.min(span-1,(i+1)*bucket-1)*86400000));
   const rows=weekly.filter(l=>l.date>=date&&l.date<=last);
   const counts={done:0,warning:0,upcoming:0,cancelled:0};
-  for(const l of rows){const s=state(l);if(s==='DA_HOC')counts.done++;else if(s==='NGHI_HOC')counts.cancelled++;
+  for(const l of rows){const s=state(l);if(reviewReason(l))counts.warning++;else if(s==='DA_HOC')counts.done++;else if(s==='NGHI_HOC')counts.cancelled++;
    else if(['CHUA_HOC','CHUA_HOAN_TAT'].includes(s))counts.warning++;else counts.upcoming++;}
   return {date,label:date.slice(8)+'/'+date.slice(5,7)+(bucket>1?'–'+last.slice(8)+'/'+last.slice(5,7):''),total:rows.length,...counts};
  });
@@ -62,11 +59,12 @@ export function workbenchData(classes:ClassItem[],students:StudentRecord[],teach
  }).filter(t=>t.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'vi')||a.id.localeCompare(b.id));
  return {today,weekStart:start,weekEnd:end,todayLessons,periodLessons,days,workload,
   ongoing:todayLessons.filter(r=>r.state==='DANG_HOC').length,
-  warnings:todayLessons.filter(r=>['CHUA_HOC','CHUA_HOAN_TAT'].includes(r.state)).length,
+  warnings:todayLessons.filter(r=>reviewReason(r.lesson)).length,
   pendingIncidents:incidents.filter(i=>i.status==='DANG_XU_LY'&&(!range||(()=>{const date=i.reportedAt?.slice(0,10)||lessons.find(l=>l.id===i.lessonId)?.date||'';return date>=start&&date<=end;})())).length,
   pendingDisputes:Object.entries(payroll).filter(([month])=>!range||(month>=start.slice(0,7)&&month<=end.slice(0,7))).flatMap(([,p])=>p.disputes||[]).filter(d=>d.status==='CHO_DUYET').length,
   waitingStudents:students.filter(s=>studentRegistrations(s).some(r=>r.status==='Chờ xếp lớp')).length,
   unassignedClasses:classes.filter(c=>!['Dừng lớp','Đã kết thúc'].includes(c.status||'')&&!c.teacherId).length,
+  missingMaterialClassIds:[...missingMaterials],
   missingMaterials:missingMaterials.size,
   missingFeedback:weekly.filter(l=>state(l)!=='NGHI_HOC'&&l.checkoutAt&&l.feedbackProgress&&l.feedbackProgress.completed<l.feedbackProgress.total).length
  };

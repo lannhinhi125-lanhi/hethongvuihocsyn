@@ -1,4 +1,4 @@
-import { canReviewSession,isEarlyCheckout } from '../src/lib/sessionAlerts';
+import { canReviewSession,isEarlyCheckout,sessionCompletionWarning } from '../src/lib/sessionAlerts';
 import assert from 'node:assert/strict';
 import { hasSessionStartPassed, minutesEndedEarly, monitoringStudyStatus, monitoringSessionStatus } from '../src/lib/sessionAlerts';
 
@@ -34,20 +34,20 @@ assert.equal(monitoringSessionStatus(missing, new Date('2026-10-13T09:00:00+07:0
 const entered = { ...missing, checkinAt: '2026-10-12T12:50:00+07:00' };
 assert.equal(monitoringSessionStatus(entered, at('12:50')), 'DANG_HOC');
 assert.equal(monitoringSessionStatus(entered, at('13:49')), 'DANG_HOC');
-assert.equal(monitoringSessionStatus(entered, at('13:50')), 'CHUA_HOAN_TAT');
-assert.equal(monitoringSessionStatus({ ...missing, attendance: 'LATE' }, at('14:00')), 'CHUA_HOAN_TAT');
-assert.equal(monitoringSessionStatus({ ...missing, checkinTime: '12:55:00' }, at('14:00')), 'CHUA_HOAN_TAT');
+assert.equal(monitoringSessionStatus(entered, at('13:50')), 'DA_HOC');
+assert.equal(monitoringSessionStatus({ ...missing, attendance: 'LATE' }, at('14:00')), 'DA_HOC');
+assert.equal(monitoringSessionStatus({ ...missing, checkinTime: '12:55:00' }, at('14:00')), 'DA_HOC');
 assert.equal(monitoringSessionStatus({ ...missing, checkinTime: undefined }, at('14:00')), 'CHUA_HOC');
 assert.equal(monitoringSessionStatus({ ...missing, checkinTime: ' ' }, at('14:00')), 'CHUA_HOC');
 assert.equal(monitoringSessionStatus({ ...entered, checkoutAt: '2026-10-12T13:45:00+07:00' }, at('13:49')), 'DA_HOC');
-assert.equal(monitoringSessionStatus({ ...entered, checkoutAt: '2026-10-12T13:44:59+07:00' }, at('13:49')), 'CHUA_HOAN_TAT');
+assert.equal(monitoringSessionStatus({ ...entered, checkoutAt: '2026-10-12T13:44:59+07:00' }, at('13:49')), 'DA_HOC');
 assert.equal(monitoringSessionStatus({ ...entered, status: 'DA_HOC' }, at('14:00')), 'DA_HOC');
 assert.equal(monitoringSessionStatus({ ...missing, status: 'NGHI_HOC' }, at('14:00')), 'NGHI_HOC');
 assert.equal(monitoringSessionStatus({ ...missing, status: 'HUY' }, at('14:00')), 'NGHI_HOC');
 assert.equal(monitoringSessionStatus(missing, at('14:00'), '12:45'), 'CHUA_DIEN_RA');
 const night = { ...entered, timeSlot: '23:00 - 00:30', checkinAt: '2026-10-12T23:00:00+07:00' };
 assert.equal(monitoringSessionStatus(night, new Date('2026-10-13T00:15:00+07:00')), 'DANG_HOC');
-assert.equal(monitoringSessionStatus(night, new Date('2026-10-13T00:30:00+07:00')), 'CHUA_HOAN_TAT');
+assert.equal(monitoringSessionStatus(night, new Date('2026-10-13T00:30:00+07:00')), 'DA_HOC');
 
 assert.equal(canReviewSession(),false);
 assert.equal(canReviewSession({checkinAt:'2026-10-12T12:50:00+07:00'}),false);
@@ -55,5 +55,12 @@ assert.equal(canReviewSession({checkinAt:'2026-10-12T12:50:00+07:00',checkoutAt:
 assert.equal(canReviewSession({checkinAt:'invalid',checkoutAt:'invalid'}),false);
 assert.equal(isEarlyCheckout('2026-10-12','12:50 - 13:50','2026-10-12T13:45:00+07:00'),false);
 assert.equal(isEarlyCheckout('2026-10-12','12:50 - 13:50','2026-10-12T13:44:59+07:00'),true);
-assert.equal(monitoringSessionStatus({...entered,status:'DA_HOC',checkoutAt:'2026-10-12T13:44:59+07:00'},at('14:00')),'CHUA_HOAN_TAT');
+assert.equal(monitoringSessionStatus({...entered,status:'DA_HOC',checkoutAt:'2026-10-12T13:44:59+07:00'},at('14:00')),'DA_HOC');
 console.log('PASS: feedback locked until checkout; early end boundary at five minutes');
+
+assert.equal(sessionCompletionWarning({...entered,checkoutAt:'2026-10-12T13:44:59+07:00'},at('14:00')).includes('6'),true);
+assert.equal(sessionCompletionWarning(entered,at('14:00')).includes('checkout'),true);
+assert.equal(sessionCompletionWarning(entered,at('13:00')),'');
+assert.equal(sessionCompletionWarning({...entered,checkoutAt:'2026-10-12T13:45:00+07:00'},at('14:00')),'');
+assert.equal(sessionCompletionWarning(missing,at('14:00')),'');
+assert.equal(sessionCompletionWarning({...entered,status:'NGHI_HOC'},at('14:00')),'');

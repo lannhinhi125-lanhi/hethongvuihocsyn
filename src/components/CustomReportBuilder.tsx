@@ -17,7 +17,7 @@ import { Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizon
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from './FilterDrawer';
 import {
-  buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig, reportCsvCell, reportToday, reportTemplateConfig, applyReportTemplate,
+  buildCustomReport, customReportCsv, defaultReportConfig as baseReportConfig, formatReportValue, normalizeReportConfig, reportCsvCell, reportToday, reportTemplateConfig, applyReportTemplate, validReportDate,
   type CustomReportConfig, type ReportDataset, type SavedReportTemplate
 } from '../lib/customReports';
 
@@ -65,6 +65,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
 
   const dataset = datasets.find(item => item.id === config.datasetId) || datasets[0];
   const result = useMemo(() => buildCustomReport(dataset, config), [dataset, config]);
+  const availableDates=useMemo(()=>dataset.records.map(record=>String(record.date||'')).filter(validReportDate).sort(),[dataset]);
   const overview = useMemo(() => config.selection ? buildCustomReport(dataset, { ...config, selection: undefined }) : result, [dataset, config, result]);
   const comparison = config.comparison || defaultComparison;
   const currentRange = { start: result.range.from, end: result.range.to };
@@ -294,6 +295,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
             </div>)}
           </div>
           <p className="rounded-xl border border-orange-100 bg-orange-50/60 px-4 py-3 text-sm text-orange-900">{insight}</p>
+          {!result.records.length&&dataset.dateKind==='event'&&!dataset.prepareRange&&availableDates.length>0&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600"><span>Dữ liệu nguồn đã tải có ngày từ {displayDate(availableDates[0])} đến {displayDate(availableDates[availableDates.length-1])}. Khoảng ngày và điều kiện đang chọn không có bản ghi phù hợp.</span><button type="button" onClick={()=>patch({datePreset:'all',from:'',to:'',filters:{},selection:undefined})} className="font-semibold text-orange-700 underline">Xem toàn bộ dữ liệu</button></div>}
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
             <div className="space-y-2.5 border-b border-slate-100 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">

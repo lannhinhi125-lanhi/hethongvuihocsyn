@@ -1,4 +1,6 @@
 import { lessonPauseLabel } from '../lib/classPause';
+import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
+import {matchesDashboardSelection} from '../lib/dashboardNavigation';
 import { teacherScheduleAt } from '../lib/teacherAvailability';
 import { ReportSelect } from '../components/ReportSelect';
 import { MultiSelectColumnFilter, CheckboxFilterOptions } from '../components/MultiSelectColumnFilter';
@@ -8,11 +10,11 @@ import {workbenchRange} from '../lib/workbenchTime';
 import {reportToday} from '../lib/customReports';
 import { monitoringSubjectCode, selectedMonitoringSubject } from '../lib/monitoringSubjects';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
-import { teachingScheduleEntries, scheduledMaterialForDate } from '../lib/teachingSessionDetails';
+import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
 import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
-import { monitoringSessionStatus, monitoringSessionPriority, isEarlyCheckout, minutesEndedEarly, type MonitoringSessionState } from '../lib/sessionAlerts';
+import { monitoringSessionStatus, monitoringSessionPriority, isEarlyCheckout, minutesEndedEarly, sessionCompletionWarning, type MonitoringSessionState } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
@@ -80,6 +82,8 @@ export interface MonitoringSession {
 }
 
 export const Module5_OperationsMonitoring: React.FC = () => {
+  const {dashboardSelection}=useApp();
+  const [dashboardFilter,setDashboardFilter]=useState(()=>dashboardSelection?.module===5?dashboardSelection:null);
   const displaySessionCode=(session:Pick<MonitoringSession,'displayCode'>)=>session.displayCode||'Chưa cấp mã';
   const { can, requirePermission } = usePermissions();
   const { showToast, currentUser, classes, setClasses, teachers, timeSlots, students, levels, subjects, teachingCategories, incidents, users } = useApp();
@@ -91,11 +95,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [isTimeFilterOpen, setIsTimeFilterOpen] = useState(false);
 
   // Phạm vi thời gian đang xem
-  const [monitoringPeriod,setMonitoringPeriod]=useState<'day'|'week'|'month'>('day');
-  const [monitoringRange,setMonitoringRange]=useState(()=>workbenchRange(reportToday(),'day'));
+  const [monitoringPeriod,setMonitoringPeriod]=useState<'day'|'week'|'month'|'custom'>(dashboardFilter?'custom':'day');
+  const [monitoringRange,setMonitoringRange]=useState(()=>dashboardFilter?.range||workbenchRange(reportToday(),'day'));
   const dateFrom=monitoringRange.start,dateTo=monitoringRange.end;
   // Tab chính
-  const [activeTab, setActiveTab] = useState<'diary' | 'incidents'>('diary');
+  const [activeTab, setActiveTab] = useState<'diary' | 'incidents'>(dashboardFilter?.tab||'diary');
 
   // Danh sách ca dạy toàn hệ thống
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
@@ -110,11 +114,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   useEffect(() => {
     const startDate=dateFrom,endDate=dateTo;
     const generated: MonitoringSession[] = [];
-    persistedLessons.filter(lesson => lesson.date >= startDate && lesson.date <= endDate).forEach(lesson => {
+    persistedLessons.filter(lesson => dashboardFilter ? matchesDashboardSelection(dashboardFilter,lesson.id) : lesson.date >= startDate && lesson.date <= endDate).forEach(lesson => {
       const cls = classes.find(item => item.id === lesson.classId);
       const slot = timeSlots.find(item => item.id === lesson.timeSlotId);
       if (!cls || !slot) return;
-      if (!scheduledMaterialForDate(cls,lesson.date,slot.timeRange)) return;
       generated.push(storedMonitoringSession({
         sessionCode: lesson.id, sessionDate: lesson.date, classCode: cls.code,
         room: '', roomUrl: '', recordingUrl: null, coverTeacher: null,
@@ -131,7 +134,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       } as MonitoringSession, persistedLessons, persistedIncidents, classes, teachers, timeSlots, incidents, users));
     });
     setSessions(generated);
-  }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users, teachers, timeSlots, incidents]);
+  }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users, teachers, timeSlots, incidents, dashboardFilter]);
 
   const [colFilterCode, setColFilterCode] = useState<string[]>([]);
   const [colFilterClass, setColFilterClass] = useState<string[]>([]);
@@ -142,10 +145,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [colFilterTeaching, setColFilterTeaching] = useState<string[]>([]);
   const [colFilterFeedback, setColFilterFeedback] = useState<string[]>([]);
   const [filterCategory, setFilterCategory] = useState('ALL');
-  const [filterSubject, setFilterSubject] = useState('ALL');
+  const [filterSubject, setFilterSubject] = useState(dashboardFilter?'DASHBOARD_ALL':'ALL');
   const subjectTabs = subjects.filter(subject=>subject.status !== false);
-  const selectedSubjectCode = selectedMonitoringSubject(subjects,filterSubject);
-  const selectedSubjectName = subjects.find(subject=>subject.code===selectedSubjectCode)?.name || 'Chưa có môn học';
+  const selectedSubjectCode = filterSubject==='DASHBOARD_ALL'?'DASHBOARD_ALL':selectedMonitoringSubject(subjects,filterSubject);
+  const selectedSubjectName = selectedSubjectCode==='DASHBOARD_ALL'?'Tất cả môn':subjects.find(subject=>subject.code===selectedSubjectCode)?.name || 'Chưa có môn học';
   const [filterGrade, setFilterGrade] = useState('ALL');
   const [filterLevel, setFilterLevel] = useState('ALL');
 
@@ -156,7 +159,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [incColFilterType, setIncColFilterType] = useState<string[]>([]);
   const [incColFilterUrgency, setIncColFilterUrgency] = useState<string[]>([]);
   const [incColFilterCover, setIncColFilterCover] = useState<string[]>([]);
-  const [incColFilterStatus, setIncColFilterStatus] = useState<string[]>([]);
+  const [incColFilterStatus, setIncColFilterStatus] = useState<string[]>(dashboardFilter?.tab==='incidents'?['DANG_XU_LY']:[]);
   const [incColFilterOps, setIncColFilterOps] = useState<string[]>([]);
 
   // Modals state
@@ -267,11 +270,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const warningRowClass = (session: MonitoringSession) => {
     const status = studyStatus(session);
     if (status === 'CHUA_HOC') return 'bg-rose-100/80 border-l-4 border-l-rose-600 border-b border-rose-200 text-rose-950 hover:bg-rose-100 ring-1 ring-inset ring-rose-300 font-medium';
-    if (status === 'CHUA_HOAN_TAT' || (status === 'DA_HOC' && isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt))) return 'bg-orange-100/80 border-l-4 border-l-orange-500 border-b border-orange-200 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-300 font-medium';
+    if (sessionCompletionWarning(session,clockNow)) return 'bg-orange-100/80 border-l-4 border-l-orange-500 border-b border-orange-200 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-300 font-medium';
     return 'hover:bg-slate-50/80 border-b border-slate-100';
   };
 
-  const dateFilteredSessions=sessions.filter(session=>session.sessionDate>=dateFrom&&session.sessionDate<=dateTo);
+  const dateFilteredSessions=sessions.filter(session=>dashboardFilter?matchesDashboardSelection(dashboardFilter,session.sessionCode):session.sessionDate>=dateFrom&&session.sessionDate<=dateTo);
   const viewingToday=dateFrom===reportToday()&&dateTo===reportToday();
 
   const classForSession = (session: MonitoringSession) => classes.find(item => item.code === session.classCode);
@@ -283,7 +286,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const matchesCatalogFilters = (session: MonitoringSession) => {
     const cls = classForSession(session);
     return (filterCategory === 'ALL' || classCategoryForSession(session) === filterCategory) &&
-      Boolean(selectedSubjectCode) && subjectCodeForSession(session) === selectedSubjectCode &&
+      (selectedSubjectCode==='DASHBOARD_ALL'||Boolean(selectedSubjectCode) && subjectCodeForSession(session) === selectedSubjectCode) &&
       (filterGrade === 'ALL' || cls?.grade === filterGrade) &&
       (filterLevel === 'ALL' || cls?.level === filterLevel || session.levelText === levels.find(level => level.code === filterLevel)?.name);
   };
@@ -301,7 +304,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     {label:'Giáo viên',values:colFilterTeacher,onChange:setColFilterTeacher,options:options(subjectFilteredSessions.flatMap(s=>[{value:s.primaryTeacherId||'',label:s.primaryTeacher+' · '+(s.primaryTeacherId||'')},...(s.coverTeacherId?[{value:s.coverTeacherId,label:(s.coverTeacher||'')+' · '+s.coverTeacherId}]:[])])).filter(row=>row.value)},
     {label:'Thời gian & ngày',values:colFilterTime,onChange:setColFilterTime,options:options(subjectFilteredSessions.map(s=>({value:s.timeSlot,label:s.timeSlot})))},
     {label:'Chuyên cần GV',values:colFilterAttendance,onChange:setColFilterAttendance,options:[{value:'ATTENDED',label:'Có mặt'},{value:'LATE',label:'Đi muộn'},{value:'ABSENT',label:'Chưa vào'}]},
-    {label:'Trạng thái ca',values:colFilterStatus,onChange:setColFilterStatus,options:[{value:'CHUA_DIEN_RA',label:'Chưa diễn ra'},{value:'DANG_HOC',label:'Đang học'},{value:'DA_HOC',label:'Đã học'},{value:'CHUA_HOC',label:'Chưa học'},{value:'CHUA_HOAN_TAT',label:'Chưa hoàn tất'},{value:'NGHI_HOC',label:'Nghỉ học'}]},
+    {label:'Trạng thái ca',values:colFilterStatus,onChange:setColFilterStatus,options:[{value:'CHUA_DIEN_RA',label:'Chưa diễn ra'},{value:'DANG_HOC',label:'Đang học'},{value:'DA_HOC',label:'Đã học'},{value:'CHUA_HOC',label:'Chưa học'},{value:'CHUA_HOAN_TAT',label:'Cảnh báo: Chưa hoàn tất'},{value:'NGHI_HOC',label:'Nghỉ học'}]},
     {label:'Hình thức dạy',values:colFilterTeaching,onChange:setColFilterTeaching,options:[{value:'PRIMARY',label:'Dạy chính'},{value:'COVER',label:'Dạy thay'}]},
     {label:'Nhận xét',values:colFilterFeedback,onChange:setColFilterFeedback,options:[{value:'NONE',label:'Chưa nhận xét'},{value:'PARTIAL',label:'Đã nhận xét một phần'},{value:'COMPLETE',label:'Đã nhận xét đầy đủ'}]},
   ];
@@ -314,7 +317,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (colFilterTeacher.length && !colFilterTeacher.some(id => id === s.primaryTeacherId || id === s.coverTeacherId)) return false;
     if (colFilterTime.length && !colFilterTime.includes(s.timeSlot)) return false;
     if (colFilterAttendance.length && !colFilterAttendance.includes(s.attendance)) return false;
-    if (colFilterStatus.length && !colFilterStatus.includes(studyStatus(s))) return false;
+    if (colFilterStatus.length && !colFilterStatus.includes(studyStatus(s)) && !(colFilterStatus.includes('CHUA_HOAN_TAT')&&sessionCompletionWarning(s,clockNow))) return false;
     if (colFilterTeaching.length && !colFilterTeaching.includes(s.coverTeacherId ? 'COVER' : 'PRIMARY')) return false;
     if (colFilterFeedback.length && !colFilterFeedback.includes(feedbackState(s))) return false;
     return true;
@@ -605,6 +608,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   return (
     <div className="space-y-3 text-slate-700">
+      <DashboardFilterNotice selection={dashboardFilter} onClear={()=>{setDashboardFilter(null);resetColFilters();resetIncColFilters();}}/>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-slate-800">Giám sát ca &amp; sự cố · {selectedSubjectName}</h1>
@@ -648,8 +652,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           </button>
         </div>
       </div>
-      <MonitoringPeriodToolbar range={monitoringRange} period={monitoringPeriod} onChange={(range,period)=>{setMonitoringRange(range);setMonitoringPeriod(period);}}/>
+      <MonitoringPeriodToolbar range={monitoringRange} period={monitoringPeriod} onChange={(range,period)=>{setDashboardFilter(null);setMonitoringRange(range);setMonitoringPeriod(period);}}/>
       <div role="tablist" aria-label="Môn học giám sát" className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1">
+        <button id="monitoring-subject-DASHBOARD_ALL" type="button" role="tab" aria-selected={selectedSubjectCode==='DASHBOARD_ALL'} aria-controls="monitoring-subject-content" onClick={()=>selectMonitoringSubject('DASHBOARD_ALL')} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${selectedSubjectCode==='DASHBOARD_ALL'?'bg-orange-50 text-orange-600':'text-slate-600'}`}>Tất cả môn</button>
         {subjectTabs.map(subject=><button key={subject.code} id={'monitoring-subject-'+subject.code} type="button" role="tab" aria-selected={selectedSubjectCode===subject.code} aria-controls="monitoring-subject-content" onClick={()=>selectMonitoringSubject(subject.code)} className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${selectedSubjectCode===subject.code?'bg-orange-50 text-[#FF5C00] ring-1 ring-orange-200':'text-slate-600 hover:bg-slate-50'}`}>
           {subject.name}<span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] leading-none">{dateFilteredSessions.filter(session=>subjectCodeForSession(session)===subject.code).length}</span>
         </button>)}
@@ -818,7 +823,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 ) : studyStatus(s) === 'DA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
                                 <span className="w-2 h-2 rounded-full bg-slate-400" /> Đã học
-                                {isEarlyCheckout(s.sessionDate,s.timeSlot,s.checkoutAt) && <span className="text-orange-800"> · Kết thúc sớm {Math.ceil(minutesEndedEarly(s.sessionDate,s.timeSlot,s.checkoutAt))} phút</span>}
+                                {sessionCompletionWarning(s,clockNow) && <span className="text-orange-800"> · {sessionCompletionWarning(s,clockNow)}</span>}
                               </span>
                             ) : studyStatus(s) === 'CHUA_HOC' ? (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px] border border-rose-200">
@@ -1509,6 +1514,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             </label>
             <label className="block font-medium text-slate-600">Môn học
               <ReportSelect value={selectedSubjectCode} onChange={event => selectMonitoringSubject(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800">
+                <option value="DASHBOARD_ALL">Tất cả môn</option>
                 {subjects.filter(subject => subject.status !== false).map(subject => <option key={subject.code} value={subject.code}>{subject.name}</option>)}
               </ReportSelect>
             </label>

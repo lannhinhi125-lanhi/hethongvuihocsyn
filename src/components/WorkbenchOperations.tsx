@@ -11,9 +11,10 @@ import {MetricComparison} from './MetricComparison';
 import {workbenchData,type WorkbenchLesson} from '../lib/workbench';
 import {PaginatedTableBody} from './Pagination';
 import {SessionStatusChart} from './SessionStatusChart';
+import {dashboardDisputes} from '../lib/dashboardNavigation';
 
 export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange;period:WorkbenchPeriod;section:'operations'|'tasks'}){
- const {classes,students,teachers,timeSlots,payrollStore,setActiveModule,incidents:incidentCategories}=useApp();
+ const {classes,students,teachers,timeSlots,payrollStore,openDashboardDetail,incidents:incidentCategories}=useApp();
  const {canModule}=usePermissions();
  const [lessons]=useBusinessValue<WorkbenchLesson[]>('dated_lessons');
  const [incidents]=useBusinessValue<{status?:string;lessonId?:string;reportedAt?:string}[]>('lesson_incidents');
@@ -27,7 +28,16 @@ export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange
  const data=useMemo(()=>workbenchData(classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,range),[classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,range]);
  const comparison=workbenchComparison(range,period);
  const previous=useMemo(()=>workbenchData(classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,comparison.range),[classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,comparison.range.start,comparison.range.end]);
- const go=(id:number)=>{if(canModule('PH'+id))setActiveModule(id);};
+ const goLessons=(label:string,rows:typeof data.periodLessons)=>{if(canModule('PH5'))openDashboardDetail({module:5,tab:'diary',label,range:{...range},ids:rows.map(row=>row.lesson.id)});};
+ const goQueue=(label:string)=>{
+  if(label==='Giải trình chờ duyệt'&&canModule('PH7'))openDashboardDetail({module:7,tab:'disputes',label,range:{...range},ids:dashboardDisputes(payrollStore,range).filter(d=>d.status==='CHO_DUYET').map(d=>d.id)});
+  if(label==='Lớp thiếu học liệu trong kỳ'&&canModule('PH4'))openDashboardDetail({module:4,tab:'materials',label,range:{...range},ids:data.missingMaterialClassIds});
+  if(label==='Buổi còn thiếu nhận xét')goLessons(label,data.periodLessons.filter(({lesson:l,state})=>state!=='NGHI_HOC'&&l.checkoutAt&&l.feedbackProgress&&l.feedbackProgress.completed<l.feedbackProgress.total));
+  if(label==='Sự cố chờ xử lý'&&canModule('PH5')){
+   const ids=incidents.filter(i=>{const date=i.reportedAt?.slice(0,10)||lessons.find(l=>l.id===i.lessonId)?.date||'';return i.status==='DANG_XU_LY'&&date>=range.start&&date<=range.end;}).flatMap(i=>i.lessonId?[i.lessonId]:[]);
+   openDashboardDetail({module:5,tab:'incidents',label,range:{...range},ids});
+  }
+ };
  const queues=[
   {label:'Sự cố chờ xử lý',count:data.pendingIncidents,module:5},
   {label:'Giải trình chờ duyệt',count:data.pendingDisputes,module:7},
@@ -44,13 +54,13 @@ export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange
    </div>
    <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
     {[{label:'Tổng ca trong kỳ',value:data.periodLessons.length,previous:previous.periodLessons.length},{label:'Đã học',value:data.periodLessons.filter(r=>r.state==='DA_HOC').length,previous:previous.periodLessons.filter(r=>r.state==='DA_HOC').length},{label:'Cần kiểm tra',value:data.periodLessons.filter(r=>r.reviewReason).length,previous:previous.periodLessons.filter(r=>r.reviewReason).length},{label:'Sắp tới / đang học',value:data.periodLessons.filter(r=>['CHUA_DIEN_RA','DANG_HOC'].includes(r.state)).length,previous:previous.periodLessons.filter(r=>['CHUA_DIEN_RA','DANG_HOC'].includes(r.state)).length}].map(item=>
-     <button key={item.label} type="button" disabled={item.label!=='Cần kiểm tra'&&!canModule('PH5')} onClick={()=>item.label==='Cần kiểm tra'?showReview():go(5)} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-orange-200 disabled:cursor-default"><span className="text-[11px] text-slate-600">{item.label}</span><strong className="mt-0.5 block text-xl text-orange-600">{item.value}</strong>{item.label!=='Sắp tới / đang học'&&<MetricComparison current={item.value} previous={item.previous} label={comparison.label}/>}</button>)}
+     <button key={item.label} type="button" disabled={item.label!=='Cần kiểm tra'&&!canModule('PH5')} onClick={()=>item.label==='Cần kiểm tra'?showReview():goLessons(item.label,data.periodLessons.filter(row=>item.label==='Đã học'?row.state==='DA_HOC':item.label==='Sắp tới / đang học'?['CHUA_DIEN_RA','DANG_HOC'].includes(row.state):true))} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-orange-200 disabled:cursor-default"><span className="text-[11px] text-slate-600">{item.label}</span><strong className="mt-0.5 block text-xl text-orange-600">{item.value}</strong>{item.label!=='Sắp tới / đang học'&&<MetricComparison current={item.value} previous={item.previous} label={comparison.label}/>}</button>)}
    </div>
    
   </section>}
   {section==='tasks' && <section className="rounded-2xl border border-slate-200 bg-white p-4">
    <h2 className="text-sm font-bold text-slate-800"><InfoTitle title="Việc cần xử lý trong kỳ"><p>Theo trạng thái hiện tại của các bản ghi trong khoảng đã chọn. Giải trình lấy theo kỳ công tháng giao với khoảng này.</p></InfoTitle></h2>
-   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{queues.map(q=><button key={q.label} type="button" disabled={!canModule('PH'+q.module)} onClick={()=>go(q.module)} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-left hover:bg-orange-50 disabled:cursor-default disabled:hover:bg-white"><span className="text-xs text-slate-600">{q.label}</span><span className="flex items-center gap-2"><strong className={q.count?'text-lg text-orange-600':'text-lg text-slate-400'}>{q.count}</strong>{canModule('PH'+q.module)&&<ArrowUpRight className="h-3.5 w-3.5 text-slate-400"/>}</span></button>)}</div>
+   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{queues.map(q=><button key={q.label} type="button" disabled={!canModule('PH'+q.module)} onClick={()=>goQueue(q.label)} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-left hover:bg-orange-50 disabled:cursor-default disabled:hover:bg-white"><span className="text-xs text-slate-600">{q.label}</span><span className="flex items-center gap-2"><strong className={q.count?'text-lg text-orange-600':'text-lg text-slate-400'}>{q.count}</strong>{canModule('PH'+q.module)&&<ArrowUpRight className="h-3.5 w-3.5 text-slate-400"/>}</span></button>)}</div>
   </section>}
   {section==='operations' && <div className="grid gap-4 lg:grid-cols-2">
    <SessionStatusChart days={data.days} onReview={showReview}/>

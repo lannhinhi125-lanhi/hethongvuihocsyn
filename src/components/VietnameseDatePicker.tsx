@@ -6,14 +6,15 @@ import { calendarDateAllowed, displayVietnameseDate, moveCalendarDate, moveCalen
 import { ReportSelect } from './ReportSelect';
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange' | 'min' | 'max'> & {
-  value: string; min?: string; max?: string; onChange: (event: { target: { value: string } }) => void;
+  value: string; min?: string; max?: string; confirmSelection?: boolean; onChange: (event: { target: { value: string } }) => void;
 };
 const weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-export function VietnameseDatePicker({ value, onChange, disabled, min, max, className = '', ...props }: Props) {
+export function VietnameseDatePicker({ value, onChange, disabled, min, max, confirmSelection=false, className = '', ...props }: Props) {
   const today = reportToday(), initial = validReportDate(value) ? value : today;
   const [draft, setDraft] = useState(displayVietnameseDate(value)), [error, setError] = useState('');
   const [open, setOpen] = useState(false), [month, setMonth] = useState(initial.slice(0, 7)), [active, setActive] = useState(initial);
   const [position, setPosition] = useState({ left: 0, top: 0, maxHeight: 420 });
+  const [pending,setPending]=useState(initial);
   const anchor = useRef<HTMLSpanElement>(null), popup = useRef<HTMLDivElement>(null), button = useRef<HTMLButtonElement>(null);
   const focusDay = useRef(false), popupId = useId(), errorId = useId();
   const label = props['aria-label'] || 'Ngày';
@@ -22,6 +23,7 @@ export function VietnameseDatePicker({ value, onChange, disabled, min, max, clas
   const close = (restoreFocus = false) => { setOpen(false); if (restoreFocus) button.current?.focus(); };
   const select = (date: string) => {
     if (!calendarDateAllowed(date, min, max)) return;
+    if(confirmSelection){setPending(date);setActive(date);return;}
     onChange({ target: { value: date } }); setDraft(displayVietnameseDate(date)); setError(''); close(true);
   };
   const commit = () => {
@@ -33,9 +35,10 @@ export function VietnameseDatePicker({ value, onChange, disabled, min, max, clas
   const show = () => {
     const rect = anchor.current?.getBoundingClientRect(); if (!rect || disabled) return;
     const date = calendarDateAllowed(value, min, max) ? value : min && today < min ? min : max && today > max ? max : today;
-    setMonth(date.slice(0, 7)); setActive(date); focusDay.current = true;
-    const below = window.innerHeight - rect.bottom - 12, above = rect.top - 12, up = below < 380 && above > below;
-    const height = Math.min(410, Math.max(180, up ? above : below));
+    setMonth(date.slice(0, 7)); setActive(date);setPending(date); focusDay.current = true;
+    const desiredHeight=confirmSelection?470:410;
+    const below = window.innerHeight - rect.bottom - 12, above = rect.top - 12, up = below < desiredHeight-30 && above > below;
+    const height = Math.min(desiredHeight, Math.max(180, up ? above : below));
     setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 312)), top: up ? Math.max(8, rect.top - height - 6) : rect.bottom + 6, maxHeight: height }); setOpen(true);
   };
   useEffect(() => {
@@ -79,17 +82,20 @@ export function VietnameseDatePicker({ value, onChange, disabled, min, max, clas
       </div>
       <div className="grid grid-cols-7 text-center">{weekdays.map(day => <span key={day} className="pb-2 font-semibold text-slate-400">{day}</span>)}</div>
       <div role="grid" aria-label={`Tháng ${Number(month.slice(5, 7))} năm ${year}`}>
-        {Array.from({ length: 6 }, (_, week) => <div key={week} role="row" className="grid grid-cols-7">{vietnameseCalendarDays(month).slice(week * 7, week * 7 + 7).map(date => <span key={date} role="gridcell" aria-selected={date === value}>
+        {Array.from({ length: 6 }, (_, week) => <div key={week} role="row" className="grid grid-cols-7">{vietnameseCalendarDays(month).slice(week * 7, week * 7 + 7).map(date => <span key={date} role="gridcell" aria-selected={date === (confirmSelection?pending:value)}>
           <button type="button" data-date={date} aria-label={displayVietnameseDate(date) + (date === today ? ', hôm nay' : '')} aria-current={date === today ? 'date' : undefined} tabIndex={date === active ? 0 : -1} disabled={!calendarDateAllowed(date, min, max)}
             onClick={() => select(date)} onFocus={() => setActive(date)} onKeyDown={event => {
               const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
               let next = delta !== undefined ? moveCalendarDate(date, delta) : event.key === 'PageUp' ? moveCalendarMonth(date, -1) : event.key === 'PageDown' ? moveCalendarMonth(date, 1) : null;
               if (event.key === 'Home' || event.key === 'End') { const weekday = (new Date(date + 'T00:00:00Z').getUTCDay() + 6) % 7; next = moveCalendarDate(date, event.key === 'Home' ? -weekday : 6 - weekday); }
               if (next) { event.preventDefault(); if (calendarDateAllowed(next, min, max)) { focusDay.current = true; setActive(next); setMonth(next.slice(0, 7)); } }
-            }} className={'my-0.5 h-8 w-full rounded-lg font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-orange-500 disabled:cursor-not-allowed disabled:opacity-25 ' + (date === value ? 'bg-[#FF5C00] text-white' : (date === today ? 'ring-1 ring-inset ring-orange-300 ' : '') + (date.startsWith(month) ? 'text-slate-700 hover:bg-orange-50' : 'text-slate-300 hover:bg-orange-50'))}>{Number(date.slice(8, 10))}</button>
+            }} className={'my-0.5 h-8 w-full rounded-lg font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-orange-500 disabled:cursor-not-allowed disabled:opacity-25 ' + (date === (confirmSelection?pending:value) ? 'bg-[#FF5C00] text-white' : (date === today ? 'ring-1 ring-inset ring-orange-300 ' : '') + (date.startsWith(month) ? 'text-slate-700 hover:bg-orange-50' : 'text-slate-300 hover:bg-orange-50'))}>{Number(date.slice(8, 10))}</button>
         </span>)}</div>)}
       </div>
+      <div className="sticky bottom-0 bg-white pb-1">
       <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2"><span className="text-[10px] text-slate-400">Ngày / tháng / năm</span><button type="button" disabled={!calendarDateAllowed(today, min, max)} onClick={() => select(today)} className="rounded-lg bg-orange-50 px-3 py-1.5 font-semibold text-orange-700 hover:bg-orange-100 disabled:opacity-40">Hôm nay</button></div>
+      {confirmSelection&&<div className="mt-2 flex items-center justify-between gap-2"><span className="text-[11px] text-slate-500">{displayVietnameseDate(pending)}</span><button type="button" disabled={!calendarDateAllowed(pending,min,max)} onClick={()=>{onChange({target:{value:pending}});setDraft(displayVietnameseDate(pending));setError('');close(true);}} className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white disabled:opacity-40">Lưu ngày</button></div>}
+      </div>
     </div>, document.body)}
   </span>;
 }

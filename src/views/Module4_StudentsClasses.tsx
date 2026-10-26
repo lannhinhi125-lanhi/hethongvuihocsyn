@@ -1,4 +1,6 @@
 import { ProfileExcelImport } from '../components/ProfileExcelImport';
+import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
+import {matchesDashboardSelection} from '../lib/dashboardNavigation';
 import {classPauseReasons,pauseReasonKey} from '../lib/classPause';
 import { readRoomLinkFile } from '../lib/roomLinkImport';
 import { ReportSelect } from '../components/ReportSelect';
@@ -118,6 +120,8 @@ const shiftTeachingWeek = (offset: number) => {
 const INITIAL_TEACHING_WEEK = teachingWeekForDate(new Date());
 
 export const Module4_StudentsClasses: React.FC = () => {
+  const {dashboardSelection}=useApp();
+  const [dashboardFilter,setDashboardFilter]=useState(()=>dashboardSelection?.module===4?dashboardSelection:null);
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
@@ -140,7 +144,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const students = useMemo(() => studentRegistrationRows(studentProfiles,true), [studentProfiles]);
 
-  const [activeTab, setActiveTab] = useState<'students' | 'classes' | 'materials'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'classes' | 'materials'>(dashboardFilter?.tab||'students');
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [pauseClassIds, setPauseClassIds] = useState<string[]>([]);
   const [pauseReason, setPauseReason] = useState('');
@@ -237,6 +241,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
+      if(dashboardFilter?.tab==='students'&&!matchesDashboardSelection(dashboardFilter,s.id))return false;
       const matchSearch = stdSearch === '' || 
         s.name.toLowerCase().includes(stdSearch.toLowerCase()) || 
         s.id.toLowerCase().includes(stdSearch.toLowerCase()) || 
@@ -254,14 +259,15 @@ export const Module4_StudentsClasses: React.FC = () => {
         (!stdSlotFilter.length || stdSlotFilter.some(time=>s.scheduleSlots.some(slot=>slot.includes('('+time+')')))) &&
         (!stdModelFilter.length || stdModelFilter.includes(s.model));
     });
-  }, [students, classes, teachingCategories, stdCategoryFilter, stdSearch, stdGradeFilter, stdSubjectFilter, stdLevelFilter, stdStatusFilter, stdCodeFilter, stdNameFilter, stdClassFilter, stdSlotFilter, stdModelFilter]);
+  }, [students, classes, teachingCategories, stdCategoryFilter, stdSearch, stdGradeFilter, stdSubjectFilter, stdLevelFilter, stdStatusFilter, stdCodeFilter, stdNameFilter, stdClassFilter, stdSlotFilter, stdModelFilter, dashboardFilter]);
 
   const filteredClasses = useMemo(() => classes.filter(item => {
+    if(dashboardFilter?.tab==='classes'&&!matchesDashboardSelection(dashboardFilter,item.id))return false;
     const search = clsSearch.trim().toLowerCase();
     if (search && ![item.code, item.name, item.teacherName].some(value => value.toLowerCase().includes(search))) return false;
     const fields = classFieldValues(item);
     return (Object.entries(clsFilters) as [ClassFilterKey, string[]][]).every(([key, selected]) => !selected.length || selected.some(value => fields[key].includes(value)));
-  }), [classes, clsSearch, clsFilters, teachingCategories]);
+  }), [classes, clsSearch, clsFilters, teachingCategories, dashboardFilter]);
 
   const selectableClasses = filteredClasses.filter(item => !['Dừng lớp', 'Đã kết thúc'].includes(item.status || ''));
   const selectedClasses = selectableClasses.filter(item => selectedClassIds.includes(item.id));
@@ -437,7 +443,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   type MaterialFilterKey = 'code' | 'name' | 'subject' | 'gradeSubject' | 'category' | 'grade' | 'level' | 'model' | 'status' | 'materialStatus' | 'lessonOne' | 'lessonTwo';
   const [materialFilters, setMaterialFilters] = useState<Partial<Record<MaterialFilterKey, string[]>>>({});
   const [isMaterialFilterOpen, setIsMaterialFilterOpen] = useState(false);
-  const [materialRange,setMaterialRange]=useState(()=>workbenchRange(reportToday(),'week'));
+  const [materialRange,setMaterialRange]=useState(()=>dashboardFilter?.range||workbenchRange(reportToday(),'week'));
   const [isBatchGradeDropdownOpen, setIsBatchGradeDropdownOpen] = useState(false);
   const [isBatchLevelDropdownOpen, setIsBatchLevelDropdownOpen] = useState(false);
   const [isBatchClassDropdownOpen, setIsBatchClassDropdownOpen] = useState(false);
@@ -561,6 +567,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     });
     return selectedGroups.length ? selectedGroups.map(group=>({item,...group})) : [{item,month:'',week:'',materials:[] as ClassItem['materials']}];
   }).filter(({ item, materials }) => {
+      if(dashboardFilter?.tab==='materials'&&!matchesDashboardSelection(dashboardFilter,item.id))return false;
       const selected = (key: MaterialFilterKey) => materialFilters[key] || [];
       const categoryId = classCategoryId(item);
       const hasMaterials = materials.length > 0;
@@ -578,7 +585,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         (!selected('lessonOne').length || selected('lessonOne').includes(titleOne)) &&
         (!selected('lessonTwo').length || selected('lessonTwo').includes(titleTwo)) &&
         (!selected('materialStatus').length || selected('materialStatus').includes(hasMaterials ? 'assigned' : 'missing'));
-  }), [classes, materialFilters, materialRange]);
+  }), [classes, materialFilters, materialRange, dashboardFilter]);
 
   const batchEligibleClasses = useMemo(() => classes.filter(item =>
     canAssignClassMaterials(item) &&
@@ -1281,6 +1288,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <DashboardFilterNotice selection={dashboardFilter} onClear={()=>setDashboardFilter(null)}/>
       {pauseClassIds.length > 0 && createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div role="dialog" aria-modal="true" aria-label="Tạm dừng lớp" className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6"><h2 className="text-lg font-bold">Tạm dừng ({pauseClassIds.length} lớp)</h2><p className="text-sm text-slate-600">Giữ nguyên giáo viên và học sinh. Lớp chỉ học lại khi bạn chọn Tiếp tục lớp. Bạn có thể sửa lý do khi lớp đang nghỉ.</p><label className="block text-sm">Loại sự cố / nghỉ học<ReportSelect value={pauseReason} onChange={event => setPauseReason(event.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="" disabled>Chọn từ danh mục sự cố</option>{pauseReasons.map(reason => <option key={reason.key} value={reason.key} disabled={!reason.isScheduledBreak && reason.creditCoeff===undefined}>{reason.group} · {reason.name}{!reason.isScheduledBreak && reason.creditCoeff===undefined ? ' (chưa có hệ số công)' : ''}</option>)}</ReportSelect></label>{!pauseReasons.length && <p className="text-sm text-amber-700">Chưa có lý do đang áp dụng. Vui lòng bật “Cho phép tạm dừng lớp” cho loại tương ứng trong Danh mục sự cố.</p>}<textarea aria-label="Chi tiết lý do khác" placeholder="Nhập lý do tạm dừng" value={pauseNote} onChange={event => setPauseNote(event.target.value)} className="w-full rounded-lg border p-2" /><div className="flex justify-end gap-2"><button type="button" onClick={() => setPauseClassIds([])} className="rounded-lg border px-4 py-2">Hủy</button><button type="button" disabled={!pauseReasons.some(entry => entry.key === pauseReason) || isSavingChanges} onClick={savePause} className="rounded-lg bg-orange-600 px-4 py-2 text-white disabled:opacity-40">Lưu lý do</button></div></div></div>, document.body)}
       {/* Header Banner Phân hệ 4 Quản trị chuẩn Figma */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
@@ -1296,7 +1304,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         {/* 3 Tabs Phân hệ 4 */}
         <div className="flex items-center bg-slate-100 p-1 rounded-xl self-start sm:self-auto border border-slate-200 text-xs">
           <button
-            onClick={() => setActiveTab('students')}
+            onClick={() => {if(activeTab!=='students')setDashboardFilter(null);setActiveTab('students');}}
             className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'students' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -1305,7 +1313,7 @@ export const Module4_StudentsClasses: React.FC = () => {
             <span>Hồ sơ Học sinh</span>
           </button>
           <button
-            onClick={() => setActiveTab('classes')}
+            onClick={() => {if(activeTab!=='classes')setDashboardFilter(null);setActiveTab('classes');}}
             className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'classes' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -1314,7 +1322,7 @@ export const Module4_StudentsClasses: React.FC = () => {
             <span>Quản lý Lớp học</span>
           </button>
           <button
-            onClick={() => setActiveTab('materials')}
+            onClick={() => {if(activeTab!=='materials')setDashboardFilter(null);setActiveTab('materials');}}
             className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'materials' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -1509,7 +1517,7 @@ export const Module4_StudentsClasses: React.FC = () => {
             </div>
           </div>
 
-          <PeriodToolbar label="Thời gian học liệu" range={materialRange} onChange={setMaterialRange} initialPeriod="week"/>
+          <PeriodToolbar label="Thời gian học liệu" range={materialRange} onChange={range=>{setDashboardFilter(null);setMaterialRange(range);}} initialPeriod="week"/>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-3">

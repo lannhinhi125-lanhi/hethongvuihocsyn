@@ -6,6 +6,7 @@ import {studentStudyEditIssue} from '../src/lib/profileEditing';
 import {updateStudentRegistration} from '../src/lib/studentRegistrations';
 import type {ClassItem,StudentRecord} from '../src/types';
 import {fromSupabaseRow,toSupabaseRow} from '../src/lib/supabaseMapper';
+import {buildCustomReport,defaultReportConfig} from '../src/lib/customReports';
 const termPayload=toSupabaseRow('classes',{id:'C1',startDate:'2028-01-31',durationCatalogGroupId:'GROUP',durationCatalogId:'ONE',customEndDate:null,durationMonths:1,endDate:'2028-02-28'});
 assert.deepEqual(termPayload,{madinhdanh:'C1',ngaybatdau:'2028-01-31',madanhmucthoihan:'GROUP',mathoihan:'ONE',ngayketthuctuychinh:null});
 assert.equal(fromSupabaseRow('classes',{madinhdanh:'C1',thoihanthang:1,ngayketthuc:'2028-02-28',mathoihan:'ONE',madanhmucthoihan:'GROUP',ngayketthuctuychinh:null}).endDate,'2028-02-28');
@@ -25,6 +26,10 @@ const classes=[{...base,endDate:today},{...base,id:'C2',code:'C2',endDate:shift(
 const current={...reopened,registrations:[{...reopened.registrations![0],registeredAt:today,registrationKind:'RETURNING',periodNumber:2}],registrationHistory:[{...student.registrations![0],grade:'G1',endedAt:'2026-02-01',registrationKind:'FIRST'}]};
 const datasets=allReportDatasets({classes,students:[current],teachers:[],lessons:[],incidents:[],evaluations:[],lookups:{}}).detail;
 assert.deepEqual(datasets.find(d=>d.id==='classes_ending')!.records.map(r=>r.id),['C1','C2']);
+const ending= datasets.find(d=>d.id==='classes_ending')!;
+const selectedFuture=buildCustomReport(ending,{...defaultReportConfig(ending),datePreset:'custom',from:shift(31),to:shift(31)});
+assert.deepEqual(selectedFuture.records.map(row=>row.id),['C3'],'selected end-date range overrides the default 30-day window');
+assert.deepEqual(buildCustomReport(ending,{...defaultReportConfig(ending),datePreset:'all'}).records.map(row=>row.id),['C1','C2'],'all-time keeps the upcoming 30-day default');
 const periods=datasets.find(d=>d.id==='student_registration_periods')!.records;
 assert.equal(periods.length,2);
 assert.ok(periods.every(row=>row.id==='S1'));

@@ -20,7 +20,8 @@ try {
  await db.exec(file('supabase/fix_profile_class_updates.sql'));
  await db.exec(file('supabase/cleanup_unused_tables.sql'));
  await db.exec(file('supabase/setup_teacher_question_history.sql'));
- if(process.argv.includes('--legacy')) { await verify(); } else {
+ const runVerification=async()=>process.argv.includes('--reporting-fixture')?(await import('./demoReportingEnrichmentCases.mjs')).verifyDemoReportingEnrichment(db):process.argv.includes('--completed-credit')?(await import('./completedLessonCreditCases.mjs')).verifyCompletedLessonCredit(db):verify();
+ if(process.argv.includes('--legacy')) { await runVerification(); } else {
  await db.exec(file('supabase/reset_demo_dataset.sql'));
  await db.exec(file('supabase/migrations/20261109_reenrollment_class_duration.sql'));
  await db.exec(file('supabase/migrations/20261109_reenrollment_class_duration.sql'));
@@ -42,7 +43,7 @@ try {
  await db.exec(file('supabase/migrations/20261213_profile_only_student_import.sql'));
 
 
- await verify();
+ await runVerification();
  }
 }catch(e){console.error(JSON.stringify({message:e.message,detail:e.detail,where:e.where,position:e.position}));process.exitCode=1;}finally{await db.close();}
 

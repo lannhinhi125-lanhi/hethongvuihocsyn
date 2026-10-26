@@ -26,14 +26,24 @@ export const monitoringSessionStatus = (session: {
   checkoutAt?: string | null;
 }, now: Date, effectiveTime?: string): MonitoringSessionState => {
   if (session.status === 'NGHI_HOC' || session.status === 'HUY') return 'NGHI_HOC';
-  if (session.status === 'DA_HOC' && !isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt)) return 'DA_HOC';
+  if (session.status === 'DA_HOC') return 'DA_HOC';
   const phase = monitoringStudyStatus(session.sessionDate, session.timeSlot, now, effectiveTime);
   if (phase === 'CHUA_HOC') return 'CHUA_DIEN_RA';
   const checkedIn = Boolean(session.checkinAt || session.checkinTime?.trim() ||
     session.attendance === 'ATTENDED' || session.attendance === 'LATE');
   if (!checkedIn) return 'CHUA_HOC';
-  if (session.checkoutAt) return isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt) ? 'CHUA_HOAN_TAT' : 'DA_HOC';
-  return phase === 'DANG_HOC' ? 'DANG_HOC' : 'CHUA_HOAN_TAT';
+  if (session.checkoutAt) return 'DA_HOC';
+  return phase === 'DANG_HOC' ? 'DANG_HOC' : 'DA_HOC';
+};
+
+/** Teaching status and completion warnings are independent of credited work. */
+export const sessionCompletionWarning = (session: Parameters<typeof monitoringSessionStatus>[0],now:Date,effectiveTime?:string):string => {
+  if(['NGHI_HOC','HUY','DA_HOC_CU','DAY_THAY_CU'].includes(session.status||''))return '';
+  const entered=Boolean(session.checkinAt||session.checkinTime?.trim()||['ATTENDED','LATE'].includes(session.attendance||''));
+  if(!entered||monitoringStudyStatus(session.sessionDate,session.timeSlot,now,effectiveTime)==='CHUA_HOC')return '';
+  if(isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt))return `Chưa hoàn tất · Kết thúc sớm ${Math.ceil(minutesEndedEarly(session.sessionDate,session.timeSlot,session.checkoutAt))} phút`;
+  if(!session.checkoutAt&&monitoringStudyStatus(session.sessionDate,session.timeSlot,now,effectiveTime)==='DA_HOC')return 'Chưa hoàn tất · Chưa ghi nhận checkout';
+  return '';
 };
 
 export const minutesEndedEarly = (date: string, time: string, checkoutAt?: string | null): number => {

@@ -1,6 +1,6 @@
 import { lessonPauseLabel, pauseReasonName } from '../lib/classPause';
 import { ReportSelect } from '../components/ReportSelect';
-import { canReviewSession, isEarlyCheckout } from '../lib/sessionAlerts';
+import { canReviewSession, sessionCompletionWarning } from '../lib/sessionAlerts';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { TeacherChatThread } from '../components/TeacherChatThread';
 import { ChatHistoryControls } from '../components/ChatHistoryControls';
@@ -280,7 +280,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const selectedLesson=selectedDetail?.lesson;
   const checkoutFacts={checkinAt:selectedLesson?.checkinAt || selectedDetail?.active?.checkinAt,checkoutAt:selectedLesson?.checkoutAt || selectedDetail?.active?.checkoutAt,status:selectedLesson?.status};
   const reviewUnlocked=canReviewSession(checkoutFacts) && !businessStatus.saving;
-  const endedEarly=isEarlyCheckout(selectedSessionDate,selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time || '',checkoutFacts.checkoutAt);
+  const completionWarning=sessionCompletionWarning({...checkoutFacts,sessionDate:selectedSessionDate,timeSlot:selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time || ''},new Date());
   useEffect(()=>{
     if(!selectedClassId)return;
     setClassLiveStatus(canReviewSession(checkoutFacts) ? 'DA_HOAN_THANH' : checkoutFacts.checkinAt ? 'DANG_HOC' : 'CHUA_DIEN_RA');
@@ -509,7 +509,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                       <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${selectedDetail?.lifecycleStatus==='NGHI_HOC' ? 'border border-[#E8C96D] bg-[#FFE8A3] text-[#805C16]' : selectedDetail?.lifecycleStatus==='CHUA_HOC' ? 'bg-red-100 text-red-800' : selectedDetail?.lifecycleStatus==='CHUA_HOAN_TAT' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'}`}>
                         Trạng thái: {selectedDetail && {CHUA_DIEN_RA:'Chưa diễn ra',CHUA_HOC:'Chưa học',DANG_HOC:'Đang học',CHUA_HOAN_TAT:'Chưa hoàn tất',DA_HOC:'Đã học',NGHI_HOC:'Nghỉ học'}[selectedDetail.lifecycleStatus]}
                       </span>
-                      {endedEarly && <span className="rounded-full px-2 py-1 text-xs font-bold bg-orange-100 text-orange-800">Chưa hoàn tất — kết thúc sớm hơn 5 phút</span>}
+                      {completionWarning && <span className="rounded-full px-2 py-1 text-xs font-bold bg-orange-100 text-orange-800">{completionWarning}</span>}
                       <span className="text-xs text-slate-500">Nhận xét: {selectedLesson?.feedbackProgress?.completed ?? selectedStudentIds.filter(id=>selectedClass.activeSessions?.[selectedSessionNum]?.feedback?.[id]?.trim()).length}/{selectedStudentIds.length}</span>
                     </div>
                   </div>

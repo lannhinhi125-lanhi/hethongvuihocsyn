@@ -8,6 +8,8 @@ import {workbenchComparison} from '../lib/workbenchComparison';
 import {MetricComparison} from './MetricComparison';
 import {reportCreationDate} from '../lib/reportCreationDate';
 import {WorkbenchGrowth} from './WorkbenchGrowth';
+import {usePermissions} from '../hooks/usePermissions';
+import {studentProfileRows,studentRegistrations} from '../lib/studentRegistrations';
 
 const colors=['#6366f1','#10b981','#f59e0b','#f43f5e','#06b6d4','#a855f7'];
 function Distribution({items}:{items:{label:string;count:number}[]}){
@@ -16,7 +18,14 @@ function Distribution({items}:{items:{label:string;count:number}[]}){
  return <div className="mt-5 flex flex-wrap items-center justify-center gap-6"><div role="img" aria-label={items.map(i=>`${i.label}: ${i.count}`).join(', ')} className="relative h-36 w-36 shrink-0 rounded-full" style={{background:total?`conic-gradient(${stops.join(',')})`:'#f1f5f9'}}><div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white"><strong className="text-2xl text-slate-800">{total}</strong><span className="text-[10px] text-slate-500">{total?'Tổng cộng':'Chưa có dữ liệu'}</span></div></div><div className="min-w-40 space-y-3">{items.map((item,i)=><div key={item.label} className="flex items-center justify-between gap-4 text-xs"><span className="flex items-center gap-2 text-slate-600"><i className="h-2 w-2 rounded" style={{background:colors[i%colors.length]}}/>{item.label}</span><strong>{item.count}</strong></div>)}</div></div>;
 }
 export function WorkbenchAnalytics({section,range,period}:{section:'enrollment'|'quality';range:WorkbenchRange;period:WorkbenchPeriod}){
- const {classes,students,subjects}=useApp();
+ const {classes,students,subjects,openDashboardDetail}=useApp();
+ const {canModule}=usePermissions();
+ const openEnrollment=(index:number)=>{
+  if(!canModule('PH4'))return;
+  const label=['Tổng hồ sơ học sinh','Học sinh đang học','Tổng lớp học','Lớp đang học'][index];
+  const ids=index<2?studentProfileRows(students).filter(s=>index===0||studentRegistrations(s).some(r=>r.status==='Đang học')).map(s=>s.id):classes.filter(c=>index===2||c.status==='Đang học').map(c=>c.id);
+  openDashboardDetail({module:4,tab:index<2?'students':'classes',label,ids});
+ };
  const [lessons]=useBusinessValue<{id:string;date:string}[]>('dated_lessons');
  const [incidents]=useBusinessValue<{lessonId:string}[]>('lesson_incidents');
  const [evaluations]=useBusinessValue<WorkbenchEvaluation[]>('teacher_evaluations');
@@ -34,7 +43,7 @@ export function WorkbenchAnalytics({section,range,period}:{section:'enrollment'|
  const points=(key:'students'|'classes')=>data.growth.map((g,i)=>`${30+i*540/Math.max(1,data.growth.length-1)},${140-g[key]/max*115}`).join(' ');
  return <div className="space-y-4">
   <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="text-sm font-bold text-slate-800"><InfoTitle title={section==='enrollment'?'Học sinh & lớp học hiện tại':'Theo dõi chất lượng đào tạo'}><p>{section==='enrollment'?'Tổng hợp toàn bộ hồ sơ hiện có từ dữ liệu đã tải, không lọc ngày tạo. Mỗi mã học sinh hoặc mã lớp chỉ tính một lần; tổng lớp gồm cả lớp chờ khai giảng, tạm dừng và đã kết thúc.':'Sự cố tính theo ngày buổi học; dự giờ theo ngày đánh giá và chỉ lấy biên bản đã duyệt.'}</p></InfoTitle></h2>
-   <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map((m,i)=><div key={m.label} className="rounded-lg bg-slate-50 px-3 py-2"><span className="text-[11px] text-slate-600">{m.label}</span><strong className="mt-0.5 block text-xl text-orange-600">{m.value}</strong>{section==='quality'&&<MetricComparison {...qualityComparison[i]} label={comparison.label}/>}</div>)}</div>
+   <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map((m,i)=><button key={m.label} type="button" disabled={section!=='enrollment'||!canModule('PH4')} onClick={()=>openEnrollment(i)} className="rounded-lg bg-slate-50 px-3 py-2 text-left enabled:hover:bg-orange-50"><span className="text-[11px] text-slate-600">{m.label}</span><strong className="mt-0.5 block text-xl text-orange-600">{m.value}</strong>{section==='quality'&&<MetricComparison {...qualityComparison[i]} label={comparison.label}/>}</button>)}</div>
   </section>
   {section==='enrollment'?<>
    <WorkbenchGrowth data={data} previous={previous} comparison={comparison} range={range}/>

@@ -25,4 +25,9 @@ console.log('PASS: review reasons match chart totals; early threshold, missing c
 const assigned=workbenchData([],[],[{id:'T',name:'Teacher'}] as TeacherProfile[],lessons,[],{},[{id:'S',timeRange:'10:00 - 11:00'}],new Date(date+'T12:00:00+07:00'),{start:date,end:'2026-10-19'}).workload[0];
 assert.equal(assigned.count,5,'cancelled lessons excluded from assignment list');
 assert.equal(assigned.review,3);
-assert.equal(assigned.completed,1);
+assert.equal(assigned.completed,3);
+
+assert.equal(data.periodLessons.find(row=>row.lesson.id==='early')!.state,'DA_HOC');
+assert.equal(data.periodLessons.find(row=>row.lesson.id==='no-checkout')!.state,'DA_HOC');
+assert.ok(data.periodLessons.find(row=>row.lesson.id==='early')!.reviewReason);
+assert.equal(data.days.reduce((n,day)=>n+day.done+day.warning+day.upcoming+day.cancelled,0),data.periodLessons.length);

@@ -1,4 +1,6 @@
 import { ReportSelect } from '../components/ReportSelect';
+import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
+import {dashboardDisputes as selectDashboardDisputes,dashboardDisputeMonth} from '../lib/dashboardNavigation';
 import {WorkEvidenceLinks} from '../components/WorkEvidenceLinks';
 import { workNoteDisplay } from '../lib/workNoteDisplay';
 import {pendingLessonWork,lessonWorkDetails,lessonWorkStatus} from '../lib/pendingLessonWork';
@@ -53,6 +55,8 @@ const getSessionStudentNames = (session: SessionPayrollRecord) =>
   session.studentNames?.length ? session.studentNames.join(', ') : session.studentName;
 
 export const Module7_WorkReconciliation: React.FC = () => {
+  const {dashboardSelection}=useApp();
+  const [dashboardFilter,setDashboardFilter]=useState(()=>dashboardSelection?.module===7?dashboardSelection:null);
   const lessonCode=useLessonCode();
   const [handoffScope, setHandoffScope] = useState<'staff' | 'sessions'>('staff');
   const [handoffDetails, setHandoffDetails] = useState({ organization: 'VUIHOC TUTOR', address: '', reportNumber: '', receiver: 'Bộ phận tính lương', operationsSigner: '', receivingSigner: '', author: '' });
@@ -74,9 +78,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const teachingContext: WorkTeachingContext = useMemo(() => ({ classes, subjects, models, levels, teachingCategories, lessons: handoffLessons }), [classes, subjects, models, levels, teachingCategories, handoffLessons]);
 
   // State bộ lọc
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentPayrollMonth());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => dashboardFilter?.range.end.slice(0,7)||getCurrentPayrollMonth());
   const payrollMonthOptions = getPayrollMonthOptions(new Date(), [...Object.keys(payrollStore), ...handoffLessons.map(lesson => lesson.date.slice(0,7))]);
-  const [activeTab, setActiveTab] = useState<'summary' | 'sessions' | 'disputes'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'sessions' | 'disputes'>(dashboardFilter?'disputes':'summary');
   const [detailTeacherId, setDetailTeacherId] = useState<string | null>(null);
   const [staffTypeFilter, setStaffTypeFilter] = useState<'ALL' | 'GIAO_VIEN' | 'GIA_SU'>('ALL');
   const [subjectFilter, setSubjectFilter] = useState<string>('ALL');
@@ -111,7 +115,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     creditCoeff: { min: '', max: '' }
   });
   const [disputeIdFilter, setDisputeIdFilter] = useState('');
-  const [disputeStatusFilter, setDisputeStatusFilter] = useState('ALL');
+  const [disputeStatusFilter, setDisputeStatusFilter] = useState(dashboardFilter?'CHO_DUYET':'ALL');
   const [disputeTypeFilter, setDisputeTypeFilter] = useState('');
   const [disputeSessionFilter, setDisputeSessionFilter] = useState('');
   const [disputeContentFilter, setDisputeContentFilter] = useState('');
@@ -292,7 +296,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
     sessionRanges, searchTerm, lessonCode
   ]);
 
-  const filteredDisputes = useMemo(() => (monthData.disputes || []).filter(dispute => {
+  const dashboardDisputes=useMemo(()=>dashboardFilter?selectDashboardDisputes(payrollStore,dashboardFilter.range,dashboardFilter.ids):null,[dashboardFilter,payrollStore]);
+  const disputeMonth=(dispute:DisputeItem)=>dashboardDisputeMonth(payrollStore,dispute,selectedMonth);
+  const filteredDisputes = useMemo(() => (dashboardDisputes||monthData.disputes || []).filter(dispute => {
     if (staffTypeFilter !== 'ALL' && dispute.staffRole !== staffTypeFilter) return false;
     if (subjectFilter !== 'ALL' && dispute.subject !== subjectFilter) return false;
     if (searchTerm.trim() && ![dispute.id, dispute.teacherName, dispute.sessionId, lessonCode(dispute.sessionId),dispute.classCode, dispute.incidentType, dispute.content, dispute.adminNote].filter(Boolean).join(' ').toLowerCase().includes(searchTerm.trim().toLowerCase())) return false;
@@ -304,7 +310,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     if (disputeAdminNoteFilter && !(dispute.adminNote || '').toLocaleLowerCase('vi').includes(disputeAdminNoteFilter.trim().toLocaleLowerCase('vi'))) return false;
     return true;
   }).sort((left, right) => Number(right.status === 'CHO_DUYET') - Number(left.status === 'CHO_DUYET')), [
-    monthData.disputes, staffTypeFilter, subjectFilter, disputeIdFilter, disputeStatusFilter,
+    dashboardDisputes, monthData.disputes, staffTypeFilter, subjectFilter, disputeIdFilter, disputeStatusFilter,
     disputeTypeFilter, disputeSessionFilter, disputeContentFilter, disputeAdminNoteFilter, searchTerm, lessonCode
   ]);
 
@@ -407,6 +413,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       staffCount: (monthData.teachers || []).length
     };
   }, [monthData]);
+  const pendingDisputeCount=dashboardDisputes?.filter(dispute=>dispute.status==='CHO_DUYET').length??stats.pendingDisputes;
 
   // Shared scope for the Excel workbook and handoff document.
   const handoffStaff = useMemo(() => {
@@ -457,7 +464,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
     if(isSavingChanges)return;
     if (!requirePermission("Xử lý & phê duyệt đơn giải trình công dạy")) return;
     if (!reviewingDispute) return;
-    if (!reviewDispute(selectedMonth, reviewingDispute.id, status, disputeAdminNote, disputeCreditCoeff)) return;
+    if (!reviewDispute(disputeMonth(reviewingDispute), reviewingDispute.id, status, disputeAdminNote, disputeCreditCoeff)) return;
     void confirmSave(()=>{
     setReviewingDispute(null);
     setDisputeAdminNote('');
@@ -498,11 +505,14 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   const openDisputeReview = (dispute: DisputeItem) => {
     if (!requirePermission("Xử lý & phê duyệt đơn giải trình công dạy")) return;
-    if (monthData.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'warning'); return; }
+    const sourceMonth=disputeMonth(dispute);
+    const sourceData=payrollStore[sourceMonth];
+    if (sourceData?.isLocked) { showToast('Hãy mở khóa kỳ trước khi xử lý giải trình.', 'warning'); return; }
+    setSelectedMonth(sourceMonth);
     setReviewingDispute(dispute);
     setDisputeAdminNote(dispute.adminNote || '');
     setDisputeDecision(dispute.status === 'TU_CHOI' ? 'TU_CHOI' : 'DA_DUYET');
-    const session = monthData.teachers
+    const session = (sourceData?.teachers||[])
       .find(teacher => teacher.teacherId === dispute.teacherId)
       ?.sessions.find(payrollSession => payrollSession.id === dispute.sessionId);
     setDisputeCreditCoeff(session?.creditCoeff ?? 0);
@@ -510,6 +520,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <DashboardFilterNotice selection={dashboardFilter} onClear={()=>{setDashboardFilter(null);setDisputeStatusFilter('ALL');}}/>
       {/* Banner Tiêu đề Phân hệ */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
@@ -528,10 +539,11 @@ export const Module7_WorkReconciliation: React.FC = () => {
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
             <ReportSelect
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
+              value={dashboardFilter?'DASHBOARD_RANGE':selectedMonth}
+              onChange={e => {setDashboardFilter(null);setSelectedMonth(e.target.value);}}
               className="bg-transparent text-[11px] font-semibold text-slate-700 focus:outline-hidden cursor-pointer"
             >
+              {dashboardFilter&&<option value="DASHBOARD_RANGE">Các kỳ từ Bàn làm việc</option>}
               {payrollMonthOptions.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
@@ -539,6 +551,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
             </div>
           </div>
 
+          {!dashboardFilter&&<>
           {/* Nút Xuất Excel gửi bộ phận tính công */}
           <button
             onClick={() => { setHandoffScope(activeTab === 'sessions' ? 'sessions' : 'staff'); setShowExportModal(true); }}
@@ -579,11 +592,12 @@ export const Module7_WorkReconciliation: React.FC = () => {
               <span>Chốt kỳ</span>
             </button>
           )}
+          </>}
         </div>
       </div>
 
       {/* KPI Cards: Chỉ số buổi học và công giảng dạy (Không thù lao) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+      {!dashboardFilter&&<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <div className="text-[11px] font-semibold text-slate-500 uppercase">Tổng số buổi dạy</div>
           <div className="text-2xl font-black text-slate-800 mt-1">{stats.totalSessions}</div>
@@ -637,13 +651,12 @@ export const Module7_WorkReconciliation: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
-
+      </div>}
       {/* Tabs Chuyển đổi màn hình */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="flex overflow-x-auto border-b border-slate-200 px-3 pt-2 bg-slate-50/50">
           <button
-            onClick={() => { setDetailTeacherId(null); setActiveTab('summary'); }}
+            onClick={() => { setDashboardFilter(null);setDetailTeacherId(null); setActiveTab('summary'); }}
             className={`shrink-0 px-3 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'summary'
                 ? 'border-[#FF5C00] text-[#E05200]'
@@ -658,7 +671,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('sessions')}
+            onClick={() => {setDashboardFilter(null);setActiveTab('sessions');}}
             className={`shrink-0 px-3 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'sessions'
                 ? 'border-[#FF5C00] text-[#E05200]'
@@ -682,9 +695,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>Xử lý giải trình &amp; Khiếu nại công</span>
-            {stats.pendingDisputes > 0 && (
+            {pendingDisputeCount > 0 && (
               <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-bold">
-                {stats.pendingDisputes}
+                {pendingDisputeCount}
               </span>
             )}
           </button>

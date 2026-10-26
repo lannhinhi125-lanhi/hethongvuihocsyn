@@ -1,7 +1,7 @@
 import type {workbenchData} from '../lib/workbench';
 import {InfoTitle} from './InfoTitle';
 
-const legend=[{key:'done',label:'Đã học',color:'bg-emerald-500'},
+const legend=[{key:'done',label:'Đã học, không cảnh báo',color:'bg-emerald-500'},
  {key:'warning',label:'Cần kiểm tra',color:'bg-rose-500'},
  {key:'upcoming',label:'Sắp tới / đang học',color:'bg-indigo-400'},
  {key:'cancelled',label:'Nghỉ',color:'bg-amber-400'}] as const;
@@ -9,7 +9,7 @@ const legend=[{key:'done',label:'Đã học',color:'bg-emerald-500'},
 export function SessionStatusChart({days,onReview}:{days:ReturnType<typeof workbenchData>['days'];onReview:()=>void}){
  const max=Math.max(1,...days.map(day=>day.total));
  return <section className="rounded-2xl border border-slate-200 bg-white p-4">
-  <h2 className="text-sm font-bold text-slate-800"><InfoTitle title="Trạng thái ca học theo thời gian"><p>Mỗi hàng là một ngày hoặc nhóm ngày trong kỳ. Độ dài thanh thể hiện tổng số ca; mỗi màu là một trạng thái.</p><p><strong>Cần kiểm tra:</strong> đến giờ chưa check-in; hết giờ chưa checkout; hoặc checkout sớm trên 5 phút.</p></InfoTitle></h2>
+  <h2 className="text-sm font-bold text-slate-800"><InfoTitle title="Trạng thái ca học theo thời gian"><p>Mỗi hàng là một ngày hoặc nhóm ngày trong kỳ. Các ca có cảnh báo nằm ở màu Cần kiểm tra để không đếm trùng. Ca đã vào dạy và kết thúc vẫn thuộc tổng Đã học trên dashboard, kể cả có cảnh báo chưa hoàn tất.</p><p><strong>Cần kiểm tra:</strong> đến giờ chưa check-in; hết giờ chưa checkout; hoặc checkout sớm trên 5 phút.</p></InfoTitle></h2>
   <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">{legend.map(item=><span key={item.key} className="flex items-center gap-2 text-[11px] text-slate-600"><i className={`h-2.5 w-2.5 shrink-0 rounded ${item.color}`}/>{item.label}</span>)}</div>
   <div className="mt-5 space-y-4">{days.map(day=><div key={day.date}>
    <div className="mb-1.5 flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-700">{day.label}</span><strong className="whitespace-nowrap text-slate-600">{day.total} ca</strong></div>

@@ -1,5 +1,9 @@
 # Bộ dữ liệu demo tháng 8–11/2026
 
+**Dữ liệu báo cáo đa dạng:** sau khi nạp bộ gốc, chạy thêm [enrich_demo_reporting.sql](enrich_demo_reporting.sql) để có ngày tiếp nhận/tạo mới trải qua nhiều tháng, 6 giáo viên THCS/THPT và ngày kết thúc 10–12 cho các lớp demo. Xem [quy mô và tài khoản sau cập nhật](DEMO_REPORTING_UPDATE.md). Không cần reset; các số lượng bên dưới mô tả bộ gốc trước khi bổ sung.
+
+**Quy tắc mới:** sau khi đã nạp demo, chạy riêng [20261214_completed_lessons_credit.sql](migrations/20261214_completed_lessons_credit.sql) để áp dụng Đã học kèm cảnh báo Chưa hoàn tất. Kết thúc sớm không tự trừ công; không có sự cố và đã đủ checkout/nhận xét thì được 1 công. Kỳ đang mở sẽ được bổ sung công còn thiếu, nên tổng dòng công có thể tăng so với mốc 366 bên dưới. Kỳ đã khóa được giữ nguyên; nếu cần áp dụng lại cho kỳ đó, mở khóa theo nghiệp vụ rồi chạy lại file cập nhật này. Không chạy lại reset chỉ để đổi quy tắc công.
+
 Chạy **toàn bộ `supabase/reset_demo_aug_nov_2026.sql`** trong Supabase → SQL Editor → New query → Run. Chỉ chạy file này; không cần chạy file reset hoặc seed cũ trước/sau đó. Tải lại ứng dụng sau khi hoàn tất.
 
 File này thay thế hồ sơ giáo viên, học sinh, buổi học, điểm danh, nhận xét, dự giờ, công, giải trình và lịch sử xếp lớp. Tài khoản thuộc cổng TEACHER cũ được thay bằng tài khoản demo. Tài khoản ADMIN, phân quyền, danh mục và tài liệu/cấu hình AI được giữ. Lớp ngoài nhóm mã `DEMO-LOP-xxx` được giữ thông tin, lịch và học liệu, chuyển về tạm dừng và bỏ giáo viên cũ; lịch sử học/công của các lớp đó được xóa. Các lớp demo cũ được tạo lại.
