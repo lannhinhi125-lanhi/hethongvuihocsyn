@@ -436,7 +436,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                     <div>Ra: {session.checkout}</div>
                   </td>
                   <td className="py-3 px-4"><span className={'inline-block rounded-md px-2 py-0.5 text-[10px] font-bold '+(isIncidentWorkSession(session)?'bg-amber-100 text-amber-800':'bg-emerald-100 text-emerald-800')}>{isIncidentWorkSession(session)?'Buổi sự cố':'Buổi chuẩn'}</span>{session.type==='COVER'&&<span className="ml-1 inline-block rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Cover</span>}</td>
-                  <td className="py-3 px-4"><span className="text-[11px] text-slate-700">{session.isPendingCredit?lessonWorkStatus(session.lessonStatus):reconcileLabel(session)}</span><div className="mt-1 text-[11px] text-slate-500">{!session.isPendingCredit?lessonWorkStatus(session.lessonStatus):''}{session.feedbackProgress?((session.isPendingCredit?'':' · ')+`Nhận xét ${session.feedbackProgress.completed}/${session.feedbackProgress.total}`):''}</div></td>
+                  <td className="py-3 px-4"><span className="text-[11px] text-slate-700">{session.isPendingCredit?lessonWorkStatus(session.lessonStatus):reconcileLabel(session)}</span><div className="mt-1 text-[11px] text-slate-500">{!session.isPendingCredit?lessonWorkStatus(session.lessonStatus):''}{session.feedbackProgress?((session.isPendingCredit?'':' · ')+`Nhận xét ${session.feedbackProgress.completed}/${session.feedbackProgress.total}`):''}</div>{session.isPendingCredit&&<div className="mt-1 text-[11px] font-semibold text-amber-700">{session.pendingCreditReason}</div>}</td>
                   <td className="py-3 px-4 text-center">
                     <span className="font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md text-xs border border-emerald-200">
                       {session.isPendingCredit?'—':session.creditCoeff}
@@ -526,6 +526,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             ['Điểm danh vào / ra',`${viewingSession.checkin} / ${viewingSession.checkout}`],
             ['Thời lượng',viewingSession.durationMinutes!=null?`${viewingSession.durationMinutes} phút`:'—'],
             ['Trạng thái buổi',lessonWorkStatus(viewingSession.lessonStatus)],
+            ...(viewingSession.isPendingCredit?[["Lý do chưa ghi công",viewingSession.pendingCreditReason||'—']]:[]),
             ['Trạng thái đối soát',reconcileLabel(viewingSession)],
             ['Nhận xét học sinh',viewingSession.feedbackProgress?`${viewingSession.feedbackProgress.completed}/${viewingSession.feedbackProgress.total}`:'—'],
             ['Hệ số ghi nhận',viewingSession.isPendingCredit?'—':String(viewingSession.creditCoeff)],

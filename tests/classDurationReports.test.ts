@@ -25,11 +25,12 @@ const base={id:'C1',code:'C1',name:'Lớp',grade:'G1',subject:'M',level:'basic',
 const classes=[{...base,endDate:today},{...base,id:'C2',code:'C2',endDate:shift(30)},{...base,id:'C3',code:'C3',endDate:shift(31)},{...base,id:'C4',code:'C4',endDate:shift(-1)},{...base,id:'C5',code:'C5',endDate:today,status:'Đã kết thúc' as const}];
 const current={...reopened,registrations:[{...reopened.registrations![0],registeredAt:today,registrationKind:'RETURNING',periodNumber:2}],registrationHistory:[{...student.registrations![0],grade:'G1',endedAt:'2026-02-01',registrationKind:'FIRST'}]};
 const datasets=allReportDatasets({classes,students:[current],teachers:[],lessons:[],incidents:[],evaluations:[],lookups:{}}).detail;
-assert.deepEqual(datasets.find(d=>d.id==='classes_ending')!.records.map(r=>r.id),['C1','C2']);
+assert.deepEqual(datasets.find(d=>d.id==='classes_ending')!.records.map(r=>r.id),['C1','C2','C3','C4']);
 const ending= datasets.find(d=>d.id==='classes_ending')!;
 const selectedFuture=buildCustomReport(ending,{...defaultReportConfig(ending),datePreset:'custom',from:shift(31),to:shift(31)});
 assert.deepEqual(selectedFuture.records.map(row=>row.id),['C3'],'selected end-date range overrides the default 30-day window');
-assert.deepEqual(buildCustomReport(ending,{...defaultReportConfig(ending),datePreset:'all'}).records.map(row=>row.id),['C1','C2'],'all-time keeps the upcoming 30-day default');
+assert.deepEqual(buildCustomReport(ending,defaultReportConfig(ending)).records.map(row=>row.id).sort(),['C1','C2'],'default explicitly selects the next 30 days');
+assert.deepEqual(buildCustomReport(ending,{...defaultReportConfig(ending),datePreset:'all'}).records.map(row=>row.id).sort(),['C1','C2','C3','C4'],'all means all dates, without a hidden upcoming window');
 const periods=datasets.find(d=>d.id==='student_registration_periods')!.records;
 assert.equal(periods.length,2);
 assert.ok(periods.every(row=>row.id==='S1'));

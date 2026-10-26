@@ -3,7 +3,8 @@ import type {SessionPayrollRecord} from '../types';
 /** Present generated incident notes using the linked lesson's public code.
  * Keep the original note and incident identity intact for payroll updates.
  */
-export function workNoteDisplay(session:Pick<SessionPayrollRecord,'hrPayNote'|'incidentId'>,lessonCode:string):string {
+export function workNoteDisplay(session:Pick<SessionPayrollRecord,'hrPayNote'|'incidentId'|'isPendingCredit'|'pendingCreditReason'>,lessonCode:string):string {
+ if(session.isPendingCredit)return session.pendingCreditReason||'Chưa ghi công — thiếu nhận xét';
  const note=session.hrPayNote||'';
  if(!session.incidentId)return note;
  const marker='('+session.incidentId+')';

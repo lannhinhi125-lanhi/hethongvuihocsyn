@@ -33,7 +33,13 @@ Mật khẩu khởi tạo `246810`. Chạy lại không tạo tài khoản trùn
 
 Trong báo cáo chọn **Tháng**, dùng lịch hoặc nút kỳ trước/sau để đến tháng 9/2026. Chọn **Tùy chọn** thì sửa ngày, bấm **Lưu ngày** trong popup, rồi **Lưu** trên thanh thời gian để áp dụng cả khoảng. **Hủy** trả lại khoảng đã áp dụng; đổi ngày nháp không tự đổi kết quả báo cáo.
 
-Báo cáo **Lớp sắp kết thúc** lọc đúng theo ngày kết thúc của kỳ đã chọn, gồm cả các tháng 11/12 nằm ngoài 30 ngày tới. Khi chọn **Toàn bộ**, báo cáo vẫn mặc định xem cửa sổ 30 ngày tới. Không còn áp đồng thời cửa sổ mặc định này lên tháng được chọn.
+Báo cáo **Lớp sắp kết thúc** có lựa chọn **30 ngày tới** riêng và chọn sẵn khi mở báo cáo mới. **Toàn bộ** hiện tất cả ngày kết thúc của lớp đang học/chờ khai giảng, không áp cửa sổ 30 ngày ngầm. Chọn tháng hoặc khoảng tùy chỉnh để xem đúng kỳ đó, gồm cả tháng 11/12.
+
+Để có lớp và học sinh cho sáu giáo viên THCS/THPT, chạy thêm `add_secondary_demo_classes.sql` sau file bổ sung dữ liệu này và quy tắc công `20261214`. File tạo 6 lớp (3 THCS, 3 THPT) cùng 18 học sinh, mỗi lớp 3 em; tổng hồ sơ học sinh là 138. Dùng lại tài khoản `gv.demo25`–`gv.demo30`, không tạo thêm giáo viên/tài khoản.
+
+Các lớp mới có học liệu, lịch hai buổi/tuần và ngày kết thúc tháng 11/12. Nếu kỳ 10/2026 đang mở, lớp bắt đầu 19/10/2026 và có buổi đã học, đi muộn, kết thúc sớm, vắng học và một buổi còn thiếu nhận xét. Không ghi sự cố nên buổi đủ nhận xét được 1 công; ca thiếu nhận xét không có dòng công. Nếu tháng 10 đã khóa, toàn bộ lớp mới bắt đầu 02/11/2026 với trạng thái Chờ khai giảng và lịch tương lai, không bổ sung công vào tháng đã khóa. Chạy lại không nhân đôi hay ghi đè nhận xét đã sửa.
+
+Ở màn hình công admin và giáo viên, các ca chưa ghi công chỉ hiển thị lý do **thiếu nhận xét (đã nhập/tổng học sinh)**; checkout do hệ thống tự ghi khi hết giờ. Các dòng theo dõi này có hệ số “—”, không được cộng vào tổng công, chốt công hoặc gửi giải trình như một dòng công đã ghi.
 
 Kiểm thử database và báo cáo thực tế:
 

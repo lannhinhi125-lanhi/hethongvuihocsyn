@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+export async function verifySecondaryDemo(db){
+ for(const file of ['supabase/reset_demo_aug_nov_2026.sql','supabase/migrations/20261214_completed_lessons_credit.sql','supabase/enrich_demo_reporting.sql'])await db.exec(readFileSync(file,'utf8'));
+ const sql=readFileSync('supabase/add_secondary_demo_classes.sql','utf8');
+ const oldWork=(await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows;
+ const oldLessons=(await db.query('SELECT * FROM vuihoc."BUOI_HOC" ORDER BY madinhdanh')).rows;
+ await db.exec(`BEGIN; UPDATE vuihoc."BANG_CONG_THANG" SET dakhoa=true WHERE kycong='2026-10'`);
+ await db.exec(sql);
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."LOP_HOC" WHERE madinhdanh IN(SELECT 'DEMO-LOP-'||lpad(i::text,3,'0') FROM generate_series(25,30) i) AND ngaybatdau=date '2026-11-02'`)).rows[0].n,6,'locked October moves new classes into November');
+ assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,oldWork);
+ await db.exec('ROLLBACK');
+ await db.exec(sql);
+ const classes=(await db.query(`SELECT * FROM vuihoc."LOP_HOC" WHERE madinhdanh IN(SELECT 'DEMO-LOP-'||lpad(i::text,3,'0') FROM generate_series(25,30) i) ORDER BY madinhdanh`)).rows;
+ assert.equal(classes.length,6);assert.equal(classes.filter(c=>c.macaphoc==='CAP-THCS').length,3);assert.equal(classes.filter(c=>c.macaphoc==='CAP-THPT').length,3);
+ assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."HOC_SINH" WHERE right(madinhdanh,3)::integer BETWEEN 121 AND 138`)).rows[0].n,18);
+ for(const cls of classes)assert.equal((await db.query('SELECT cardinality(vuihoc.hoc_sinh_lop($1)) n',[cls.madinhdanh])).rows[0].n,3);
+ const newLessons=(await db.query(`SELECT b.* FROM vuihoc."BUOI_HOC" b JOIN vuihoc."LOP_HOC" l ON l.madinhdanh=b.malop WHERE l.madinhdanh IN(SELECT 'DEMO-LOP-'||lpad(i::text,3,'0') FROM generate_series(25,30) i)`)).rows;
+ assert.ok(newLessons.length>50);assert.ok(newLessons.some(b=>b.vaolopluc));assert.ok(newLessons.some(b=>!b.vaolopluc));
+ const work=(await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows;
+ for(const row of oldWork)assert.deepEqual(work.find(c=>c.madinhdanh===row.madinhdanh),row,'old work is preserved');
+ const allLessons=(await db.query('SELECT * FROM vuihoc."BUOI_HOC" ORDER BY madinhdanh')).rows;
+ for(const row of oldLessons)assert.deepEqual(allLessons.find(b=>b.madinhdanh===row.madinhdanh),row,'old lessons unchanged');
+ assert.ok(work.some(c=>c.magiaovien==='DEMO-GV-027'&&Number(c.hesocong)===1),'early checkout without incident still earns 1 credit');
+ assert.ok(newLessons.some(b=>b.magiaovienchinh==='DEMO-GV-029'&&b.ketthucluc&&!work.some(c=>c.mabuoi===b.madinhdanh)),'incomplete feedback has no work row');
+ await db.exec(sql);
+ assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc."BUOI_HOC"')).rows[0].n,allLessons.length);
+ assert.deepEqual((await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" ORDER BY madinhdanh')).rows,work);
+ console.log('PASS secondary demo: 6 classes, 18 pupils, correct levels/rosters, taught/future lessons, 1-credit early checkout, feedback gate, preservation and rerun');
+ console.log(JSON.stringify({classes:classes.length,students:18,newLessons:newLessons.length,newWork:work.length-oldWork.length}));
+}

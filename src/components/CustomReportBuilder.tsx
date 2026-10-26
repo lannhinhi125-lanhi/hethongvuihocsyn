@@ -252,7 +252,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
       <div className="min-w-0 space-y-3">
         <section className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
           <div className="flex flex-wrap items-center gap-2">
-            <PeriodToolbar label="Thời gian" range={{start:result.range.from,end:result.range.to}} disabled={dataset.dateKind === 'snapshot'} onChange={value=>patch({datePreset:value.start||value.end?'custom':'all',from:value.start,to:value.end})}/>
+            <PeriodToolbar allowUpcoming={dataset.id==='classes_ending'} label="Thời gian" range={{start:result.range.from,end:result.range.to}} disabled={dataset.dateKind === 'snapshot'} onChange={value=>patch({datePreset:value.start||value.end?'custom':'all',from:value.start,to:value.end})}/>
             <button type="button" className={button + ' ml-auto'} disabled={!dataset.filters.length} onClick={() => setFilterOpen(true)}>
               <Filter className="h-3.5 w-3.5" />Lọc chi tiết{activeFilters.length > 0 && <span className="rounded bg-orange-50 px-1.5 text-orange-700">{activeFilters.length}</span>}
             </button>

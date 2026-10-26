@@ -279,6 +279,7 @@ export interface RAGBotConfig {
 // Phân hệ 7: Chốt công & Đối soát (Dành cho Giáo viên & Gia sư)
 export interface SessionPayrollRecord {
   isPendingCredit?: boolean;
+  pendingCreditReason?: string;
   lessonStatus?: string;
   feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
   incidentId?: string | null;

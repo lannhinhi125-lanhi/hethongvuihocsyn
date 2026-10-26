@@ -20,6 +20,13 @@ try{
  await page.getByRole('button',{name:'Thời gian: lưu khoảng ngày'}).click();
  assert.equal(await page.getByTestId('applied-range').textContent(),'2026-09-10 / 2026-09-20');
  assert.equal(await page.getByTestId('records').textContent(),'C');
+ assert.equal(await page.getByTestId('ending-records').textContent(),'E0');
+ const endingPeriod=page.getByRole('combobox',{name:'Kết thúc lớp: kỳ xem'});
+ assert.ok((await endingPeriod.textContent()).includes('30 ngày tới'));
+ await endingPeriod.click();await page.getByRole('option',{name:'Toàn bộ',exact:true}).click();
+ assert.equal(await page.getByTestId('ending-records').textContent(),'E0,E1','all dates includes the class ending beyond 30 days');
+ await endingPeriod.click();await page.getByRole('option',{name:'30 ngày tới',exact:true}).click();
+ assert.equal(await page.getByTestId('ending-records').textContent(),'E0');
  await page.getByRole('button',{name:'Mở lịch: Thời gian: từ ngày'}).click();
  const dialog=page.getByRole('dialog',{name:'Chọn ngày: Thời gian: từ ngày'});
  await dialog.locator('[data-date="2026-09-15"]').click();

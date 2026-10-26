@@ -981,6 +981,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                           {session.isPendingCredit?lessonWorkStatus(session.lessonStatus):session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : session.reconcileStatus === 'CO_GIAI_TRINH' ? 'Có giải trình' : session.reconcileStatus === 'DA_CHOT' ? 'Đã chốt' : 'Chờ đối soát'}
                         </span>
                         {session.feedbackProgress&&<div className="mt-1 text-[11px] text-slate-500">{!session.isPendingCredit?lessonWorkStatus(session.lessonStatus)+' · ':''}Nhận xét {session.feedbackProgress.completed}/{session.feedbackProgress.total}</div>}
+                        {session.isPendingCredit&&<div className="mt-1 text-[11px] font-semibold text-amber-700">{session.pendingCreditReason||'Chưa ghi công — thiếu nhận xét'}</div>}
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span className="font-black text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md text-xs border border-slate-200">
@@ -1361,6 +1362,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <div><dt className="text-slate-500">Trạng thái buổi</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.lessonStatus?lessonWorkStatus(viewingSession.session.lessonStatus):viewingSession.session.statusText}</dd></div>
                 <div><dt className="text-slate-500">Trạng thái đối soát</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.isPendingCredit?'—':viewingSession.session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : viewingSession.session.reconcileStatus === 'CO_GIAI_TRINH' ? 'Có giải trình' : viewingSession.session.reconcileStatus === 'DA_CHOT' ? 'Đã chốt công' : 'Chờ đối soát'}</dd></div>
                 <div><dt className="text-slate-500">Hệ số ghi nhận</dt><dd className="mt-1 font-bold text-emerald-700">{viewingSession.session.isPendingCredit?'—':viewingSession.session.creditCoeff}</dd></div>
+                {viewingSession.session.isPendingCredit&&<div className="sm:col-span-2"><dt className="text-slate-500">Lý do chưa ghi công</dt><dd className="mt-1 font-semibold text-amber-700">{viewingSession.session.pendingCreditReason}</dd></div>}
                 <div><dt className="text-slate-500">AI rà soát</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.hasAiReview ? 'Đã rà soát' : 'Chưa rà soát'}</dd></div>
                 <div className="sm:col-span-2"><dt className="text-slate-500">Ghi chú đối soát</dt><dd className="mt-1 rounded-lg bg-slate-50 p-3 text-slate-700">{workNoteDisplay(viewingSession.session,lessonCode(viewingSession.session.lessonId||viewingSession.session.id)) || 'Không có ghi chú'}</dd></div>
                 {viewingSession.session.dispute && (

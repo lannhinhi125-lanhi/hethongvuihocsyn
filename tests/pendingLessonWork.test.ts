@@ -11,13 +11,18 @@ const pending=derive([lesson]);
 assert.equal(pending.length,1);assert.equal(pending[0].id,'B1');assert.equal(pending[0].creditCoeff,null);
 assert.equal(pending[0].lessonStatus,lesson.status);assert.deepEqual(pending[0].feedbackProgress,lesson.feedbackProgress);
 assert.equal(pending[0].checkin,'17:59:00');assert.equal(pending[0].checkout,'19:00:00');
+assert.match(pending[0].pendingCreditReason!,/2/);
+assert.ok(pending[0].pendingCreditReason!.includes('1/2'));
+assert.ok(!pending[0].pendingCreditReason!.includes('checkout'));
 assert.equal(canDisputeTeacherWork({...pending[0],reconciliationSent:true},false,true,true,[]),false);
 const credited={...pending[0],isPendingCredit:undefined,creditCoeff:0.75} as SessionPayrollRecord;
 assert.equal(derive([lesson],[credited]).length,0,'same lesson/teacher replaces pending with credited row');
 assert.equal(derive([{...lesson,coverTeacherId:'G2'}],[credited]).length,1,'original teacher incident must not hide the substitute lesson');
-for(const change of [{status:'CHUA_HOAN_TAT'},{status:'NGHI_HOC'},{status:'DANG_HOC'},{checkoutAt:null},{date:'2026-11-01'},{checkoutAt:'2026-10-20T19:00:00+07:00'},{feedbackProgress:{...lesson.feedbackProgress!,completed:2}}]){
+for(const change of [{status:'NGHI_HOC'},{checkoutAt:null},{date:'2026-11-01'},{checkoutAt:'2026-10-20T19:00:00+07:00'},{feedbackProgress:{...lesson.feedbackProgress!,completed:2}}]){
  assert.equal(derive([{...lesson,...change}]).length,0);
 }
+assert.equal(derive([{...lesson,status:'CHUA_HOAN_TAT'}]).length,1,'early-completed teaching with incomplete feedback stays visible');
+assert.equal(derive([{...lesson,feedbackProgress:undefined}]).length,0,'only genuinely missing feedback is listed');
 assert.deepEqual(workCreditBreakdown([...pending,credited]),{standardCredit:0.75,incidentCredit:0});
 const handoff=workHandoffRows([{teacherId:'G1',sessions:[...pending,credited]} as TeacherPayrollSummary])[0];
 assert.equal(handoff.sessions.length,1);assert.equal(handoff.totalCredit,0.75);

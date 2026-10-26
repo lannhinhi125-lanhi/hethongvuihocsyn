@@ -74,6 +74,10 @@ export function reportRange(config: CustomReportConfig, now = new Date()): { fro
   return { from: iso(date).slice(0, 7) + '-01', to: iso(date) };
 }
 export function defaultReportConfig(dataset: ReportDataset): CustomReportConfig {
+  if(dataset.id==='classes_ending'){
+    const from=reportToday(),end=new Date(from+'T12:00:00Z');end.setUTCDate(end.getUTCDate()+30);
+    return {datasetId:dataset.id,metricIds:dataset.defaultMetricIds,groupBy:dataset.dimensions[0]?.id||'all',datePreset:'custom',from,to:end.toISOString().slice(0,10),filters:{},sort:'value_desc'};
+  }
   return {
     datasetId: dataset.id, metricIds: dataset.defaultMetricIds, groupBy: dataset.dimensions[0]?.id || 'all',
     datePreset: dataset.dateKind === 'snapshot' ? 'all' : 'month', from: '', to: '', filters: {}, sort: 'value_desc'
