@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* Slightly larger desktop typography, including fixed-size Tailwind labels.
+   Keep the browser's preferred font size and leave mobile/print unchanged. */
+@media screen and (min-width: 1024px) {
+  html { font-size: 106.25%; }
+
+  [class~='text-[9px]'] { font-size: 0.5625rem; }
+  [class~='text-[10px]'] { font-size: 0.625rem; }
+  [class~='text-[11px]'] { font-size: 0.6875rem; }
+  [class~='text-[28px]'] { font-size: 1.75rem; }
+  [class~='text-[42px]'] { font-size: 2.625rem; }
+}
+
 /* The workspace owns its scroll; reaching its end must not scroll the document. */
 html:has(.workspace-ui),
 body:has(.workspace-ui) {
