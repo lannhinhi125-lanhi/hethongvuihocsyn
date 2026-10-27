@@ -21,7 +21,7 @@ export function storedMonitoringSession(base:MonitoringSession,lessons:Row[],inc
  coverTeacherId:lesson.coverTeacherId||null,coverTeacher:teachers.find(t=>t.id===lesson.coverTeacherId)?.name||null,recordingUrl:lesson.recordingUrl||null,lessonDiary:lesson.diary||'',
  fromClassPause:!!incident?.fromClassPause,pausedByClass:lesson.pausedByClass,pauseCategoryId:lesson.pauseCategoryId,pauseReason:lesson.pauseReason,pauseNote:lesson.pauseNote,
  hasIncident:!!incident,incidentParent:(categories.find(c=>c.id===incident?.categoryId)?.code||null) as MonitoringSession['incidentParent'],incidentChild:incident?.incidentCode||null,
- incidentUrgency:incident?.urgency||null,incidentStatus:incident?.status||null,incidentNote:incident?.content||'',handledByOpsId:incident?.handledBy||null,handledByName:users.find(user=>user.id===incident?.handledBy)?.name||null,handledAt:incident?.handledAt||null};
+ incidentUrgency:incident?.urgency||null,incidentStatus:incident?.status||null,incidentNote:incident?.content||'',appliedCreditCoeff:incident?.appliedCreditCoeff??null,handledByOpsId:incident?.handledBy||null,handledByName:users.find(user=>user.id===incident?.handledBy)?.name||null,handledAt:incident?.handledAt||null};
 }
 export function persistMonitoringChanges(previous:MonitoringSession[],next:MonitoringSession[],lessons:Row[],incidentRows:Row[],classes:ClassItem[],teachers:TeacherProfile[],slots:TimeSlotItem[],categories:IncidentCategory[],userId:string){
  let updatedLessons=[...lessons],updatedIncidents=[...incidentRows];

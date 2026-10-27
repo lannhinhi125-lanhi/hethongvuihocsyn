@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { coverScheduleConflict, isUnresolvedIncident, timeRangesOverlap } from '../src/lib/monitoringWorkflow';
+import type { ClassItem, TimeSlotItem } from '../src/types';
+import type { TeachingLesson } from '../src/lib/teachingSessionDetails';
+
+assert.equal(timeRangesOverlap('08:00 - 09:00', '09:00 - 10:00'), false);
+assert.equal(timeRangesOverlap('08:00-09:30', '09:00 - 10:00'), true);
+assert.equal(timeRangesOverlap('', '09:00 - 10:00'), false);
+const slots = [{ id: 'AM', timeRange: '08:00 - 09:00' }, { id: 'PM', timeRange: '18:00 - 19:00' }] as TimeSlotItem[];
+const target = { sessionCode: 'TARGET', sessionDate: '2026-10-28', timeSlot: '18:00 - 19:00' };
+const lesson = { id: 'OTHER', classId: 'CLS', date: target.sessionDate, timeSlotId: 'AM', coverTeacherId: 'T' } as TeachingLesson;
+assert.equal(coverScheduleConflict('T', target, [lesson], [], slots), false, 'morning cover does not block an evening cover');
+assert.equal(coverScheduleConflict('T', target, [{ ...lesson, timeSlotId: 'PM' }], [], slots), true);
+assert.equal(coverScheduleConflict('T', target, [{ ...lesson, timeSlotId: 'PM', status: 'NGHI_HOC' }], [], slots), false);
+assert.equal(coverScheduleConflict('T', target, [{ ...lesson, id: 'TARGET', timeSlotId: 'PM' }], [], slots), false);
+const cls = { id: 'CLS', schedule: 'T4 (08:00 - 09:00)', coverAssignments: [{ sessionNum: 1, dateStr: target.sessionDate, teacherId: 'T' }] } as ClassItem;
+assert.equal(coverScheduleConflict('T', target, [], [cls], slots), false, 'derived assignment uses its own time');
+assert.equal(coverScheduleConflict('T', { ...target, timeSlot: slots[0].timeRange }, [], [cls], slots), true);
+assert.equal(isUnresolvedIncident({ hasIncident: true, incidentStatus: 'DANG_XU_LY' }), true);
+assert.equal(isUnresolvedIncident({ hasIncident: true, incidentStatus: null }), true);
+assert.equal(isUnresolvedIncident({ hasIncident: true, incidentStatus: 'DA_GIAI_QUYET' }), false);
+assert.equal(isUnresolvedIncident({ hasIncident: false, incidentStatus: null }), false);
+console.log('PASS: cover conflicts respect date/time, canceled/current lessons, and unresolved incident scope.');

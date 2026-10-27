@@ -1,3 +1,4 @@
+import { coverScheduleConflict, isUnresolvedIncident } from '../lib/monitoringWorkflow';
 import { lessonPauseLabel } from '../lib/classPause';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
 import {matchesDashboardSelection} from '../lib/dashboardNavigation';
@@ -18,7 +19,7 @@ import { monitoringSessionStatus, monitoringSessionPriority, isEarlyCheckout, mi
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from '../components/FilterDrawer';
 import {
@@ -75,6 +76,7 @@ export interface MonitoringSession {
   incidentUrgency: 'EMERGENCY' | 'ADVANCED' | null;
   incidentStatus: 'DA_GIAI_QUYET' | 'DANG_XU_LY' | 'HUY_CA' | null;
   incidentNote: string;
+  appliedCreditCoeff?: number | null;
   handledByOpsId: string | null;
   handledByName: string | null;
   handledAt: string | null;
@@ -102,6 +104,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const dateFrom=monitoringRange.start,dateTo=monitoringRange.end;
   // Tab chính
   const [activeTab, setActiveTab] = useState<'diary' | 'incidents'>(dashboardFilter?.tab||'diary');
+  const [allUnresolved, setAllUnresolved] = useState(false);
+  const unresolvedMode = activeTab === 'incidents' && allUnresolved;
 
   // Danh sách ca dạy toàn hệ thống
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
@@ -116,7 +120,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   useEffect(() => {
     const startDate=dateFrom,endDate=dateTo;
     const generated: MonitoringSession[] = [];
-    persistedLessons.filter(lesson => dashboardFilter ? matchesDashboardSelection(dashboardFilter,lesson.id) : lesson.date >= startDate && lesson.date <= endDate).forEach(lesson => {
+    persistedLessons.filter(lesson => unresolvedMode || (dashboardFilter ? matchesDashboardSelection(dashboardFilter,lesson.id) : lesson.date >= startDate && lesson.date <= endDate)).forEach(lesson => {
       const cls = classes.find(item => item.id === lesson.classId);
       const slot = timeSlots.find(item => item.id === lesson.timeSlotId);
       if (!cls || !slot) return;
@@ -136,7 +140,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       } as MonitoringSession, persistedLessons, persistedIncidents, classes, teachers, timeSlots, incidents, users));
     });
     setSessions(generated);
-  }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users, teachers, timeSlots, incidents, dashboardFilter]);
+  }, [classes, students, levels, dateFrom, dateTo, persistedLessons, persistedIncidents, users, teachers, timeSlots, incidents, dashboardFilter, unresolvedMode]);
 
   const [colFilterCode, setColFilterCode] = useState<string[]>([]);
   const [colFilterClass, setColFilterClass] = useState<string[]>([]);
@@ -217,20 +221,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       ).some(entry => entry.dayIndex === weekday && overlapsTarget(entry.time));
     });
 
-    const coverTeacherHasConflict = (teacherId: string) => classes.some(cls => {
-      const assignedCoverConflicts = (cls.coverAssignments || []).some(assignment => {
-        if (assignment.teacherId !== teacherId || assignment.dateStr !== session.sessionDate ||
-          (cls.id === targetClass.id && assignment.sessionNum === targetSessionNum)) return false;
-        return true;
-      });
-      return assignedCoverConflicts || Object.values(cls.activeSessions || {}).some(activeSession => {
-        const activeDate = activeSession.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0];
-        const activeTime = activeSession.dateStr.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0];
-        const isCurrentAssignment = cls.id === targetClass.id && activeSession.sessionNum === targetSessionNum;
-        return !isCurrentAssignment && activeDate === session.sessionDate &&
-          activeSession.coverTeacherId === teacherId && overlapsTarget(activeTime || '');
-      });
-    });
+    const coverTeacherHasConflict = (teacherId: string) => coverScheduleConflict(teacherId, session, persistedLessons as any, classes, timeSlots);
 
     return teachers.filter(teacher => {
       const subjectMatches = teacher.subject === monitoringSubjectCode(session,classes);
@@ -280,7 +271,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const normalizeSearch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('vi').replace(/đ/g, 'd');
   const searchTerms = normalizeSearch(searchQuery).trim().split(/\s+/).filter(Boolean);
   const dateFilteredSessions=sessions.filter(session=>{
-    const inRange=dashboardFilter?matchesDashboardSelection(dashboardFilter,session.sessionCode):session.sessionDate>=dateFrom&&session.sessionDate<=dateTo;
+    const inRange=unresolvedMode || (dashboardFilter?matchesDashboardSelection(dashboardFilter,session.sessionCode):session.sessionDate>=dateFrom&&session.sessionDate<=dateTo);
     if (!inRange || !searchTerms.length) return inRange;
     const text=normalizeSearch([session.displayCode,session.classCode,session.className,
       session.primaryTeacher,session.primaryTeacherId,session.coverTeacher,session.coverTeacherId,
@@ -336,7 +327,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   }).sort((a,b)=>(viewingToday?monitoringSessionPriority(studyStatus(a))-monitoringSessionPriority(studyStatus(b)):0)||
     a.sessionDate.localeCompare(b.sessionDate)||a.timeSlot.localeCompare(b.timeSlot)||a.classCode.localeCompare(b.classCode));
 
-  const incidentOptionsSource = subjectFilteredSessions.filter(session=>session.hasIncident);
+  const incidentOptionsSource = subjectFilteredSessions.filter(session=>session.hasIncident && (!unresolvedMode || isUnresolvedIncident(session)));
   const incidentColumns = [
     {label:'Mã buổi',values:incColFilterCode,onChange:setIncColFilterCode,options:options(incidentOptionsSource.map(s=>({value:s.sessionCode,label:displaySessionCode(s)})))},
     {label:'Lớp học',values:incColFilterClass,onChange:setIncColFilterClass,options:options(incidentOptionsSource.map(s=>({value:s.classCode,label:s.className+' · '+s.classCode})))},
@@ -351,7 +342,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Lọc Tab 2
   const incidentFilteredSessions = dateFilteredSessions.filter(s => {
     if (!matchesCatalogFilters(s)) return false;
-    if (!s.hasIncident) return false;
+    if (!s.hasIncident || (unresolvedMode && !isUnresolvedIncident(s))) return false;
     if (incColFilterCode.length && !incColFilterCode.includes(s.sessionCode)) return false;
     if (incColFilterClass.length && !incColFilterClass.includes(s.classCode)) return false;
     if (incColFilterTarget.length && !incColFilterTarget.includes(s.incidentParent || 'NONE')) return false;
@@ -370,10 +361,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const kpiCover = subjectFilteredSessions.filter(s => s.coverTeacherId).length;
 
   // Thống kê KPI Tab 2
-  const kpiIncTotal = subjectFilteredSessions.filter(s => s.hasIncident).length;
-  const kpiIncEmergency = subjectFilteredSessions.filter(s => s.incidentUrgency === 'EMERGENCY').length;
-  const kpiIncTeacher = subjectFilteredSessions.filter(s => s.incidentParent === 'GRP-TCH').length;
-  const kpiIncStudent = subjectFilteredSessions.filter(s => s.incidentParent === 'GRP-STU').length;
+  const kpiIncTotal = incidentOptionsSource.length;
+  const kpiIncEmergency = incidentOptionsSource.filter(s => s.incidentUrgency === 'EMERGENCY').length;
+  const kpiIncTeacher = incidentOptionsSource.filter(s => s.incidentParent === 'GRP-TCH').length;
+  const kpiIncStudent = incidentOptionsSource.filter(s => s.incidentParent === 'GRP-STU').length;
 
   // Reset bộ lọc Tab 1
   const resetColFilters = () => {
@@ -405,6 +396,21 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     resetIncColFilters();
   };
 
+  const incidentInitial = useRef('');
+  const incidentDraft = JSON.stringify([incParent, incChild, incUrgency, incStatus, incNote, incHasCover, incCoverTeacher]);
+  const incidentDirty = Boolean(selectedIncidentSession && incidentInitial.current !== incidentDraft);
+  const closeIncidentModal = () => {
+    if (savingIncident || businessStatus.saving) return;
+    if (incidentDirty && !window.confirm('Bạn có muốn bỏ thay đổi chưa lưu trong biên bản?')) return;
+    setSelectedIncidentSession(null);
+  };
+  useEffect(() => {
+    if (!incidentDirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [incidentDirty]);
+
   // Mở Modal Sự cố
   const openIncidentModal = (session: MonitoringSession) => {
     if(session.fromClassPause){showToast('Sự cố này liên kết với tạm dừng lớp. Hãy sửa lý do tại màn hình quản lý lớp để đồng bộ các buổi liên quan.', 'warning');return;}
@@ -417,6 +423,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     setIncUrgency(session.incidentUrgency || 'EMERGENCY');
     setIncStatus(session.incidentStatus || 'DANG_XU_LY');
     setIncNote(session.incidentNote || '');
+    incidentInitial.current = JSON.stringify([parent,
+      session.incidentChild || (session.status === 'NGHI_HOC' ? '' : childList[0]?.code || ''),
+      session.incidentUrgency || 'EMERGENCY', session.incidentStatus || 'DANG_XU_LY', session.incidentNote || '',
+      Boolean(session.coverTeacher), session.coverTeacher ? session.coverTeacherId || '' : '']);
 
     if (session.coverTeacher) {
       setIncHasCover(true);
@@ -446,10 +456,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     const isCompletedIncidentSession = selectedIncidentSession.status === 'DA_HOC' || studyStatus(selectedIncidentSession) === 'DA_HOC';
     const selectedIncident = incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild);
     if (!selectedIncident) { showToast('Vui lòng chọn đúng loại sự cố; nghỉ theo lịch lớp không mặc định là giáo viên xin nghỉ.', 'warning'); return; }
-    if (selectedIncident.creditCoeff === undefined) {
-      showToast('Loại sự cố này chưa được cấu hình hệ số công.', 'error');
-      return;
-    }
     if (!isCompletedIncidentSession && incHasCover && !requirePermission('Tìm và phân công giáo viên dạy thay')) return;
     if (isCompletedIncidentSession && incStatus === 'HUY_CA') {
       showToast('Ca đã học không thể chuyển thành hủy ca. Bạn vẫn có thể cập nhật biên bản sự cố.', 'warning');
@@ -532,7 +538,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     setSavingIncident(true);
     try {
       await waitForBusinessSave();
-      showToast(`Đã lưu biên bản ca ${displaySessionCode(selectedIncidentSession)} và cập nhật bảng công. Người xử lý: ${currentOps.name}.`, 'success');
+      showToast(`Đã lưu biên bản ca ${displaySessionCode(selectedIncidentSession)} ${resolvedIncidentStatus !== 'DA_GIAI_QUYET' ? '— đang xử lý, chưa áp hệ số công' : selectedIncident.creditCoeff == null ? '— chưa đủ cấu hình tính công' : 'và cập nhật bảng công'}. Người xử lý: ${currentOps.name}.`, 'success');
       setSelectedIncidentSession(null);
     } catch (error) {
       showToast((error as Error).message, 'error');
@@ -932,6 +938,15 @@ export const Module5_OperationsMonitoring: React.FC = () => {
       {/* ========================================================================= */}
       {activeTab === 'incidents' && (
         <div className="space-y-3">
+          <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+            <input type="checkbox" checked={allUnresolved} onChange={event => {
+              setAllUnresolved(event.target.checked);
+              if (event.target.checked) setDashboardFilter(null);
+              setIncColFilterStatus([]);
+            }} />
+            Tất cả sự cố chưa giải quyết (không giới hạn ngày)
+          </label>
+          {unresolvedMode && <p role="status" className="text-xs text-slate-500">Đang xem sự cố chưa giải quyết ở mọi ngày; các bộ lọc môn, lớp và tìm kiếm vẫn áp dụng.</p>}
           {/* 4 Thẻ KPI Tab 2 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-white p-2.5 rounded-xl border border-slate-200">
@@ -1013,6 +1028,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           {/* Loại sự cố chi tiết */}
                           <td className="py-3.5 px-3">
                             <div className="font-semibold text-slate-800">{childName}</div>
+                            {isUnresolvedIncident(s) ? <div className="mt-1 text-xs text-amber-700">Chờ giải quyết — chưa áp hệ số công</div> : s.appliedCreditCoeff == null && <div className="mt-1 text-xs font-semibold text-amber-700">Chưa đủ cấu hình tính công</div>}
                             <div className="text-[11px] text-slate-500 mt-0.5">{s.incidentNote || ''}</div>
                           </td>
 
@@ -1175,7 +1191,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedIncidentSession(null)}
+                onClick={closeIncidentModal}
                 className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center cursor-pointer font-bold"
               >
                 ✕
@@ -1226,7 +1242,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       ))}
                     </ReportSelect>
                     <p className="mt-1 text-xs text-orange-700">
-                      Hệ số công áp dụng: {incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild)?.creditCoeff ?? 'Chưa thiết lập'}
+                      {incStatus === 'DANG_XU_LY' ? 'Hệ số dự kiến (chỉ áp khi đã giải quyết): ' : 'Hệ số công áp dụng: '}{incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild)?.creditCoeff ?? 'Chưa đủ cấu hình tính công — vẫn có thể lưu biên bản'}
                     </p>
                   </div>
                 </div>
@@ -1264,7 +1280,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       }}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-800 focus:outline-none focus:border-[#FF5C00]"
                     >
-                      <option value="DANG_XU_LY">Đang xử lý / Chờ đối soát</option>
+                      <option value="DANG_XU_LY" disabled={selectedIncidentSession.incidentStatus === 'DA_GIAI_QUYET' && selectedIncidentSession.appliedCreditCoeff != null}>Đang xử lý / Chờ đối soát</option>
                       <option value="DA_GIAI_QUYET">Đã giải quyết</option>
                       <option value="HUY_CA">Hủy ca do sự cố (đã giải quyết)</option>
                     </ReportSelect>
@@ -1346,7 +1362,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setSelectedIncidentSession(null)}
+                  onClick={closeIncidentModal}
                   className="px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold transition-colors cursor-pointer"
                 >
                   Đóng
