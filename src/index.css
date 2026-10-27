@@ -1,13 +1,16 @@
 @import "tailwindcss";
 
-/* Slightly larger desktop typography, including fixed-size Tailwind labels.
+/* Larger desktop typography, with a readable minimum for compact labels.
    Keep the browser's preferred font size and leave mobile/print unchanged. */
 @media screen and (min-width: 1024px) {
-  html { font-size: 106.25%; }
+  html {
+    font-size: 115%;
+    --text-xs: 0.8125rem;
+  }
 
-  [class~='text-[9px]'] { font-size: 0.5625rem; }
-  [class~='text-[10px]'] { font-size: 0.625rem; }
-  [class~='text-[11px]'] { font-size: 0.6875rem; }
+  [class~='text-[9px]'],
+  [class~='text-[10px]'] { font-size: 0.6875rem; }
+  [class~='text-[11px]'] { font-size: 0.75rem; }
   [class~='text-[28px]'] { font-size: 1.75rem; }
   [class~='text-[42px]'] { font-size: 2.625rem; }
 }
