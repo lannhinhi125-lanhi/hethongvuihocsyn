@@ -894,10 +894,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                               {can('Ghi nhận và xử lý sự cố ca dạy') && (
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setActiveTab('incidents');
-                                      openIncidentModal(s);
-                                    }}
+                                    onClick={() => openIncidentModal(s)}
                                     className="px-2 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] border border-rose-200 transition-all cursor-pointer"
                                     title={isCompleted ? 'Cập nhật biên bản sự cố của ca đã học' : 'Lập biên bản sự cố và điều phối dạy thay'}
                                   >
