@@ -10,7 +10,7 @@ import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { assignedRole, accountPortal } from '../lib/accessControl';
 import { permissionModules, portalLabels, rolePortal, expandPermissions, serializePermissions, type AccountPortal } from '../lib/portalPermissions';
-import { TEACHER_PROFILE_PERMISSION } from '../lib/teacherAccounts';
+import { generateAccountPassword, TEACHER_PROFILE_PERMISSION } from '../lib/teacherAccounts';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserAccount, SystemRoleGroup } from '../types';
@@ -60,7 +60,7 @@ export const Module1_UsersRoles: React.FC = () => {
   // Create User Form state
   const [newUserName, setNewUserName] = useState('');
   const [newUserUsername, setNewUserUsername] = useState('');
-  const [newUserPass, setNewUserPass] = useState('123456');
+  const [newUserPass, setNewUserPass] = useState(generateAccountPassword);
   const [newUserPassVisible, setNewUserPassVisible] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
@@ -130,7 +130,7 @@ export const Module1_UsersRoles: React.FC = () => {
     // Reset form
     setNewUserName('');
     setNewUserUsername('');
-    setNewUserPass('123456');
+    setNewUserPass(generateAccountPassword());
     setNewUserEmail('');
     setNewUserPhone('');
     });
@@ -363,7 +363,7 @@ export const Module1_UsersRoles: React.FC = () => {
 
             <button
               disabled={!can('Cấp tài khoản & Mật khẩu người dùng') || !can('Tạo, sửa, xóa & Gán Nhóm quyền')}
-              onClick={() => { setNewUserRoleGroupId(portalRoles[0]?.id || ''); setNewUserPassVisible(false); setIsCreateUserModalOpen(true); }}
+              onClick={() => { setNewUserRoleGroupId(portalRoles[0]?.id || ''); setNewUserPass(generateAccountPassword()); setNewUserPassVisible(false); setIsCreateUserModalOpen(true); }}
               className="w-full sm:w-auto px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />

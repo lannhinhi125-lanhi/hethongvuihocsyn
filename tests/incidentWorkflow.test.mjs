@@ -41,12 +41,19 @@ try {
     BEGIN IF NEW.hesocongapdung IS NULL THEN RETURN NEW; END IF;
     INSERT INTO vuihoc.applied VALUES(NEW.madinhdanh,NEW.hesocongapdung); RETURN NEW; END $$;`);
   const resolution = readFileSync('supabase/migrations/20261218_resolve_incident_before_credit.sql', 'utf8');
+  // Simulate applying 20261218 directly, without helpers/guards from 20261217.
+  await db.exec(`DROP FUNCTION vuihoc.tiep_tuc_ghi_cong_sau_cau_hinh_su_co() CASCADE;
+    DROP TRIGGER kiem_tra_cau_hinh_su_co_khi_khoa ON vuihoc."BANG_CONG_THANG";
+    DROP FUNCTION vuihoc.kiem_tra_cau_hinh_su_co_khi_khoa();
+    CREATE OR REPLACE FUNCTION vuihoc.ghi_cong_neu_du_nhan_xet(p_buoi text) RETURNS void LANGUAGE plpgsql AS $$
+    BEGIN INSERT INTO vuihoc.calls VALUES(p_buoi); END $$;`);
   await db.exec(resolution); await db.exec(resolution);
   await db.exec(`CREATE TRIGGER apply_credit AFTER INSERT OR UPDATE ON vuihoc."SU_CO_BUOI_HOC" FOR EACH ROW EXECUTE FUNCTION vuihoc.ap_dung_cong_su_co();
     INSERT INTO vuihoc."SU_CO_BUOI_HOC"(madinhdanh,mabuoi,manhomsuco,masuco) VALUES('PENDING','LESSON','TCH','SET');
     SELECT vuihoc.ghi_cong_neu_du_nhan_xet('LESSON');`);
   assert.equal((await db.query(`SELECT hesocongapdung FROM vuihoc."SU_CO_BUOI_HOC" WHERE madinhdanh='PENDING'`)).rows[0].hesocongapdung, null);
   assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc.applied')).rows[0].n, 0);
+  assert.equal((await db.query('SELECT count(*)::int n FROM vuihoc.calls')).rows[0].n, 1, 'standalone migration installs the unresolved credit guard');
   await assert.rejects(() => db.exec(`UPDATE vuihoc."BANG_CONG_THANG" SET dakhoa=true`), /chưa giải quyết/);
   await db.exec(`UPDATE vuihoc."SU_CO_BUOI_HOC" SET hesocongapdung=-1 WHERE madinhdanh='PENDING'`);
   assert.equal((await db.query(`SELECT hesocongapdung FROM vuihoc."SU_CO_BUOI_HOC" WHERE madinhdanh='PENDING'`)).rows[0].hesocongapdung, null, 'catalog updates cannot apply pending credit');

@@ -1,4 +1,6 @@
--- Run after 20261217_incident_workflow.sql. No historical work is rewritten.
+-- Standalone incident workflow update; 20261217 is optional.
+-- Requires the existing session workflow and relational incident catalog.
+-- No historical work is rewritten.
 BEGIN;
 CREATE OR REPLACE FUNCTION vuihoc.chot_he_so_su_co()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $$
@@ -37,6 +39,12 @@ $guard$);
   EXECUTE f;
  END IF;
  f:=pg_get_functiondef('vuihoc.ghi_cong_neu_du_nhan_xet(text)'::regprocedure);
+ IF strpos(f,'incident_missing_credit_guard')=0 THEN
+  f:=regexp_replace(f,'\mBEGIN\M',$guard$BEGIN
+ -- incident_missing_credit_guard
+ IF EXISTS(SELECT 1 FROM vuihoc."SU_CO_BUOI_HOC" WHERE mabuoi=p_buoi AND hesocongapdung IS NULL) THEN RETURN; END IF;
+$guard$);
+ END IF;
  f:=replace(f,'mabuoi=p_buoi AND hesocongapdung IS NULL',
   'mabuoi=p_buoi AND (trangthai IS DISTINCT FROM ''DA_GIAI_QUYET'' OR hesocongapdung IS NULL)');
  EXECUTE f;
@@ -44,6 +52,14 @@ END $patch$;
 
 -- A status-only UPDATE also changes the coefficient in the BEFORE trigger.
 -- UPDATE OF hesocongapdung would miss that transition.
+CREATE OR REPLACE FUNCTION vuihoc.tiep_tuc_ghi_cong_sau_cau_hinh_su_co()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+BEGIN
+ IF NEW.trangthai='DA_GIAI_QUYET' AND NEW.hesocongapdung IS NOT NULL AND OLD.hesocongapdung IS NULL THEN
+  PERFORM vuihoc.ghi_cong_neu_du_nhan_xet(NEW.mabuoi);
+ END IF;
+ RETURN NEW;
+END $$;
 DROP TRIGGER IF EXISTS tiep_tuc_ghi_cong_sau_cau_hinh ON vuihoc."SU_CO_BUOI_HOC";
 CREATE TRIGGER tiep_tuc_ghi_cong_sau_cau_hinh AFTER UPDATE ON vuihoc."SU_CO_BUOI_HOC"
 FOR EACH ROW EXECUTE FUNCTION vuihoc.tiep_tuc_ghi_cong_sau_cau_hinh_su_co();
@@ -58,4 +74,7 @@ BEGIN
  ) THEN RAISE EXCEPTION 'Kỳ còn sự cố chưa giải quyết hoặc chưa đủ cấu hình tính công. Hãy xử lý trước khi khóa kỳ.'; END IF;
  RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS kiem_tra_cau_hinh_su_co_khi_khoa ON vuihoc."BANG_CONG_THANG";
+CREATE TRIGGER kiem_tra_cau_hinh_su_co_khi_khoa BEFORE UPDATE OF dakhoa ON vuihoc."BANG_CONG_THANG"
+FOR EACH ROW EXECUTE FUNCTION vuihoc.kiem_tra_cau_hinh_su_co_khi_khoa();
 COMMIT;

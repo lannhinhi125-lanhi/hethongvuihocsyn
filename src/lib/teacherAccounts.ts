@@ -7,14 +7,25 @@ export function canManageTeacherProfiles(user: UserAccount, groups: SystemRoleGr
   const permissions = groups.find(group => user.roleGroupId ? group.id === user.roleGroupId : group.name === user.role)?.permissions || [];
   return permissions.some(permission => ['ALL', 'PH3_ALL', 'PH3_WRITE', TEACHER_PROFILE_PERMISSION].includes(permission));
 }
+export function generateAccountPassword(): string {
+  const digits: string[] = [];
+  while (digits.length < 8) {
+    const random = crypto.getRandomValues(new Uint8Array(8));
+    for (const value of random) {
+      if (value < 250) digits.push(String(value % 10));
+      if (digits.length === 8) break;
+    }
+  }
+  return digits.join('');
+}
+
 export function generateTeacherCredentials(teachers: TeacherProfile[], users: UserAccount[]) {
   const used = new Set([...teachers.map(t => t.id.toUpperCase()), ...users.flatMap(u => [u.id.toUpperCase(), u.username.toUpperCase()])]);
   let number = 1;
   for (const code of used) { const match = /^GV-(\d+)$/.exec(code); if (match) number = Math.max(number, Number(match[1]) + 1); }
   let id = 'GV-' + String(number).padStart(3, '0');
   while (used.has(id)) id = 'GV-' + String(++number).padStart(3, '0');
-  const random = crypto.getRandomValues(new Uint8Array(8));
-  const password = Array.from(random, value => String(value % 10)).join('');
+  const password = generateAccountPassword();
   return { id, username: id, password };
 }
 
