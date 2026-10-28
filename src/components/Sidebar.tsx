@@ -22,12 +22,13 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
+  collapsed?: boolean;
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
   onLogout?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, onLogout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onCloseMobile, onLogout }) => {
   const { canModule, can } = usePermissions();
   const [reportsOpen, setReportsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -134,11 +135,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, onL
       )}
 
       <aside
-        className={`fixed lg:static inset-y-0 left-0 w-64 bg-[#131329] text-slate-300 flex-shrink-0 flex flex-col justify-between border-r border-white/5 z-50 transition-transform duration-300 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed lg:static inset-y-0 left-0 w-64 bg-[#131329] text-slate-300 flex-shrink-0 flex flex-col justify-between border-r border-white/5 z-50 transition-[width,transform] duration-300 ${
+          `${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${collapsed ? 'lg:!w-0 lg:overflow-hidden lg:!border-0' : ''}`
         }`}
       >
-        <div className="flex min-h-0 h-full flex-col">
+        <div className="flex min-h-0 h-full w-64 flex-col">
           {/* Brand Logo VUIHOC TUTOR - Figma style clean mark */}
           <div className="px-5 py-4 border-b border-white/10 flex shrink-0 items-center gap-3 bg-gradient-to-b from-white/10 to-transparent">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-300 to-[#FF5C00] flex items-center justify-center text-white font-bold text-xl tracking-tight shadow-xs">

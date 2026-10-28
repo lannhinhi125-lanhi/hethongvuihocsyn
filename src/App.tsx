@@ -26,6 +26,7 @@ const MainLayout: React.FC = () => {
   const business = useBusinessStatus();
   const activeAccount = session.actor ? users.find(user => user.id === session.actor!.id && user.status === 'active') : undefined;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const openedAccount=useRef<string|null>(null);
   useEffect(() => {
     if (!activeAccount) {openedAccount.current=null;return;}
@@ -55,12 +56,12 @@ const MainLayout: React.FC = () => {
   return (
     <div className="workspace-ui flex h-dvh min-h-0 overflow-hidden bg-[#f8f9fc] text-slate-800 antialiased font-sans">
       {/* Sidebar điều hướng thông minh theo phân quyền (Quản trị vs Giáo viên & Gia sư) */}
-      <Sidebar mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} onLogout={() => { void logoutAccount(); setMobileMenuOpen(false); }} />
+      <Sidebar collapsed={sidebarCollapsed} mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} onLogout={() => { void logoutAccount(); setMobileMenuOpen(false); }} />
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden">
         {/* Header với Breadcrumb, Switcher vai trò, Xóa & Reset dữ liệu */}
-        <Header onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
+        <Header sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed(value => !value)} onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
         {/* Scrollable Main Content */}
         <main className="workspace-content relative flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain p-3 sm:p-4 min-w-0">
