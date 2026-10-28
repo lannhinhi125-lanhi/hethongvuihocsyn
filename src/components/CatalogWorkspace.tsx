@@ -99,7 +99,6 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   return <div className="space-y-3">
     <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
       <div><h2 className="text-lg font-bold text-slate-900">Danh mục dùng chung</h2><p className="mt-1 text-xs text-slate-500">Quản lý danh mục và các giá trị dùng trong hệ thống.</p></div>
-      <button type="button" disabled={!canEdit} className={button + ' border-orange-200 bg-orange-50 text-orange-700'} onClick={() => open('catalog')}><FolderPlus className="h-4 w-4" />Thêm danh mục</button>
     </header>
     <div className="grid items-start gap-3 lg:grid-cols-[235px_minmax(0,1fr)]">
       <aside className="rounded-xl border border-slate-200 bg-white p-3">
