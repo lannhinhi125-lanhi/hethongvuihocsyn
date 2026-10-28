@@ -6,7 +6,7 @@ import { PaginatedTableBody } from './Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { CatalogTreeBranch } from './CatalogTreeBranch';
 import React, { useEffect, useState } from 'react';
-import { FolderPlus, PlusCircle, Search, X, Pencil, ChevronRight } from 'lucide-react';
+import { PlusCircle, Search, X, Pencil, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 type Entry = { id: string; code: string; name: string; desc: string; status: boolean };
@@ -33,7 +33,6 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const navigationFor = (catalog: Catalog) => items.find(item => item.catalogCode === catalog.code);
-  const activeCatalog = catalogs.find(catalog => navigationFor(catalog)?.id === active);
   const selected = catalogs.find(item => item.id === selectedId);
   useEffect(() => {
     const ancestors: string[] = []; const seen = new Set<string>(); let id = selectedId;
@@ -58,8 +57,6 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
     setEditingId(entry?.id || ''); setCode(entry?.code || ''); setName(entry?.name || ''); setDesc(entry?.desc || ''); setDialog(kind);
   };
   const selectCatalog = (id: string) => { setSelectedId(id); setEntryQuery(''); setStatus('all'); };
-  const openChild = () => { open('catalog'); setParentId(selected?.id || activeCatalog?.id || active); };
-  const selectedChildren = catalogs.filter(item => item.parentId === (selected?.id || activeCatalog?.id || active));
   const path: { id: string; name: string }[] = [];
   let ancestor = selected;
   const visited = new Set<string>();
@@ -111,17 +108,12 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
           </div>)}
           <div><h3 className="mb-1 px-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">Danh mục bổ sung</h3>
             {renderBranch(catalogs.filter(isRoot))}
-            {!catalogs.length && <p className="px-3 py-2 text-[11px] text-slate-400">Thêm danh mục riêng khi cần.</p>}
           </div>
           {query && ![...items, ...catalogs].some(item => matches(item.name)) && <p className="px-3 text-xs text-slate-500">Không tìm thấy danh mục.</p>}
         </nav>
       </aside>
       <main className="min-w-0">
         {selected && <nav aria-label="Đường dẫn danh mục" className="mb-3 flex flex-wrap items-center gap-1 text-xs text-slate-500">{path.map((item, index) => <React.Fragment key={item.id}>{index > 0 && <span>/</span>}<button type="button" className="rounded px-1 py-1 hover:bg-orange-50 hover:text-orange-700" onClick={() => { if (items.some(builtin => builtin.id === item.id)) { setSelectedId(''); onSelect(item.id); } else selectCatalog(item.id); }}>{item.name}</button></React.Fragment>)}</nav>}
-        {(selected || active !== 'incidents') && <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-slate-500">{selectedChildren.length} danh mục con · Chọn nhánh trong cây bên trái</p>
-          <button type="button" disabled={!canEdit} className={button} onClick={openChild}><FolderPlus className="h-3.5 w-3.5" />Thêm danh mục con</button>
-        </div>}
         {!selected ? children : <CatalogTreeBranch key={selected.id} title={selected.name} code={selected.code} count={selected.entries.length} disabled={!canEdit} addLabel="Thêm giá trị" onAdd={() => open('entry')} revealKey={entryQuery || (status !== 'all' ? status : '')}>
           <div className="space-y-3 p-4">
             <p className="rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500">Danh mục được lưu trên Supabase. Tạo danh mục con giúp phân loại dữ liệu; chỉ các danh mục đã liên kết mới cung cấp lựa chọn cho biểu mẫu nghiệp vụ.</p>
