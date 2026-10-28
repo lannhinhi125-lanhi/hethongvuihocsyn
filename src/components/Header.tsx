@@ -1,5 +1,4 @@
 import { ReportSelect } from './ReportSelect';
-import { confirmAction } from './ConfirmAction';
 import React from 'react';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
 import { useApp } from '../context/AppContext';
@@ -8,8 +7,7 @@ import { SystemGuide } from './SystemGuide';
 import {
   Menu,
   ChevronRight,
-  UserCheck,
-  Trash2
+  UserCheck
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -26,7 +24,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     workspaceMode,
     setWorkspaceMode,
     teacherPortalTab,
-    clearAllData,
     showToast
   } = useApp();
 
@@ -57,11 +54,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       : teacherTabTitles[teacherPortalTab] || { cat: 'Cổng Giáo viên', title: 'Bảng Giảng Dạy' };
 
 
-  const handleConfirmClear = async () => {
-    if (await confirmAction('XÓA SẠCH DỮ LIỆU: Thao tác này xóa toàn bộ dữ liệu trong phiên và đăng xuất. Dữ liệu đã lưu trong hệ thống vẫn được giữ. Bạn có chắc chắn không?')) {
-      clearAllData();
-    }
-  };
 
   return (
     <>
@@ -99,15 +91,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           <SystemGuide />
           {workspaceMode === 'TEACHER' && <TeacherNotifications />}
-          {/* Nút Xóa sạch dữ liệu (Empty State) */}
-          <button
-            disabled={currentUser.role !== 'Quản trị Toàn quyền'} onClick={handleConfirmClear}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-md border border-slate-200 hover:border-rose-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-            title="Xóa dữ liệu phiên và đăng xuất" aria-label="Xóa dữ liệu phiên và đăng xuất"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-            <span className="hidden xl:inline">Xóa dữ liệu phiên</span>
-          </button>
 
           <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
