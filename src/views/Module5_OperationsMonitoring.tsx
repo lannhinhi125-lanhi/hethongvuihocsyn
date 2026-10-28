@@ -1028,7 +1028,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           {/* Loại sự cố chi tiết */}
                           <td className="py-3.5 px-3">
                             <div className="font-semibold text-slate-800">{childName}</div>
-                            {isUnresolvedIncident(s) ? <div className="mt-1 text-xs text-amber-700">Chờ giải quyết — chưa áp hệ số công</div> : s.appliedCreditCoeff == null && <div className="mt-1 text-xs font-semibold text-amber-700">Chưa đủ cấu hình tính công</div>}
+                            {isUnresolvedIncident(s) ? <div className="mt-1 text-xs text-amber-700">Chờ giải quyết — chưa áp hệ số công</div> : null}
                             <div className="text-[11px] text-slate-500 mt-0.5">{s.incidentNote || ''}</div>
                           </td>
 
