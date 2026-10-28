@@ -66,15 +66,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
 
   return (
     <>
-      <header className="h-16 shrink-0 bg-[#131329] text-[#A9BDE2] border-b border-white/10 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+      <header className="h-16 shrink-0 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
         <div className="flex items-center gap-3 min-w-0">
-          <button type="button" onClick={onToggleSidebar} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? 'Hiện thanh bên' : 'Ẩn thanh bên'} title={sidebarCollapsed ? 'Hiện thanh bên' : 'Ẩn thanh bên'} className="hidden lg:inline-flex p-1.5 rounded-lg border border-white/20 text-[#A9BDE2] hover:bg-white/10 hover:text-white cursor-pointer">
+          <button type="button" onClick={onToggleSidebar} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? 'Hiện thanh bên' : 'Ẩn thanh bên'} title={sidebarCollapsed ? 'Hiện thanh bên' : 'Ẩn thanh bên'} className="hidden lg:inline-flex p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer">
             {sidebarCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
           </button>
           {/* Mobile menu button */}
           <button
             onClick={onToggleMobileMenu}
-            className="p-1.5 rounded-lg border border-white/20 text-[#A9BDE2] hover:bg-white/10 hover:text-white lg:hidden cursor-pointer"
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 lg:hidden cursor-pointer"
             title="Mở menu" aria-label="Mở menu"
           >
             <Menu className="w-5 h-5" />
@@ -85,15 +85,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
             <span
               className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
                 workspaceMode === 'ADMIN'
-                  ? 'bg-white/10 text-orange-300 border border-white/15'
-                  : 'bg-indigo-400/15 text-indigo-200 border border-indigo-300/20'
+                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
               }`}
             >
               {workspaceMode === 'ADMIN' ? 'Quản trị' : 'Giảng dạy'}
             </span>
-            <span className="text-[#A9BDE2] font-medium hidden sm:inline">{currentInfo.cat}</span>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 hidden sm:inline" />
-            <span className="font-semibold text-white tracking-tight truncate max-w-[220px] sm:max-w-md">
+            <span className="text-slate-400 font-medium hidden sm:inline">{currentInfo.cat}</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-300 hidden sm:inline" />
+            <span className="font-semibold text-slate-800 tracking-tight truncate max-w-[220px] sm:max-w-md">
               {currentInfo.title}
             </span>
           </div>
@@ -104,10 +104,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
           <SystemGuide />
           {workspaceMode === 'TEACHER' && <TeacherNotifications />}
 
-          <div className="h-5 w-px bg-white/15 mx-0.5 hidden sm:block" />
+          <div className="h-5 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
           {PORTAL_PREVIEW_MODE && (
-            <label className="flex items-center gap-2 text-xs text-[#A9BDE2]">
+            <label className="flex items-center gap-2 text-xs text-slate-600">
               <span className="hidden sm:inline">Kiểm tra cổng:</span>
               <ReportSelect
                 aria-label="Chọn tài khoản kiểm tra cổng"
@@ -127,14 +127,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
           )}
           {/* Avatar người dùng hiện tại */}
           <div className="flex items-center gap-2 pl-1">
-            <div className="w-9 h-9 rounded-xl bg-orange-400/10 text-orange-300 flex items-center justify-center font-semibold text-xs border border-orange-400/20">
+            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-700 flex items-center justify-center font-semibold text-xs border border-orange-100">
               {currentUser.avatarInitials}
             </div>
             <div className="text-left hidden lg:block">
-              <div className="text-xs font-semibold text-white leading-tight truncate max-w-[120px] tracking-tight">
+              <div className="text-xs font-semibold text-slate-800 leading-tight truncate max-w-[120px] tracking-tight">
                 {currentUser.name}
               </div>
-              <div className="text-[10px] font-medium text-[#9BAED4] truncate max-w-[120px]">
+              <div className="text-[10px] font-medium text-slate-500 truncate max-w-[120px]">
                 {currentUser.role}
               </div>
             </div>
