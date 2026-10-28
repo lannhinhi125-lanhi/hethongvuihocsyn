@@ -320,7 +320,7 @@ export const TeacherEvaluationView: React.FC = () => {
       {/* ================= MODAL: 2 CỘT CHI TIẾT CA DẠY (TRÁI) & PHIẾU CHẤM DỰ GIỜ (PHẢI) ================= */}
       {viewingRecord && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
-          <div className="bg-slate-50 rounded-2xl w-full max-w-7xl max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-slate-50 rounded-2xl w-full max-w-7xl h-[90vh] max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Header chung của Modal */}
             <div className="bg-white px-6 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -358,8 +358,9 @@ export const TeacherEvaluationView: React.FC = () => {
             </div>
 
             {/* Nội dung 2 CỘT */}
-            <div className="flex flex-col flex-1 overflow-y-auto divide-y divide-slate-200">
+            <div className="evaluation-split flex-1 min-h-0 overflow-y-auto">
               {/* ================= CỘT TRÁI (7/12 CỘT): CHI TIẾT CA DẠY CỦA GIA SƯ ================= */}
+              <div className="min-w-0 min-h-0 overflow-y-auto">
               {viewingSource ? <TeachingSessionDetails
                 cls={viewingSource.cls} session={viewingSource.sessionNum || 0}
                 date={viewingSource.lesson.date} time={viewingSource.session.slot}
@@ -367,7 +368,8 @@ export const TeacherEvaluationView: React.FC = () => {
                 onSelect={() => {}}
               /> : <div className="p-5 text-sm text-slate-500">Chưa có dữ liệu buổi học gốc.</div>}
               {/* ================= CỘT PHẢI (5/12 CỘT): BIÊN BẢN & PHIẾU CHẤM DỰ GIỜ ================= */}
-              <div className="lg:col-span-5 p-5 bg-white overflow-y-auto space-y-4 flex flex-col justify-between">
+              </div>
+              <div className="min-w-0 min-h-0 p-5 bg-white overflow-y-auto space-y-4 flex flex-col justify-between">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200 mb-2">
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">

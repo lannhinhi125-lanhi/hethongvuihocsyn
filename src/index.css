@@ -265,3 +265,31 @@ body:has(.workspace-ui) #root {
   outline: none; border-color: #ff5c00; box-shadow: 0 0 0 3px rgb(255 92 0 / 0.12);
 }
 .report-select:disabled { cursor: not-allowed; opacity: .45; }
+
+/* Resize centered, bounded popup panels from the bottom-right corner. */
+@media screen and (min-width: 768px) {
+  .fixed.inset-0.flex.items-center.justify-center > :is(div, form, section)[class*="max-w-"][class*="rounded-"] {
+    resize: both;
+    overflow: auto;
+    min-width: min(360px, calc(100vw - 3rem));
+    min-height: min(240px, calc(100dvh - 3rem));
+    max-width: calc(100vw - 3rem);
+    max-height: calc(100dvh - 3rem);
+    flex-shrink: 0;
+  }
+}
+.evaluation-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.evaluation-split > * + * { border-top: 1px solid var(--color-slate-200); }
+@media screen and (min-width: 1024px) {
+  .evaluation-split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+  }
+  .evaluation-split > * + * {
+    border-top: 0;
+    border-left: 1px solid var(--color-slate-200);
+  }
+}
