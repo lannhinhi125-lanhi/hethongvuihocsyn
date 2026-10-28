@@ -354,7 +354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existing = classes.find(item => item.id === id);
     if (!existing || !classChangeAllowed([existing], [{ ...existing, ...updates }], can, ownTeacher?.id, ownTeacher?.name)) { showToast('Bạn không có quyền sửa các trường lớp học đã chọn.', 'error'); return false; }
     const releasing = updates.status === 'Dừng lớp' || updates.status === 'Đã kết thúc';
-    if (releasing) updates = { ...updates, studentIds: [] };
+    if (releasing) updates = { ...updates, studentIds: [], paused: false };
     const next = { ...existing, ...updates };
     const bindingIssue=classBindingEditIssue(existing,next);
     if(bindingIssue){showToast(bindingIssue,'warning');return false;}

@@ -1,3 +1,4 @@
+import { enablePopupWindows } from './lib/popupWindows';
 import { clearLegacyBrowserData } from './lib/localData';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
@@ -5,4 +6,5 @@ import './index.css';
 
 // Chạy trước khi mount: không để cache cũ và phiên đăng nhập cũ được nạp lại.
 clearLegacyBrowserData();
+enablePopupWindows();
 createRoot(document.getElementById('root')!).render(<App />);
