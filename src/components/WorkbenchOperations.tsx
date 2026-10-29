@@ -12,6 +12,8 @@ import {workbenchData,type WorkbenchLesson} from '../lib/workbench';
 import {PaginatedTableBody} from './Pagination';
 import {SessionStatusChart} from './SessionStatusChart';
 import {dashboardDisputes} from '../lib/dashboardNavigation';
+import {allTaskRange} from '../lib/workbenchPlanning';
+import {localDay} from '../lib/workbench';
 
 export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange;period:WorkbenchPeriod;section:'operations'|'tasks'}){
  const {classes,students,teachers,timeSlots,payrollStore,openDashboardDetail,incidents:incidentCategories}=useApp();
@@ -21,28 +23,36 @@ export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange
  const [now,setNow]=useState(()=>new Date());
  const [reviewOnly,setReviewOnly]=useState(false);
  const [teacherFilter,setTeacherFilter]=useState('');
+ const [taskScope,setTaskScope]=useState<'all'|'period'>('all');
  const tableRef=React.useRef<HTMLElement>(null);
  const showReview=()=>{setTeacherFilter('');setReviewOnly(true);tableRef.current?.scrollIntoView({behavior:'smooth',block:'start'});};
  const showTeacher=(id:string,review=false)=>{setTeacherFilter(id);setReviewOnly(review);tableRef.current?.scrollIntoView({behavior:'smooth',block:'start'});};
  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),30_000);return()=>window.clearInterval(timer);},[]);
  const data=useMemo(()=>workbenchData(classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,range),[classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,range]);
  const comparison=workbenchComparison(range,period);
+ const taskRange=useMemo(()=>taskScope==='period'?range:allTaskRange(lessons,incidents,payrollStore,localDay(now)),[taskScope,range,lessons,incidents,payrollStore,now]);
+ const tasks=useMemo(()=>taskScope==='period'?data:workbenchData(classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,taskRange),[taskScope,data,classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,taskRange]);
+ const pendingIncidents=incidents.filter(i=>{
+  const date=i.reportedAt?.slice(0,10)||lessons.find(l=>l.id===i.lessonId)?.date||'';
+  return i.status==='DANG_XU_LY'&&(taskScope==='all'||date>=range.start&&date<=range.end);
+ });
+ const openTasks=(label:string,rows:typeof data.periodLessons)=>{if(canModule('PH5'))openDashboardDetail({module:5,tab:'diary',label,range:{...taskRange},ids:rows.map(row=>row.lesson.id)});};
  const previous=useMemo(()=>workbenchData(classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,comparison.range),[classes,students,teachers,lessons,incidents,payrollStore,timeSlots,now,comparison.range.start,comparison.range.end]);
  const goLessons=(label:string,rows:typeof data.periodLessons)=>{if(canModule('PH5'))openDashboardDetail({module:5,tab:'diary',label,range:{...range},ids:rows.map(row=>row.lesson.id)});};
  const goQueue=(label:string)=>{
-  if(label==='Giải trình chờ duyệt'&&canModule('PH7'))openDashboardDetail({module:7,tab:'disputes',label,range:{...range},ids:dashboardDisputes(payrollStore,range).filter(d=>d.status==='CHO_DUYET').map(d=>d.id)});
-  if(label==='Lớp thiếu học liệu trong kỳ'&&canModule('PH4'))openDashboardDetail({module:4,tab:'materials',label,range:{...range},ids:data.missingMaterialClassIds});
-  if(label==='Buổi còn thiếu nhận xét')goLessons(label,data.periodLessons.filter(({lesson:l,state})=>state!=='NGHI_HOC'&&l.checkoutAt&&l.feedbackProgress&&l.feedbackProgress.completed<l.feedbackProgress.total));
+  if(label==='Giải trình chờ duyệt'&&canModule('PH7'))openDashboardDetail({module:7,tab:'disputes',label,range:{...taskRange},ids:dashboardDisputes(payrollStore,taskRange).filter(d=>d.status==='CHO_DUYET').map(d=>d.id)});
+  if(label==='Lớp thiếu học liệu'&&canModule('PH4'))openDashboardDetail({module:4,tab:'materials',label,range:{...taskRange},ids:tasks.missingMaterialClassIds});
+  if(label==='Buổi còn thiếu nhận xét')openTasks(label,tasks.periodLessons.filter(({lesson:l,state})=>state!=='NGHI_HOC'&&l.checkoutAt&&l.feedbackProgress&&l.feedbackProgress.completed<l.feedbackProgress.total));
   if(label==='Sự cố chờ xử lý'&&canModule('PH5')){
-   const ids=incidents.filter(i=>{const date=i.reportedAt?.slice(0,10)||lessons.find(l=>l.id===i.lessonId)?.date||'';return i.status==='DANG_XU_LY'&&date>=range.start&&date<=range.end;}).flatMap(i=>i.lessonId?[i.lessonId]:[]);
-   openDashboardDetail({module:5,tab:'incidents',label,range:{...range},ids});
+   const ids=pendingIncidents.flatMap(i=>i.lessonId?[i.lessonId]:[]);
+   openDashboardDetail({module:5,tab:'incidents',label,range:{...taskRange},ids});
   }
  };
  const queues=[
-  {label:'Sự cố chờ xử lý',count:data.pendingIncidents,module:5},
-  {label:'Giải trình chờ duyệt',count:data.pendingDisputes,module:7},
-  {label:'Lớp thiếu học liệu trong kỳ',count:data.missingMaterials,module:4},
-  {label:'Buổi còn thiếu nhận xét',count:data.missingFeedback,module:5}
+  {label:'Sự cố chờ xử lý',count:pendingIncidents.length,module:5},
+  {label:'Giải trình chờ duyệt',count:tasks.pendingDisputes,module:7},
+  {label:'Lớp thiếu học liệu',count:tasks.missingMaterials,module:4},
+  {label:'Buổi còn thiếu nhận xét',count:tasks.missingFeedback,module:5}
  ];
  const labels:Record<string,string>={DA_HOC:'Đã học',CHUA_HOC:'Chưa vào lớp',CHUA_HOAN_TAT:'Đã học',DANG_HOC:'Đang học',CHUA_DIEN_RA:'Sắp tới',NGHI_HOC:'Nghỉ học'};
  const visibleLessons=data.periodLessons.filter(row=>(!reviewOnly||Boolean(row.reviewReason))&&(!teacherFilter||(row.state!=='NGHI_HOC'&&(row.lesson.coverTeacherId||row.lesson.primaryTeacherId)===teacherFilter)));
@@ -59,8 +69,11 @@ export function WorkbenchOperations({range,period,section}:{range:WorkbenchRange
    
   </section>}
   {section==='tasks' && <section className="rounded-2xl border border-slate-200 bg-white p-4">
-   <h2 className="text-sm font-bold text-slate-800"><InfoTitle title="Việc cần xử lý trong kỳ"><p>Theo trạng thái hiện tại của các bản ghi trong khoảng đã chọn. Giải trình lấy theo kỳ công tháng giao với khoảng này.</p></InfoTitle></h2>
-   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{queues.map(q=><button key={q.label} type="button" disabled={!canModule('PH'+q.module)} onClick={()=>goQueue(q.label)} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-left hover:bg-orange-50 disabled:cursor-default disabled:hover:bg-white"><span className="text-xs text-slate-600">{q.label}</span><span className="flex items-center gap-2"><strong className={q.count?'text-lg text-orange-600':'text-lg text-slate-400'}>{q.count}</strong>{canModule('PH'+q.module)&&<ArrowUpRight className="h-3.5 w-3.5 text-slate-400"/>}</span></button>)}</div>
+   <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold text-slate-800">Việc cần xử lý</h2>
+    <div role="group" aria-label="Phạm vi việc cần xử lý" className="flex gap-1 rounded-lg bg-slate-100 p-1">{(['all','period'] as const).map(scope=><button key={scope} type="button" aria-pressed={taskScope===scope} onClick={()=>setTaskScope(scope)} className={'rounded-md px-3 py-1.5 text-xs font-semibold '+(taskScope===scope?'bg-white text-orange-700 shadow-xs':'text-slate-600')}>{scope==='all'?'Tất cả chưa xử lý':'Trong kỳ'}</button>)}</div>
+   </div>
+   <p className="mt-2 text-xs text-slate-500">{taskScope==='all'?'Toàn bộ dữ liệu đã tải, gồm việc còn tồn từ các kỳ trước và học liệu cần chuẩn bị cho ca sắp tới.':'Theo khoảng ngày phía trên; giải trình lấy theo kỳ công tháng giao với khoảng này.'}</p>
+   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{queues.map(q=><button key={q.label} type="button" disabled={!canModule('PH'+q.module)} onClick={()=>goQueue(q.label)} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-left hover:bg-orange-50 disabled:cursor-default disabled:hover:bg-white"><span className="text-xs text-slate-600">{q.label}</span><span className="flex items-center gap-2"><strong className={q.count?'text-lg text-orange-600':'text-lg text-slate-400'}>{q.count}</strong>{canModule('PH'+q.module)&&<ArrowUpRight className="h-3.5 w-3.5 text-slate-400"/>}</span></button>)}</div>
   </section>}
   {section==='operations' && <div className="grid gap-4 lg:grid-cols-2">
    <SessionStatusChart days={data.days} onReview={showReview}/>

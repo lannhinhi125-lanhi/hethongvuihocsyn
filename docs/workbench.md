@@ -6,8 +6,9 @@ Dashboard tổng quan được chuyển từ Báo cáo sang mục Bàn làm vi�
 
 - Thanh thời gian chung có Ngày, Tuần, Tháng, Tùy chọn, nút lùi/tiến và trở về hiện tại. Chuyển mục nghiệp vụ giữ nguyên khoảng thời gian.
 - Ca dạy: số ca trong kỳ, trạng thái, biểu đồ cột chồng, phân bổ giáo viên và bảng ca học có ngày, giờ, lớp, giáo viên thực dạy.
-- Việc cần xử lý: sự cố, giải trình, thiếu học liệu và thiếu nhận xét trong kỳ. Giải trình tính theo tháng giao với kỳ đã chọn; trạng thái xử lý là trạng thái hiện tại.
+- Việc cần xử lý: mặc định toàn bộ việc chưa xử lý, gồm kỳ trước và học liệu cần chuẩn bị cho ca sắp tới. Có thể chuyển sang Trong kỳ; giải trình khi đó tính theo tháng giao với kỳ đã chọn. Nút mở chi tiết giữ đúng danh sách và phạm vi tương ứng.
 - Tuyển sinh & lớp học: xu hướng học sinh mới và lớp được tạo, cơ cấu môn; học sinh chờ lớp và lớp thiếu giáo viên được ghi rõ là hiện trạng, không phải ảnh chụp lịch sử.
+- Học sinh & lớp học chia thành Điều phối hiện tại và Tăng trưởng trong kỳ. Điều phối đặt nhu cầu chờ lớp theo môn/mô hình cạnh danh sách lớp kết thúc trong 7, 14 hoặc 30 ngày từ hôm nay; gồm hôm nay và ngày cuối khoảng. Bỏ lớp đã kết thúc, dừng hoặc thiếu ngày kết thúc. Bấm nhóm/lớp mở phân hệ 4 theo quyền. Một học sinh chờ nhiều môn có thể xuất hiện ở nhiều nhóm, tổng học sinh không đếm trùng. Các bảng dài cuộn riêng; bảng đối chiếu tăng trưởng cũng giới hạn chiều cao.
 - Chất lượng đào tạo: tỷ lệ ca có sự cố và kết quả dự giờ đã duyệt trong kỳ, biểu đồ cơ cấu sự cố và xếp loại giáo viên. Điểm tổng quan tính theo trung bình từng giáo viên.
 - Các nút dẫn tới phân hệ nghiệp vụ chỉ hoạt động nếu tài khoản có quyền vào phân hệ đó.
 - Nút làm mới và chu kỳ cập nhật 30 giây khi trang hiển thị. Không có thao tác ghi dữ liệu từ dashboard.

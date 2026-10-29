@@ -1,0 +1,17 @@
+﻿import assert from 'node:assert/strict';
+import {waitingDemand,endingClasses,allTaskRange} from '../src/lib/workbenchPlanning';
+import {workbenchData} from '../src/lib/workbench';
+import type {StudentRecord,ClassItem,MonthPayrollData} from '../src/types';
+const student={id:'s1',registrations:[{subject:'M',model:'1-3',status:'Chờ xếp lớp'},{subject:'E',model:'1-1',status:'Chờ xếp lớp'},{subject:'M',model:'1-3',status:'Chờ xếp lớp'},{subject:'X',model:'1-1',status:'Đang học'}]} as StudentRecord;
+const demand=waitingDemand([student,student]);assert.equal(demand.length,2);assert.ok(demand.every(row=>row.ids.length===1));
+const classes=[{id:'a',name:'A',endDate:'2026-11-05',status:'Đang học'},{id:'b',name:'B',endDate:'2026-10-29',status:'Đang học'},{id:'c',name:'C',endDate:'2026-10-28',status:'Đang học'},{id:'d',name:'D',endDate:'2026-11-01',status:'Dừng lớp'},{id:'e',name:'E',endDate:'2026-11-01',status:'Đã kết thúc'},{id:'f',name:'F',endDate:'2026-11-06',status:'Đang học'},{id:'g',name:'G',endDate:'invalid',status:'Đang học'}] as ClassItem[];
+assert.deepEqual(endingClasses([...classes,classes[0]],'2026-10-29',7).map(row=>row.item.id),['b','a']);assert.equal(endingClasses(classes,'2026-10-29',30).length,3);
+const payroll={'2026-08':{disputes:[{id:'d1',status:'CHO_DUYET'}]}} as unknown as Record<string,MonthPayrollData>;
+const lessons=[{id:'old',classId:'c',date:'2026-09-01',timeSlotId:'s',status:'DA_HOC',checkoutAt:'2026-09-01T12:00:00Z',feedbackProgress:{state:'CHUA_DU',total:2,completed:1}}];
+const incidents=[{lessonId:'old',reportedAt:'2026-09-01T12:00:00Z',status:'DANG_XU_LY'}];
+const range=allTaskRange(lessons,incidents,payroll,'2026-10-29');assert.equal(range.start,'2026-08-01');
+const all=workbenchData([],[],[],lessons,incidents,payroll,[],new Date('2026-10-29T12:00:00Z'),range);
+const period=workbenchData([],[],[],lessons,incidents,payroll,[],new Date('2026-10-29T12:00:00Z'),{start:'2026-10-26',end:'2026-11-01'});
+assert.equal(all.pendingIncidents,1);assert.equal(all.pendingDisputes,1);assert.equal(all.missingFeedback,1);assert.equal(period.pendingIncidents,0);assert.equal(period.pendingDisputes,0);assert.equal(period.missingFeedback,0);
+assert.deepEqual(allTaskRange([],[],{},'2026-10-29'),{start:'2026-10-29',end:'2026-10-29'});
+console.log('PASS: unique waiting groups, ending boundaries, exclusions and historical task coverage');

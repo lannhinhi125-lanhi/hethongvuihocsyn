@@ -1,5 +1,6 @@
+import {WorkbenchPlanning} from './WorkbenchPlanning';
 import {InfoTitle} from './InfoTitle';
-import React,{useMemo} from 'react';
+import React,{useMemo,useState} from 'react';
 import {useApp} from '../context/AppContext';
 import {useBusinessValue} from '../lib/businessPersistence';
 import {workbenchAnalytics,type WorkbenchEvaluation} from '../lib/workbenchAnalytics';
@@ -19,6 +20,7 @@ function Distribution({items}:{items:{label:string;count:number}[]}){
 }
 export function WorkbenchAnalytics({section,range,period}:{section:'enrollment'|'quality';range:WorkbenchRange;period:WorkbenchPeriod}){
  const {classes,students,subjects,openDashboardDetail}=useApp();
+ const [enrollmentView,setEnrollmentView]=useState<'planning'|'growth'>('planning');
  const {canModule}=usePermissions();
  const openEnrollment=(index:number)=>{
   if(!canModule('PH4'))return;
@@ -46,15 +48,18 @@ export function WorkbenchAnalytics({section,range,period}:{section:'enrollment'|
    <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map((m,i)=><button key={m.label} type="button" disabled={section!=='enrollment'||!canModule('PH4')} onClick={()=>openEnrollment(i)} className="rounded-lg bg-slate-50 px-3 py-2 text-left enabled:hover:bg-orange-50"><span className="text-[11px] text-slate-600">{m.label}</span><strong className="mt-0.5 block text-xl text-orange-600">{m.value}</strong>{section==='quality'&&<MetricComparison {...qualityComparison[i]} label={comparison.label}/>}</button>)}</div>
   </section>
   {section==='enrollment'?<>
+   <nav aria-label="Nội dung học sinh và lớp học" className="flex flex-wrap gap-2">{([{id:'planning',label:'Điều phối hiện tại'},{id:'growth',label:'Tăng trưởng trong kỳ'}] as const).map(item=><button key={item.id} type="button" aria-pressed={enrollmentView===item.id} onClick={()=>setEnrollmentView(item.id)} className={'rounded-lg border px-3 py-1.5 text-xs font-semibold '+(enrollmentView===item.id?'border-orange-200 bg-orange-50 text-orange-700':'border-slate-200 bg-white text-slate-600')}>{item.label}</button>)}</nav>
+   {enrollmentView==='planning'?<WorkbenchPlanning/>:<div className="grid items-start gap-3 xl:grid-cols-2">
    <WorkbenchGrowth data={data} previous={previous} comparison={comparison} range={range}/>
+   <div className="min-w-0 space-y-3">
    {!data.newStudents&&!data.newClasses&&<div className="px-1 text-xs text-slate-500"><InfoTitle title="Chưa có hồ sơ tạo mới trong kỳ"><p>Không có hồ sơ học sinh hoặc lớp được tạo trong kỳ này.{creationDates.length?` Dữ liệu hiện có ngày tạo từ ${creationDates[0]} đến ${creationDates[creationDates.length-1]}; dùng thanh thời gian phía trên để xem kỳ tương ứng.`:' Chưa có dữ liệu ngày tạo để đối chiếu.'}</p></InfoTitle></div>}
-   <div className="grid gap-4 lg:grid-cols-2"><section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-bold text-slate-800"><InfoTitle title="Xu hướng học sinh mới & lớp mới tăng trưởng"><p>Đường xanh lá đếm hồ sơ học sinh được tạo trong kỳ, theo mã duy nhất. Đường tím đếm lớp được tạo trong kỳ có toàn bộ học sinh mới và ghép lớp lần đầu theo môn.</p><p>Đổi thanh thời gian để xem kỳ khác. Lớp có học sinh cũ, chuyển lớp hoặc chưa đủ lịch sử không tự được cộng vào lớp mới tăng trưởng.</p></InfoTitle></h3>
+   <div className="grid gap-3"><section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-bold text-slate-800"><InfoTitle title="Xu hướng học sinh mới & lớp mới tăng trưởng"><p>Đường xanh lá đếm hồ sơ học sinh được tạo trong kỳ, theo mã duy nhất. Đường tím đếm lớp được tạo trong kỳ có toàn bộ học sinh mới và ghép lớp lần đầu theo môn.</p><p>Đổi thanh thời gian để xem kỳ khác. Lớp có học sinh cũ, chuyển lớp hoặc chưa đủ lịch sử không tự được cộng vào lớp mới tăng trưởng.</p></InfoTitle></h3>
     <svg viewBox="0 0 600 175" role="img" aria-label="Biểu đồ hồ sơ học sinh mới và lớp mới tăng trưởng trong kỳ" className="mt-4 w-full"><line x1="30" y1="140" x2="570" y2="140" stroke="#e2e8f0"/>
      <polyline points={points('students')} fill="none" stroke="#10b981" strokeWidth="3"/><polyline points={points('classes')} fill="none" stroke="#6366f1" strokeWidth="3"/>
      {data.growth.map((g,i)=><g key={g.date}><title>{`${g.label}: ${g.students} hồ sơ mới, ${g.classes} lớp mới tăng trưởng`}</title><circle cx={30+i*540/Math.max(1,data.growth.length-1)} cy={140-g.students/max*115} r="3" fill="#10b981"/><circle cx={30+i*540/Math.max(1,data.growth.length-1)} cy={140-g.classes/max*115} r="3" fill="#6366f1"/><text x={30+i*540/Math.max(1,data.growth.length-1)} y="162" textAnchor="middle" fontSize="9" fill="#64748b">{g.label}</text></g>)}
     </svg><div className="flex gap-4 text-[11px]"><span className="text-emerald-600">● Hồ sơ học sinh mới</span><span className="text-indigo-600">● Lớp mới tăng trưởng</span></div></section>
     <section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-bold text-slate-800"><InfoTitle title="Toàn bộ lớp hiện có theo môn"><p>Cùng phạm vi với Tổng lớp học, không lọc theo ngày tạo.</p></InfoTitle></h3><Distribution items={data.currentSubjects.map(s=>({label:subjects.find(i=>i.code===s.subject)?.name||s.subject||'Chưa có môn',count:s.count}))}/></section></div>
-   <section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-bold text-slate-800"><InfoTitle title="Nhu cầu xếp lớp hiện tại"><p>Hiện trạng đang chờ, không phải số liệu lịch sử của kỳ đã chọn.</p></InfoTitle></h3><div className="mt-3 grid grid-cols-2 gap-3"><div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Học sinh có môn chờ xếp lớp<strong className="mt-1 block text-xl">{data.waiting}</strong></div><div className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Lớp chưa có giáo viên<strong className="mt-1 block text-xl">{data.noTeacher}</strong></div></div></section>
+   </div></div>}
   </>:<div className="grid gap-4 lg:grid-cols-2"><section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-bold text-slate-800"><InfoTitle title="Ca học có ghi nhận sự cố"><p>Mỗi ca chỉ tính một lần dù có nhiều sự cố.</p></InfoTitle></h3><Distribution items={[{label:'Chưa ghi nhận sự cố',count:data.totalLessons-data.affected},{label:'Có sự cố',count:data.affected}]}/></section>
    <section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="text-sm font-bold text-slate-800"><InfoTitle title="Xếp loại giáo viên được dự giờ"><p>Theo điểm trung bình các biên bản đã duyệt trong kỳ · {data.evaluatedTeachers} giáo viên.</p></InfoTitle></h3><div className="mt-6 space-y-4">{data.ratings.map((r,i)=><div key={r.label}><div className="mb-1 flex justify-between text-xs text-slate-600"><span>{r.label}</span><strong>{r.count}</strong></div><div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{background:colors[i],width:data.evaluatedTeachers?r.count/data.evaluatedTeachers*100+'%':0}}/></div></div>)}</div></section></div>}
  </div>;
