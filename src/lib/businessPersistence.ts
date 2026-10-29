@@ -3,7 +3,7 @@ import { teacherSessionRequest } from './accountSession';
 import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset } from './supabaseMapper';
 import { recordChanges } from './recordChanges';
 type Row = Record<string, any>;
-type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number; loadedAt?:number;refreshError?:string };
+type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number; loadedAt?:number;refreshError?:string;errorOperation?:'load'|'save' };
 const emptyRag = { welcomeGreeting:'',personaTone:'',strictGroundingOnly:true,fallbackResponse:'',systemPrompt:'' };
 let state: Snapshot = {data:{},loading:false,saving:false,error:'',saved:0};
 let confirmed: Record<string,any> = {}, generation=0, flushing=false, scheduled=false, refreshing=false;
@@ -41,7 +41,7 @@ export async function loadBusinessData(){
  if(state.saving) return;
  const version=++generation;publish({...state,loading:true,error:''});
  try {const result=await teacherSessionRequest('vuihoc_business_data');if(version!==generation)return;raw=result;confirmed=decode(result);publish({...state,data:confirmed,loading:false,error:'',loadedAt:Date.now(),refreshError:''});}
- catch(error){if(version===generation)publish({...state,loading:false,error:(error as Error).message});}
+ catch(error){if(version===generation)publish({...state,loading:false,errorOperation:'load',error:(error as Error).message});}
 }
 export async function refreshBusinessData(){
  if(refreshing || state.loading || state.saving || !Object.keys(state.data).length)return;
@@ -61,7 +61,7 @@ export function acceptBusinessTeacher(teacher:Row){
  publish({...state,data:{...state.data,teachers:rows}});
 }
 export function setBusinessValue(key:string,action:SetStateAction<any>){
- if(state.loading){publish({...state,error:'Đang tải dữ liệu. Vui lòng đợi rồi lưu lại.'});return;}
+ if(state.loading){publish({...state,errorOperation:'save',error:'Đang tải dữ liệu. Vui lòng đợi rồi lưu lại.'});return;}
  const previous=state.data[key]??initial(key);
  let value=typeof action==='function'?action(previous):action;
  if(collections.includes(key as SupabaseDataset)&&key!=='time_slots'&&Array.isArray(previous)&&Array.isArray(value)){
@@ -69,7 +69,7 @@ export function setBusinessValue(key:string,action:SetStateAction<any>){
   value=[...value.filter((row:Row)=>!existingIds.has(row.id)),...value.filter((row:Row)=>existingIds.has(row.id))];
  }
  if(JSON.stringify(value)===JSON.stringify(previous))return;
- try {encode(key,value);}catch(error){publish({...state,error:(error as Error).message});return;}
+ try {encode(key,value);}catch(error){publish({...state,errorOperation:'save',error:(error as Error).message});return;}
  publish({...state,data:{...state.data,[key]:value},saving:true,error:''});
  if(!scheduled){scheduled=true;queueMicrotask(()=>{scheduled=false;void flush();});}
 }
@@ -100,7 +100,7 @@ async function flush(){
    }
    publish({...state,data:more?state.data:confirmed,saving:more,saved:state.saved+1,...(!more&&receipt.data?{loadedAt:Date.now(),refreshError:''}:{})});
   }
- }catch(error){if(version===generation)publish({...state,data:confirmed,saving:false,error:(error as Error).message});}
+ }catch(error){if(version===generation)publish({...state,data:confirmed,saving:false,errorOperation:'save',error:(error as Error).message});}
  finally{flushing=false;if(state.saving)queueMicrotask(()=>void flush());}
 }
 export function useBusinessStatus(){return useSyncExternalStore(fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},()=>state,()=>state);}
@@ -117,7 +117,7 @@ export async function removeClassStudent(classId:string,studentId:string) {
   raw=receipt.data;confirmed=decode(raw);
   publish({...state,data:confirmed,saving:false,error:'',saved:state.saved+1,loadedAt:Date.now(),refreshError:''});
  }catch(error){
-  if(version===generation)publish({...state,saving:false,error:(error as Error).message});
+  if(version===generation)publish({...state,saving:false,errorOperation:'save',error:(error as Error).message});
   throw error;
  }
 }

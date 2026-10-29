@@ -15,8 +15,9 @@ const fieldLabels:Record<string,string>={
 };
 
 /** Explain database constraints without changing or storing the rejected data. */
-export function saveErrorMessage(error:unknown):string {
+export function saveErrorMessage(error:unknown, operation: 'load' | 'save' = 'save'):string {
  if (error && typeof error==='object' && ('code' in error && error.code==='57014' || 'message' in error && /statement timeout/i.test(String(error.message)))) {
+  if (operation === 'load') return 'Tải dữ liệu mất quá nhiều thời gian nên yêu cầu đã bị hủy. Vui lòng thử tải lại.';
   return 'Thao tác lưu mất quá nhiều thời gian và đã được hủy. Vui lòng thử lại; nếu lỗi lặp lại, cần kiểm tra truy vấn và khóa dữ liệu trên Supabase.';
  }
  const item=error&&typeof error==='object'?error as {message?:unknown;code?:unknown;details?:unknown}:{};

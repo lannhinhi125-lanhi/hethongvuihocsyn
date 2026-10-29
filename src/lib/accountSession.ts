@@ -28,7 +28,7 @@ async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSig
   if (error?.code === 'PGRST202' && name === 'vuihoc_remove_class_student') throw new Error('Hãy chạy supabase/apply_class_management_update.sql trong Supabase rồi thử lại.');
   if (error) throw new Error(error.code === 'PGRST202'
     ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261012_plaintext_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
-    : saveErrorMessage(error));
+    : saveErrorMessage(error, ['vuihoc_business_data', 'vuihoc_teacher_data', 'vuihoc_session', 'vuihoc_reveal_password'].includes(name) ? 'load' : 'save'));
   if (data?.error) throw new Error(data.error);
   return data;
 }

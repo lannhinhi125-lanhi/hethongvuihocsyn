@@ -307,3 +307,5 @@ body:has(.workspace-ui) #root {
   .report-split-handle svg { position: sticky; top: 45vh; }
   .report-filter-grid { grid-template-columns: minmax(0, 1fr); }
 }
+/* Native mirrors of custom selects must not inherit visible select padding. */
+.report-interface select[aria-hidden='true'] { padding: 0; border: 0; min-width: 0; }

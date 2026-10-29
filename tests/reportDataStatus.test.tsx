@@ -1,0 +1,16 @@
+﻿import assert from 'node:assert/strict';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {ReportDataStatusContent} from '../src/components/ReportDataStatus';
+const base={loading:false,saving:false,error:'',loadedAt:1793242800000};
+const render=(status:Omit<typeof base, 'loadedAt'> & {loadedAt?:number;refreshError?:string;errorOperation?:'load'|'save'})=>renderToStaticMarkup(<ReportDataStatusContent status={status} onRetry={()=>{}}/>);
+const load=render({...base,error:'Tải dữ liệu quá thời gian chờ.',errorOperation:'load'});
+assert.match(load,/Chưa tải được dữ liệu mới/);assert.doesNotMatch(load,/Chưa lưu được/);
+assert.match(load,/Lần cập nhật thành công gần nhất/);assert.match(load,/có thể chưa phản ánh/);assert.match(load,/Thử tải lại/);
+const save=render({...base,error:'Lưu quá thời gian chờ.',errorOperation:'save'});
+assert.match(save,/Chưa lưu được thay đổi/);assert.match(save,/thực hiện lại thay đổi chưa lưu/);
+const background=render({...base,refreshError:'Mất kết nối'});assert.match(background,/Chưa tải được dữ liệu mới/);
+const empty=render({...base,loadedAt:undefined,error:'Mất kết nối',errorOperation:'load'});assert.match(empty,/Chưa có lần tải thành công/);assert.doesNotMatch(empty,/Lần cập nhật thành công gần nhất/);
+const saving=render({...base,saving:true});assert.match(saving,/Số liệu chưa được xác nhận/);
+assert.equal(renderToStaticMarkup(<ReportDataStatusContent status={base} showSuccess={false} onRetry={()=>{}}/>),'');
+console.log('PASS: load/save distinction, stale timestamp, initial failure, pending save and success status');

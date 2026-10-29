@@ -19,3 +19,7 @@ assert.match(saveErrorMessage({code:'57014',message:'canceling statement due to 
 assert.doesNotMatch(saveErrorMessage({message:'canceling statement due to statement timeout'}),/canceling statement/);
 assert.equal(saveErrorMessage(null),'Chưa lưu được dữ liệu. Vui lòng thử lại.');
 console.log('PASS: referenced/missing data and duplicate values have actionable messages; business rules and unknown errors stay intact');
+
+const loadTimeout=saveErrorMessage({code:'57014',message:'statement timeout'},'load');
+assert.match(loadTimeout,/Tải dữ liệu/);
+assert.doesNotMatch(loadTimeout,/lưu|khóa dữ liệu/);
