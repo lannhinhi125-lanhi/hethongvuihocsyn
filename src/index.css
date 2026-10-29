@@ -268,18 +268,14 @@ body:has(.workspace-ui) #root {
 
 .evaluation-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  height: 65dvh;
+  flex: 1 1 65dvh;
+  overflow: hidden;
 }
-.evaluation-split > * + * { border-top: 1px solid var(--color-slate-200); }
-@media screen and (min-width: 1024px) {
-  .evaluation-split {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: hidden;
-  }
-  .evaluation-split > * + * {
-    border-top: 0;
-    border-left: 1px solid var(--color-slate-200);
-  }
+.evaluation-split > * + * {
+  border-left: 1px solid var(--color-slate-200);
 }
 
 .module-top-tab { flex-shrink: 0; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 500; cursor: pointer; }
