@@ -583,7 +583,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     setSavingIncident(true);
     try {
       await waitForBusinessSave();
-      showToast(`Đã lưu biên bản ca ${displaySessionCode(selectedIncidentSession)} ${resolvedIncidentStatus !== 'DA_GIAI_QUYET' ? '— đang xử lý, chưa áp hệ số công' : selectedIncident.creditCoeff == null ? '— chưa đủ cấu hình tính công' : 'và cập nhật bảng công'}. Người xử lý: ${currentOps.name}.`, 'success');
+      showToast('Đã lưu phiếu và cập nhật công.', 'success');
       setSelectedIncidentSession(null);
     } catch (error) {
       showToast((error as Error).message, 'error');
