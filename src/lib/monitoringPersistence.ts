@@ -18,6 +18,7 @@ export function storedMonitoringSession(base:MonitoringSession,lessons:Row[],inc
  const incident=reports.find(row=>!['DA_GIAI_QUYET','HUY_CA'].includes(row.status)) || reports[0];
  return {...base,sessionCode:lesson.id,displayCode:lesson.displayCode,room:lesson.roomUrl||'Chưa gán phòng',roomUrl:lesson.roomUrl||'',checkinTime:lesson.checkinAt?new Date(lesson.checkinAt).toLocaleTimeString('en-GB',{timeZone:'Asia/Bangkok'}):null,attendance:lesson.teacherAttendance||'ABSENT',
  checkinAt:lesson.checkinAt||null,checkoutAt:lesson.checkoutAt||null,
+ monitoringApproval:lesson.monitoringApproval||null,
  hasPersistedStatus:true,feedbackProgress:lesson.feedbackProgress,
  status:['HOAN_THANH','DA_HOC_CU','DAY_THAY_CU'].includes(lesson.status)?'DA_HOC':['HUY','NGHI_HOC'].includes(lesson.status)?'NGHI_HOC':lesson.status as MonitoringSessionState,
  primaryTeacherId:lesson.primaryTeacherId,primaryTeacher:teachers.find(t=>t.id===lesson.primaryTeacherId)?.name||base.primaryTeacher,
@@ -44,6 +45,7 @@ export function persistMonitoringChanges(previous:MonitoringSession[],next:Monit
   const {primaryTeacherId,coverTeacherId}=sessionTeacherIds({...session,coverTeacherId:session.coverTeacherId===old.coverTeacherId?existing.coverTeacherId:session.coverTeacherId},existing,cls,teachers);
   if (coverTeacherId !== (existing.coverTeacherId || null) && !canAssignCover(session)) throw new Error('Ca đã qua giờ kết thúc, không thể thay đổi giáo viên dạy thay.');
   const lesson:Row={...existing,primaryTeacherId,coverTeacherId};
+  if(JSON.stringify(session.monitoringApproval)!==JSON.stringify(old.monitoringApproval))lesson.monitoringApproval=session.monitoringApproval||null;
   if(session.roomUrl!==old.roomUrl)lesson.roomUrl=session.roomUrl;
   if(session.status!==old.status)lesson.status=session.status;
   if(checkinChanged){lesson.checkinAt=checkin;lesson.checkinUserId=checkin?userId:null;}

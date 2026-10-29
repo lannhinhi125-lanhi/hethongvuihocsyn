@@ -324,6 +324,7 @@ export const DATABASE_NAMES = {
       "checkoutUserId": "manguoiketthuc",
       "teacherAttendance": "chuyencan",
       "diary": "nhatky",
+      "monitoringApproval": "duyetgiamsat",
       "recordingUrl": "lienketbanghi",
       "created_at": "ngaytao",
       "updated_at": "ngaycapnhat"
@@ -723,6 +724,7 @@ export const APP_DATABASE_FIELDS = {
     "checkoutUserId": "manguoiketthuc",
     "teacherAttendance": "chuyencan",
     "diary": "nhatky",
+      "monitoringApproval": "duyetgiamsat",
     "recordingUrl": "lienketbanghi",
     "created_at": "ngaytao",
     "updated_at": "ngaycapnhat"

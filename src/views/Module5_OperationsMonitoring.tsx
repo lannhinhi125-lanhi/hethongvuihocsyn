@@ -1,5 +1,6 @@
 import { coverScheduleConflict, isUnresolvedIncident } from '../lib/monitoringWorkflow';
 import { canAssignCover } from '../lib/coverTiming';
+import { isMonitoringApproved, type MonitoringApproval } from '../lib/sessionAlerts';
 import { lessonIncidentRows, withIncident, compareIncidentUpdates } from '../lib/monitoringIncidents';
 import { incidentCredit } from '../lib/incidentCredit';
 import { lessonPauseLabel } from '../lib/classPause';
@@ -66,6 +67,7 @@ export interface MonitoringSession {
   checkinAt?: string | null;
   checkoutAt?: string | null;
   hasPersistedStatus?: boolean;
+  monitoringApproval?: MonitoringApproval | null;
   feedbackProgress?: {total:number;completed:number;state:string;studentIds:string[]};
   status: MonitoringSessionState;
   fromClassPause?: boolean;
@@ -281,6 +283,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const studyStatus = (session: MonitoringSession) => testTimeMode === 'REALTIME' && session.hasPersistedStatus
     ? session.status : monitoringSessionStatus(session, clockNow, getCurrentEffectiveTime());
   const warningRowClass = (session: MonitoringSession) => {
+    if (isMonitoringApproved(session, monitoringWarning(session))) return 'hover:bg-slate-50/80 border-b border-slate-100';
     const status = studyStatus(session);
     if (status === 'CHUA_HOC') return 'bg-rose-100/80 border-l-4 border-l-rose-600 border-b border-rose-200 text-rose-950 hover:bg-rose-100 ring-1 ring-inset ring-rose-300 font-medium';
     if (sessionCompletionWarning(session,clockNow)) return 'bg-orange-100/80 border-l-4 border-l-orange-500 border-b border-orange-200 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-300 font-medium';
@@ -607,26 +610,33 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   // Chế độ mô phỏng thời gian phục vụ kiểm thử theo yêu cầu:
   // "ở trong danh mục tạo 1 cca cchotoi từ 12:50 - 13:50 đi, rồi cho 1 giáo viên đđăngkis lịch rảnh đó, rồi tý đến 12:50 giáo viên chưa vào thì màn hình vận hành hiện màu đỏ ô đó đố. để thử nghiệm áy"
   const isShiftOverdueAndMissing = (s: MonitoringSession) => {
-    return studyStatus(s) === 'CHUA_HOC';
+    return studyStatus(s) === 'CHUA_HOC' && !isMonitoringApproved(s, 'CHUA_VAO_LOP');
   };
 
   // Xác nhận nhanh giáo viên vào lớp cho 1 ca học cụ thể (Gỡ bỏ màu đỏ)
-  const handleQuickCheckin = (sessionCode: string) => {
+  const monitoringWarning = (session: MonitoringSession) => studyStatus(session) === 'CHUA_HOC'
+    ? 'CHUA_VAO_LOP' : sessionCompletionWarning(session, clockNow);
+  const handleQuickCheckin = async (sessionCode: string) => {
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
-    const curTime = getCurrentEffectiveTime();
-    saveSessions(prev =>
+    const session = sessions.find(row => row.sessionCode === sessionCode);
+    if (!session || businessStatus.saving) return;
+    const warning = monitoringWarning(session);
+    if (!warning || isMonitoringApproved(session, warning)) return;
+    if (!saveSessions(prev =>
       prev.map(s =>
         s.sessionCode === sessionCode
           ? {
               ...s,
-              attendance: 'ATTENDED',
-              checkinTime: `${curTime}:15`,
+              monitoringApproval: {by:currentUser.id,at:new Date().toISOString(),warning,checkinAt:s.checkinAt||null,checkoutAt:s.checkoutAt||null},
               isJustUpdated: true
             }
           : { ...s, isJustUpdated: false }
       )
-    );
-    showToast(`Đã xác nhận Giáo viên vào lớp ca [${sessions.find(s=>s.sessionCode===sessionCode)?.displayCode||'Chưa cấp mã'}] lúc ${curTime}:15. Trạng thái cảnh báo đỏ đã được gỡ bỏ!`, 'success');
+    )) return;
+    try {
+      await waitForBusinessSave();
+      showToast('Đã duyệt ca, giữ nguyên giờ vào và kết thúc thực tế.', 'success');
+    } catch(error) { showToast((error as Error).message, 'error'); }
   };
 
   // Đặt lại trạng thái chưa vào lớp để kiểm thử lại
@@ -934,16 +944,18 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           {/* Hành động */}
                           <td className="py-3.5 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
-                              {isOverdue && (
+                              {monitoringWarning(s) && !isMonitoringApproved(s, monitoringWarning(s)) && can('Ghi nhận và xử lý sự cố ca dạy') && (
                                 <button
                                   type="button"
                                   onClick={() => handleQuickCheckin(s.sessionCode)}
+                                  disabled={businessStatus.saving}
                                   className="px-2.5 py-1.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 font-bold text-[11px] transition-all cursor-pointer shadow-2xs"
-                                  title="Xác nhận Giáo viên vào lớp (Gỡ cảnh báo đỏ)"
+                                  title="Duyệt ca bất thường, giữ nguyên giờ vào/ra thực tế"
                                 >
-                                  GV Vào Lớp
+                                  Duyệt
                                 </button>
                               )}
+                              {isMonitoringApproved(s, monitoringWarning(s)) && <span className="rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">Đã duyệt</span>}
                               <button
                                 type="button"
                                 onClick={() => setSelectedClassViewSession(s)}

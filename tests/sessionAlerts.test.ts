@@ -59,7 +59,7 @@ assert.equal(monitoringSessionStatus({...entered,status:'DA_HOC',checkoutAt:'202
 console.log('PASS: feedback locked until checkout; early end boundary at five minutes');
 
 assert.equal(sessionCompletionWarning({...entered,checkoutAt:'2026-10-12T13:44:59+07:00'},at('14:00')).includes('6'),true);
-assert.equal(sessionCompletionWarning(entered,at('14:00')).includes('checkout'),true);
+assert.equal(sessionCompletionWarning(entered,at('14:00')),'','missing manual checkout is handled by automatic scheduled checkout, without an orange warning');
 assert.equal(sessionCompletionWarning(entered,at('13:00')),'');
 assert.equal(sessionCompletionWarning({...entered,checkoutAt:'2026-10-12T13:45:00+07:00'},at('14:00')),'');
 assert.equal(sessionCompletionWarning(missing,at('14:00')),'');

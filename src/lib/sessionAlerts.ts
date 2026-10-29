@@ -1,3 +1,9 @@
+export type MonitoringApproval = {by:string;at:string;warning:string;checkinAt:string|null;checkoutAt:string|null};
+export const isMonitoringApproved = (session:{monitoringApproval?:MonitoringApproval|null;checkinAt?:string|null;checkoutAt?:string|null}, warning:string) => {
+  const approval=session.monitoringApproval;
+  return Boolean(approval && approval.warning===warning && approval.checkinAt===(session.checkinAt||null) && approval.checkoutAt===(session.checkoutAt||null));
+};
+
 export const hasSessionStartPassed = (sessionDate: string, timeSlot: string, now: Date, effectiveTime?: string) => {
   const start = timeSlot.match(/^\s*(\d{1,2}):(\d{2})/);
   if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) return false;
@@ -42,7 +48,6 @@ export const sessionCompletionWarning = (session: Parameters<typeof monitoringSe
   const entered=Boolean(session.checkinAt||session.checkinTime?.trim()||['ATTENDED','LATE'].includes(session.attendance||''));
   if(!entered||monitoringStudyStatus(session.sessionDate,session.timeSlot,now,effectiveTime)==='CHUA_HOC')return '';
   if(isEarlyCheckout(session.sessionDate,session.timeSlot,session.checkoutAt))return `Chưa hoàn tất · Kết thúc sớm ${Math.ceil(minutesEndedEarly(session.sessionDate,session.timeSlot,session.checkoutAt))} phút`;
-  if(!session.checkoutAt&&monitoringStudyStatus(session.sessionDate,session.timeSlot,now,effectiveTime)==='DA_HOC')return 'Chưa hoàn tất · Chưa ghi nhận checkout';
   return '';
 };
 
