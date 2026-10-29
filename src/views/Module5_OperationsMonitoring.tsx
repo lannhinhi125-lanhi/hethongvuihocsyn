@@ -1004,15 +1004,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             Tất cả sự cố chưa giải quyết (không giới hạn ngày)
           </label>
           {unresolvedMode && <p role="status" className="text-xs text-slate-500">Đang xem sự cố chưa giải quyết ở mọi ngày; các bộ lọc môn, lớp và tìm kiếm vẫn áp dụng.</p>}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs">
-            <p className="text-slate-500">Mỗi hàng là một phiếu sự cố. Phiếu đã giải quyết được lưu thành biên bản.</p>
-            <label className="flex items-center gap-2 font-semibold text-slate-700">Sắp xếp
-              <ReportSelect aria-label="Sắp xếp sự cố" value={incidentSort} onChange={event=>setIncidentSort(event.target.value as 'newest'|'oldest')} className="min-w-48 rounded-lg border border-slate-200 px-3 py-2">
-                <option value="newest">Mới cập nhật nhất</option>
-                <option value="oldest">Cập nhật lâu nhất</option>
-              </ReportSelect>
-            </label>
-          </div>
           {/* 4 Thẻ KPI Tab 2 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-white p-2.5 rounded-xl border border-slate-200">
@@ -1048,7 +1039,21 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   {/* Hàng 1: Tiêu đề cột Tab 2 */}
                   <tr>
                     {incidentColumns.map(column => <th key={column.label} className="py-3 px-3 whitespace-nowrap"><MultiSelectColumnFilter {...column} /></th>)}
-                    <th className="py-3 px-3 text-center">Thao tác<button type="button" onClick={resetIncColFilters} className="block mx-auto text-slate-500 hover:text-orange-600 normal-case font-medium">Xóa lọc</button></th>
+                    <th className="py-3 px-3 text-center">
+                      <div className="inline-flex items-center gap-2">
+                        Thao tác
+                        <button
+                          type="button"
+                          onClick={() => setIncidentSort(order => order === 'newest' ? 'oldest' : 'newest')}
+                          title={`Sắp xếp: ${incidentSort === 'newest' ? 'Mới cập nhật nhất' : 'Cập nhật lâu nhất'}. Bấm để đổi thứ tự.`}
+                          aria-label={`Sắp xếp sự cố: ${incidentSort === 'newest' ? 'Mới cập nhật nhất' : 'Cập nhật lâu nhất'}. Bấm để đổi thứ tự.`}
+                          className={`rounded-md border p-1.5 hover:bg-purple-50 ${incidentSort === 'oldest' ? 'border-purple-300 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500'}`}
+                        >
+                          <Filter className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <button type="button" onClick={resetIncColFilters} className="block mx-auto text-slate-500 hover:text-orange-600 normal-case font-medium">Xóa lọc</button>
+                    </th>
                   </tr>
                 </thead>
 
