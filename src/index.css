@@ -309,3 +309,7 @@ body:has(.workspace-ui) #root {
 }
 /* Native mirrors of custom selects must not inherit visible select padding. */
 .report-interface select[aria-hidden='true'] { padding: 0; border: 0; min-width: 0; }
+.composer-field-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr)); }
+@media (min-width: 1024px) {
+  .report-composer .composer-settings { max-height: max(400px, calc(100dvh - 240px)); overflow-y: auto; scrollbar-gutter: stable; }
+}
