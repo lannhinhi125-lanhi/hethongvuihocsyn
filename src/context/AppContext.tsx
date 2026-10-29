@@ -1,5 +1,6 @@
 import { ConfirmAction } from '../components/ConfirmAction';
 import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
+import { canAssignCover } from '../lib/coverTiming';
 import {classBindingEditIssue,studentsNeedingScheduleValidation} from '../lib/classEditing';
 import {studentStudyEditIssue,teacherStudyEditIssue,teacherScheduleEditIssue} from '../lib/profileEditing';
 import { updateStudentRegistration, studentScheduleConflict } from '../lib/studentRegistrations';
@@ -429,6 +430,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const payrollSession = Object.values(payrollStore).flatMap(month => month.teachers).flatMap(row => row.sessions).find(row => row.id === sessionId);
     const lesson = lessons.find((item: any) => item.id === (payrollSession?.lessonId || sessionId));
     if (!teacher || !lesson) { showToast('Không tìm thấy mã giáo viên hoặc buổi học cần phân công.', 'error'); return; }
+    const timeSlot = timeSlots.find(slot => slot.id === lesson.timeSlotId);
+    if (!canAssignCover({ sessionDate: lesson.date, timeSlot: timeSlot?.timeRange || '' })) {
+      showToast('Ca đã qua giờ kết thúc, không thể gán giáo viên dạy thay.', 'error');
+      return;
+    }
     setBusinessValue('dated_lessons', lessons.map((item: any) => item.id === lesson.id ? { ...item, coverTeacherId: newTeacherId } : item));
   };
 

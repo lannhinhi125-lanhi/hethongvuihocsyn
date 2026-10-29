@@ -8,7 +8,7 @@ const writes = {};
 globalThis.multipleIncidentWrites = writes;
 const source = readFileSync('src/lib/monitoringPersistence.ts','utf8')
   .replace("import { setBusinessValue } from './businessPersistence';", 'const setBusinessValue = (key,value) => globalThis.multipleIncidentWrites[key] = value;')
-  .replace("'./monitoringIncidents'", JSON.stringify(helperUrl));
+  .replace("'./monitoringIncidents'", JSON.stringify(helperUrl)).replace("'./coverTiming'",JSON.stringify(moduleUrl(readFileSync('src/lib/coverTiming.ts','utf8'))));
 const { storedMonitoringSession, persistMonitoringChanges } = await import(moduleUrl(source));
 const categories = [{id:'CAT',code:'TEACHER',subIncidents:[{code:'LATE',name:'Vào muộn'},{code:'MIC',name:'Lỗi mic'}]}];
 const rows = [

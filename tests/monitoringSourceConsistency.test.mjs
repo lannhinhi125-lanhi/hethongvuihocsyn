@@ -4,7 +4,7 @@ import { stripTypeScriptTypes } from 'node:module';
 const writes = {};
 globalThis.monitoringTestWrites = writes;
 const helperUrl = 'data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync('src/lib/monitoringIncidents.ts','utf8'))).toString('base64');
-const source = readFileSync('src/lib/monitoringPersistence.ts', 'utf8').replace("import { setBusinessValue } from './businessPersistence';", 'const setBusinessValue = (key, value) => {globalThis.monitoringTestWrites[key] = value;};').replace("'./monitoringIncidents'",JSON.stringify(helperUrl));
+const source = readFileSync('src/lib/monitoringPersistence.ts', 'utf8').replace("import { setBusinessValue } from './businessPersistence';", 'const setBusinessValue = (key, value) => {globalThis.monitoringTestWrites[key] = value;};').replace("'./monitoringIncidents'",JSON.stringify(helperUrl)).replace("'./coverTiming'",JSON.stringify('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(readFileSync('src/lib/coverTiming.ts','utf8'))).toString('base64')));
 const js = stripTypeScriptTypes(source);
 const { storedMonitoringSession, persistMonitoringChanges } = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'));
 const base = {sessionCode:'old-schedule',classCode:'CLS',sessionDate:'2026-10-17',timeSlot:'18:00-19:30',checkinTime:'18:08:00',checkinAt:'stale',checkoutAt:'stale'};

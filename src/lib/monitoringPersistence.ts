@@ -1,4 +1,5 @@
 import { setBusinessValue } from './businessPersistence';
+import { canAssignCover } from './coverTiming';
 import { lessonIncidentRows, saveIncidentRow } from './monitoringIncidents';
 import type { MonitoringSession } from '../views/Module5_OperationsMonitoring';
 import type { ClassItem, TeacherProfile, TimeSlotItem, IncidentCategory } from '../types';
@@ -41,6 +42,7 @@ export function persistMonitoringChanges(previous:MonitoringSession[],next:Monit
    ? session.checkinAt!==old.checkinAt ? session.checkinAt||null : session.checkinTime?session.sessionDate+'T'+session.checkinTime+'+07:00':null
    : existing.checkinAt;
   const {primaryTeacherId,coverTeacherId}=sessionTeacherIds({...session,coverTeacherId:session.coverTeacherId===old.coverTeacherId?existing.coverTeacherId:session.coverTeacherId},existing,cls,teachers);
+  if (coverTeacherId !== (existing.coverTeacherId || null) && !canAssignCover(session)) throw new Error('Ca đã qua giờ kết thúc, không thể thay đổi giáo viên dạy thay.');
   const lesson:Row={...existing,primaryTeacherId,coverTeacherId};
   if(session.roomUrl!==old.roomUrl)lesson.roomUrl=session.roomUrl;
   if(session.status!==old.status)lesson.status=session.status;
