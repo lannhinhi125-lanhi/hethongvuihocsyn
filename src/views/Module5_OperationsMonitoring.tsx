@@ -1,4 +1,6 @@
 import { coverScheduleConflict, isUnresolvedIncident } from '../lib/monitoringWorkflow';
+import { lessonIncidentRows, withIncident, compareIncidentUpdates } from '../lib/monitoringIncidents';
+import { incidentCredit } from '../lib/incidentCredit';
 import { lessonPauseLabel } from '../lib/classPause';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
 import {matchesDashboardSelection} from '../lib/dashboardNavigation';
@@ -71,6 +73,12 @@ export interface MonitoringSession {
   pauseReason?: string | null;
   pauseNote?: string | null;
   hasIncident: boolean;
+  incidentId?: string;
+  incidentDisplayCode?: string;
+  incidentUpdatedAt?: string;
+  incidentCount?: number;
+  incidentName?: string;
+  creatingIncident?: boolean;
   incidentParent: string | null;
   incidentChild: string | null;
   incidentUrgency: 'EMERGENCY' | 'ADVANCED' | null;
@@ -161,6 +169,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Bộ lọc cột cho Tab 2 (Thông tin Sự cố & Điều phối Dạy thay)
   const [incColFilterCode, setIncColFilterCode] = useState<string[]>([]);
+  const [incColFilterReportCode, setIncColFilterReportCode] = useState<string[]>([]);
+  const [incidentSort, setIncidentSort] = useState<'newest' | 'oldest'>('newest');
   const [incColFilterClass, setIncColFilterClass] = useState<string[]>([]);
   const [incColFilterTarget, setIncColFilterTarget] = useState<string[]>([]);
   const [incColFilterType, setIncColFilterType] = useState<string[]>([]);
@@ -275,7 +285,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (!inRange || !searchTerms.length) return inRange;
     const text=normalizeSearch([session.displayCode,session.classCode,session.className,
       session.primaryTeacher,session.primaryTeacherId,session.coverTeacher,session.coverTeacherId,
-      session.timeSlot].filter(Boolean).join(' '));
+      session.timeSlot,...lessonIncidentRows(persistedIncidents,session.sessionCode).flatMap(row=>[row.displayCode,row.incidentName,row.content])].filter(Boolean).join(' '));
     return searchTerms.every(term=>text.includes(term));
   });
   const viewingToday=dateFrom===reportToday()&&dateTo===reportToday();
@@ -327,9 +337,12 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   }).sort((a,b)=>(viewingToday?monitoringSessionPriority(studyStatus(a))-monitoringSessionPriority(studyStatus(b)):0)||
     a.sessionDate.localeCompare(b.sessionDate)||a.timeSlot.localeCompare(b.timeSlot)||a.classCode.localeCompare(b.classCode));
 
-  const incidentOptionsSource = subjectFilteredSessions.filter(session=>session.hasIncident && (!unresolvedMode || isUnresolvedIncident(session)));
+  const expandIncidents = (items: MonitoringSession[]) => items.flatMap(session =>
+    lessonIncidentRows(persistedIncidents,session.sessionCode).map(row => withIncident(session,row,incidents,users)));
+  const incidentOptionsSource = expandIncidents(subjectFilteredSessions).filter(session=>!unresolvedMode || isUnresolvedIncident(session));
   const incidentColumns = [
-    {label:'Mã buổi',values:incColFilterCode,onChange:setIncColFilterCode,options:options(incidentOptionsSource.map(s=>({value:s.sessionCode,label:displaySessionCode(s)})))},
+    {label:'Mã sự cố',values:incColFilterReportCode,onChange:setIncColFilterReportCode,options:options(incidentOptionsSource.map(s=>({value:s.incidentId || 'NONE',label:s.incidentDisplayCode || 'Chưa cấp mã'})))},
+    {label:'Buổi học',values:incColFilterCode,onChange:setIncColFilterCode,options:options(incidentOptionsSource.map(s=>({value:s.sessionCode,label:displaySessionCode(s)})))},
     {label:'Lớp học',values:incColFilterClass,onChange:setIncColFilterClass,options:options(incidentOptionsSource.map(s=>({value:s.classCode,label:s.className+' · '+s.classCode})))},
     {label:'Đối tượng',values:incColFilterTarget,onChange:setIncColFilterTarget,options:[...incidents.map(group=>({value:group.code,label:group.name}))]},
     {label:'Loại sự cố chi tiết',values:incColFilterType,onChange:setIncColFilterType,options:options(incidentOptionsSource.map(s=>({value:s.incidentChild||'NONE',label:(INCIDENT_MASTER_DATA[s.incidentParent||'']||[]).find(item=>item.code===s.incidentChild)?.name||s.incidentChild||'Chưa xác định'})))},
@@ -340,9 +353,14 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   ];
 
   // Lọc Tab 2
-  const incidentFilteredSessions = dateFilteredSessions.filter(s => {
+  const incidentFilteredSessions = expandIncidents(dateFilteredSessions).filter(s => {
     if (!matchesCatalogFilters(s)) return false;
     if (!s.hasIncident || (unresolvedMode && !isUnresolvedIncident(s))) return false;
+    if (incColFilterReportCode.length && !incColFilterReportCode.includes(s.incidentId || 'NONE')) return false;
+    if (searchTerms.length) {
+      const text = normalizeSearch([s.incidentDisplayCode,s.incidentName,s.incidentNote,s.displayCode,s.classCode,s.className,s.primaryTeacher,s.primaryTeacherId,s.coverTeacher,s.coverTeacherId,s.timeSlot].filter(Boolean).join(' '));
+      if (!searchTerms.every(term=>text.includes(term))) return false;
+    }
     if (incColFilterCode.length && !incColFilterCode.includes(s.sessionCode)) return false;
     if (incColFilterClass.length && !incColFilterClass.includes(s.classCode)) return false;
     if (incColFilterTarget.length && !incColFilterTarget.includes(s.incidentParent || 'NONE')) return false;
@@ -352,7 +370,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     if (incColFilterStatus.length && !incColFilterStatus.includes(s.incidentStatus || 'NONE')) return false;
     if (incColFilterOps.length && !incColFilterOps.includes(s.handledByOpsId || 'NONE')) return false;
     return true;
-  });
+  }).sort((a,b)=>compareIncidentUpdates({lastUpdatedAt:a.incidentUpdatedAt,displayCode:a.incidentDisplayCode,id:a.incidentId}, {lastUpdatedAt:b.incidentUpdatedAt,displayCode:b.incidentDisplayCode,id:b.incidentId},incidentSort));
 
   // Thống kê KPI Tab 1
   const kpiTotal = subjectFilteredSessions.length;
@@ -380,6 +398,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Reset bộ lọc Tab 2
   const resetIncColFilters = () => {
+    setIncColFilterReportCode([]);
     setIncColFilterCode([]);
     setIncColFilterClass([]);
     setIncColFilterTarget([]);
@@ -413,8 +432,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
   // Mở Modal Sự cố
   const openIncidentModal = (session: MonitoringSession) => {
-    if(session.fromClassPause){showToast('Sự cố này liên kết với tạm dừng lớp. Hãy sửa lý do tại màn hình quản lý lớp để đồng bộ các buổi liên quan.', 'warning');return;}
-    if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
+    if ((!session.hasIncident || session.creatingIncident) && !requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     setSelectedIncidentSession(session);
     const parent = session.incidentParent || '';
     setIncParent(parent);
@@ -437,6 +455,24 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     }
   };
 
+  const newIncident = (session: MonitoringSession) => openIncidentModal({ ...session,
+    incidentId: undefined, incidentDisplayCode: undefined, creatingIncident: true, fromClassPause: false,
+    incidentParent: null, incidentChild: null, incidentStatus: null,
+    incidentUrgency: null, incidentNote: '', appliedCreditCoeff: null });
+
+  const incidentCreditGroups = (session: MonitoringSession) => {
+    const groups = new Map<string, Record<string,any>[]>();
+    for (const row of lessonIncidentRows(persistedIncidents,session.sessionCode)) {
+      const teacherIncident = incidents.find(group => group.id === row.categoryId)?.code === 'GRP-TCH';
+      const target = teacherIncident ? session.primaryTeacherId : session.coverTeacherId || session.primaryTeacherId;
+      if (!target) continue;
+      groups.set(target,[...(groups.get(target) || []),row]);
+    }
+    return [...groups].map(([id,rows]) => ({id,name:teachers.find(teacher=>teacher.id===id)?.name || 'Giáo viên',
+      credit: rows.every(row=>row.status === 'DA_GIAI_QUYET' && typeof row.appliedCreditCoeff === 'number')
+        ? incidentCredit(rows.map(row=>row.appliedCreditCoeff)) : null}));
+  };
+
   // Đổi Cây Cha trong modal sự cố
   const handleIncParentChange = (val: string) => {
     setIncParent(val);
@@ -453,6 +489,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
     e.preventDefault();
     if (!requirePermission("Ghi nhận và xử lý sự cố ca dạy")) return;
     if (savingIncident || businessStatus.saving || !selectedIncidentSession) return;
+    if (selectedIncidentSession.fromClassPause) { showToast('Sửa lý do tại quản lý lớp để đồng bộ các buổi tạm dừng.', 'warning'); return; }
     const isCompletedIncidentSession = selectedIncidentSession.status === 'DA_HOC' || studyStatus(selectedIncidentSession) === 'DA_HOC';
     const selectedIncident = incidents.find(group => group.code === incParent)?.subIncidents.find(item => item.code === incChild);
     if (!selectedIncident) { showToast('Vui lòng chọn đúng loại sự cố; nghỉ theo lịch lớp không mặc định là giáo viên xin nghỉ.', 'warning'); return; }
@@ -513,8 +550,16 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             }
           }
 
+          if (incStatus !== 'HUY_CA' && incHasCover === Boolean(selectedIncidentSession.coverTeacher) &&
+            incCoverTeacher === (selectedIncidentSession.coverTeacherId || '')) {
+            nextCover = s.coverTeacher;
+            nextCoverId = s.coverTeacherId || null;
+          }
+
           return {
             ...s,
+            incidentId: selectedIncidentSession.incidentId,
+            creatingIncident: selectedIncidentSession.creatingIncident,
             hasIncident: true,
             incidentParent: incParent,
             incidentChild: incChild,
@@ -904,7 +949,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                                     className="px-2 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] border border-rose-200 transition-all cursor-pointer"
                                     title={isCompleted ? 'Cập nhật biên bản sự cố của ca đã học' : 'Lập biên bản sự cố và điều phối dạy thay'}
                                   >
-                                    {s.hasIncident ? 'Biên bản' : 'Sự cố'}
+                                    {s.hasIncident ? `${s.incidentCount || 1} sự cố` : 'Sự cố'}
                                   </button>
                               )}
                             </div>
@@ -947,6 +992,15 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             Tất cả sự cố chưa giải quyết (không giới hạn ngày)
           </label>
           {unresolvedMode && <p role="status" className="text-xs text-slate-500">Đang xem sự cố chưa giải quyết ở mọi ngày; các bộ lọc môn, lớp và tìm kiếm vẫn áp dụng.</p>}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-xs">
+            <p className="text-slate-500">Mỗi hàng là một phiếu sự cố. Phiếu đã giải quyết được lưu thành biên bản.</p>
+            <label className="flex items-center gap-2 font-semibold text-slate-700">Sắp xếp
+              <ReportSelect aria-label="Sắp xếp sự cố" value={incidentSort} onChange={event=>setIncidentSort(event.target.value as 'newest'|'oldest')} className="min-w-48 rounded-lg border border-slate-200 px-3 py-2">
+                <option value="newest">Mới cập nhật nhất</option>
+                <option value="oldest">Cập nhật lâu nhất</option>
+              </ReportSelect>
+            </label>
+          </div>
           {/* 4 Thẻ KPI Tab 2 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-white p-2.5 rounded-xl border border-slate-200">
@@ -989,21 +1043,26 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 <PaginatedTableBody key={selectedSubjectCode+'-incidents'} className="divide-y divide-slate-100 font-medium">
                   {incidentFilteredSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-2 text-center">
+                      <td colSpan={10} className="px-4 py-2 text-center">
                         <EmptyState title="Không có ca sự cố nào phù hợp với bộ lọc." />
                       </td>
                     </tr>
                   ) : (
                     incidentFilteredSessions.map(s => {
                       const isCompleted = studyStatus(s) === 'DA_HOC';
-                      const highlightClass = warningRowClass(s);
+                      const isResolved = !isUnresolvedIncident(s);
+                      const highlightClass = 'hover:bg-slate-50/80 border-b border-slate-100';
 
                       const parentItems = INCIDENT_MASTER_DATA[s.incidentParent || ''] || [];
                       const childObj = parentItems.find(c => c.code === s.incidentChild);
                       const childName = childObj ? childObj.name : (s.incidentChild || 'Sự cố đang trực ban');
 
                       return (
-                        <tr key={s.sessionCode} className={`transition-colors ${highlightClass}`}>
+                        <tr key={s.incidentId || s.sessionCode} className={`transition-colors ${highlightClass}`}>
+                          <td className="py-3.5 px-3 whitespace-nowrap">
+                            <div className="font-mono font-bold text-orange-700">{s.incidentDisplayCode || 'Chưa cấp mã'}</div>
+                            <div className="mt-1 text-[10px] text-slate-400">{s.incidentUpdatedAt ? new Date(s.incidentUpdatedAt).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok'}) : 'Chưa có thời gian cập nhật'}</div>
+                          </td>
                           {/* Mã buổi */}
                           <td className="py-3.5 px-3 font-bold text-slate-800 font-mono">
                             {displaySessionCode(s)}
@@ -1027,7 +1086,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Loại sự cố chi tiết */}
                           <td className="py-3.5 px-3">
-                            <div className="font-semibold text-slate-800">{childName}</div>
+                            <div className="font-semibold text-slate-800">{s.incidentName || childName}</div>
                             {isUnresolvedIncident(s) ? <div className="mt-1 text-xs text-amber-700">Chờ giải quyết — chưa áp hệ số công</div> : null}
                             <div className="text-[11px] text-slate-500 mt-0.5">{s.incidentNote || ''}</div>
                           </td>
@@ -1035,7 +1094,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           {/* Tính chất */}
                           <td className="py-3.5 px-3">
                             {s.incidentUrgency === 'EMERGENCY' ? (
-                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-rose-50 text-rose-700 border border-rose-200">
+                              <span className={`px-2 py-0.5 rounded font-bold text-[10px] border ${isResolved ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
                                 Đột xuất
                               </span>
                             ) : (
@@ -1065,6 +1124,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
                                 Không gán Cover
                               </span>
+                            ) : isResolved ? (
+                              <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">Không có dạy thay</span>
                             ) : isCompleted ? (
                               <span
                                 className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-400 border border-slate-200 opacity-60 flex items-center gap-1 w-fit"
@@ -1081,7 +1142,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Tiến độ xử lý */}
                           <td className="py-3.5 px-3 text-center">
-                            {s.incidentStatus === 'DA_GIAI_QUYET' ? (
+                            {isResolved ? (
                               <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 Đã giải quyết
                               </span>
@@ -1108,12 +1169,12 @@ export const Module5_OperationsMonitoring: React.FC = () => {
 
                           {/* Thao tác */}
                           <td className="py-3.5 px-3 text-center">
-                            {isCompleted ? (
+                            {isResolved ? (
                               <button
                                 type="button"
                                 onClick={() => openIncidentModal(s)}
                                 className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] border border-slate-200 transition-all cursor-pointer"
-                                title="Ca học đã hoàn thành - Chỉ xem và cập nhật biên bản"
+                                title="Sự cố đã giải quyết — xem biên bản"
                               >
                                 Biên bản
                               </button>
@@ -1123,9 +1184,10 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                                 onClick={() => openIncidentModal(s)}
                                 className="px-3 py-1.5 rounded-xl bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold text-[11px] transition-all cursor-pointer shadow-xs"
                               >
-                                Xử lý ca
+                                Xử lý sự cố
                               </button>
                             )}
+                            {can('Ghi nhận và xử lý sự cố ca dạy') && <button type="button" onClick={() => newIncident(s)} className="mt-1 block w-full rounded-lg px-2 py-1.5 text-[11px] font-semibold text-orange-700 hover:bg-orange-50">+ Thêm sự cố</button>}
                           </td>
                         </tr>
                       );
@@ -1179,10 +1241,11 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-md bg-rose-100 text-rose-700 font-bold text-xs font-mono">
-                    {displaySessionCode(selectedIncidentSession)}
+                    {selectedIncidentSession.creatingIncident ? 'Phiếu mới' : selectedIncidentSession.incidentDisplayCode || 'Chưa cấp mã'}
                   </span>
+                  <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">Buổi {displaySessionCode(selectedIncidentSession)}</span>
                   <h3 className="font-bold text-base text-slate-800">
-                    Biên bản sự cố ca học
+                    {selectedIncidentSession.creatingIncident ? 'Lập phiếu sự cố mới' : 'Phiếu sự cố buổi học'}
                   </h3>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
@@ -1198,7 +1261,37 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               </button>
             </div>
 
+            <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-bold text-slate-800">Các phiếu sự cố trong buổi ({lessonIncidentRows(persistedIncidents, selectedIncidentSession.sessionCode).length})</h4>
+                <button type="button" disabled={savingIncident || businessStatus.saving || !can('Ghi nhận và xử lý sự cố ca dạy')} onClick={() => {
+                  if (incidentDirty && !window.confirm('Bỏ thay đổi chưa lưu để lập phiếu mới?')) return;
+                  newIncident(selectedIncidentSession);
+                }} className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 font-semibold text-orange-700 disabled:opacity-40">+ Thêm sự cố</button>
+              </div>
+              <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
+                {lessonIncidentRows(persistedIncidents, selectedIncidentSession.sessionCode).map(row => <button key={row.id} type="button"
+                  disabled={savingIncident || businessStatus.saving}
+                  onClick={() => {
+                    if (incidentDirty && !window.confirm('Bỏ thay đổi chưa lưu để xem phiếu khác?')) return;
+                    openIncidentModal(withIncident(selectedIncidentSession,row,incidents,users));
+                  }}
+                  className={`block w-full rounded-lg border p-2 text-left ${selectedIncidentSession.incidentId === row.id ? 'border-orange-300 bg-orange-50' : 'border-slate-200 bg-white'}`}>
+                  <span className="mr-2 font-mono font-bold text-orange-700">{row.displayCode || 'Chưa cấp mã'}</span>
+                  <span className="font-semibold text-slate-800">{row.incidentName || 'Sự cố buổi học'}</span>
+                  <span className="ml-2 text-slate-500">{row.status === 'DA_GIAI_QUYET' || row.status === 'HUY_CA' ? 'Đã giải quyết' : 'Đang xử lý'}</span>
+                  {row.fromClassPause && <span className="ml-2 text-amber-700">Từ tạm dừng lớp</span>}
+                  <p className="mt-1 whitespace-pre-wrap text-slate-500">{row.content}</p>
+                </button>)}
+              </div>
+              <div className="mt-3 border-t border-slate-200 pt-2 text-slate-600">
+                <p>Hệ số cộng lấy mức lớn nhất, hệ số trừ lấy mức thấp nhất; có cả hai thì cộng hai mức này. Mỗi giáo viên chỉ có một dòng công trong buổi.</p>
+                {incidentCreditGroups(selectedIncidentSession).map(group => <p key={group.id} className="mt-1 font-semibold text-slate-800">{group.name}: {group.credit === null ? 'Chưa chốt đủ các phiếu' : `Hệ số tổng hợp ${group.credit.toLocaleString('vi-VN')}`}</p>)}
+              </div>
+            </section>
             <form onSubmit={handleSaveIncidentSubmit} className="mt-4 space-y-4">
+              {selectedIncidentSession.fromClassPause && <p className="rounded-lg bg-amber-50 p-3 text-amber-800">Phiếu phát sinh từ tạm dừng lớp. Sửa lý do tại quản lý lớp để đồng bộ các buổi liên quan.</p>}
+              <fieldset disabled={selectedIncidentSession.fromClassPause || !can('Ghi nhận và xử lý sự cố ca dạy')} className="min-w-0 space-y-4">
               <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="mb-2 font-bold text-slate-800">Ca học cần xử lý</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-slate-600">
@@ -1359,6 +1452,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
               )}
 
               {/* Footer */}
+              </fieldset>
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
@@ -1369,7 +1463,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingIncident || businessStatus.saving}
+                  disabled={savingIncident || businessStatus.saving || selectedIncidentSession.fromClassPause || !can('Ghi nhận và xử lý sự cố ca dạy')}
                   aria-busy={savingIncident}
                   className="px-6 py-2 rounded-xl bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold transition-all cursor-pointer shadow-xs"
                 >

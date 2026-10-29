@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const { incidentCredit } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync('src/lib/incidentCredit.ts','utf8'))).toString('base64'));
+const cases = [[[1,-.5],.5],[[-.5,-1],-1],[[1,.5],1],[[.5,1,-.25,-.5],.5],[[0],0],[[0,-1],-1],[[.1,.2],.2],[[.3,-.1],.2],[[],null]];
+for (const [input,expected] of cases) assert.equal(incidentCredit(input),expected);
+assert.throws(()=>incidentCredit([NaN]),/không hợp lệ/);
+
+const { PGlite } = await import(pathToFileURL(resolve(process.env.PGLITE_MODULE_PATH || '.tmp/demo-validation/node_modules/@electric-sql/pglite','dist/index.js')));
+const db = new PGlite();
+try {
+  await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA vuihoc;
+   CREATE TABLE vuihoc."DANH_MUC_SU_CO"(madinhdanh text PRIMARY KEY,manhomsuco text);
+   CREATE TABLE vuihoc."LOAI_SU_CO"(manhom text,ma text,ten text);
+   CREATE TABLE vuihoc."BUOI_HOC"(madinhdanh text PRIMARY KEY,ngayhoc date,magiaovienchinh text,magiaoviendaythay text,eligible boolean DEFAULT true);
+   CREATE TABLE vuihoc."SU_CO_BUOI_HOC"(madinhdanh text PRIMARY KEY,mabuoi text,manhomsuco text,masuco text,trangthai text,hesocongapdung numeric,baoluc timestamptz DEFAULT now(),dotamdunglop boolean DEFAULT false);
+   CREATE TABLE vuihoc."BANG_CONG_THANG"(kycong text PRIMARY KEY,dakhoa boolean,daguithongbao boolean);
+   CREATE TABLE vuihoc."CONG_DAY_BUOI_HOC"(madinhdanh bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,mabuoi text,magiaovien text,kycong text,vaitro text,hesocong numeric,ghichu text,loaicong text,dagui boolean,guiluc timestamptz,UNIQUE(mabuoi,magiaovien));
+   CREATE FUNCTION vuihoc.ca_du_dieu_kien_ghi_cong(p_buoi text) RETURNS boolean LANGUAGE sql AS $$SELECT eligible FROM vuihoc."BUOI_HOC" WHERE madinhdanh=p_buoi$$;
+   INSERT INTO vuihoc."DANH_MUC_SU_CO" VALUES('TCH','GRP-TCH'),('TECH','GRP-TECH');
+   INSERT INTO vuihoc."LOAI_SU_CO" VALUES('TCH','A','Sự cố A'),('TCH','B','Sự cố B'),('TECH','A','Sự cố kỹ thuật');
+   INSERT INTO vuihoc."BUOI_HOC" VALUES('L','2026-10-29','T',NULL,true),('COVER','2026-10-29','T','C',true),('STANDARD','2026-10-29','T',NULL,true);`);
+  const monthly = readFileSync('supabase/migrations/20261014_normalize_monthly_payroll.sql','utf8');
+  const start=monthly.indexOf('CREATE OR REPLACE FUNCTION vuihoc.ghi_ca_vao_bang_cong(');
+  await db.exec(monthly.slice(start,monthly.indexOf('END $fn$;',start)+'END $fn$;'.length));
+  const migration=readFileSync('supabase/migrations/20261219_multiple_incident_credit.sql','utf8');
+  await db.exec(migration);await db.exec(migration);
+  await db.exec(`CREATE TRIGGER apply_credit AFTER INSERT OR UPDATE ON vuihoc."SU_CO_BUOI_HOC" FOR EACH ROW EXECUTE FUNCTION vuihoc.ap_dung_cong_su_co();`);
+  const add=async(id,credit,lesson='L',group='TCH',status='DA_GIAI_QUYET')=>db.query(`INSERT INTO vuihoc."SU_CO_BUOI_HOC"(madinhdanh,mabuoi,manhomsuco,masuco,trangthai,hesocongapdung) VALUES($1,$2,$3,'A',$4,$5)`,[id,lesson,group,status,credit]);
+  const work=async(lesson='L')=>(await db.query('SELECT * FROM vuihoc."CONG_DAY_BUOI_HOC" WHERE mabuoi=$1 ORDER BY magiaovien',[lesson])).rows;
+  await add('POS',1);await add('NEG',-.5);
+  assert.equal((await work()).length,1);assert.equal(Number((await work())[0].hesocong),.5);
+  await add('POS2',.5);
+  assert.equal(Number((await work())[0].hesocong),.5,'two positive incidents never double the positive component');
+  await add('NEG2',-1);
+  assert.equal(Number((await work())[0].hesocong),0,'strongest positive plus lowest negative');
+  await db.exec(`UPDATE vuihoc."SU_CO_BUOI_HOC" SET hesocongapdung=2 WHERE madinhdanh='POS'`);
+  assert.equal(Number((await work())[0].hesocong),1,'editing an older report recomputes all reports');
+  await add('PENDING',null,'L','TCH','DANG_XU_LY');
+  await db.exec(`SELECT vuihoc.ghi_cong_neu_du_nhan_xet('L')`);
+  assert.equal(Number((await work())[0].hesocong),1,'pending reports do not replace existing work');
+  await db.exec(`UPDATE vuihoc."SU_CO_BUOI_HOC" SET trangthai='DA_GIAI_QUYET',hesocongapdung=-3 WHERE madinhdanh='PENDING'`);
+  assert.equal(Number((await work())[0].hesocong),-1);
+  for (const [name,coefficients,expected] of [['NEGATIVE',[-.5,-1],-1],['POSITIVE',[1,.5],1],['ZERO',[0],0]]) {
+    await db.query(`INSERT INTO vuihoc."BUOI_HOC" VALUES($1,'2026-10-29','T',NULL,true)`,[name]);
+    for (let index=0;index<coefficients.length;index++) await add(name+index,coefficients[index],name);
+    assert.equal((await work(name)).length,1);
+    assert.equal(Number((await work(name))[0].hesocong),expected);
+  }
+  await add('COVER-TEACHER',-1,'COVER');
+  await add('COVER-TECH',.5,'COVER','TECH');
+  const covered=await work('COVER');
+  assert.equal(covered.length,2,'original teacher incident and substitute remain separate recipients');
+  assert.equal(Number(covered.find(row=>row.magiaovien==='T').hesocong),-1);
+  assert.equal(Number(covered.find(row=>row.magiaovien==='C').hesocong),.5);
+  await db.exec(`SELECT vuihoc.ghi_cong_neu_du_nhan_xet('STANDARD')`);
+  assert.equal(Number((await work('STANDARD'))[0].hesocong),1);
+  await db.exec(`UPDATE vuihoc."CONG_DAY_BUOI_HOC" SET hesocong=.75 WHERE mabuoi='STANDARD'; SELECT vuihoc.ghi_cong_neu_du_nhan_xet('STANDARD')`);
+  assert.equal(Number((await work('STANDARD'))[0].hesocong),.75,'ordinary generation preserves manual adjustments');
+  const before=await work();await db.exec(migration);assert.deepEqual(await work(),before,'migration never rewrites historical work');
+  await db.exec(`UPDATE vuihoc."BANG_CONG_THANG" SET dakhoa=true`);
+  await assert.rejects(()=>add('LOCKED',9),/đã khóa/);
+  assert.equal((await db.query(`SELECT count(*)::int n FROM vuihoc."SU_CO_BUOI_HOC" WHERE madinhdanh='LOCKED'`)).rows[0].n,0);
+  assert.deepEqual(await work(),before);
+  console.log('PASS: SQL and UI credit rules, unique work, exact recomputation, pending guards, cover separation, manual adjustments, locked periods and repeatable migration.');
+} finally { await db.close(); }

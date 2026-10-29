@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {stripTypeScriptTypes} from 'node:module';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const url=source=>'data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64');
+const {compareIncidentUpdates}=await import(url(readFileSync('src/lib/monitoringIncidents.ts','utf8')));
+const rows=[{id:'A',lastUpdatedAt:'2026-10-29T08:00:00Z'},{id:'B',lastUpdatedAt:'2026-10-29T09:00:00Z'},{id:'C',lastUpdatedAt:'2026-10-29T07:00:00Z'}];
+assert.deepEqual([...rows].sort((a,b)=>compareIncidentUpdates(a,b)).map(row=>row.id),['B','A','C']);
+assert.deepEqual([...rows].sort((a,b)=>compareIncidentUpdates(a,b,'oldest')).map(row=>row.id),['C','A','B']);
+const namesUrl=url(readFileSync('src/lib/databaseNames.ts','utf8'));
+const inspectionSource=readFileSync('src/lib/inspectionReport.ts','utf8');
+const inspectionUrl=url(inspectionSource.slice(inspectionSource.indexOf('export const inspectionDate'),inspectionSource.indexOf('export function inspectionReportRows')));
+const mapper=readFileSync('src/lib/supabaseMapper.ts','utf8').replace("'./databaseNames'",JSON.stringify(namesUrl)).replace("'./inspectionReport'",JSON.stringify(inspectionUrl));
+const {fromSupabaseRow,toSupabaseRow}=await import(url(mapper));
+assert.deepEqual(fromSupabaseRow('lesson_incidents',{madinhdanh:'UUID',maphieusuco:'SC-000001',capnhatluc:'2026-10-29T12:30:01Z'}),{id:'UUID',displayCode:'SC-000001',lastUpdatedAt:'2026-10-29T12:30:01Z'});
+assert.deepEqual(toSupabaseRow('lesson_incidents',{id:'UUID',displayCode:'SC-000001',lastUpdatedAt:'2026-10-29T12:30:01Z'}),{madinhdanh:'UUID'});
+const {PGlite}=await import(pathToFileURL(resolve(process.env.PGLITE_MODULE_PATH || '.tmp/demo-validation/node_modules/@electric-sql/pglite','dist/index.js')));
+const db=new PGlite();
+try {
+ await db.exec(`CREATE SCHEMA vuihoc; CREATE ROLE anon; CREATE ROLE authenticated;
+ CREATE TABLE vuihoc."LOAI_SU_CO"(manhom text,ma text,ten text);
+ CREATE TABLE vuihoc."SU_CO_BUOI_HOC"(madinhdanh text PRIMARY KEY,mabuoi text,manhomsuco text,masuco text,hesocongapdung numeric,muckhancap text,noidung text,trangthai text,manguoibao text,manguoixuly text,baoluc date,xulyluc date,ghichuxuly text,ngaytao date,ngaycapnhat date,dotamdunglop boolean);
+ INSERT INTO vuihoc."LOAI_SU_CO" VALUES('G','A','Incident');
+ INSERT INTO vuihoc."SU_CO_BUOI_HOC"(madinhdanh,mabuoi,manhomsuco,masuco,noidung,ngaycapnhat,baoluc) VALUES('A','B','G','A','original','2026-10-28','2026-10-27'),('C','B','G','A','other','2026-10-29','2026-10-29');
+ CREATE TABLE vuihoc.audit(n integer); INSERT INTO vuihoc.audit VALUES(0);
+ CREATE FUNCTION vuihoc.count_writes() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN UPDATE vuihoc.audit SET n=n+1; RETURN NEW; END$$;
+ CREATE TRIGGER audit_writes AFTER UPDATE ON vuihoc."SU_CO_BUOI_HOC" FOR EACH ROW EXECUTE FUNCTION vuihoc.count_writes();
+ CREATE FUNCTION public.vuihoc_business_data(p_token text) RETURNS jsonb LANGUAGE plpgsql AS $rpc$
+ DECLARE cfg record; result jsonb;
+ BEGIN
+ SELECT 'lesson_incidents' AS dataset,'{"columns":["madinhdanh","mabuoi"]}'::jsonb AS c INTO cfg;
+ EXECUTE 'SELECT jsonb_agg((SELECT jsonb_object_agg(e.key,e.value) FROM jsonb_each(to_jsonb(t)) e WHERE e.key IN (SELECT jsonb_array_elements_text($1)))) FROM vuihoc."V_SU_CO_BUOI_HOC" t' INTO result USING cfg.c->'columns',cfg.dataset;
+ RETURN result; END $rpc$;`);
+ const migration=readFileSync('supabase/migrations/20261220_incident_display_codes.sql','utf8');
+ await db.exec(migration);await db.exec(migration);
+ assert.equal((await db.query('SELECT n FROM vuihoc.audit')).rows[0].n,0,'migration does not update incident rows or run payroll');
+ const before=(await db.query('SELECT madinhdanh,maphieusuco,capnhatluc FROM vuihoc."V_SU_CO_BUOI_HOC" ORDER BY madinhdanh')).rows;
+ assert.equal(new Set(before.map(row=>row.maphieusuco)).size,2);
+ assert.match(before[0].maphieusuco,/^SC-\d{6}$/);
+ assert.equal(new Date(before[0].capnhatluc).toISOString(),'2026-10-27T17:00:00.000Z','old date remains known local midnight');
+ await db.exec(`UPDATE vuihoc."SU_CO_BUOI_HOC" SET noidung='updated' WHERE madinhdanh='A'`);
+ const after=(await db.query(`SELECT maphieusuco,capnhatluc FROM vuihoc."V_SU_CO_BUOI_HOC" WHERE madinhdanh='A'`)).rows[0];
+ assert.equal(after.maphieusuco,before[0].maphieusuco);
+ assert.ok(new Date(after.capnhatluc)>new Date(before[1].capnhatluc));
+ await db.exec(`UPDATE vuihoc."SU_CO_BUOI_HOC" SET capnhatluc='2000-01-01' WHERE madinhdanh='A'`);
+ assert.equal(new Date((await db.query(`SELECT capnhatluc FROM vuihoc."SU_CO_BUOI_HOC" WHERE madinhdanh='A'`)).rows[0].capnhatluc).getTime(),new Date(after.capnhatluc).getTime(),'client cannot forge update time');
+ await db.exec(`INSERT INTO vuihoc."SU_CO_BUOI_HOC"(madinhdanh,mabuoi,manhomsuco,masuco) VALUES('NEW','B','G','A')`);
+ const api=(await db.query(`SELECT public.vuihoc_business_data('TOKEN') AS result`)).rows[0].result;
+ assert.equal(api.length,3);assert.equal(new Set(api.map(row=>row.maphieusuco)).size,3);
+ assert.ok(api.every(row=>row.capnhatluc && /^SC-\d{6}$/.test(row.maphieusuco)));
+ await assert.rejects(()=>db.exec(`UPDATE vuihoc."SU_CO_BUOI_HOC" SET maphieusuco='SC-CHANGED' WHERE madinhdanh='A'`),/updated to DEFAULT/i);
+ console.log('PASS: stable server codes, read-only mapping, precise timestamps, same-day sorting, RPC projection and no historical payroll writes.');
+} finally {await db.close();}

@@ -6,7 +6,7 @@ export const DERIVED_DATABASE_FIELDS: Partial<Record<SupabaseDataset, readonly s
   time_slots: ['timeRange', 'durationMinutes'],
   users: ['role', 'subject', 'avatarInitials'],
   role_groups: ['userCount'],
-  lesson_incidents: ['fromClassPause', 'incidentName'],
+  lesson_incidents: ['fromClassPause', 'incidentName', 'displayCode', 'lastUpdatedAt'],
   dated_lessons: ['displayCode', 'feedbackProgress', 'inspectionData', 'pausedByClass', 'pauseReason', 'pauseCategoryId', 'pauseNote', 'startsAt', 'endsAt'],
   // Student scalar study fields are a read projection; only registrations writes study data.
   students: ['classHistory','registrationHistory','subject','model','level','status','currentClassCode','scheduleSlots'],

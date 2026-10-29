@@ -359,6 +359,8 @@ export const DATABASE_NAMES = {
     "table": "SU_CO_BUOI_HOC",
     "columns": {
       "id": "madinhdanh",
+      "displayCode": "maphieusuco",
+      "lastUpdatedAt": "capnhatluc",
       "lessonId": "mabuoi",
       "categoryId": "manhomsuco",
       "incidentCode": "masuco",
@@ -747,6 +749,8 @@ export const APP_DATABASE_FIELDS = {
   },
   "lesson_incidents": {
     "id": "madinhdanh",
+    "displayCode": "maphieusuco",
+    "lastUpdatedAt": "capnhatluc",
     "lessonId": "mabuoi",
     "categoryId": "manhomsuco",
     "incidentCode": "masuco",

@@ -1,4 +1,5 @@
 import { setBusinessValue } from './businessPersistence';
+import { lessonIncidentRows, saveIncidentRow } from './monitoringIncidents';
 import type { MonitoringSession } from '../views/Module5_OperationsMonitoring';
 import type { ClassItem, TeacherProfile, TimeSlotItem, IncidentCategory } from '../types';
 import type { MonitoringSessionState } from './sessionAlerts';
@@ -12,7 +13,8 @@ export function sessionTeacherIds(session:Pick<MonitoringSession,'primaryTeacher
 export function storedMonitoringSession(base:MonitoringSession,lessons:Row[],incidents:Row[],classes:ClassItem[],teachers:TeacherProfile[],slots:TimeSlotItem[],categories:IncidentCategory[],users:{id:string;name:string}[]=[]):MonitoringSession{
  const cls=classes.find(c=>c.code===base.classCode),slot=slots.find(s=>s.timeRange.replace(/\s/g,'')===base.timeSlot.replace(/\s/g,''));
  const lesson=lessons.find(l=>l.id===base.sessionCode)||lessons.find(l=>l.classId===cls?.id&&l.date===base.sessionDate&&l.timeSlotId===slot?.id);if(!lesson)return base;
- const incident=incidents.filter(i=>i.lessonId===lesson.id).sort((a,b)=>String(b.reportedAt||'').localeCompare(String(a.reportedAt||''))||String(b.id).localeCompare(String(a.id)))[0];
+ const reports=lessonIncidentRows(incidents,lesson.id);
+ const incident=reports.find(row=>!['DA_GIAI_QUYET','HUY_CA'].includes(row.status)) || reports[0];
  return {...base,sessionCode:lesson.id,displayCode:lesson.displayCode,room:lesson.roomUrl||'Chưa gán phòng',roomUrl:lesson.roomUrl||'',checkinTime:lesson.checkinAt?new Date(lesson.checkinAt).toLocaleTimeString('en-GB',{timeZone:'Asia/Bangkok'}):null,attendance:lesson.teacherAttendance||'ABSENT',
  checkinAt:lesson.checkinAt||null,checkoutAt:lesson.checkoutAt||null,
  hasPersistedStatus:true,feedbackProgress:lesson.feedbackProgress,
@@ -20,7 +22,7 @@ export function storedMonitoringSession(base:MonitoringSession,lessons:Row[],inc
  primaryTeacherId:lesson.primaryTeacherId,primaryTeacher:teachers.find(t=>t.id===lesson.primaryTeacherId)?.name||base.primaryTeacher,
  coverTeacherId:lesson.coverTeacherId||null,coverTeacher:teachers.find(t=>t.id===lesson.coverTeacherId)?.name||null,recordingUrl:lesson.recordingUrl||null,lessonDiary:lesson.diary||'',
  fromClassPause:!!incident?.fromClassPause,pausedByClass:lesson.pausedByClass,pauseCategoryId:lesson.pauseCategoryId,pauseReason:lesson.pauseReason,pauseNote:lesson.pauseNote,
- hasIncident:!!incident,incidentParent:(categories.find(c=>c.id===incident?.categoryId)?.code||null) as MonitoringSession['incidentParent'],incidentChild:incident?.incidentCode||null,
+ incidentId:incident?.id,incidentDisplayCode:incident?.displayCode,incidentCount:reports.length,incidentName:incident?.incidentName,hasIncident:!!incident,incidentParent:(categories.find(c=>c.id===incident?.categoryId)?.code||null) as MonitoringSession['incidentParent'],incidentChild:incident?.incidentCode||null,
  incidentUrgency:incident?.urgency||null,incidentStatus:incident?.status||null,incidentNote:incident?.content||'',appliedCreditCoeff:incident?.appliedCreditCoeff??null,handledByOpsId:incident?.handledBy||null,handledByName:users.find(user=>user.id===incident?.handledBy)?.name||null,handledAt:incident?.handledAt||null};
 }
 export function persistMonitoringChanges(previous:MonitoringSession[],next:MonitoringSession[],lessons:Row[],incidentRows:Row[],classes:ClassItem[],teachers:TeacherProfile[],slots:TimeSlotItem[],categories:IncidentCategory[],userId:string){
@@ -48,14 +50,14 @@ export function persistMonitoringChanges(previous:MonitoringSession[],next:Monit
   if(session.lessonDiary!==old.lessonDiary)lesson.diary=session.lessonDiary;
   if(session.recordingUrl!==old.recordingUrl)lesson.recordingUrl=session.recordingUrl;
   updatedLessons=[...updatedLessons.filter(l=>l.id!==id),lesson];
-  const incidentChanged=['hasIncident','incidentParent','incidentChild','incidentUrgency','incidentStatus','incidentNote','handledAt'].some(key=>(session as Row)[key]!==(old as Row)[key]);
+  const incidentChanged=session.creatingIncident || ['incidentId','hasIncident','incidentParent','incidentChild','incidentUrgency','incidentStatus','incidentNote','handledAt'].some(key=>(session as Row)[key]!==(old as Row)[key]);
   if(session.hasIncident && incidentChanged){
    const category=categories.find(c=>c.code===session.incidentParent);const item=category?.subIncidents.find(i=>i.code===session.incidentChild);
    if(!category||!item)throw new Error('Loại sự cố không còn trong danh mục.');
-   const incident=updatedIncidents.filter(i=>i.lessonId===id).sort((a,b)=>String(b.reportedAt||'').localeCompare(String(a.reportedAt||''))||String(b.id).localeCompare(String(a.id)))[0];
-   const row={...(incident||{}),id:incident?.id||'INC-'+id,lessonId:id,categoryId:category.id,incidentCode:item.code,incidentName:item.name,urgency:session.incidentUrgency,content:session.incidentNote,status:session.incidentStatus||'DANG_XU_LY',reportedBy:incident?.reportedBy||userId,handledBy:userId,
-    reportedAt:incident?.reportedAt||new Date().toISOString(),handledAt:new Date().toISOString()};
-   updatedIncidents=[...updatedIncidents.filter(i=>i.id!==row.id),row];
+   const reportId=session.creatingIncident ? null : session.incidentId || old.incidentId;
+   if(reportId && updatedIncidents.find(row=>row.id===reportId)?.fromClassPause)throw new Error('Phiếu tạm dừng lớp phải được cập nhật tại quản lý lớp.');
+   updatedIncidents=saveIncidentRow(updatedIncidents,{lessonId:id,categoryId:category.id,incidentCode:item.code,incidentName:item.name,urgency:session.incidentUrgency,content:session.incidentNote,status:session.incidentStatus||'DANG_XU_LY',reportedBy:userId,handledBy:userId,
+    reportedAt:new Date().toISOString(),handledAt:new Date().toISOString()},reportId);
   }
  }
  setBusinessValue('dated_lessons',updatedLessons);setBusinessValue('lesson_incidents',updatedIncidents);
