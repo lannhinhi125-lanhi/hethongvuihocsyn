@@ -293,3 +293,17 @@ body:has(.workspace-ui) #root {
   .popup-resize-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
   .fixed.inset-0.flex.items-center.justify-center > :is(div,form,section)[class*="max-w-"][class*="rounded-"] :is(h2,h3) { cursor: move; touch-action: none; }
 }
+
+/* Report workbench: filters beside the chart and results. */
+.report-split-pane { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.report-split-handle, .report-resize-hint { display: none; }
+.report-filter-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+@media (min-width: 1024px) {
+  .report-split-pane { grid-template-columns: minmax(260px, min(var(--report-controls-width), 45%)) 12px minmax(0, 1fr); gap: 0; align-items: start; }
+  .report-split-controls { position: sticky; top: 12px; }
+  .report-resize-hint { display: inline; }
+  .report-split-handle { display: flex; align-items: center; justify-content: center; align-self: stretch; min-height: 160px; cursor: col-resize; touch-action: none; color: #94a3b8; border-radius: 6px; outline-offset: -2px; }
+  .report-split-handle:hover, .report-split-handle.is-dragging, .report-split-handle:focus-visible { background: #fff7ed; color: #ea580c; outline-color: #f97316; }
+  .report-split-handle svg { position: sticky; top: 45vh; }
+  .report-filter-grid { grid-template-columns: minmax(0, 1fr); }
+}
