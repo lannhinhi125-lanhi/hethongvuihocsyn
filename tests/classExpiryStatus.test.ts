@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { effectiveClassStatus, materialClassStatusLabel } from '../src/lib/classStatus';
+const today = '2026-10-30';
+assert.equal(effectiveClassStatus({status:'Đang học',endDate:'2026-10-29'},today),'Đã kết thúc');
+assert.equal(materialClassStatusLabel({status:'Đang học',endDate:'2026-10-29'},today),'Dừng lớp · Hết hạn');
+assert.equal(effectiveClassStatus({status:'Đang học',endDate:today},today),'Đang học','end date is inclusive');
+assert.equal(effectiveClassStatus({status:'Đang học',endDate:'2026-11-01'},today),'Đang học');
+assert.equal(effectiveClassStatus({status:'Đang học'},today),'Đang học');
+assert.equal(materialClassStatusLabel({status:'Dừng lớp',endDate:'2026-10-01'},today),'Dừng lớp','keep manually stopped classes distinct');
+assert.equal(materialClassStatusLabel({status:'Đang học',paused:true,endDate:'2026-10-29'},today),'Dừng lớp · Hết hạn');
+assert.equal(materialClassStatusLabel({status:'Đang học',paused:true,endDate:'2026-11-01'},today),'Tạm dừng tạm thời');
+console.log('Class expiry labels: expired, inclusive final day, future, no limit, manual stop and temporary pause passed.');

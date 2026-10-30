@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bell, Check, Clock } from 'lucide-react';
+import { Bell, Check, Clock, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { refreshBusinessData, useBusinessValue } from '../lib/businessPersistence';
 import { teacherNotifications, notificationDateText, type NotificationLesson } from '../lib/teacherNotifications';
@@ -17,13 +17,17 @@ export const TeacherNotifications: React.FC = () => {
   const { currentUser, users, teachers, classes, payrollStore, setTeacherPortalTab } = useApp();
   const [lessons] = useBusinessValue<NotificationLesson[]>('dated_lessons');
   const storageKey = `vuihoc:teacher-notifications:${currentUser.id}`;
+  const deletedStorageKey = `${storageKey}:deleted`;
   const [readKeys, setReadKeys] = useState<string[]>(() => readKeysFor(storageKey));
+  const [deletedKeys, setDeletedKeys] = useState<string[]>(() => readKeysFor(deletedStorageKey));
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const notifications = teacherNotifications(currentUser, teachers, users, payrollStore, classes, lessons);
+  const notifications = teacherNotifications(currentUser, teachers, users, payrollStore, classes, lessons)
+    .filter(notification => !deletedKeys.includes(notification.key));
   const unread = notifications.filter(notification => !readKeys.includes(notification.key));
 
   useEffect(() => setReadKeys(readKeysFor(storageKey)), [storageKey]);
+  useEffect(() => setDeletedKeys(readKeysFor(deletedStorageKey)), [deletedStorageKey]);
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === 'visible') void refreshBusinessData(); };
     const timer = window.setInterval(refresh, 15_000);
@@ -44,6 +48,13 @@ export const TeacherNotifications: React.FC = () => {
     const next = Array.from(new Set([...readKeys, ...keys]));
     setReadKeys(next);
     try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep the current session state. */ }
+  };
+  const deleteNotification = (key: string) => {
+    setDeletedKeys(previous => {
+      const next = Array.from(new Set([...previous, key]));
+      try { localStorage.setItem(deletedStorageKey, JSON.stringify(next)); } catch { /* Keep the current session state. */ }
+      return next;
+    });
   };
 
   return <div ref={containerRef} className="relative">
@@ -66,15 +77,15 @@ export const TeacherNotifications: React.FC = () => {
         {notifications.map(notification => {
           const isRead = readKeys.includes(notification.key);
           const dateText = notificationDateText(notification.date);
-          return <button
-            key={notification.key}
+          return <div key={notification.key} className={`flex items-start rounded-lg ${isRead ? 'bg-white' : 'bg-indigo-50/70'}`}>
+            <button
             type="button"
             onClick={() => {
               markRead([notification.key]);
               setTeacherPortalTab(notification.tab);
               setIsOpen(false);
             }}
-            className={`w-full rounded-lg p-2.5 text-left hover:bg-indigo-50 ${isRead ? 'bg-white' : 'bg-indigo-50/70'}`}
+            className="min-w-0 flex-1 rounded-lg p-2.5 text-left hover:bg-indigo-50"
           >
             <span className="flex items-center gap-2 text-xs font-bold text-slate-800">{!isRead && <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />}{notification.title}</span>
             <span className="mt-1 block text-xs text-slate-600">{notification.detail}</span>
@@ -82,7 +93,11 @@ export const TeacherNotifications: React.FC = () => {
               <Clock aria-hidden="true" className="h-3 w-3 shrink-0" />
               {dateText ? <time dateTime={notification.date}>{notification.dateLabel}: {dateText}</time> : 'Chưa có thời điểm thông báo'}
             </span>
-          </button>;
+          </button>
+          <button type="button" onClick={() => deleteNotification(notification.key)} aria-label={`Xóa thông báo: ${notification.title} — ${notification.detail}`} title="Xóa thông báo" className="m-1.5 shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-red-500">
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
+          </button>
+          </div>;
         })}
       </div> : <p className="py-3 text-xs text-slate-500">Bạn chưa có thông báo nào.</p>}
       {notifications.length > 0 && unread.length === 0 && <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-500"><Check className="h-3 w-3" /> Đã xem hết thông báo</p>}

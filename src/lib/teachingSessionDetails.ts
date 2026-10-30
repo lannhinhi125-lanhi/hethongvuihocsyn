@@ -5,7 +5,9 @@ import { monitoringStudyStatus, monitoringSessionStatus } from './sessionAlerts'
 export const teachingScheduleEntries = (cls: ClassItem) => Array.from(
   cls.schedule.matchAll(/T([2-7])\s*\(([^)]+)\)|(CN|Chủ nhật)\s*\(([^)]+)\)/gi),
   match => ({ dayIndex: match[3] ? 6 : Number(match[1]) - 2, time: (match[2] || match[4] || '').trim() })
-).sort((a, b) => a.dayIndex - b.dayIndex || a.time.localeCompare(b.time)).slice(0, 2)
+).sort((a, b) => a.dayIndex - b.dayIndex ||
+  (Number(a.time.split(':')[0]) * 60 + Number(a.time.split(':')[1]?.slice(0, 2))) -
+  (Number(b.time.split(':')[0]) * 60 + Number(b.time.split(':')[1]?.slice(0, 2)))).slice(0, 2)
   .map((entry, index) => ({ ...entry, session: index + 1 }));
 
 export const teachingSessionsInWeek = (cls: ClassItem, date: string) => {
@@ -61,18 +63,26 @@ export const teachingSessionDetails = (cls: ClassItem, session: number, date: st
   const active = stored?.dateStr.match(/\d{4}-\d{2}-\d{2}/)?.[0] === date &&
     (!stored.dateStr.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/) ||
       normalize(stored.dateStr.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/)![0]) === normalize(time)) ? stored : undefined;
-  const material = lessonId ? undefined : materialForSessionDate(cls.materials || [], session, date);
+  const material = lessonId ? undefined : scheduledMaterialForDate(cls, date, time);
   const roomUrl = lessonId ? lesson?.roomUrl || '' : lesson?.roomUrl || cls.roomLink;
   const status = monitoringStudyStatus(date, time, now);
   const ended=Boolean(lesson?.checkoutAt || active?.checkoutAt);
+  // Before check-in, the weekly assignment is the current teaching plan.
+  // A cached lesson/session projection must not hide a newly assigned link
+  // (including an intentionally cleared link). Exact lesson views and started
+  // lessons keep their recorded materials for historical review.
+  const started = Boolean(lesson?.checkinAt || lesson?.checkoutAt || active?.checkinAt || active?.checkinTime || active?.checkoutAt ||
+    ['DANG_HOC', 'DA_HOC', 'HOAN_THANH', 'CHUA_HOAN_TAT'].includes(lesson?.status || '') ||
+    ['Đang học', 'Đã hoàn thành'].includes(active?.status || ''));
+  const currentPlan = !lessonId && !started ? material : undefined;
   return {
     active, lesson, status,
     lifecycleStatus: monitoringSessionStatus({sessionDate:date,timeSlot:time,status:lesson?.status === 'HOAN_THANH' ? 'DA_HOC' : lesson?.status,
       checkinAt:lesson?.checkinAt || active?.checkinAt,checkinTime:active?.checkinTime,checkoutAt:lesson?.checkoutAt || active?.checkoutAt},now),
-    title: lesson?.title || lesson?.materials?.title || lesson?.inspectionData?.title || active?.title || material?.title || `Buổi ${session}`,
-    slide: lesson?.materials?.materialGv || lesson?.materials?.slide || active?.materialGv || material?.slide || '',
+    title: currentPlan?.title || lesson?.title || lesson?.materials?.title || lesson?.inspectionData?.title || active?.title || material?.title || `Buổi ${session}`,
+    slide: currentPlan ? currentPlan.slide : lesson?.materials?.materialGv || lesson?.materials?.slide || active?.materialGv || material?.slide || '',
     studentMaterial: lesson?.materials?.materialHs || active?.materialHs || '',
-    exercise: lesson?.materials?.exerciseLms || lesson?.materials?.lms || active?.exerciseLms || material?.lms || '',
+    exercise: currentPlan ? currentPlan.lms : lesson?.materials?.exerciseLms || lesson?.materials?.lms || active?.exerciseLms || material?.lms || '',
     roomUrl, recordingUrl: lesson?.recordingUrl || '',
     actionLabel: ended || status === 'DA_HOC' ? 'Xem lại bản ghi' : 'Vào học',
     actionUrl: ended || status === 'DA_HOC' ? lesson?.recordingUrl || '' : roomUrl

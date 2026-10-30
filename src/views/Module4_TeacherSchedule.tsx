@@ -360,7 +360,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
             max={toDate || undefined}
             onChange={event => {
               if (!event.target.value) return;
-              setFromDate(event.target.value);
+              const week = teachingWeekForDate(new Date(`${event.target.value}T12:00:00`));
+              setFromDate(week.from);
+              setToDate(week.to);
             }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
           />
@@ -372,7 +374,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
             min={fromDate || undefined}
             onChange={event => {
               if (!event.target.value) return;
-              setToDate(event.target.value);
+              const week = teachingWeekForDate(new Date(`${event.target.value}T12:00:00`));
+              setFromDate(week.from);
+              setToDate(week.to);
             }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-800"
           />

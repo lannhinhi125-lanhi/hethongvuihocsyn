@@ -1,4 +1,4 @@
-import { classStatusLabel } from '../lib/classStatus';
+import { classStatusLabel, effectiveClassStatus, materialClassStatusLabel } from '../lib/classStatus';
 import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
 import {matchesDashboardSelection} from '../lib/dashboardNavigation';
@@ -541,7 +541,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     grade: gradeOptions.map(item => ({ value: item.id, label: item.label })),
     level: levels.map(item => ({ value: item.code, label: item.name })),
     model: models.map(item => ({ value: item.code, label: item.name })),
-    status: classStatuses.map(value => ({ value, label: value })),
+    status: classStatuses.map(value => ({ value, label: value === 'Đã kết thúc' ? 'Dừng lớp · Đã kết thúc / Hết hạn' : value })),
     materialStatus: [{ value: 'assigned', label: 'Đã có học liệu' }, { value: 'missing', label: 'Chưa có học liệu' }],
     lessonOne: Array.from(new Set(classes.flatMap(item => item.materials || []).filter(material => material.session === 1).map(material => material.title).filter(Boolean))).map(value => ({ value, label: value })),
     lessonTwo: Array.from(new Set(classes.flatMap(item => item.materials || []).filter(material => material.session === 2).map(material => material.title).filter(Boolean))).map(value => ({ value, label: value }))
@@ -597,7 +597,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         (!selected('grade').length || selected('grade').includes(item.grade)) &&
         (!selected('level').length || selected('level').includes(item.level)) &&
         (!selected('model').length || selected('model').includes(item.model)) &&
-        (!selected('status').length || selected('status').includes(item.status || 'Đang học')) &&
+        (!selected('status').length || selected('status').includes(effectiveClassStatus(item))) &&
         (!selected('lessonOne').length || selected('lessonOne').includes(titleOne)) &&
         (!selected('lessonTwo').length || selected('lessonTwo').includes(titleTwo)) &&
         (!selected('materialStatus').length || selected('materialStatus').includes(hasMaterials ? 'assigned' : 'missing'));
@@ -1578,7 +1578,7 @@ export const Module4_StudentsClasses: React.FC = () => {
             </div>
           </section>}
 
-          {showRecentMaterials ? <RecentMaterialResults rows={recentMaterials} /> : <>
+          {showRecentMaterials ? <RecentMaterialResults rows={recentMaterials} classStatusLabels={Object.fromEntries(classes.map(item => [item.id, materialClassStatusLabel(item)]))} /> : <>
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1615,9 +1615,10 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <th className="py-3.5 px-4">{materialColumnFilter('Mô hình', 'model')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Trình độ', 'level')}</th>
                     <th className="py-3.5 px-4">Tuần học liệu</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Trạng thái lớp', 'status')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 1', 'lessonOne')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 2', 'lessonTwo')}</th>
-                    <th className="py-3.5 px-4">{materialColumnFilter('Trạng thái', 'materialStatus')}</th>
+                    <th className="py-3.5 px-4">{materialColumnFilter('Trạng thái học liệu', 'materialStatus')}</th>
                     <th className="py-3.5 px-4 text-center">Hành động</th>
                   </tr>
                 </thead>
@@ -1637,6 +1638,10 @@ export const Module4_StudentsClasses: React.FC = () => {
                         <td className="py-3 px-4 whitespace-nowrap text-slate-700">{models.find(model => model.code === c.model)?.name || c.model}</td>
                         <td className="py-3 px-4 whitespace-nowrap"><span className="rounded bg-blue-50 px-2 py-1 text-blue-700">{levelName(c.level)}</span></td>
                         <td className="py-3 px-4 min-w-52 text-[11px] text-slate-600">{week || 'Chưa có học liệu trong khoảng đã chọn'}</td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className={`rounded border px-2 py-1 text-[10px] font-semibold ${['Dừng lớp', 'Đã kết thúc'].includes(effectiveClassStatus(c)) ? 'border-red-200 bg-red-50 text-red-700' : c.paused ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{materialClassStatusLabel(c)}</span>
+                          {c.endDate && <div className="mt-1 text-[10px] text-slate-500">Hạn cuối: {c.endDate.split('-').reverse().join('/')}</div>}
+                        </td>
                         <td className="py-3 px-4 min-w-44 text-slate-700">{sessionOne?.title || <span className="text-slate-400">Chưa gắn</span>}</td>
                         <td className="py-3 px-4 min-w-44 text-slate-700">{sessionTwo?.title || <span className="text-slate-400">Chưa gắn</span>}</td>
                         <td className="py-3 px-4 whitespace-nowrap">
@@ -1660,7 +1665,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                       </tr>
                     );
                   })}
-                  {!materialRowsForView.length && <tr><td colSpan={10} className="px-4 py-2 text-center"><EmptyState title="Không có lớp nào khớp với bộ lọc hiện tại." /></td></tr>}
+                  {!materialRowsForView.length && <tr><td colSpan={11} className="px-4 py-2 text-center"><EmptyState title="Không có lớp nào khớp với bộ lọc hiện tại." /></td></tr>}
                 </PaginatedTableBody>
               </table>
             </div>
