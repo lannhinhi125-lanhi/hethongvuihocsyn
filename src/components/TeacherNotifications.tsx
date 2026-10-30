@@ -49,9 +49,9 @@ export const TeacherNotifications: React.FC = () => {
     setReadKeys(next);
     try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep the current session state. */ }
   };
-  const deleteNotification = (key: string) => {
+  const deleteNotifications = (keys: string[]) => {
     setDeletedKeys(previous => {
-      const next = Array.from(new Set([...previous, key]));
+      const next = Array.from(new Set([...previous, ...keys]));
       try { localStorage.setItem(deletedStorageKey, JSON.stringify(next)); } catch { /* Keep the current session state. */ }
       return next;
     });
@@ -71,7 +71,10 @@ export const TeacherNotifications: React.FC = () => {
     {isOpen && <div className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-sm font-bold text-slate-800">Thông báo</span>
-        {unread.length > 0 && <button type="button" onClick={() => markRead(unread.map(item => item.key))} className="text-xs font-semibold text-indigo-700 hover:underline">Đánh dấu đã xem</button>}
+        <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+          {unread.length > 0 && <button type="button" onClick={() => markRead(unread.map(item => item.key))} className="text-xs font-semibold text-indigo-700 hover:underline">Đánh dấu đã xem</button>}
+          {notifications.length > 0 && <button type="button" onClick={() => deleteNotifications(notifications.map(item => item.key))} className="text-xs font-semibold text-red-600 hover:underline">Xóa tất cả</button>}
+        </div>
       </div>
       {notifications.length ? <div className="max-h-80 space-y-1 overflow-y-auto">
         {notifications.map(notification => {
@@ -94,7 +97,7 @@ export const TeacherNotifications: React.FC = () => {
               {dateText ? <time dateTime={notification.date}>{notification.dateLabel}: {dateText}</time> : 'Chưa có thời điểm thông báo'}
             </span>
           </button>
-          <button type="button" onClick={() => deleteNotification(notification.key)} aria-label={`Xóa thông báo: ${notification.title} — ${notification.detail}`} title="Xóa thông báo" className="m-1.5 shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-red-500">
+          <button type="button" onClick={() => deleteNotifications([notification.key])} aria-label={`Xóa thông báo: ${notification.title} — ${notification.detail}`} title="Xóa thông báo" className="m-1.5 shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-red-500">
             <Trash2 aria-hidden="true" className="h-4 w-4" />
           </button>
           </div>;
