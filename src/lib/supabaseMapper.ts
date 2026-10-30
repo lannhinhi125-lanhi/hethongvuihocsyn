@@ -49,6 +49,10 @@ export function toSupabaseRow(dataset: SupabaseDataset, value: object): DataRow 
     if (DERIVED_DATABASE_FIELDS[dataset]?.includes(field)) continue;
     if (field === 'auth_user_id' || field === 'passwordRaw' || field === 'created_at' || field === 'updated_at') continue;
     if (!Object.hasOwn(fields,field)) throw new Error('Chưa ánh xạ trường ' + dataset + '.' + field);
+    if (dataset === 'classes' && field === 'materials') {
+      result[fields[field]] = (content as any[]).map(({updatedAt, ...material}) => material);
+      continue;
+    }
     if (dataset === 'students' && field === 'registrations') {
       result[fields[field]] = (content as any[]).map(item => ({ ...item,
         status: STATUS_CODES.students[item.status as keyof typeof STATUS_CODES.students] || item.status,

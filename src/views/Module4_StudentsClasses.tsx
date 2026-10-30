@@ -458,6 +458,8 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [recentMaterials, setRecentMaterials] = useState<RecentMaterialChange[]>([]);
   const [showRecentMaterials, setShowRecentMaterials] = useState(false);
   const [recentMaterialWeek, setRecentMaterialWeek] = useState('');
+  const [materialSort, setMaterialSort] = useState<'newest' | 'oldest'>('newest');
+  const [materialUpdateTimes, setMaterialUpdateTimes] = useState<Record<string, number>>({});
   const [isBatchGradeDropdownOpen, setIsBatchGradeDropdownOpen] = useState(false);
   const [isBatchLevelDropdownOpen, setIsBatchLevelDropdownOpen] = useState(false);
   const [isBatchClassDropdownOpen, setIsBatchClassDropdownOpen] = useState(false);
@@ -599,7 +601,12 @@ export const Module4_StudentsClasses: React.FC = () => {
         (!selected('lessonOne').length || selected('lessonOne').includes(titleOne)) &&
         (!selected('lessonTwo').length || selected('lessonTwo').includes(titleTwo)) &&
         (!selected('materialStatus').length || selected('materialStatus').includes(hasMaterials ? 'assigned' : 'missing'));
-  }), [classes, materialFilters, materialRange, dashboardFilter]);
+  }).sort((a, b) => {
+    const updated = (row: typeof a) => Math.max(materialUpdateTimes[`${row.item.id}-${row.week}`] || 0, ...row.materials.map(material => Date.parse(material.updatedAt || '') || 0));
+    const first = updated(a), second = updated(b);
+    if (!first || !second) return first ? -1 : second ? 1 : a.item.code.localeCompare(b.item.code, 'vi');
+    return materialSort === 'newest' ? second - first : first - second;
+  }), [classes, materialFilters, materialRange, dashboardFilter, materialSort, materialUpdateTimes]);
 
   const batchMatchingClasses = useMemo(() => classes.filter(item =>
     Boolean(batchCategoryId) &&
@@ -1264,6 +1271,8 @@ export const Module4_StudentsClasses: React.FC = () => {
       setIsBatchMaterialModalOpen(false);
       setEditingMaterialClassId(null);
       setRecentMaterials(changedMaterials);
+      const updatedAt = Date.now();
+      setMaterialUpdateTimes(previous => ({...previous, ...Object.fromEntries(changedMaterials.map(row => [`${row.classId}-${row.material.week}`, updatedAt]))}));
       setRecentMaterialWeek(batchWeek);
       setShowRecentMaterials(true);
       setDashboardFilter(null);
@@ -1576,10 +1585,16 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <h3 className="text-sm font-bold text-slate-800">Tra cứu học liệu đã phân phối</h3>
                 <p className="mt-0.5 text-[11px] text-slate-500">Chọn thời gian ở trên; lọc theo cột hoặc mở bộ lọc nâng cao để tìm lớp, khối và trạng thái.</p>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+              <ReportSelect aria-label="Sắp xếp theo thời gian cập nhật học liệu" value={materialSort} onChange={event => setMaterialSort(event.target.value as 'newest' | 'oldest')} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+                <option value="newest">Cập nhật mới nhất</option>
+                <option value="oldest">Cập nhật cũ nhất</option>
+              </ReportSelect>
               <button type="button" onClick={() => setIsMaterialFilterOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                 <Filter className="h-4 w-4 text-[#FF5C00]" /> Bộ lọc nâng cao
                 {activeMaterialFilterCount > 0 && <span className="rounded-full bg-[#FF5C00] px-1.5 py-0.5 text-[10px] text-white">{activeMaterialFilterCount}</span>}
               </button>
+              </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
               <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-slate-600">Số lớp: <strong className="text-slate-800">{new Set(materialRowsForView.map(row=>row.item.id)).size}</strong></span>

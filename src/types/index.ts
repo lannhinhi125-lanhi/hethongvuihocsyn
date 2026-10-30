@@ -179,6 +179,7 @@ export interface StudentSubjectRegistration {
 }
 
 export interface ClassSessionMaterial {
+  updatedAt?: string | null;
   id?: number; // Stable key scoped to its class, returned by Supabase.
   fromDate?: string;
   toDate?: string;
