@@ -3,7 +3,7 @@ import { VietnameseDatePicker } from './VietnameseDatePicker';
 import { ReportSelect } from './ReportSelect';
 import { reportFilterValues } from '../lib/customReports';
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, Printer, FileSpreadsheet } from 'lucide-react';
+import { Eye, Printer, FileSpreadsheet, ZoomIn, ZoomOut } from 'lucide-react';
 import { reportExcelData, reportExcelBytes, type ReportExcelData } from '../lib/reportExcel';
 import { useApp } from '../context/AppContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -46,8 +46,21 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
   const [excelSnapshot, setExcelSnapshot] = useState<ReportExcelData | null>(null);
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState(100);
   const [error, setError] = useState('');
   const frame = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    const document = frame.current?.contentDocument;
+    if (!ready || !document) return;
+    let style = document.getElementById('preview-zoom');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'preview-zoom';
+      document.head.appendChild(style);
+    }
+    // Keep the paper layout and printed output independent of the preview scale.
+    style.textContent = `@media screen { main { zoom: ${previewZoom / 100}; } }`;
+  }, [previewZoom, ready, preview]);
   const canPrint = can('Xuất kết quả báo cáo CSV');
   const availableIds = datasets.map(dataset => dataset.id).sort().join('|');
   const titleDataset = selected.length === 1 ? datasets.find(dataset => dataset.id === selected[0]) : null;
@@ -145,7 +158,12 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
       <div className="flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={appendix} onChange={event => setAppendix(event.target.checked)} className="accent-orange-600" />Kèm phụ lục bản ghi chi tiết</label></div>
 
     </section>}>
-    {preview ? <section className="overflow-hidden rounded-xl border border-slate-200"><div className="border-b bg-white px-4 py-2 text-xs text-slate-500">Bản xem trước · A4 · Chọn “Lưu dưới dạng PDF” trong hộp thoại in để lưu tệp.</div><iframe ref={frame} title="Bản xem trước báo cáo để in" srcDoc={preview} sandbox="allow-same-origin allow-modals" onLoad={() => setReady(true)} className="h-[75vh] min-h-96 w-full border-0 bg-slate-200" /></section>
+    {preview ? <section className="overflow-hidden rounded-xl border border-slate-200"><div className="flex flex-wrap items-center justify-between gap-2 border-b bg-white px-4 py-2 text-xs text-slate-500"><span>Bản xem trước · A4 · Chọn “Lưu dưới dạng PDF” trong hộp thoại in để lưu tệp.</span><div role="group" aria-label="Thu phóng bản xem trước" className="flex items-center gap-1">
+      <button type="button" aria-label="Thu nhỏ báo cáo" title="Thu nhỏ" disabled={previewZoom <= 25} onClick={() => setPreviewZoom(value => Math.max(25, value - 25))} className="rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-40"><ZoomOut className="h-4 w-4" /></button>
+      <output aria-label="Tỷ lệ thu phóng" aria-live="polite" className="min-w-12 text-center tabular-nums">{previewZoom}%</output>
+      <button type="button" aria-label="Phóng to báo cáo" title="Phóng to" disabled={previewZoom >= 200} onClick={() => setPreviewZoom(value => Math.min(200, value + 25))} className="rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-40"><ZoomIn className="h-4 w-4" /></button>
+      <button type="button" aria-label="Đặt lại thu phóng về 100%" onClick={() => setPreviewZoom(100)} className="rounded-lg border border-slate-200 px-2 py-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">Đặt lại</button>
+    </div></div><iframe ref={frame} title="Bản xem trước báo cáo để in" srcDoc={preview} sandbox="allow-same-origin allow-modals" onLoad={() => setReady(true)} className="h-[75vh] min-h-96 w-full border-0 bg-slate-200" /></section>
       : <div className="flex h-[75vh] min-h-96 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Chọn mẫu và kỳ báo cáo, sau đó bấm “Xem trước”.</div>}
     </ReportSplitPane>
   </div>;
