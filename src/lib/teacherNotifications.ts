@@ -19,6 +19,18 @@ export interface TeacherNotification {
   detail: string;
   tab: 'evaluation' | 'reconcile' | 'schedule';
   sortAt: string;
+  date?: string;
+  dateLabel?: string;
+}
+
+export function notificationDateText(value?: string): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Bangkok', day: '2-digit', month: '2-digit', year: 'numeric',
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(value) ? {} : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' as const })
+  }).format(date);
 }
 
 export const teacherNotifications = (
@@ -39,6 +51,8 @@ export const teacherNotifications = (
       title: 'Có kết quả đánh giá chuyên môn',
       detail: `${report.classCode} · ${report.overallScore}/10 · ${report.rank}`,
       tab: 'evaluation' as const,
+      date: report.sentAt || report.sessionDate,
+      dateLabel: report.sentAt ? 'Gửi lúc' : 'Ngày buổi học',
       sortAt: report.sentAt || report.sessionDate || ''
     }));
 
@@ -63,6 +77,8 @@ export const teacherNotifications = (
         title: stopped ? (cls.status === 'Dừng lớp' ? 'Lớp học đã dừng' : 'Lớp học đã kết thúc') : 'Bạn được phân công lớp học',
         detail: `${cls.code} · ${cls.name}${cls.schedule ? ' · '+cls.schedule : ''}`,
         tab: 'schedule' as const,
+        date: (cls as ClassItem & {updated_at?:string}).updated_at || cls.created_at || cls.startDate,
+        dateLabel: (cls as ClassItem & {updated_at?:string}).updated_at ? 'Cập nhật lúc' : cls.created_at ? 'Ngày tạo lớp' : 'Ngày bắt đầu lớp',
         sortAt: (cls as ClassItem & {updated_at?:string}).updated_at || cls.created_at || cls.startDate || ''
       };
     });
@@ -83,6 +99,8 @@ export const teacherNotifications = (
       title: 'Bạn được phân công dạy thay',
       detail: `${cls.code} · ${cls.name} · ${day}${time ? ' · '+time : ''}`,
       tab: 'schedule' as const,
+      date: lesson.updated_at || lesson.created_at || lesson.date,
+      dateLabel: lesson.updated_at ? 'Cập nhật lúc' : lesson.created_at ? 'Ngày tạo buổi học' : 'Ngày dạy thay',
       sortAt: lesson.updated_at || lesson.created_at || lesson.date
     }];
   });

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { teacherNotifications } from '../src/lib/teacherNotifications';
+import { teacherNotifications, notificationDateText } from '../src/lib/teacherNotifications';
 import type { ClassItem, MonthPayrollData, TeacherProfile, UserAccount } from '../src/types';
 
 const user = { id: 'user-a', role: 'Giáo viên Giảng dạy', status: 'active' } as UserAccount;
@@ -23,6 +23,12 @@ const payrollStore = {
 
 const notifications = teacherNotifications(user, teachers, users, payrollStore);
 assert.equal(notifications.length, 2);
+assert.equal(notifications.find(item=>item.key.startsWith('evaluation:'))?.date,'2026-10-12T09:00:00Z');
+assert.equal(notifications.find(item=>item.key.startsWith('dispute:'))?.date,undefined,'payroll month is not a notification timestamp');
+assert.match(notificationDateText('2026-10-12T20:30:00Z'),/03:30.*13\/10\/2026|13\/10\/2026.*03:30/);
+assert.equal(notificationDateText('2026-10-12'),'12/10/2026');
+assert.equal(notificationDateText('invalid'),'');
+assert.equal(notificationDateText(undefined),'');
 assert.ok(notifications.some(item => item.key.startsWith('evaluation:report-a:')));
 assert.ok(notifications.some(item => item.key.includes('dispute:2026-10:reviewed:DA_DUYET')));
 assert.equal(teacherNotifications({ ...user, id: 'user-b' }, teachers, users, payrollStore).length, 0);

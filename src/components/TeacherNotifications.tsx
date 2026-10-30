@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Clock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { refreshBusinessData, useBusinessValue } from '../lib/businessPersistence';
-import { teacherNotifications, type NotificationLesson } from '../lib/teacherNotifications';
+import { teacherNotifications, notificationDateText, type NotificationLesson } from '../lib/teacherNotifications';
 
 const readKeysFor = (storageKey: string): string[] => {
   try {
@@ -65,6 +65,7 @@ export const TeacherNotifications: React.FC = () => {
       {notifications.length ? <div className="max-h-80 space-y-1 overflow-y-auto">
         {notifications.map(notification => {
           const isRead = readKeys.includes(notification.key);
+          const dateText = notificationDateText(notification.date);
           return <button
             key={notification.key}
             type="button"
@@ -77,6 +78,10 @@ export const TeacherNotifications: React.FC = () => {
           >
             <span className="flex items-center gap-2 text-xs font-bold text-slate-800">{!isRead && <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />}{notification.title}</span>
             <span className="mt-1 block text-xs text-slate-600">{notification.detail}</span>
+            <span className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500">
+              <Clock aria-hidden="true" className="h-3 w-3 shrink-0" />
+              {dateText ? <time dateTime={notification.date}>{notification.dateLabel}: {dateText}</time> : 'Chưa có thời điểm thông báo'}
+            </span>
           </button>;
         })}
       </div> : <p className="py-3 text-xs text-slate-500">Bạn chưa có thông báo nào.</p>}
