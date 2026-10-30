@@ -6,6 +6,8 @@ import {classPauseReasons,pauseReasonKey} from '../lib/classPause';
 import { readRoomLinkFile } from '../lib/roomLinkImport';
 import { ReportSelect } from '../components/ReportSelect';
 import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
+import { recentMaterialChanges, type RecentMaterialChange } from '../lib/recentMaterialChanges';
+import { RecentMaterialResults } from '../components/RecentMaterialResults';
 import { PeriodToolbar } from '../components/PeriodToolbar';
 import { workbenchRange } from '../lib/workbenchTime';
 import { reportToday } from '../lib/customReports';
@@ -453,6 +455,9 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [materialFilters, setMaterialFilters] = useState<Partial<Record<MaterialFilterKey, string[]>>>({});
   const [isMaterialFilterOpen, setIsMaterialFilterOpen] = useState(false);
   const [materialRange,setMaterialRange]=useState(()=>dashboardFilter?.range||workbenchRange(reportToday(),'week'));
+  const [recentMaterials, setRecentMaterials] = useState<RecentMaterialChange[]>([]);
+  const [showRecentMaterials, setShowRecentMaterials] = useState(false);
+  const [recentMaterialWeek, setRecentMaterialWeek] = useState('');
   const [isBatchGradeDropdownOpen, setIsBatchGradeDropdownOpen] = useState(false);
   const [isBatchLevelDropdownOpen, setIsBatchLevelDropdownOpen] = useState(false);
   const [isBatchClassDropdownOpen, setIsBatchClassDropdownOpen] = useState(false);
@@ -1252,10 +1257,21 @@ export const Module4_StudentsClasses: React.FC = () => {
       }
     ];
 
+    const changedMaterials = recentMaterialChanges(classes, selectedEligibleClassIds, newMaterials);
+    const savedWeek = teachingWeeksForMonth(batchMonth).find(week => week.label === batchWeek);
     if (!batchAssignMaterials(selectedEligibleClassIds, newMaterials)) return;
     void confirmSave(() => {
       setIsBatchMaterialModalOpen(false);
       setEditingMaterialClassId(null);
+      setRecentMaterials(changedMaterials);
+      setRecentMaterialWeek(batchWeek);
+      setShowRecentMaterials(true);
+      setDashboardFilter(null);
+      setMaterialFilters({});
+      if (savedWeek) {
+        const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        setMaterialRange({start: iso(savedWeek.start), end: iso(savedWeek.end)});
+      }
       showToast(`Đã lưu học liệu cho ${selectedEligibleClassIds.length} lớp học.`, 'success');
     });
   };
@@ -1539,8 +1555,21 @@ export const Module4_StudentsClasses: React.FC = () => {
             </div>
           </div>
 
-          <PeriodToolbar label="Thời gian học liệu" range={materialRange} onChange={range=>{setDashboardFilter(null);setMaterialRange(range);}} initialPeriod="week"/>
+          <PeriodToolbar label="Thời gian học liệu" range={materialRange} onChange={range=>{setDashboardFilter(null);setMaterialRange(range);setShowRecentMaterials(false);}} initialPeriod="week"/>
 
+          {recentMaterialWeek && <section aria-live="polite" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div>
+              <h3 className="text-sm font-bold text-emerald-900">Lần phân phối vừa lưu · {recentMaterials.length} buổi / {new Set(recentMaterials.map(row => row.classId)).size} lớp</h3>
+              <p className="mt-1 text-xs text-emerald-800">{recentMaterialWeek}</p>
+              <p className="mt-1 text-[11px] text-emerald-700">{showRecentMaterials ? 'Chỉ hiển thị học liệu có thay đổi trong lần lưu thành công gần nhất.' : 'Bạn đang xem danh sách tra cứu học liệu.'}</p>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" aria-pressed={showRecentMaterials} onClick={() => setShowRecentMaterials(true)} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${showRecentMaterials ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-emerald-200 bg-white text-emerald-800'}`}>Vừa cập nhật ({recentMaterials.length})</button>
+              <button type="button" aria-pressed={!showRecentMaterials} onClick={() => setShowRecentMaterials(false)} className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-800">Xem tất cả</button>
+            </div>
+          </section>}
+
+          {showRecentMaterials ? <RecentMaterialResults rows={recentMaterials} /> : <>
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1621,6 +1650,7 @@ export const Module4_StudentsClasses: React.FC = () => {
               </table>
             </div>
           </div>
+          </>}
         </div>
       )}
 
