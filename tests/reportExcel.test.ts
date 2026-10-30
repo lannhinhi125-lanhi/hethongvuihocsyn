@@ -55,6 +55,17 @@ assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('<autoFilter ref="A1
 assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('<mergeCell ref="A1:E1"/>'));
 assert.ok(!entries.get('xl/worksheets/sheet1.xml')!.includes('<autoFilter'));
 assert.ok(entries.get('xl/styles.xml')!.includes('Times New Roman'));
+const styles=entries.get('xl/styles.xml')!;
+assert.ok(styles.includes('<borders count="2">'));
+for(const edge of ['left','right','top','bottom'])assert.ok(styles.includes(`<${edge} style="thin"><color rgb="FFCBD5E1"/>`));
+const cellStyles=styles.match(/<cellXfs[^>]*>(.*?)<\/cellXfs>/)![1].match(/<xf\b[^>]*>/g)!;
+for(const index of [0,1,3,4,5])assert.ok(cellStyles[index].includes('borderId="1" applyBorder="1"'));
+assert.ok(cellStyles[2].includes('borderId="0"'),'report titles remain unboxed');
+const blankCells=Buffer.from(reportExcelBytes({filename:'borders.xlsx',sheets:[{name:'Borders',rows:[['Label','Value'],['Missing',null],['Short row']]}]})).toString('utf8');
+assert.ok(blankCells.includes('<c r="B2" s="0"/>'),'missing data keeps borders without becoming zero');
+assert.ok(blankCells.includes('<c r="B3" s="0"/>'),'short rows keep continuous borders');
+assert.ok(entries.get('xl/worksheets/sheet3.xml')!.includes('<c r="E3" s="0"/>'),'merged metadata has a styled right edge');
+assert.match(entries.get('xl/worksheets/sheet3.xml')!, /<row r="10"[^>]*><\/row>/,'spacer rows stay unboxed');
 // Overview totals come from source aggregation, including overlapping groups and unavailable ratios.
 const overlapping={...section,result:{...section.result,totals:{total:2,incidents:1,rate:50},rows:[...section.result.rows,...section.result.rows]},dataset:{...dataset,nonAdditiveGroups:['subject']}};
 const overview=reportExcelData([overlapping],{...info,exportedBy:'Người xuất thực tế',exportedAt:'09:00 22/10/2026'}).sheets[0];

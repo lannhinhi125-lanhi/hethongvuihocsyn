@@ -185,11 +185,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   },[contactVersion,businessStatus.loading,businessStatus.saving,accountSession.actor?.id]);
   useEffect(() => {
     if (!accountSession.actor || isPreviewAccount(accountSession.actor)) return;
-    const refresh = () => { if (document.visibilityState === 'visible') void refreshBusinessData(); };
-    const timer = window.setInterval(refresh, 30_000);
+    let nextRefreshAt = 0, failures = 0, active = true;
+    const refresh = async () => {
+      const snapshot = getBusinessSnapshot();
+      if (document.visibilityState !== 'visible' || Date.now() < nextRefreshAt || snapshot.loading || snapshot.saving) return;
+      // Focus and visibility events often arrive together. Avoid another full read
+      // while the last successful snapshot is still recent.
+      if (snapshot.loadedAt && Date.now() - snapshot.loadedAt < 60_000) return;
+      nextRefreshAt = Date.now() + 60_000;
+      await refreshBusinessData();
+      if (!active) return;
+      failures = getBusinessSnapshot().refreshError ? failures + 1 : 0;
+      nextRefreshAt = Date.now() + Math.min(300_000, 60_000 * 2 ** Math.min(failures, 3));
+    };
+    const timer = window.setInterval(() => void refresh(), 60_000);
     window.addEventListener('focus', refresh);
     document.addEventListener('visibilitychange', refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [accountSession.actor?.id]);
   const teacherAccess = JSON.stringify(accountSession.groups.map(g=>[g.id,g.permissions,g.portal]));
   useEffect(() => {

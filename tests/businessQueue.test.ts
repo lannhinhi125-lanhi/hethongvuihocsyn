@@ -6,10 +6,14 @@ const actor={madinhdanh:'ADMIN',hoten:'Admin',tendangnhap:'admin',thudientu:'a@e
 const session={actor,users:[actor],role_groups:[{madinhdanh:'ROLE',tennhomquyen:'Admin',phanloai:'HỆ THỐNG',mota:'',soluongnguoidung:1,danhsachquyen:['ALL'],congtruycap:'ADMIN'}]};
 let data:any={subjects:[{madinhdanh:'S1',mamonhoc:'M1',tenviettat:'M',tenmonhoc:'Original',mota:'',danghoatdong:true}]};
 const calls:any[]=[];let release:(()=>void)|undefined;let fail=false;let readFail=false;
+let reads=0;let releaseRead:(()=>void)|undefined;let holdRead=false;
 (supabase as any).schema=()=>({rpc:async(name:string,args:any)=>{
  if(name==='vuihoc_login')return {data:{...session,token:'token'}};
  if(name==='vuihoc_session')return {data:session};
- if(name==='vuihoc_business_data')return readFail?{error:{message:'read unavailable'}}:{data:structuredClone(data)};
+ if(name==='vuihoc_business_data'){
+  reads++;if(holdRead)await new Promise<void>(resolve=>{releaseRead=resolve;});
+  return readFail?{error:{message:'read unavailable'}}:{data:structuredClone(data)};
+ }
  if(name==='vuihoc_save_business'){
   calls.push(structuredClone(args.p_changes));await new Promise<void>(resolve=>{release=resolve;});
   if(fail)return {error:{message:'forced save error'}};
@@ -28,6 +32,17 @@ assert.equal(getBusinessSnapshot().data.subjects[0].name,'Original','read failur
 assert.equal(getBusinessSnapshot().loadedAt,firstLoad,'a failed refresh never claims a new successful load');
 assert.match(getBusinessSnapshot().refreshError||'',/read unavailable/);
 readFail=false;await refreshBusinessData();assert.equal(getBusinessSnapshot().refreshError,'');
+holdRead=true;
+let beforeReads=reads;
+const pendingLoad=loadBusinessData();await tick();
+await Promise.all([loadBusinessData(),refreshBusinessData()]);
+assert.equal(reads,beforeReads+1,'initial/retry loads never overlap');
+releaseRead!();await pendingLoad;
+beforeReads=reads;
+const pendingRefresh=refreshBusinessData();await tick();
+await Promise.all([loadBusinessData(),refreshBusinessData()]);
+assert.equal(reads,beforeReads+1,'manual retry and background refresh never overlap');
+releaseRead!();await pendingRefresh;holdRead=false;
 const edit=(name:string)=>setBusinessValue('subjects',(rows:any[])=>rows.map(r=>({...r,name})));
 edit('First');setBusinessValue('custom_catalogs',[{id:'CAT',code:'CAT',name:'Catalog',desc:'',entries:[]}]);await tick();
 let confirmedSave=false;const completion=waitForBusinessSave().then(()=>{confirmedSave=true;});
