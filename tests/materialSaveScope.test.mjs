@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const root=process.env.PGLITE_MODULE_PATH || '.tmp/demo-validation/node_modules/@electric-sql/pglite';
+const {PGlite}=await import(pathToFileURL(resolve(root,'dist/index.js')));
+const db=new PGlite();
+const file=p=>readFileSync(p,'utf8');
+try {
+ await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA vuihoc;
+ CREATE TABLE vuihoc."LOP_HOC"(madinhdanh text PRIMARY KEY,magiaovien text,trangthai text,ngaybatdau date,lienketphonghoc text,tamdunglich boolean DEFAULT false);
+ CREATE TABLE vuihoc."LICH_LOP"(malop text,makhunggio text,thutrongtuan integer);
+ CREATE TABLE vuihoc."KHUNG_GIO"(madinhdanh text,khoanggio text);
+ CREATE TABLE vuihoc."BANG_CONG_THANG"(kycong text,dakhoa boolean);
+ CREATE TABLE vuihoc."CONG_DAY_BUOI_HOC"(mabuoi text);
+ CREATE TABLE vuihoc."BUOI_HOC"(madinhdanh text,malop text,ngayhoc date,makhunggio text,batdau time,ketthuc time,magiaovienchinh text,lienketphonghoc text,mahoclieu integer,vaolopluc timestamptz,ketthucluc timestamptz,UNIQUE(malop,ngayhoc,makhunggio));
+ CREATE TABLE vuihoc."HOC_LIEU_LOP"(malop text,mahoclieu integer,tungay date,denngay date);
+ CREATE FUNCTION vuihoc.tim_hoc_lieu_buoi(text,date,text) RETURNS integer LANGUAGE sql AS $$ SELECT min(mahoclieu) FROM vuihoc."HOC_LIEU_LOP" WHERE malop=$1 AND $2 BETWEEN tungay AND denngay $$;
+ INSERT INTO vuihoc."KHUNG_GIO" VALUES('slot','16:00 - 17:00');
+ INSERT INTO vuihoc."LOP_HOC" SELECT 'C'||n,'GV','DANG_HOC','2090-01-01','',false FROM generate_series(1,12) n;
+ INSERT INTO vuihoc."LICH_LOP" SELECT madinhdanh,'slot',1 FROM vuihoc."LOP_HOC";
+ INSERT INTO vuihoc."LICH_LOP" SELECT madinhdanh,'slot',3 FROM vuihoc."LOP_HOC";`);
+ const workflow=file('supabase/migrations/20261017_session_workflow.sql');
+ const start=workflow.indexOf('CREATE OR REPLACE FUNCTION vuihoc.dong_bo_ca_theo_lich(');
+ const end=workflow.indexOf('END $$;',start)+'END $$;'.length;
+ // Include the deployed temporary-pause guard when deriving the new helper.
+ await db.exec(workflow.slice(start,end).replace('WHERE l.magiaovien IS NOT NULL','WHERE NOT l.tamdunglich AND l.magiaovien IS NOT NULL'));
+ const materials=file('supabase/migrations/20261126_normalize_class_materials.sql');
+ const ts=materials.indexOf('CREATE OR REPLACE FUNCTION vuihoc.sinh_buoi_khi_gan_hoc_lieu()');
+ const te=materials.indexOf('END $generate$;',ts)+'END $generate$;'.length;
+ await db.exec(materials.slice(ts,te));
+ await db.exec(`CREATE TRIGGER generate_lessons AFTER INSERT OR UPDATE ON vuihoc."HOC_LIEU_LOP" FOR EACH ROW EXECUTE FUNCTION vuihoc.sinh_buoi_khi_gan_hoc_lieu();`);
+ const patch=file('supabase/migrations/20261221_scope_material_lesson_sync.sql');
+ await db.exec(patch);await db.exec(patch);
+ await db.exec(`INSERT INTO vuihoc."HOC_LIEU_LOP" SELECT 'C'||n,s,'2090-01-02','2090-01-08' FROM generate_series(1,11) n CROSS JOIN generate_series(1,2) s;`);
+ assert.equal((await db.query('SELECT count(*)::integer n FROM vuihoc."BUOI_HOC"')).rows[0].n,22);
+ assert.equal((await db.query(`SELECT count(*)::integer n FROM vuihoc."BUOI_HOC" WHERE malop='C12'`)).rows[0].n,0);
+ await db.exec(`UPDATE vuihoc."LOP_HOC" SET tamdunglich=true WHERE madinhdanh='C12'; INSERT INTO vuihoc."HOC_LIEU_LOP" VALUES('C12',1,'2090-01-02','2090-01-08');`);
+ assert.equal((await db.query(`SELECT count(*)::integer n FROM vuihoc."BUOI_HOC" WHERE malop='C12'`)).rows[0].n,0);
+ await db.exec('SET ROLE anon');
+ await assert.rejects(()=>db.query(`SELECT vuihoc.dong_bo_ca_lop('C1','2090-01-02','2090-01-08')`),/permission denied/);
+ console.log('Material save: 11 classes / 22 plans, unrelated class isolation, pause guard, idempotent patch and private helper passed.');
+} finally {await db.close();}

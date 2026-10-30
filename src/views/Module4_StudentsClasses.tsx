@@ -1252,9 +1252,12 @@ export const Module4_StudentsClasses: React.FC = () => {
       }
     ];
 
-    batchAssignMaterials(selectedEligibleClassIds, newMaterials);
-    void confirmSave(()=>setIsBatchMaterialModalOpen(false));
-    setEditingMaterialClassId(null);
+    if (!batchAssignMaterials(selectedEligibleClassIds, newMaterials)) return;
+    void confirmSave(() => {
+      setIsBatchMaterialModalOpen(false);
+      setEditingMaterialClassId(null);
+      showToast(`Đã lưu học liệu cho ${selectedEligibleClassIds.length} lớp học.`, 'success');
+    });
   };
 
   // Download template for room links

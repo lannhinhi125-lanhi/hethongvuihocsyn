@@ -103,7 +103,7 @@ interface AppContextType {
   addClass: (cls: ClassItem) => boolean;
   updateClass: (id: string, updates: Partial<ClassItem>, successMessage?: string) => boolean;
   deleteClass: (id: string) => void;
-  batchAssignMaterials: (classIds: string[], materials: ClassItem['materials']) => void;
+  batchAssignMaterials: (classIds: string[], materials: ClassItem['materials']) => boolean;
   batchImportRoomLinks: (updates: { classCode: string; roomLink: string }[]) => { updated: number; skipped: number };
 
   // PH5: Operations & Monitoring (Giám sát ca & Cover)
@@ -388,9 +388,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const batchAssignMaterials = (classIds: string[], newMaterials: ClassItem['materials']) => {
-    if (!permit("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
+    if (!permit("Thêm, sửa, xóa và nạp học liệu theo tuần")) return false;
     if (classIds.some(id=>!classes.some(cls=>cls.id===id && canAssignClassMaterials(cls)))) {
-      showToast('Chỉ gắn học liệu cho lớp đang học, không tạm dừng và còn hạn.','warning');return;
+      showToast('Chỉ gắn học liệu cho lớp đang học, không tạm dừng và còn hạn.','warning');return false;
     }
     setClasses(prev => prev.map(c => {
       if (classIds.includes(c.id)) {
@@ -404,7 +404,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return c;
     }));
-    showToast(`Đã phân phối học liệu thành công tới ${classIds.length} lớp học!`, 'success');
+    return true;
   };
 
   const batchImportRoomLinks = (updates: { classCode: string; roomLink: string }[]) => {
