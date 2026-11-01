@@ -309,6 +309,14 @@ export const TeacherWorkReconciliationView: React.FC = () => {
           </button>
 
           {/* Nút Gửi giải trình */}
+          <button
+            type="button"
+            onClick={() => document.getElementById('teacher-dispute-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-100 cursor-pointer"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Kết quả giải trình ({myDisputes.length})
+          </button>
 
         </div>
       </div>
@@ -464,14 +472,14 @@ export const TeacherWorkReconciliationView: React.FC = () => {
       </div>
 
       {/* Danh sách các đơn giải trình của bản thân */}
-      {myDisputes.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-4">
+        <div id="teacher-dispute-results" className="scroll-mt-6 bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-4">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-rose-500" />
-            <h3 className="font-bold text-slate-800 text-sm">Lịch Sử Giải Trình &amp; Khiếu Nại Công Của Tôi</h3>
+            <h3 className="font-bold text-slate-800 text-sm">Kết quả &amp; Lịch sử giải trình của tôi</h3>
           </div>
 
           <div className="space-y-3">
+            {myDisputes.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">Bạn chưa có đơn giải trình trong kỳ {selectedMonth}. Nếu đã gửi ở kỳ khác, hãy chọn lại kỳ công ở đầu trang.</p>}
             {myDisputes.map(d => (
               <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
@@ -512,7 +520,6 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             ))}
           </div>
         </div>
-      )}
 
       {viewingSession&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={event=>{if(event.target===event.currentTarget)setViewingSessionId(null);}}>
         <div role="dialog" aria-modal="true" aria-label="Chi tiết buổi dạy" className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
