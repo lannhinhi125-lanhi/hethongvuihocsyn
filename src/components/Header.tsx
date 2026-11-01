@@ -65,8 +65,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
 
 
   return (
-    <>
-      <header className="h-16 shrink-0 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+    <div className="sticky top-0 z-30 w-full shrink-0">
+      <header className="h-16 shrink-0 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-3 min-w-0">
           <button type="button" onClick={onToggleSidebar} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? 'Hiện thanh bên' : 'Ẩn thanh bên'} title={sidebarCollapsed ? 'Hiện thanh bên' : 'Ẩn thanh bên'} className="hidden lg:inline-flex p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer">
             {sidebarCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
@@ -145,6 +145,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
         {workspaceMode === 'ADMIN' ? Object.entries(adminModuleTitles).filter(([id]) => canModule('PH' + id)).map(([id, info]) => <button type="button" key={id} aria-current={activeModule === Number(id) ? 'page' : undefined} onClick={() => setActiveModule(Number(id))} className={activeModule === Number(id) ? 'module-top-tab bg-[#FF5C00] text-white' : 'module-top-tab text-[#A9BDE2] hover:bg-white/10 hover:text-white'}>{Number(id) === 8 ? 'Báo cáo & thống kê' : info.title}</button>) : Object.entries(teacherTabTitles).filter(([id]) => canModule(teacherModuleIds[id])).map(([id, info]) => <button type="button" key={id} aria-current={teacherPortalTab === id ? 'page' : undefined} onClick={() => setTeacherPortalTab(id as typeof teacherPortalTab)} className={teacherPortalTab === id ? 'module-top-tab bg-[#FF5C00] text-white' : 'module-top-tab text-[#A9BDE2] hover:bg-white/10 hover:text-white'}>{info.title}</button>)}
       </nav>}
 
-    </>
+    </div>
   );
 };
