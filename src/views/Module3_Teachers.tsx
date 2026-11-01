@@ -531,7 +531,7 @@ export const Module3_Teachers: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-                <select
+                <ReportSelect
                   aria-label="Sắp xếp theo ngày vào"
                   title="Sắp xếp theo ngày vào"
                   value={teacherDateSort}
@@ -540,7 +540,7 @@ export const Module3_Teachers: React.FC = () => {
                 >
                   <option value="newest">Mới nhất</option>
                   <option value="oldest">Cũ nhất</option>
-                </select>
+                </ReportSelect>
                 <ProfileExcelImport kind="teachers" disabled={!canCreateProfiles} />
                 <button
                   disabled={!canCreateProfiles} onClick={() => { if (canCreateProfiles) { setNewTeacherSubject(activeSubjects[0]?.code || ''); setNewTeacherLevel(activeCategories[0]?.id || ''); setIsCreateModalOpen(true); } }}

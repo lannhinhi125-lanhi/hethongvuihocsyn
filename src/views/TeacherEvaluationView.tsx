@@ -17,6 +17,9 @@ import {
   FileText,
   CheckCircle2,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  GripVertical,
   ClipboardCheck,
   Send,
   Download,
@@ -39,6 +42,10 @@ export const TeacherEvaluationView: React.FC = () => {
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const [, setEvaluations] = useBusinessValue<EvaluationRecord[]>('teacher_evaluations');
   const [savingEvaluation, setSavingEvaluation] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(true);
+  const [profileWidth, setProfileWidth] = useState(280);
+  const resizeStart = React.useRef<{ x: number; width: number } | null>(null);
+  const resizeProfile = (width: number) => setProfileWidth(Math.max(240, Math.min(420, width)));
 
   // Tìm hồ sơ giáo viên đang đăng nhập hoặc mặc định
   const isTeacherAccount = currentUser.role === 'Giáo viên Giảng dạy';
@@ -186,10 +193,16 @@ export const TeacherEvaluationView: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
-        <section aria-labelledby="teacher-profile-heading" className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+      <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-start" style={{ '--profile-width': `${profileWidth}px` } as React.CSSProperties}>
+        {profileOpen ? <>
+        <section id="teacher-profile-panel" aria-labelledby="teacher-profile-heading" className="min-w-0 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs lg:w-[var(--profile-width)]">
           <div className="border-b border-slate-100 bg-slate-50/70 p-5">
-            <h2 id="teacher-profile-heading" className="text-sm font-bold text-slate-800">Thông tin giáo viên</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="teacher-profile-heading" className="text-sm font-bold text-slate-800">Thông tin giáo viên</h2>
+              <button type="button" onClick={() => setProfileOpen(false)} aria-label="Thu gọn thông tin giáo viên" aria-expanded={true} aria-controls="teacher-profile-panel" title="Thu gọn thông tin giáo viên" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-200 cursor-pointer">
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </div>
             <div className="mt-4 flex items-center gap-3">
               <div aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-lg font-bold text-indigo-700">
                 {currentTeacher.name.trim().split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase()}
@@ -200,7 +213,7 @@ export const TeacherEvaluationView: React.FC = () => {
               </div>
             </div>
           </div>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-5 p-5 text-xs sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-4 p-4 text-xs sm:grid-cols-2 lg:grid-cols-1">
             {[
               ['Trình độ / Bằng cấp', currentTeacher.degree],
               ['Ngày vào', currentTeacher.startDate?.split('-').reverse().join('/')],
@@ -217,13 +230,27 @@ export const TeacherEvaluationView: React.FC = () => {
                 <dd className="mt-1.5 whitespace-pre-line break-words font-semibold text-slate-800">{value?.trim() || 'Chưa cập nhật'}</dd>
               </div>
             ))}
-            <div className="min-w-0 sm:col-span-2">
+            <div className="min-w-0 sm:col-span-2 lg:col-span-1">
               <dt className="mb-2 text-slate-500">Hình thức giảng dạy</dt>
               <dd>{currentTeacher.models?.length ? <TeacherModelBadges codes={currentTeacher.models} /> : <span className="font-semibold text-slate-800">Chưa cập nhật</span>}</dd>
             </div>
           </dl>
         </section>
-        <div className="min-w-0 space-y-6">
+        <div
+          role="separator" tabIndex={0} aria-label="Điều chỉnh độ rộng thông tin giáo viên" aria-orientation="vertical" aria-valuemin={240} aria-valuemax={420} aria-valuenow={profileWidth}
+          title="Kéo để chỉnh độ rộng; dùng phím mũi tên trái/phải"
+          onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); resizeStart.current = { x: event.clientX, width: profileWidth }; event.currentTarget.setPointerCapture(event.pointerId); }}
+          onPointerMove={event => { if (resizeStart.current) resizeProfile(resizeStart.current.width + event.clientX - resizeStart.current.x); }}
+          onPointerUp={() => { resizeStart.current = null; }}
+          onPointerCancel={() => { resizeStart.current = null; }}
+          onLostPointerCapture={() => { resizeStart.current = null; }}
+          onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); resizeProfile(profileWidth + (event.key === 'ArrowRight' ? 20 : -20)); } }}
+          className="hidden w-3 shrink-0 touch-none select-none items-center justify-center self-stretch rounded-lg bg-slate-100 text-slate-400 hover:bg-indigo-100 hover:text-indigo-600 focus-visible:outline-2 focus-visible:outline-indigo-500 lg:flex cursor-col-resize"
+        ><GripVertical className="h-4 w-4 shrink-0" /></div>
+        </> : <button type="button" onClick={() => setProfileOpen(true)} aria-label="Mở thông tin giáo viên" aria-expanded={false} aria-controls="teacher-profile-panel" title="Mở thông tin giáo viên" className="flex shrink-0 items-center gap-2 self-start rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-medium text-slate-600 hover:bg-indigo-50 cursor-pointer">
+          <PanelLeftOpen className="h-4 w-4" /><span className="lg:hidden">Thông tin giáo viên</span>
+        </button>}
+        <div className="min-w-0 flex-1 space-y-6">
       {/* Switcher chọn giáo viên & Thanh lọc thời gian */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -40,10 +40,10 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, les
   const feedbackCompleted=detail.lesson?.feedbackProgress?.completed ?? studentIds.filter(id=>detail.active?.feedback?.[id]?.trim()).length;
   const feedbackDone=feedbackTotal>0 && feedbackCompleted===feedbackTotal;
   const materialLink = (label: string, url: string) => <div className="flex items-center justify-between gap-2"><span>{label}:</span>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-[#FF5C00] hover:underline">Mở tài liệu <ExternalLink className="h-3 w-3" /></a> : <span className="text-slate-400">Chưa có link</span>}</div>;
-  return <div className="flex-1 overflow-y-auto flex flex-col md:flex-row">
-    <aside className="w-full md:w-80 bg-slate-50/70 p-5 border-r border-slate-200 shrink-0 space-y-6">
-      <div className="space-y-2 text-xs">
-        <div className="font-bold text-slate-500 uppercase tracking-wider">Thông tin lớp</div>
+  return <div className={`flex-1 min-w-0 overflow-y-auto flex flex-col ${hideWeekNavigation ? '@container' : 'md:flex-row'}`}>
+    <aside className={`w-full bg-slate-50/70 p-5 border-slate-200 shrink-0 space-y-6 ${hideWeekNavigation ? 'border-b' : 'md:w-80 border-r'}`}>
+      <div className={hideWeekNavigation ? 'grid grid-cols-1 gap-x-6 gap-y-2 text-xs @min-[560px]:grid-cols-2' : 'space-y-2 text-xs'}>
+        <div className={`font-bold text-slate-500 uppercase tracking-wider ${hideWeekNavigation ? '@min-[560px]:col-span-2' : ''}`}>Thông tin lớp</div>
         <div className="font-bold text-slate-900">{cls.code} · <span className="text-[#FF5C00]">{subjects.find(item => item.code === cls.subject)?.name || cls.subject}</span> · {cls.model}</div>
         <div className="text-slate-700">{cls.grade} ({levels.find(item => item.code === cls.level)?.name || cls.level}) - {cls.name}</div>
         <div className="font-mono text-slate-600">{cls.schedule}</div>
@@ -59,7 +59,7 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, les
       </div>}
     </aside>
     <div className="flex-1 min-w-0 p-6 space-y-6 bg-sky-50/30">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className={hideWeekNavigation ? 'grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-4'}>
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-2 text-xs">
           <div className="font-bold text-slate-800">Thông tin giáo viên</div>
           <div className="text-slate-600">Giáo viên: <strong>{teacherName}</strong></div>
