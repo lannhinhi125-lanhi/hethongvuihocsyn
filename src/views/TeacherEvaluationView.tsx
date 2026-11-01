@@ -3,6 +3,7 @@ import { workbenchRange } from '../lib/workbenchTime';
 import { reportToday } from '../lib/customReports';
 import { ReportSelect } from '../components/ReportSelect';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
+import { TeacherModelBadges } from '../components/TeacherModelPicker';
 import { PaginatedList } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useState } from 'react';
@@ -185,10 +186,48 @@ export const TeacherEvaluationView: React.FC = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+        <section aria-labelledby="teacher-profile-heading" className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+          <div className="border-b border-slate-100 bg-slate-50/70 p-5">
+            <h2 id="teacher-profile-heading" className="text-sm font-bold text-slate-800">Thông tin giáo viên</h2>
+            <div className="mt-4 flex items-center gap-3">
+              <div aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-lg font-bold text-indigo-700">
+                {currentTeacher.name.trim().split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <h3 className="break-words text-lg font-bold text-slate-800">{currentTeacher.name}</h3>
+                <p className="mt-1 break-all font-mono text-xs text-slate-500">{currentTeacher.id}</p>
+              </div>
+            </div>
+          </div>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-5 p-5 text-xs sm:grid-cols-2">
+            {[
+              ['Trình độ / Bằng cấp', currentTeacher.degree],
+              ['Ngày vào', currentTeacher.startDate?.split('-').reverse().join('/')],
+              ['Trạng thái giảng dạy', currentTeacher.statusLabel || ({ DANG_DAY: 'Đang dạy', CHO_LOP: 'Chờ lớp', TAM_NGUNG: 'Tạm ngưng' }[currentTeacher.status])],
+              ['Môn chuyên trách', currentTeacher.subjectName],
+              ['Cấp học', currentTeacher.levelName],
+              ['Khối lớp phụ trách', currentTeacher.grades.join(', ')],
+              ['Số ca đã dạy', String(completedLessons.length)],
+              ['Số điện thoại', currentTeacher.phone],
+              ['Email liên hệ', currentTeacher.email],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-slate-500">{label}</dt>
+                <dd className="mt-1.5 whitespace-pre-line break-words font-semibold text-slate-800">{value?.trim() || 'Chưa cập nhật'}</dd>
+              </div>
+            ))}
+            <div className="min-w-0 sm:col-span-2">
+              <dt className="mb-2 text-slate-500">Hình thức giảng dạy</dt>
+              <dd>{currentTeacher.models?.length ? <TeacherModelBadges codes={currentTeacher.models} /> : <span className="font-semibold text-slate-800">Chưa cập nhật</span>}</dd>
+            </div>
+          </dl>
+        </section>
+        <div className="min-w-0 space-y-6">
       {/* Switcher chọn giáo viên & Thanh lọc thời gian */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-700">Giáo viên / Gia sư:</span>
             <span className="font-bold text-indigo-700">{currentTeacher?.name}</span>
             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
@@ -241,7 +280,7 @@ export const TeacherEvaluationView: React.FC = () => {
             {filteredRecords.map(record => (
               <div
                 key={record.id}
-                className="p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-slate-50/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                className="p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-slate-50/50 transition-all flex flex-col gap-4"
               >
                 {/* Thông tin biên bản & Buổi học */}
                 <div className="space-y-1.5 flex-1 min-w-0">
@@ -281,7 +320,7 @@ export const TeacherEvaluationView: React.FC = () => {
                 </div>
 
                 {/* Điểm số 3 tiêu chí & Nút thao tác */}
-                <div className="flex items-center gap-4 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-100 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-3 border-t pt-3 border-slate-100">
                   <div className="text-center px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
                     <div className="text-[10px] text-slate-500 uppercase font-semibold">Điểm tổng</div>
                     <div className="text-base font-black text-emerald-600 font-mono">
@@ -315,6 +354,8 @@ export const TeacherEvaluationView: React.FC = () => {
             ))}
           </PaginatedList>
         )}
+      </div>
+        </div>
       </div>
 
       {/* ================= MODAL: 2 CỘT CHI TIẾT CA DẠY (TRÁI) & PHIẾU CHẤM DỰ GIỜ (PHẢI) ================= */}

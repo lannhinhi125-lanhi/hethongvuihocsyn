@@ -73,6 +73,7 @@ export const Module3_Teachers: React.FC = () => {
   const [savingEvaluation, setSavingEvaluation] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
+  const [teacherDateSort, setTeacherDateSort] = useState<'newest' | 'oldest'>('newest');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
   const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>([]);
@@ -239,6 +240,12 @@ export const Module3_Teachers: React.FC = () => {
     const matchSts = filterStatus === 'ALL' || t.status === filterStatus;
 
     return matchesTeacherFields(t, profileFields) && matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts;
+  }).sort((a, b) => {
+    if (!a.startDate) return b.startDate ? 1 : 0;
+    if (!b.startDate) return -1;
+    return teacherDateSort === 'newest'
+      ? b.startDate.localeCompare(a.startDate)
+      : a.startDate.localeCompare(b.startDate);
   });
 
   // Handlers for Teacher Edit & Status
@@ -524,6 +531,16 @@ export const Module3_Teachers: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                <select
+                  aria-label="Sắp xếp theo ngày vào"
+                  title="Sắp xếp theo ngày vào"
+                  value={teacherDateSort}
+                  onChange={e => setTeacherDateSort(e.target.value as 'newest' | 'oldest')}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-medium text-slate-600 cursor-pointer"
+                >
+                  <option value="newest">Mới nhất</option>
+                  <option value="oldest">Cũ nhất</option>
+                </select>
                 <ProfileExcelImport kind="teachers" disabled={!canCreateProfiles} />
                 <button
                   disabled={!canCreateProfiles} onClick={() => { if (canCreateProfiles) { setNewTeacherSubject(activeSubjects[0]?.code || ''); setNewTeacherLevel(activeCategories[0]?.id || ''); setIsCreateModalOpen(true); } }}
@@ -544,6 +561,7 @@ export const Module3_Teachers: React.FC = () => {
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
                   <tr>
                     <th className="py-3 px-4">{fieldHeading('profile', 'name', 'Mã / Họ và tên', Boolean(profileFields.name || profileFields.id))}</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Ngày vào</th>
                     <th className="py-3 px-3">{fieldHeading('profile', 'subject', 'Môn chuyên trách', filterSubject !== 'ALL')}</th>
                     <th className="py-3 px-3">{fieldHeading('profile', 'level', 'Cấp học', catFilterCategory !== 'ALL')}</th>
                     <th className="py-3 px-3">{fieldHeading('profile', 'grades', 'Khối lớp phụ trách', catFilterSubOptions.length > 0)}</th>
@@ -553,7 +571,7 @@ export const Module3_Teachers: React.FC = () => {
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
-                  {filteredTeachers.length === 0 && <tr><td colSpan={7} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
+                  {filteredTeachers.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
                   {filteredTeachers.map(t => {
                     const badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
 
@@ -573,6 +591,9 @@ export const Module3_Teachers: React.FC = () => {
                               <div className="text-[11px] text-slate-400 font-mono">{t.id}</div>
                             </div>
                           </div>
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap text-slate-600">
+                          {t.startDate?.split('-').reverse().join('/') || 'Chưa cập nhật'}
                         </td>
                         <td className="py-3 px-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md ${badgeColor} border font-bold text-[11px]`}>
