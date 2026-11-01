@@ -51,10 +51,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
 
   // Tiêu đề Cổng Giáo viên & Gia sư (chuẩn nghiệp vụ giảng dạy)
   const teacherTabTitles: Record<string, { cat: string; title: string }> = {
+    availability: { cat: 'Thời khóa biểu', title: 'Đăng ký lịch rảnh' },
     schedule: { cat: 'Giảng dạy', title: 'Lịch dạy & phòng học' },
-    reconcile: { cat: 'Nghiệp vụ ca dạy', title: 'Đối soát công ca dạy' },
     evaluation: { cat: 'Chuyên môn', title: 'Hồ sơ & chuyên môn' },
-    availability: { cat: 'Thời khóa biểu', title: 'Đăng ký lịch rảnh' }
+    reconcile: { cat: 'Nghiệp vụ ca dạy', title: 'Đối soát công ca dạy' }
   };
 
   const currentInfo =
