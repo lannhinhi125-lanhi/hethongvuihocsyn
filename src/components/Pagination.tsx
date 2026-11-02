@@ -1,5 +1,6 @@
 import React, { Children, isValidElement, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { ArrowDownUp } from 'lucide-react';
 import { orderRecords, type ListOrder } from '../lib/listOrder';
 
 export const PAGE_SIZE = 10;
@@ -69,9 +70,9 @@ function useChildPage(children: React.ReactNode) {
 
 type Page = ReturnType<typeof useChildPage>;
 function OrderControls({page}: {page: Page}) {
-  return <label className="flex items-center justify-end gap-2 px-4 py-2 text-xs font-medium text-slate-600 print:hidden">
-    Sắp xếp
-    <select aria-label="Sắp xếp danh sách theo thời gian" value={page.order} onChange={event => page.setOrder(event.target.value as ListOrder)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-orange-400 focus:outline-none">
+  return <label title="Sắp xếp theo thời gian" className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500 print:hidden">
+    <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
+    <select aria-label="Sắp xếp danh sách theo thời gian" value={page.order} onChange={event => page.setOrder(event.target.value as ListOrder)} className="h-7 w-24 cursor-pointer rounded-md border-0 bg-transparent px-1 text-xs text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-orange-400">
       <option value="default">Mặc định</option>
       <option value="newest">Mới nhất</option>
       <option value="oldest">Cũ nhất</option>
@@ -79,10 +80,10 @@ function OrderControls({page}: {page: Page}) {
   </label>;
 }
 function PageControls({ page }: { page: Page }) {
-  if (page.total <= PAGE_SIZE) return null;
+  if (page.total <= PAGE_SIZE) return <div className="flex justify-end px-3 py-1 print:hidden"><OrderControls page={page} /></div>;
   const button = 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed';
-  return <nav aria-label="Phân trang danh sách" className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 print:hidden">
-    <span>{page.start + 1}–{page.end} / {page.total} bản ghi</span>
+  return <nav aria-label="Phân trang danh sách" className="flex w-full flex-wrap items-center justify-between gap-3 px-3 py-2 text-xs text-slate-500 print:hidden">
+    <div className="flex flex-wrap items-center gap-3"><span>{page.start + 1}–{page.end} / {page.total} bản ghi</span><OrderControls page={page} /></div>
     <div className="flex flex-wrap items-center gap-2">
       <button type="button" className={button} disabled={page.page === 0} onClick={() => page.onChange(0)} aria-label="Trang đầu">Đầu</button>
       <button type="button" className={button} disabled={page.page === 0} onClick={() => page.onChange(page.page - 1)}>Trước</button>
@@ -96,7 +97,7 @@ function PageControls({ page }: { page: Page }) {
 /** Mount below the scroll container, so neither axis can hide the controls. */
 function TablePageFooter({page,anchor,columns,hidden}:{page:Page;anchor:React.RefObject<HTMLTableSectionElement|null>;columns:number;hidden?:boolean}) {
   const [host,setHost] = useState<HTMLDivElement|null>(null);
-  const visible = page.total > PAGE_SIZE && !hidden;
+  const visible = !hidden;
   useEffect(() => {
     if (!visible) { setHost(null); return; }
     const table = anchor.current?.closest('table');
@@ -124,16 +125,16 @@ function TablePageFooter({page,anchor,columns,hidden}:{page:Page;anchor:React.Re
 export function PaginatedTableBody({ children, ...props }: React.ComponentProps<'tbody'>) {
   const page = useChildPage(children);
   const anchor=useRef<HTMLTableSectionElement>(null);
-  return <tbody {...props} ref={anchor}>{!props.hidden && <tr className="print:hidden"><td colSpan={columnCount(children)}><OrderControls page={page} /></td></tr>}{page.rows}<TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} hidden={props.hidden} /></tbody>;
+  return <tbody {...props} ref={anchor}>{page.rows}<TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} hidden={props.hidden} /></tbody>;
 }
 
 export function PaginatedList({ children, className }: { children: React.ReactNode; className?: string }) {
   const page = useChildPage(children);
-  return <div><OrderControls page={page} /><div className={className}>{page.rows}</div><PageControls page={page} /></div>;
+  return <div><div className={className}>{page.rows}</div><PageControls page={page} /></div>;
 }
 
 export function PaginatedTableGroups({ children }: { children: React.ReactNode }) {
   const page = useChildPage(children);
   const anchor=useRef<HTMLTableSectionElement>(null);
-  return <><tbody className="print:hidden"><tr><td colSpan={columnCount(children)}><OrderControls page={page} /></td></tr></tbody>{page.rows}<tbody ref={anchor} className="print:hidden"><TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} /></tbody></>;
+  return <>{page.rows}<tbody ref={anchor} className="print:hidden"><TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} /></tbody></>;
 }
