@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { DocumentCategoryManager } from '../components/DocumentCategoryManager';
 import { useBusinessValue } from '../lib/businessPersistence';
@@ -342,7 +343,7 @@ export const Module2_MasterData: React.FC = () => {
                 {subjects
                   .filter(s => s.name.toLowerCase().includes(searchKeyword.toLowerCase()) || s.code.toLowerCase().includes(searchKeyword.toLowerCase()))
                   .map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50/80">
+                    <tr key={s.id} className="hover:bg-slate-50/80" data-sort-time={recordSortTime(s)}>
                       <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{s.code}</td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-700">{s.abbr}</td>
                       <td className="py-3 px-4 font-bold text-slate-800 text-sm">{s.name}</td>
@@ -419,7 +420,7 @@ export const Module2_MasterData: React.FC = () => {
                 {levels
                   .filter(l => l.name.toLowerCase().includes(searchKeyword.toLowerCase()) || l.code.toLowerCase().includes(searchKeyword.toLowerCase()))
                   .map(l => (
-                    <tr key={l.id} className="hover:bg-slate-50/80">
+                    <tr key={l.id} className="hover:bg-slate-50/80" data-sort-time={recordSortTime(l)}>
                       <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{l.code}</td><td className="py-3 px-4 font-mono font-bold text-slate-700">{l.abbr}</td>
                       <td className="py-3 px-4">
                         <span className="px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 font-bold border border-rose-200">
@@ -486,7 +487,7 @@ export const Module2_MasterData: React.FC = () => {
               </thead>
               <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                 {timeSlots.map(s => (
-                  <tr key={s.id} className="hover:bg-slate-50/80">
+                  <tr key={s.id} className="hover:bg-slate-50/80" data-sort-time={recordSortTime(s)}>
                     <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{s.code}</td>
                     <td className="py-3 px-4 font-bold text-slate-800">{s.name}</td>
                     <td className="py-3 px-4 font-mono font-semibold text-slate-700">{s.timeRange}</td>
@@ -547,7 +548,7 @@ export const Module2_MasterData: React.FC = () => {
               </thead>
               <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                 {models.filter(m => (m.name + ' ' + m.code).toLocaleLowerCase('vi').includes(searchKeyword.trim().toLocaleLowerCase('vi'))).map(m => (
-                  <tr key={m.id} className="hover:bg-slate-50/80">
+                  <tr key={m.id} className="hover:bg-slate-50/80" data-sort-time={recordSortTime(m)}>
                     <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{m.code}</td>
                     <td className="py-3 px-4 font-bold text-slate-800">{m.name}</td>
                     <td className="py-3 px-4 text-center">

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { studentRegistrations, studentRegistrationRows, studentForSubject, updateStudentRegistration, assignStudentToClass, studentScheduleConflict } from '../src/lib/studentRegistrations';
+import { studentRegistrations, studentRegistrationRows, studentForSubject, updateStudentRegistration, assignStudentToClass, studentScheduleConflict, studentRegistrationDeleteIssue } from '../src/lib/studentRegistrations';
 import { fromSupabaseRow, toSupabaseRow } from '../src/lib/supabaseMapper';
 import type { StudentRecord, ClassItem } from '../src/types';
 
@@ -12,6 +12,10 @@ next = updateStudentRegistration(next, { subject:'ENG', model:'1-1',level:'ADV',
 assert.equal(studentRegistrations(next).length,2);
 assert.equal(studentForSubject(next,'MATH')?.currentClassCode,'M');
 assert.equal(studentForSubject(next,'ENG')?.status,'Chờ xếp lớp');
+assert.equal(studentRegistrationDeleteIssue(next,'ENG',[math]),undefined,'Math class must not block deleting an unassigned English enrollment');
+assert.match(studentRegistrationDeleteIssue(next,'MATH',[math])!,/đã có lớp/);
+assert.match(studentRegistrationDeleteIssue(next,'ENG',[math,english])!,/đã có lớp/,'Class membership must block even if profile projection is stale');
+assert.match(studentRegistrationDeleteIssue(next,'MISSING',[math])!,/không còn tồn tại/);
 next = assignStudentToClass(next,{...english,model:'1-1',level:'ADV'},true);
 next = assignStudentToClass(next,math,false);
 assert.equal(studentForSubject(next,'MATH')?.status,'Chờ xếp lớp');

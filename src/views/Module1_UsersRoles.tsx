@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { EmptyState } from '../components/EmptyState';
@@ -403,7 +404,7 @@ export const Module1_UsersRoles: React.FC = () => {
                       if (u.role === 'Giáo viên Giảng dạy') roleBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
                       return (
-                        <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={u.id} className="hover:bg-slate-50/80 transition-colors" data-sort-time={recordSortTime(u)}>
                           <td className="py-3 px-4">
                             <div className="font-bold text-slate-800">{u.name}</div>
                             <div className="text-[11px] text-slate-400">ID: {u.id}</div>
@@ -523,7 +524,7 @@ export const Module1_UsersRoles: React.FC = () => {
                 <div
                   key={role.id}
                   className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-2xs flex flex-col justify-between"
-                >
+                 data-sort-time={recordSortTime(role)}>
                   <div>
                     <div className="flex items-center justify-between">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${tagColor}`}>

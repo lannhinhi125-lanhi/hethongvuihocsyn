@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import {WorkEvidenceLinks} from '../components/WorkEvidenceLinks';
 import {normalizeWorkEvidence} from '../lib/workEvidence';
@@ -7,7 +8,7 @@ import { workNoteDisplay } from '../lib/workNoteDisplay';
 import {pendingLessonWork,lessonWorkDetails,lessonWorkStatus} from '../lib/pendingLessonWork';
 import {useLessonCode} from '../hooks/useLessonCode';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
-import { PaginatedTableBody } from '../components/Pagination';
+import { PaginatedList, PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -427,7 +428,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             <PaginatedTableBody className="divide-y divide-slate-100">
               {!filteredSessions.length&&<tr><td colSpan={10} className="p-6 text-center text-slate-500">Không có buổi học phù hợp với bộ lọc.</td></tr>}
               {filteredSessions.map(session => (
-                <tr key={session.id} className="hover:bg-slate-50/80 transition-colors">
+                <tr key={session.id} className="hover:bg-slate-50/80 transition-colors" data-sort-time={recordSortTime(session)}>
                   <td className="py-3 px-4 font-mono font-bold text-slate-700">{lessonCode(session.lessonId||session.id)}</td>
                   <td className="py-3 px-4">
                     <div className="font-semibold text-slate-800">{session.dateStr}</div>
@@ -478,10 +479,10 @@ export const TeacherWorkReconciliationView: React.FC = () => {
             <h3 className="font-bold text-slate-800 text-sm">Kết quả &amp; Lịch sử giải trình của tôi</h3>
           </div>
 
-          <div className="space-y-3">
+          <PaginatedList className="space-y-3">
             {myDisputes.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">Bạn chưa có đơn giải trình trong kỳ {selectedMonth}. Nếu đã gửi ở kỳ khác, hãy chọn lại kỳ công ở đầu trang.</p>}
             {myDisputes.map(d => (
-              <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 text-xs">
+              <div key={d.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 text-xs" data-sort-time={recordSortTime(d)}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-800">Ca {lessonCode(d.sessionId)}</span>
@@ -518,7 +519,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                 )}
               </div>
             ))}
-          </div>
+          </PaginatedList>
         </div>
 
       {viewingSession&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={event=>{if(event.target===event.currentTarget)setViewingSessionId(null);}}>
@@ -676,9 +677,9 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                     <th className="p-2 text-right">Số công</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <PaginatedTableBody className="divide-y divide-slate-100">
                   {completedSessions.map((s, idx) => (
-                    <tr key={s.id}>
+                    <tr key={s.id} data-sort-time={recordSortTime(s)}>
                       <td className="p-2 text-slate-500">{idx + 1}</td>
                       <td className="p-2">{s.dateStr}</td>
                       <td className="p-2 font-mono font-medium">{lessonCode(s.lessonId||s.id)}</td>
@@ -687,7 +688,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                       <td className="p-2 text-right font-bold text-emerald-600">{s.isPendingCredit?'—':s.creditCoeff}</td>
                     </tr>
                   ))}
-                </tbody>
+                </PaginatedTableBody>
               </table>
             </div>
 

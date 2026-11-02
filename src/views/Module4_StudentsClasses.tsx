@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { classStatusLabel, effectiveClassStatus, materialClassStatusLabel } from '../lib/classStatus';
 import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
@@ -13,11 +14,11 @@ import { workbenchRange } from '../lib/workbenchTime';
 import { reportToday } from '../lib/customReports';
 import { RowActionMenu } from '../components/RowActionMenu';
 import { classEndDate, CLASS_DURATION_CODE, type ClassDurationCatalog } from '../lib/classDuration';
-import { useBusinessValue } from '../lib/businessPersistence';
+import { useBusinessValue, removeStudentRegistration } from '../lib/businessPersistence';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import {classEditUpdates,classHasVacancy,canKeepAssignedTeacher,studentsNeedingClassValidation,studentsNeedingScheduleValidation,nextClassTeacherSelection} from '../lib/classEditing';
 import {studentSlotAssignment} from '../lib/profileEditing';
-import { studentRegistrations, studentRegistrationRows, studentForSubject, studentHistoryForSubject, studentScheduleConflict } from '../lib/studentRegistrations';
+import { studentRegistrations, studentRegistrationRows, studentForSubject, studentHistoryForSubject, studentScheduleConflict, studentRegistrationDeleteIssue } from '../lib/studentRegistrations';
 import { waitForBusinessSave } from '../lib/businessPersistence';
 import { canTeachClassModel, isTeachingModelParent } from '../lib/teachingModelGroups';
 import { EmptyState } from '../components/EmptyState';
@@ -171,7 +172,25 @@ export const Module4_StudentsClasses: React.FC = () => {
   const viewingClass = classes.find(item => item.id === viewingClassId);
   const [isStudentFilterOpen, setIsStudentFilterOpen] = useState(false);
   const [isClassFilterOpen, setIsClassFilterOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<{ type: 'student' | 'class'; id: string; name: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ type: 'student' | 'class'; id: string; name: string } | {type:'registration';id:string;name:string;subject:string} | null>(null);
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete || isSavingChanges) return;
+    if (pendingDelete.type === 'registration') {
+      if (!requirePermission('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')) return;
+      const student = students.find(item => item.id === pendingDelete.id);
+      const issue = student ? studentRegistrationDeleteIssue(student, pendingDelete.subject, classes) : 'Học sinh không còn tồn tại. Hãy tải lại dữ liệu.';
+      if (issue) { showToast(issue, 'warning'); return; }
+      try {
+        await removeStudentRegistration(pendingDelete.id, pendingDelete.subject);
+        setPendingDelete(null);
+        showToast('Đã xóa đăng ký môn. Hồ sơ học sinh và các môn khác được giữ nguyên.', 'success');
+      } catch (error) { showToast((error as Error).message || 'Không thể xóa đăng ký môn.', 'error'); }
+      return;
+    }
+    if (pendingDelete.type === 'student') deleteStudent(pendingDelete.id);
+    else deleteClass(pendingDelete.id);
+    setPendingDelete(null);
+  };
 
   const activeSubjects = subjects.filter(item => item.status);
   const activeLevels = levels.filter(item => item.status);
@@ -1426,7 +1445,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 text-xs">
                   {filteredStudents.length === 0 && <tr><td colSpan={11} className="px-4 py-2 text-center"><EmptyState title="Không có học sinh phù hợp với bộ lọc." /></td></tr>}
-                  {filteredStudents.map(student => <tr key={student.id + student.subject} className="hover:bg-slate-50">
+                  {filteredStudents.map(student => <tr key={student.id + student.subject} className="hover:bg-slate-50" data-sort-time={recordSortTime(student)}>
                     <td className="px-3 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{student.id}</td>
                     <td className="px-3 py-3 font-semibold text-[#FF5C00] min-w-36">{student.name}</td>
                     <td className="px-3 py-3 whitespace-nowrap">{teachingCategories.find(category=>category.options.some(option=>option.id===student.grade))?.name || '?'}</td>
@@ -1444,7 +1463,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         ...(student.status==='Đã thôi học'?[{label:'Đăng ký học lại',onSelect:()=>openReenrollment(student),disabled:!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')}]:[]),
                         {label:student.subject?'Học thêm môn':'Đăng ký học',onSelect:()=>openAddSubject(student),disabled:!can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')||!availableAdditionalSubjects(student).length}
                       ]}/>
-                      <button type="button" onClick={() => setPendingDelete({ type: 'student', id: student.id, name: student.name })} title="Xóa học sinh" className="p-1.5 rounded text-slate-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button type="button" disabled={isSavingChanges || !can('Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy')} onClick={() => setPendingDelete(student.subject ? {type:'registration',id:student.id,name:student.name,subject:student.subject} : {type:'student',id:student.id,name:student.name})} title={student.subject ? 'Xóa đăng ký môn '+subjectName(student.subject) : 'Xóa hồ sơ học sinh'} aria-label={student.subject ? 'Xóa đăng ký môn '+subjectName(student.subject)+' của '+student.name : 'Xóa hồ sơ '+student.name} className="p-1.5 rounded text-slate-400 hover:text-red-600 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div></td>
                   </tr>)}
                 </PaginatedTableBody>
@@ -1505,7 +1524,7 @@ export const Module4_StudentsClasses: React.FC = () => {
               <th className="py-3 px-3 text-center">Thao tác</th>
             </tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
               {!filteredClasses.length && <tr><td colSpan={13} className="px-4 py-2 text-center"><EmptyState title="Không có lớp học phù hợp với bộ lọc." /></td></tr>}
-              {filteredClasses.map(item => <tr key={item.id} className="hover:bg-slate-50">
+              {filteredClasses.map(item => <tr key={item.id} className="hover:bg-slate-50" data-sort-time={recordSortTime(item)}>
                 <td className="px-3 py-3"><input type="checkbox" aria-label={'Chọn lớp ' + item.code} checked={selectedClasses.some(selected => selected.id === item.id)} disabled={['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') || !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onChange={event => setSelectedClassIds(previous => event.target.checked ? [...previous.filter(id => id !== item.id), item.id] : previous.filter(id => id !== item.id))} className="accent-orange-500" /></td>
                 <td className="px-3 py-3 font-mono font-semibold text-[#FF5C00] whitespace-nowrap">{item.code}</td><td className="px-3 py-3 font-semibold min-w-40">{item.name}</td>
                 <td className="px-3 py-3 whitespace-nowrap">{classCategoryName(item)}</td><td className="px-3 py-3 whitespace-nowrap">{gradeName(item.grade)}</td><td className="px-3 py-3 whitespace-nowrap text-[#FF5C00]">{subjectName(item.subject)}</td>
@@ -1628,7 +1647,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     const sessionOne = materials.find(material => material.session === 1);
                     const sessionTwo = materials.find(material => material.session === 2);
                     return (
-                      <tr key={`${c.id}-${month}-${week}`} className="hover:bg-slate-50/80">
+                      <tr key={`${c.id}-${month}-${week}`} data-sort-time={Math.max(...materials.map(material => recordSortTime(material) ?? 0)) || recordSortTime(c)} className="hover:bg-slate-50/80">
                         <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{c.code}</td>
                         <td className="py-3 px-4 font-bold text-slate-800">{c.name}</td>
                         <td className="py-3 px-4 font-medium text-slate-700">
@@ -1676,12 +1695,12 @@ export const Module4_StudentsClasses: React.FC = () => {
 
       {pendingDelete && <div className="workspace-ui fixed inset-0 z-[100] bg-slate-900/40 flex items-center justify-center p-4 text-slate-800" onClick={() => setPendingDelete(null)} onKeyDown={event => { if (event.key === 'Escape') setPendingDelete(null); }}>
         <div role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-description" className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl" onClick={event => event.stopPropagation()}>
-          <div className="border-b border-slate-100 px-5 py-4"><h3 id="delete-confirm-title" className="text-sm font-bold text-slate-800">Xác nhận xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'}</h3></div><div className="px-5 py-4">
-          <p id="delete-confirm-description" className="text-xs leading-relaxed text-slate-600">Bạn có muốn xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'} <strong>{pendingDelete.name}</strong> không?</p>
-          <p className="mt-2 text-xs text-slate-500">{pendingDelete.type === 'student' ? 'Hồ sơ học sinh sẽ bị xóa và được gỡ khỏi lớp đang học.' : 'Lớp học sẽ bị xóa. Học sinh trong lớp được đưa về danh sách chờ xếp lớp.'}</p>
+          <div className="border-b border-slate-100 px-5 py-4"><h3 id="delete-confirm-title" className="text-sm font-bold text-slate-800">Xác nhận xóa {pendingDelete.type === 'registration' ? 'đăng ký môn' : pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'}</h3></div><div className="px-5 py-4">
+          <p id="delete-confirm-description" className="text-xs leading-relaxed text-slate-600">{pendingDelete.type === 'registration' ? <>Xóa đăng ký môn <strong>{subjectName(pendingDelete.subject)}</strong> của học sinh <strong>{pendingDelete.name}</strong>?</> : <>Bạn có muốn xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'} <strong>{pendingDelete.name}</strong> không?</>}</p>
+          <p className="mt-2 text-xs text-slate-500">{pendingDelete.type === 'registration' ? 'Chỉ xóa đăng ký môn này khi chưa có lớp. Hồ sơ học sinh, các môn khác và lớp của các môn khác được giữ nguyên.' : pendingDelete.type === 'student' ? 'Chỉ xóa hồ sơ khi học sinh không còn lớp đang hoạt động.' : 'Lớp học sẽ bị xóa. Học sinh trong lớp được đưa về danh sách chờ xếp lớp.'}</p>
           </div><div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
             <button type="button" autoFocus onClick={() => setPendingDelete(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
-            <button type="button" onClick={() => { if (pendingDelete.type === 'student') deleteStudent(pendingDelete.id); else deleteClass(pendingDelete.id); setPendingDelete(null); }} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Xóa</button>
+            <button type="button" disabled={isSavingChanges} onClick={() => void handleConfirmDelete()} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40">{isSavingChanges ? 'Đang xử lý…' : 'Xóa'}</button>
           </div>
         </div>
       </div>}
@@ -1952,7 +1971,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <p className="text-xs text-slate-500">Chỉ hiển thị ghép, rời và chuyển lớp của môn đang chọn. Dòng hiện trạng ban đầu không xác nhận ngày ghép lịch sử.</p>
                 <div role="region" aria-label="Lịch sử lớp học" tabIndex={0}><PaginatedList key={viewingDetailStudent.id+viewingDetailStudent.subject} className="space-y-2 max-h-72 overflow-y-auto overscroll-contain pr-2 print:max-h-none print:overflow-visible">{(() => {
                   const history=studentHistoryForSubject(studentProfiles.find(student=>student.id===viewingDetailStudent.id) || viewingDetailStudent,viewingDetailStudent.subject,classes);
-                  return history?.length ? [...history].reverse().map(event=><div key={event.traceId} className="rounded-lg border border-slate-100 p-3 text-xs">
+                  return history?.length ? [...history].reverse().map(event=><div key={event.traceId} className="rounded-lg border border-slate-100 p-3 text-xs" data-sort-time={recordSortTime(event)}>
                     <div className="font-semibold">#{event.traceId} · {event.isBaseline ? 'Ghi nhận hiện trạng ban đầu' : !event.toClassId ? 'Rời lớp' : event.isInitial ? 'Ghép lớp lần đầu' : 'Chuyển / ghép lại lớp'}</div>
                     <div className="mt-1">{event.subject && <strong>{subjectName(event.subject)} · </strong>}{event.fromClassCode || 'Chưa xếp lớp'} → {event.toClassCode || 'Chưa xếp lớp'}</div>
                     <div className="mt-1 text-slate-500">{new Date(event.occurredAt).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})} · {event.actorName || 'Hệ thống'}</div>

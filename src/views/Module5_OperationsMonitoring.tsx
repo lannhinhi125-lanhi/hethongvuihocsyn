@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { coverScheduleConflict, isUnresolvedIncident } from '../lib/monitoringWorkflow';
 import { canAssignCover } from '../lib/coverTiming';
 import { isMonitoringApproved, type MonitoringApproval } from '../lib/sessionAlerts';
@@ -814,7 +815,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       const highlightClass = warningRowClass(s);
 
                       return (
-                        <tr key={s.sessionCode} className={`transition-colors ${highlightClass}`}>
+                        <tr key={s.sessionCode} className={`transition-colors ${highlightClass}`} data-sort-time={recordSortTime(s)}>
                           {/* Mã buổi */}
                           <td className="py-3.5 px-3 font-bold text-slate-800 text-xs font-mono">
                             <div className="flex items-center gap-1.5">
@@ -1087,7 +1088,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       const childName = childObj ? childObj.name : (s.incidentChild || 'Sự cố đang trực ban');
 
                       return (
-                        <tr key={s.incidentId || s.sessionCode} className={`transition-colors ${highlightClass}`}>
+                        <tr key={s.incidentId || s.sessionCode} className={`transition-colors ${highlightClass}`} data-sort-time={recordSortTime(s)}>
                           <td className="py-3.5 px-3 whitespace-nowrap">
                             <div className="font-mono font-bold text-orange-700">{s.incidentDisplayCode || 'Chưa cấp mã'}</div>
                             <div className="mt-1 text-[10px] text-slate-400">{s.incidentUpdatedAt ? new Date(s.incidentUpdatedAt).toLocaleString('vi-VN',{timeZone:'Asia/Bangkok'}) : 'Chưa có thời gian cập nhật'}</div>
@@ -1578,7 +1579,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                       <div
                         key={s.sessionCode}
                         className={`p-3 rounded-2xl border ${isCover ? 'bg-purple-50 border-purple-200' : 'bg-slate-50 border-slate-200'} flex items-center justify-between`}
-                      >
+                       data-sort-time={recordSortTime(s)}>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-800 text-xs font-mono">{displaySessionCode(s)} &bull; {s.classCode}</span>

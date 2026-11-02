@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import {InfoTitle} from './InfoTitle';
 import type {workbenchAnalytics} from '../lib/workbenchAnalytics';
 import type {WorkbenchRange} from '../lib/workbenchTime';
@@ -19,7 +20,7 @@ export function WorkbenchGrowth({data,previous,comparison,range}:{data:ReturnTyp
   </div>
   <details className="border-t border-slate-100 pt-3"><summary className="cursor-pointer text-xs font-semibold text-indigo-700">Đối chiếu từng lớp trong kỳ ({data.classifiedClasses.length})</summary>
    <div className="workspace-table-scroll mt-3 max-h-64 overflow-auto"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-slate-50 text-slate-600"><tr><th className="p-2">Lớp</th><th className="p-2">Ngày tạo</th><th className="p-2">Phân loại</th><th className="p-2">HS mới đủ điều kiện</th><th className="p-2">HS cũ / chuyển lớp</th><th className="p-2">Chưa xác định</th></tr></thead>
-    <PaginatedTableBody>{data.classifiedClasses.map(cls=><tr key={cls.id} className="border-t border-slate-100"><td className="p-2">{cls.name}<div className="text-[10px] text-slate-400">{cls.code||cls.id}</div></td><td className="whitespace-nowrap p-2">{cls.date}</td><td className="p-2">{cls.label}</td><td className="p-2">{cls.newStudents}</td><td className="p-2">{cls.oldStudents}</td><td className="p-2">{cls.unknownStudents}</td></tr>)}{!data.classifiedClasses.length&&<tr><td colSpan={6} className="p-4 text-center text-slate-500">Chưa có lớp được tạo trong kỳ này.</td></tr>}</PaginatedTableBody>
+    <PaginatedTableBody>{data.classifiedClasses.map(cls=><tr key={cls.id} className="border-t border-slate-100" data-sort-time={recordSortTime(cls)}><td className="p-2">{cls.name}<div className="text-[10px] text-slate-400">{cls.code||cls.id}</div></td><td className="whitespace-nowrap p-2">{cls.date}</td><td className="p-2">{cls.label}</td><td className="p-2">{cls.newStudents}</td><td className="p-2">{cls.oldStudents}</td><td className="p-2">{cls.unknownStudents}</td></tr>)}{!data.classifiedClasses.length&&<tr><td colSpan={6} className="p-4 text-center text-slate-500">Chưa có lớp được tạo trong kỳ này.</td></tr>}</PaginatedTableBody>
    </table></div>
   </details>
  </section>;

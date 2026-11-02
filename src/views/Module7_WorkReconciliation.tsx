@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
 import {dashboardDisputes as selectDashboardDisputes,dashboardDisputeMonth} from '../lib/dashboardNavigation';
@@ -803,7 +804,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   const totalCredit = standardCredit + incidentCredit;
 
                   return (
-                    <tr key={t.teacherId} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={t.teacherId} className="hover:bg-slate-50/80 transition-colors" data-sort-time={recordSortTime(t)}>
                       <td className="py-3 px-3 text-center">
                         {!t.payrollSent && !monthData.isLocked && (
                           <input
@@ -944,7 +945,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
                   return (
                     <tr
-                      key={teacherId+'|'+session.id}
+                      key={teacherId+'|'+session.id} data-sort-time={recordSortTime(session)}
                       className={`transition-colors duration-700 ${
                         highlightedSessionId === session.id
                           ? 'bg-slate-200/90 shadow-[inset_0_0_0_1px_rgb(203_213_225)]'
@@ -1061,7 +1062,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <div
                   key={dispute.id}
                   className="p-5 rounded-xl border border-slate-200 bg-white shadow-2xs flex flex-col md:flex-row md:items-start justify-between gap-4"
-                >
+                 data-sort-time={recordSortTime(dispute)}>
                   <div className="space-y-2 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-bold text-xs">

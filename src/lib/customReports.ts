@@ -1,3 +1,4 @@
+import { orderRecords, recordSortTime } from './listOrder';
 import type { ComparisonSettings } from './reportComparison';
 import { reportChartNames, type ReportChartKind } from './reportPlot';
 export type ReportDatePreset = 'month' | 'previous_month' | 'last_30_days' | 'all' | 'custom';
@@ -27,7 +28,7 @@ export interface ReportDataset {
 export interface CustomReportConfig {
   datasetId: string; metricIds: string[]; groupBy: string;
   datePreset: ReportDatePreset; from: string; to: string;
-  filters: ReportFilters; sort: 'value_desc' | 'label_asc' | 'label_desc';
+  filters: ReportFilters; sort: 'value_desc' | 'label_asc' | 'label_desc' | 'newest' | 'oldest';
   comparison?: ComparisonSettings;
   selection?: { by: string; key: string };
   chartType?: ReportChartKind;
@@ -135,7 +136,7 @@ export function normalizeReportConfig(value: unknown, datasets: ReportDataset[])
       start: typeof raw.comparison.start === 'string' && validReportDate(raw.comparison.start) ? raw.comparison.start : '',
       end: typeof raw.comparison.end === 'string' && validReportDate(raw.comparison.end) ? raw.comparison.end : ''
     } } : {}),
-    sort: ['value_desc', 'label_asc', 'label_desc'].includes(raw.sort || '') ? raw.sort! : fallback.sort
+    sort: ['value_desc', 'label_asc', 'label_desc', 'newest', 'oldest'].includes(raw.sort || '') ? raw.sort! : fallback.sort
   };
 }
 const numeric = (record: ReportRecord, field?: string): number | null => {
@@ -236,7 +237,7 @@ export function buildCustomReport(dataset: ReportDataset, config: CustomReportCo
     const comparison = a.label.localeCompare(b.label, 'vi', { numeric: true });
     return config.sort === 'label_desc' ? -comparison : comparison;
   });
-  return { rows, records: reportRecords, metrics, totals: aggregate(reportRecords, metrics), range, invalidRange };
+  return { rows: orderRecords(rows, config.sort === 'newest' || config.sort === 'oldest' ? config.sort : 'default', recordSortTime), records: reportRecords, metrics, totals: aggregate(reportRecords, metrics), range, invalidRange };
 }
 export function formatReportValue(value: number | null | undefined, metric: ReportMetric): string {
   if (value == null || !Number.isFinite(value)) return '—';

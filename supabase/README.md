@@ -1,5 +1,7 @@
 # Bộ SQL Supabase Vuihoc
 
+**Xóa riêng đăng ký môn nhập nhầm:** sau các bản chuẩn hóa đăng ký và `20261213`, chạy toàn bộ [migrations/20261219_remove_student_registration.sql](migrations/20261219_remove_student_registration.sql). Nút xóa ở dòng môn chỉ xóa đăng ký môn đó khi chưa có lớp, giữ hồ sơ học sinh và các môn/lớp khác. Ví dụ Toán có lớp, Tiếng Anh chưa có lớp: xóa được Tiếng Anh, vẫn chặn xóa đăng ký Toán. File chỉ bổ sung RPC, không reset dữ liệu.
+
 **Lớp và học sinh THCS/THPT:** sau bản bổ sung giáo viên và quy tắc công, chạy toàn bộ [add_secondary_demo_classes.sql](add_secondary_demo_classes.sql) để thêm 6 lớp, 18 học sinh, học liệu/lịch/buổi học và công đủ điều kiện. Giữ dữ liệu trước đó; nếu tháng 10 đã khóa, các lớp mới bắt đầu tháng 11. Xem [hướng dẫn demo](DEMO_REPORTING_UPDATE.md).
 
 **Bổ sung dữ liệu báo cáo và giáo viên THCS/THPT:** chạy riêng toàn bộ [enrich_demo_reporting.sql](enrich_demo_reporting.sql) sau khi đã nạp bộ demo. Không reset: phân bố ngày tiếp nhận học sinh vào 08–10/2026 và ngày tạo giáo viên qua 07–10/2026, thêm 6 giáo viên (3 THCS, 3 THPT), điền ngày kết thúc 10–12/2026 cho 24 lớp demo thiếu thời hạn. Giữ công và lịch sử đã phát sinh, chỉ bỏ lịch tương lai chưa sử dụng sau ngày kết thúc. Xem [hướng dẫn cập nhật](DEMO_REPORTING_UPDATE.md).

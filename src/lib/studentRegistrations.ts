@@ -9,6 +9,15 @@ export function studentRegistrations(student: StudentRecord): StudentSubjectRegi
   }] : [];
 }
 
+export function studentRegistrationDeleteIssue(student: StudentRecord, subject: string, classes: ClassItem[]): string | undefined {
+  const registration = studentRegistrations(student).find(item => item.subject === subject);
+  if (!registration) return 'Đăng ký môn không còn tồn tại. Hãy tải lại dữ liệu.';
+  if (registration.currentClassCode || classes.some(cls => cls.subject === subject && cls.studentIds.includes(student.id))) {
+    return 'Môn này đã có lớp. Hãy xử lý lớp của môn này trước khi xóa đăng ký.';
+  }
+  return undefined;
+}
+
 export function studentRegistrationRows(students: StudentRecord[], includeUnregisteredProfiles = false) {
   return students.flatMap<StudentRecord & {registrationKey:string}>(student => !studentRegistrations(student).length ? (includeUnregisteredProfiles ? [{...student,subject:'',model:'',level:'',scheduleSlots:[],status:'Chờ xếp lớp',registrationKey:JSON.stringify([student.id,''])}] : []) : studentRegistrations(student).map(({registeredAt,...registration}) => ({
     ...student, ...registration, registrationKey: JSON.stringify([student.id, registration.subject]),

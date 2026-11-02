@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import { PeriodToolbar } from '../components/PeriodToolbar';
 import { workbenchRange } from '../lib/workbenchTime';
@@ -576,7 +577,7 @@ export const Module3_Teachers: React.FC = () => {
                     const badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
 
                     return (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime(t)}>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
                             <div
@@ -712,7 +713,7 @@ export const Module3_Teachers: React.FC = () => {
                   {filteredAvailability.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
                   {filteredAvailability
                     .map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime(t)}>
                         <td className="py-3 px-4 font-bold text-slate-800">
                           {t.name}
                           <div className="text-[11px] text-slate-400 font-normal font-mono">{t.id}</div>
@@ -856,7 +857,7 @@ export const Module3_Teachers: React.FC = () => {
                       const isScored = t.evalStatus === 'SCORED';
 
                       return (
-                        <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime(t)}>
                           <td className="py-3 px-4">
                             <div className="font-bold text-slate-800">{t.name}</div>
                             <div className="text-[11px] text-slate-400">{t.id}</div>
@@ -1172,7 +1173,7 @@ export const Module3_Teachers: React.FC = () => {
                 ) : (
                   eligibleSessions(gradingTeacher).map((ss, idx) => (
                     <div
-                      key={idx}
+                      key={ss.code} data-sort-time={recordSortTime(ss)}
                       className="p-3.5 rounded-xl border border-slate-200 hover:border-[#FF5C00] bg-white hover:bg-orange-50/20 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs"
                     >
                       <div>

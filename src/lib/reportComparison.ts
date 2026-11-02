@@ -1,9 +1,11 @@
 import { reportCsvCell, validReportDate, type CustomReportConfig, type ReportGroup, type ReportMetric, type ReportResult } from './customReports';
+import { recordSortTime } from './listOrder';
 
 export interface ComparisonRange { start: string; end: string }
 export interface ComparisonSettings { enabled: boolean; mode: 'previous' | 'year' | 'custom'; start: string; end: string }
 export const defaultComparison: ComparisonSettings = { enabled: false, mode: 'previous', start: '', end: '' };
 export interface ComparisonRow {
+  sortTime?: number;
   key: string; label: string; currentLabel?: string; previousLabel?: string;
   currentKey?: string; previousKey?: string;
   current: Record<string, number | null>; previous: Record<string, number | null>;
@@ -117,7 +119,7 @@ export function alignComparisonRows(current: ReportGroup[], previous: ReportGrou
       const value = iso(groupBy === 'week' ? weekStart(range.start) + index * 7 * DAY : timestamp(range.start) + index * DAY);
       return (groupBy === 'week' ? 'Tuần từ ' : '') + value.split('-').reverse().join('/');
     };
-    return { key, label: temporal && Number.isFinite(Number(key)) ? `${unit} ${Number(key) + 1}` : now?.label || before!.label,
+    return { key, sortTime: recordSortTime(now) ?? recordSortTime(before), label: temporal && Number.isFinite(Number(key)) ? `${unit} ${Number(key) + 1}` : now?.label || before!.label,
       currentLabel: now?.label || expectedLabel(currentRange), previousLabel: before?.label || expectedLabel(previousRange), currentKey: now?.key, previousKey: before?.key,
       current: now?.values || emptyValues(metrics, outside(currentRange)), previous: before?.values || emptyValues(metrics, outside(previousRange)) };
   });

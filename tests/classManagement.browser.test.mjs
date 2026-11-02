@@ -18,7 +18,7 @@ try{
  await page.route('**/src/context/AppContext.tsx*',r=>r.fulfill({contentType:'application/javascript',body:'export const useApp=()=>window.testApp;'}));
  await page.route('**/src/hooks/usePermissions.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const usePermissions=()=>({can:()=>true,requirePermission:()=>true});'}));
  await page.route('**/src/hooks/useSaveConfirmation.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const useSaveConfirmation=()=>({isSavingChanges:false,confirmSave:async(fn)=>{fn();return true;}});'}));
- await page.route('**/src/lib/businessPersistence.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const loadBusinessData=async()=>{};export const useBusinessValue=()=>[[],()=>{}];export const useBusinessStatus=()=>({saving:false});export const waitForBusinessSave=async()=>{};export const removeClassStudent=async()=>{};'}));
+ await page.route('**/src/lib/businessPersistence.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const loadBusinessData=async()=>{};export const useBusinessValue=()=>[[],()=>{}];export const useBusinessStatus=()=>({saving:false});export const waitForBusinessSave=async()=>{};export const removeClassStudent=async()=>{};export const removeStudentRegistration=async()=>{};'}));
  const url='http://127.0.0.1:3107/tests/fixtures/classManagement.html';
  async function open(url){
   await page.goto(url);await page.waitForTimeout(800);assert.deepEqual(errors,[]);await page.getByRole('button',{name:'Quản lý Lớp học',exact:true}).click();

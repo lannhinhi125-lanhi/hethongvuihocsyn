@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { PaginatedList } from './Pagination';
 import React from 'react';
 import type { ClassItem } from '../types';
@@ -5,7 +6,7 @@ export const ClassSuggestions: React.FC<{ items: ClassItem[]; model: string; sch
   <div className="flex justify-between gap-2"><h4 className="font-semibold text-emerald-800">{isChanging ? "Ghép lớp / Đổi lớp" : "Đề xuất ghép lớp"}</h4><span className="text-[11px] text-slate-500">{model} · {items.length} lớp còn chỗ</span></div>
   {!items.length ? <p className="text-xs text-slate-500">{isChanging ? "Chưa có lớp khác cùng môn, khối, trình độ và mô hình còn chỗ. Bạn có thể thay đổi tiêu chí học tập phía trên để tìm lớp phù hợp." : "Chưa có lớp cùng môn, khối, trình độ và mô hình còn chỗ. Có thể tạo lớp mới."}</p> : <PaginatedList className="max-h-56 overflow-y-auto divide-y divide-slate-100">{items.map(item => {
     const matches = Boolean(schedule.length && item.schedule && item.schedule.split(',').map(slot => slot.trim()).filter(Boolean).every(slot => schedule.includes(slot)));
-    return <div key={item.id} className="flex items-center justify-between gap-3 py-2">
+    return <div key={item.id} className="flex items-center justify-between gap-3 py-2" data-sort-time={recordSortTime(item)}>
       <div className="min-w-0 space-y-0.5"><p className="text-xs text-slate-800"><span className="font-mono font-semibold text-[#FF5C00]">{item.code}</span> · {item.name}</p>
         <p className="text-[11px] text-slate-500">GV: {item.teacherName || 'Chưa phân công'} · Sĩ số {item.studentIds.length}/{item.maxStudents} · Còn {Math.max(0, item.maxStudents - item.studentIds.length)} chỗ</p>
         <p className="text-[11px] text-slate-500">{item.schedule || 'Chưa có lịch'} · {matches ? 'Khớp lịch đăng ký' : 'Cần đối chiếu lịch đăng ký'}</p>

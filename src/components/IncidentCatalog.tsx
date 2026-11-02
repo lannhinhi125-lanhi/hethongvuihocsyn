@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from './ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { PaginatedTableBody, PaginatedTableGroups } from './Pagination';
@@ -83,7 +84,7 @@ export const IncidentCatalog: React.FC = () => {
       <PaginatedTableGroups>{visibleGroups.map(parent => {
           const children = rows.filter(row => row.parent.id === parent.id);
           const isOpen = expanded.includes(parent.id);
-          return <React.Fragment key={parent.id}><tbody>
+          return <React.Fragment key={parent.id}><tbody data-sort-time={recordSortTime(parent)}>
             <tr className="bg-slate-50/80">
               <th scope="row" colSpan={5} className="px-3 py-2.5 text-left">
                 <button type="button" aria-expanded={isOpen} aria-controls={'incident-group-' + parent.id} onClick={() => toggleGroup(parent.id)} className="flex w-full items-center gap-2 text-left">
@@ -99,7 +100,7 @@ export const IncidentCatalog: React.FC = () => {
               </div></td>
             </tr>
             </tbody><PaginatedTableBody id={'incident-group-' + parent.id} hidden={!isOpen} className="divide-y divide-slate-100">
-                {children.map(({ item }) => <tr key={item.id} className="hover:bg-slate-50">
+                {children.map(({ item }) => <tr key={item.id} className="hover:bg-slate-50" data-sort-time={recordSortTime(item)}>
         <td className="border-l-2 border-orange-100 py-2.5 pl-8 pr-3"><button type="button" disabled={!canEdit} onClick={() => open('incident', item, parent.id)} className="text-left font-semibold text-slate-800 hover:text-orange-700">{item.name}</button><p className="mt-1 text-[10px] text-slate-400">{item.code}</p>{item.allowClassPause && <p className="mt-1 text-[10px] text-amber-700">Tạm dừng lớp{item.isScheduledBreak ? ' · Nghỉ theo lịch' : ' · Có ghi nhận sự cố'}</p>}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{item.targetParty}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{notices[item.noticeType || 'unspecified']}</td>

@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { lessonPauseLabel, pauseReasonName } from '../lib/classPause';
 import { ReportSelect } from '../components/ReportSelect';
 import { canReviewSession, sessionCompletionWarning } from '../lib/sessionAlerts';
@@ -542,7 +543,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
                             const studentGradeLevel = studentItem ? `${studentItem.grade} - Trình độ ${studentItem.level}` : 'Khối Tiểu học';
 
                             return (
-                              <tr key={sid}>
+                              <tr key={sid} data-sort-time={recordSortTime(studentItem)}>
                                 <td className="py-3">
                                   <div className="font-bold text-slate-800">
                                     {studentDisplayName}

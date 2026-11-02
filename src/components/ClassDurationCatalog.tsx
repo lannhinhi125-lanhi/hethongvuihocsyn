@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import React, {useState, type FormEvent} from 'react';
 import {Pencil, X} from 'lucide-react';
 import {useBusinessValue, waitForBusinessSave} from '../lib/businessPersistence';
@@ -59,7 +60,7 @@ export function ClassDurationCatalog({searchKeyword=''}:{searchKeyword?:string})
         <table className="w-full text-left text-xs font-inter leading-relaxed">
           <thead className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold"><tr>{['Số tháng','Tên thời hạn','Mô tả trường dữ liệu','Trạng thái','Bật / Tắt','Thao tác'].map((label,index)=><th key={label} className={'py-3 px-4'+(index>3?' text-center':'')}>{label}</th>)}</tr></thead>
           <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
-            {rows.map(row=><tr key={row.id} className="hover:bg-slate-50/80">
+            {rows.map(row=><tr key={row.id} className="hover:bg-slate-50/80" data-sort-time={recordSortTime(row)}>
               <td className="py-3 px-4 font-medium tabular-nums text-[#FF5C00]">{row.code}</td>
               <td className="py-3 px-4 font-semibold text-slate-800">{row.name}</td>
               <td className="py-3 px-4 text-slate-600">{row.desc||'—'}</td>

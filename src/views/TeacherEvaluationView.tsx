@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { PeriodToolbar } from '../components/PeriodToolbar';
 import { workbenchRange } from '../lib/workbenchTime';
 import { reportToday } from '../lib/customReports';
@@ -308,7 +309,7 @@ export const TeacherEvaluationView: React.FC = () => {
               <div
                 key={record.id}
                 className="p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-slate-50/50 transition-all flex flex-col gap-4"
-              >
+               data-sort-time={recordSortTime(record)}>
                 {/* Thông tin biên bản & Buổi học */}
                 <div className="space-y-1.5 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">

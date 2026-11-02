@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import {useState, type FormEvent} from 'react';
 import {Pencil, Trash2, X} from 'lucide-react';
 import type {DocumentCategory} from '../types';
@@ -56,7 +57,7 @@ export function DocumentCategoryManager({searchKeyword=''}:{searchKeyword?:strin
           <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
             {filtered.map(item=>{
               const used=sopDocuments.filter(doc=>doc.categoryId===item.id).length;
-              return <tr key={item.id} className="hover:bg-slate-50/80">
+              return <tr key={item.id} className="hover:bg-slate-50/80" data-sort-time={recordSortTime(item)}>
                 <td className="py-3 px-4 font-medium tabular-nums text-[#FF5C00]">{item.id}</td>
                 <td className="py-3 px-4 font-semibold text-slate-800 text-xs">{item.name}</td>
                 <td className="py-3 px-4 text-slate-600">{item.description || '—'}</td>

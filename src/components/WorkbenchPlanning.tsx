@@ -1,3 +1,5 @@
+import {PaginatedTableBody} from './Pagination';
+import {recordSortTime} from '../lib/listOrder';
 import React,{useMemo,useState} from 'react';
 import {useApp} from '../context/AppContext';
 import {usePermissions} from '../hooks/usePermissions';
@@ -28,7 +30,7 @@ export function WorkbenchPlanning(){
     </div>
    </div>
    <div className="max-h-64 overflow-auto"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-slate-50 text-slate-500"><tr><th className="p-3">Môn học</th><th className="p-3">Mô hình</th><th className="p-3 text-right">HS chờ</th></tr></thead>
-    <tbody>{demand.map(row=><tr key={JSON.stringify([row.subject,row.model])} className="border-t border-slate-100"><td className="p-3"><button disabled={!canModule('PH4')} onClick={()=>go('students',`Chờ lớp · ${subject(row.subject)} · ${model(row.model)}`,row.ids)} className={link}>{subject(row.subject)} ↗</button></td><td className="p-3">{model(row.model)}</td><td className="p-3 text-right font-semibold">{row.ids.length}</td></tr>)}{!demand.length&&<tr><td colSpan={3} className="p-6 text-center text-slate-400">Không có học sinh chờ xếp lớp.</td></tr>}</tbody>
+    <PaginatedTableBody>{demand.map(row=><tr data-sort-time={recordSortTime({records: students.filter(student=>row.ids.includes(student.id))})} key={JSON.stringify([row.subject,row.model])} className="border-t border-slate-100"><td className="p-3"><button disabled={!canModule('PH4')} onClick={()=>go('students',`Chờ lớp · ${subject(row.subject)} · ${model(row.model)}`,row.ids)} className={link}>{subject(row.subject)} ↗</button></td><td className="p-3">{model(row.model)}</td><td className="p-3 text-right font-semibold">{row.ids.length}</td></tr>)}{!demand.length&&<tr><td colSpan={3} className="p-6 text-center text-slate-400">Không có học sinh chờ xếp lớp.</td></tr>}</PaginatedTableBody>
    </table></div>
    <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">Một học sinh có thể chờ nhiều môn; không cộng các nhóm thành tổng học sinh.</p>
   </section>
@@ -37,7 +39,7 @@ export function WorkbenchPlanning(){
     <ReportSelect aria-label="Khoảng ngày lớp sắp kết thúc" value={days} onChange={event=>setDays(Number(event.target.value))} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"><option value="7">7 ngày tới</option><option value="14">14 ngày tới</option><option value="30">30 ngày tới</option></ReportSelect>
    </div>
    <div className="max-h-64 overflow-auto"><table className="w-full text-left text-xs"><thead className="sticky top-0 bg-slate-50 text-slate-500"><tr><th className="p-3">Lớp / môn</th><th className="p-3">Kết thúc</th><th className="p-3 text-right">Còn</th></tr></thead>
-    <tbody>{ending.map(({item,remaining})=><tr key={item.id} className="border-t border-slate-100"><td className="p-3"><button disabled={!canModule('PH4')} onClick={()=>go('classes','Lớp sắp kết thúc · '+item.name,[item.id])} className={link}>{item.name} ↗</button><p className="mt-0.5 text-[11px] text-slate-500">{item.code} · {subject(item.subject)}</p></td><td className="whitespace-nowrap p-3">{item.endDate!.split('-').reverse().join('/')}</td><td className={'whitespace-nowrap p-3 text-right font-semibold '+(remaining<=7?'text-orange-700':'text-slate-600')}>{remaining===0?'Hôm nay':remaining+' ngày'}</td></tr>)}{!ending.length&&<tr><td colSpan={3} className="p-6 text-center text-slate-400">Không có lớp sắp kết thúc trong {days} ngày tới.</td></tr>}</tbody>
+    <PaginatedTableBody>{ending.map(({item,remaining})=><tr data-sort-time={recordSortTime(item)} key={item.id} className="border-t border-slate-100"><td className="p-3"><button disabled={!canModule('PH4')} onClick={()=>go('classes','Lớp sắp kết thúc · '+item.name,[item.id])} className={link}>{item.name} ↗</button><p className="mt-0.5 text-[11px] text-slate-500">{item.code} · {subject(item.subject)}</p></td><td className="whitespace-nowrap p-3">{item.endDate!.split('-').reverse().join('/')}</td><td className={'whitespace-nowrap p-3 text-right font-semibold '+(remaining<=7?'text-orange-700':'text-slate-600')}>{remaining===0?'Hôm nay':remaining+' ngày'}</td></tr>)}{!ending.length&&<tr><td colSpan={3} className="p-6 text-center text-slate-400">Không có lớp sắp kết thúc trong {days} ngày tới.</td></tr>}</PaginatedTableBody>
    </table></div>
    <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">Chỉ lấy lớp có ngày kết thúc; bỏ lớp đã kết thúc hoặc dừng.</p>
   </section>

@@ -26,4 +26,8 @@ assert.equal((list.match(/data-record=/g) || []).length, 10);
 assert.ok(list.indexOf('<nav')>list.lastIndexOf('data-record='),'card list controls follow the scroll area');
 const short = renderToStaticMarkup(<PaginatedList><article key="single">Single</article></PaginatedList>);
 assert.ok(!short.includes('<nav'));
+for (const html of [table, list, short]) {
+  assert.ok(html.includes('value="newest"'), 'Time ordering is available even for lists smaller than one page.');
+  assert.ok(html.includes('value="oldest"'));
+}
 console.log('Passed: ten record limit, table/card rendering, page bounds and empty/small lists.');

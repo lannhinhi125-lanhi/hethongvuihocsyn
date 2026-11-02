@@ -122,6 +122,21 @@ export async function removeClassStudent(classId:string,studentId:string) {
  }
 }
 export function businessSaving(){return state.saving;}
+/** Delete one enrollment, then replace projections only after server confirmation. */
+export async function removeStudentRegistration(studentId: string, subject: string) {
+ if(state.saving || state.loading)throw new Error('Đang xử lý dữ liệu. Vui lòng đợi rồi thử lại.');
+ const version=generation;
+ publish({...state,saving:true,error:''});
+ try {
+  const receipt=await teacherSessionRequest('vuihoc_remove_student_registration',{p_student_id:studentId,p_subject:subject});
+  if(version!==generation)throw new Error('Phiên dữ liệu đã thay đổi. Hãy tải lại.');
+  raw=receipt.data;confirmed=decode(raw);
+  publish({...state,data:confirmed,saving:false,error:'',saved:state.saved+1,loadedAt:Date.now(),refreshError:''});
+ }catch(error){
+  if(version===generation)publish({...state,saving:false,errorOperation:'save',error:(error as Error).message});
+  throw error;
+ }
+}
 export function waitForBusinessSave(): Promise<void> {
  const version=generation;
  return new Promise((resolve,reject)=>{

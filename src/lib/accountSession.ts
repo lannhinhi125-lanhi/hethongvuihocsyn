@@ -136,9 +136,9 @@ export async function revealAccountPassword(userId: string, signal: AbortSignal)
 }
 
 /** Teacher RPCs share the existing internal login token; no direct table access. */
-export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_report_lesson_incident' | 'vuihoc_remove_class_student', args: Record<string,unknown> = {}) {
+export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_report_lesson_incident' | 'vuihoc_remove_class_student' | 'vuihoc_remove_student_registration', args: Record<string,unknown> = {}) {
   if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
-  const version = generation, writing = name === 'vuihoc_remove_class_student' || name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident';
+  const version = generation, writing = name === 'vuihoc_remove_student_registration' || name === 'vuihoc_remove_class_student' || name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident';
   if (writing && (state.saving || flushing || pending.length)) throw new Error('Đang lưu thay đổi khác. Vui lòng thử lại sau.');
   if (writing) { revision++; publish({...state,saving:true,error:'',saved:false}); }
   try {

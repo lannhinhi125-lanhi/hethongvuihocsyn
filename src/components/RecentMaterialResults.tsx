@@ -1,4 +1,5 @@
 import type { RecentMaterialChange } from '../lib/recentMaterialChanges';
+import { recordSortTime } from '../lib/listOrder';
 import { PaginatedTableBody } from './Pagination';
 
 export function RecentMaterialResults({ rows, classStatusLabels = {} }: { rows: RecentMaterialChange[]; classStatusLabels?: Record<string, string> }) {
@@ -9,7 +10,7 @@ export function RecentMaterialResults({ rows, classStatusLabels = {} }: { rows: 
           {['Lớp nhận học liệu', 'Buổi học', 'Học liệu vừa lưu', 'Trạng thái'].map(label => <th key={label} className="px-4 py-3">{label}</th>)}
         </tr></thead>
         <PaginatedTableBody className="divide-y divide-slate-100">
-          {rows.map(row => <tr key={`${row.classId}-${row.material.week}-${row.material.session}`} className={row.kind === 'added' ? 'bg-emerald-50/40' : 'bg-orange-50/40'}>
+          {rows.map(row => <tr key={`${row.classId}-${row.material.week}-${row.material.session}`} data-sort-time={recordSortTime(row.material)} className={row.kind === 'added' ? 'bg-emerald-50/40' : 'bg-orange-50/40'}>
             <td className="px-4 py-3"><div className="font-mono font-bold text-[#FF5C00]">{row.code}</div><div className="mt-1 text-slate-600">{row.name}</div>{classStatusLabels[row.classId] && <div className="mt-1 text-[11px] font-semibold text-slate-600">{classStatusLabels[row.classId]}</div>}</td>
             <td className="px-4 py-3"><div className="font-semibold text-slate-800">{row.date ? new Intl.DateTimeFormat('vi-VN', {weekday:'short', day:'2-digit', month:'2-digit', year:'numeric', timeZone:'UTC'}).format(new Date(`${row.date}T12:00:00Z`)) : 'Chưa có buổi học phù hợp trong tuần'}</div><div className="mt-1 text-slate-500">Buổi {row.material.session} trong tuần{row.date && row.time ? ` · ${row.time}` : ''}</div></td>
             <td className="px-4 py-3"><div className="font-semibold text-slate-800">{row.material.title || 'Chưa đặt tên bài'}</div><div className="mt-1.5 flex gap-3 text-[11px]">

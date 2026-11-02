@@ -1,5 +1,6 @@
 import React, { Children, isValidElement, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { orderRecords, type ListOrder } from '../lib/listOrder';
 
 export const PAGE_SIZE = 10;
 
@@ -18,10 +19,18 @@ function columnCount(children: React.ReactNode): number {
   }));
 }
 
+function rowTime(row: React.ReactNode): number | undefined {
+  if (!isValidElement<{ 'data-sort-time'?: number; children?: React.ReactNode }>(row)) return undefined;
+  if (row.props['data-sort-time'] !== undefined) return row.props['data-sort-time'];
+  if (row.type === React.Fragment) return Children.toArray(row.props.children).map(rowTime).find(time => time !== undefined);
+  return undefined;
+}
+
 function useChildPage(children: React.ReactNode) {
-  const rows = Children.toArray(children);
+  const [order, setOrder] = useState<ListOrder>('default');
+  const rows = orderRecords(Children.toArray(children), order, rowTime);
   // Reset when filtering, sorting or switching datasets changes the record identities.
-  const signature = rows.map((row, index) => isValidElement(row) ? row.key ?? index : index).join('|');
+  const signature = order + ':' + rows.map((row, index) => isValidElement(row) ? row.key ?? index : index).join('|');
   const fingerprints = rows.map((row, index) => ({
     key: isValidElement(row) ? String(row.key ?? index) : String(index),
     value: JSON.stringify(isValidElement(row) ? row.props : row, (key, value) =>
@@ -48,7 +57,7 @@ function useChildPage(children: React.ReactNode) {
   }, [contentSignature]);
   const [selection, setSelection] = useState({ signature, page: 0 });
   const window = getPageWindow(rows.length, selection.signature === signature ? selection.page : 0);
-  return { ...window, total: rows.length, rows: rows.slice(window.start, window.end).map((row, index) => {
+  return { ...window, order, setOrder, total: rows.length, rows: rows.slice(window.start, window.end).map((row, index) => {
       if (!isValidElement<{ className?: string }>(row) || row.type === React.Fragment) return row;
       const key = String(row.key ?? (window.start + index));
       return highlightedKeys.includes(key) ? React.cloneElement(row, {
@@ -59,6 +68,16 @@ function useChildPage(children: React.ReactNode) {
 }
 
 type Page = ReturnType<typeof useChildPage>;
+function OrderControls({page}: {page: Page}) {
+  return <label className="flex items-center justify-end gap-2 px-4 py-2 text-xs font-medium text-slate-600 print:hidden">
+    Sắp xếp
+    <select aria-label="Sắp xếp danh sách theo thời gian" value={page.order} onChange={event => page.setOrder(event.target.value as ListOrder)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 focus:border-orange-400 focus:outline-none">
+      <option value="default">Mặc định</option>
+      <option value="newest">Mới nhất</option>
+      <option value="oldest">Cũ nhất</option>
+    </select>
+  </label>;
+}
 function PageControls({ page }: { page: Page }) {
   if (page.total <= PAGE_SIZE) return null;
   const button = 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed';
@@ -105,16 +124,16 @@ function TablePageFooter({page,anchor,columns,hidden}:{page:Page;anchor:React.Re
 export function PaginatedTableBody({ children, ...props }: React.ComponentProps<'tbody'>) {
   const page = useChildPage(children);
   const anchor=useRef<HTMLTableSectionElement>(null);
-  return <tbody {...props} ref={anchor}>{page.rows}<TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} hidden={props.hidden} /></tbody>;
+  return <tbody {...props} ref={anchor}>{!props.hidden && <tr className="print:hidden"><td colSpan={columnCount(children)}><OrderControls page={page} /></td></tr>}{page.rows}<TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} hidden={props.hidden} /></tbody>;
 }
 
 export function PaginatedList({ children, className }: { children: React.ReactNode; className?: string }) {
   const page = useChildPage(children);
-  return <div><div className={className}>{page.rows}</div><PageControls page={page} /></div>;
+  return <div><OrderControls page={page} /><div className={className}>{page.rows}</div><PageControls page={page} /></div>;
 }
 
 export function PaginatedTableGroups({ children }: { children: React.ReactNode }) {
   const page = useChildPage(children);
   const anchor=useRef<HTMLTableSectionElement>(null);
-  return <>{page.rows}<tbody ref={anchor} className="print:hidden"><TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} /></tbody></>;
+  return <><tbody className="print:hidden"><tr><td colSpan={columnCount(children)}><OrderControls page={page} /></td></tr></tbody>{page.rows}<tbody ref={anchor} className="print:hidden"><TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} /></tbody></>;
 }

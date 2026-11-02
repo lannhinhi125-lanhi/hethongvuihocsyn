@@ -1,3 +1,4 @@
+import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
 import { TeacherChatThread } from '../components/TeacherChatThread';
@@ -311,7 +312,7 @@ export const Module6_AIStudio: React.FC = () => {
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
                   {filteredDocuments.map(doc => (
-                    <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={doc.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime(doc)}>
                       <td className="py-3 px-4">
                         <div className="flex items-start gap-2">
                           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#FF5C00]" />

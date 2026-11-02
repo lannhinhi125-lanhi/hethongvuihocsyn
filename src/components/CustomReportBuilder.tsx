@@ -1,3 +1,4 @@
+import { orderRecords, recordSortTime } from '../lib/listOrder';
 import { ReportSplitPane } from './ReportSplitPane';
 import { ReportSelect } from './ReportSelect';
 import { ReportMultiFilter } from './ReportMultiFilter';
@@ -82,8 +83,8 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
   const comparedRows = useMemo(() => previousResult ? alignComparisonRows(result.rows, previousResult.rows, result.metrics,
     currentRange, previousRange, config.groupBy) : [], [result, previousResult, config.groupBy]);
   const visibleRows = result.rows.filter(row => isDetail && dataset.id === 'classes' || row.label.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi')));
-  const visibleClassRecords = result.records.filter(record => [record.id, record.name].some(value => String(value || '').toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi'))))
-    .sort((a, b) => config.sort === 'value_desc' ? String(b.date || '').localeCompare(String(a.date || '')) : (config.sort === 'label_desc' ? -1 : 1) * String(a.name || '').localeCompare(String(b.name || ''), 'vi', { numeric: true }));
+  const visibleClassRecords = orderRecords(result.records.filter(record => [record.id, record.name].some(value => String(value || '').toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi'))))
+    .sort((a, b) => config.sort === 'value_desc' ? String(b.date || '').localeCompare(String(a.date || '')) : (config.sort === 'label_desc' ? -1 : 1) * String(a.name || '').localeCompare(String(b.name || ''), 'vi', { numeric: true })), config.sort === 'newest' || config.sort === 'oldest' ? config.sort : 'default', recordSortTime);
   const noVisibleResults = isDetail && dataset.id === 'classes' ? !visibleClassRecords.length : !visibleRows.length;
   const pageCount = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -95,7 +96,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
   const isTimeGroup = ['day', 'week', 'month', 'period'].includes(config.groupBy);
   const chartRows = isTimeGroup ? [...overview.rows].sort((a, b) => a.key.localeCompare(b.key, 'vi', { numeric: true })) : overview.rows;
   const detailGroup = (detailPeriod === 'previous' ? previousResult?.rows : result.rows)?.find(row => row.key === detailKey);
-  const detailRecords = detailGroup?.records.filter(record => dataset.id !== 'incidents' || !onlyIncidentSources || record.incidents === 1) || [];
+  const detailRecords = orderRecords(detailGroup?.records.filter(record => dataset.id !== 'incidents' || !onlyIncidentSources || record.incidents === 1) || [], config.sort === 'newest' || config.sort === 'oldest' ? config.sort : 'default', recordSortTime);
   const activeFilters = Object.entries(config.filters).filter(([, value]) => reportFilterValues(value).length > 0);
   const showSourceCount = !result.metrics.some(metric => metric.mode === 'count' || metric.mode === 'sum' && ['total', 'sessions'].includes(metric.field || ''));
   const rangeLabel = dataset.dateKind === 'snapshot' ? 'Số liệu tổng hợp hiện có'
@@ -314,7 +315,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
                 <label className="relative min-w-40 flex-1"><Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <input aria-label={isDetail && dataset.id === 'classes' ? 'Tìm lớp học' : 'Tìm nhóm kết quả'} placeholder={isDetail && dataset.id === 'classes' ? 'Tìm mã hoặc tên lớp...' : 'Tìm trong kết quả...'} value={search} onChange={event => setSearch(event.target.value)} className={control + ' pl-8'} /></label>
                 <ReportSelect aria-label="Sắp xếp kết quả" value={config.sort} onChange={event => patch({ sort: event.target.value as CustomReportConfig['sort'] })} className={control + ' w-auto max-w-60'}>
-                  <option value="value_desc">{isDetail && dataset.id === 'classes' ? 'Ngày tạo: mới nhất' : result.metrics[0]?.label + ': giảm dần'}</option><option value="label_asc">Tên / thời gian: tăng dần</option><option value="label_desc">Tên / thời gian: giảm dần</option>
+                  <option value="value_desc">{isDetail && dataset.id === 'classes' ? 'Ngày tạo: mới nhất' : result.metrics[0]?.label + ': giảm dần'}</option><option value="label_asc">Tên / thời gian: tăng dần</option><option value="label_desc">Tên / thời gian: giảm dần</option><option value="newest">Mới nhất</option><option value="oldest">Cũ nhất</option>
                 </ReportSelect>
               </div>
             </div>
