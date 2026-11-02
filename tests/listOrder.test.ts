@@ -14,6 +14,12 @@ assert.deepEqual(orderRecords(records, 'oldest', recordSortTime).map(row => row.
 assert.deepEqual(orderRecords(records, 'default', recordSortTime), records);
 assert.equal(records[0].id, 'unknown');
 assert.equal(recordSortTime({created_at: '2026-10-01', startDate: '2026-11-01'}), Date.parse('2026-10-01'));
+const teachers=[
+  {id:'old-profile',created_at:'2026-10-01T10:00:00+07:00',startDate:'2026-12-01'},
+  {id:'new-profile',created_at:'2026-11-03T10:00:00+07:00',startDate:'2026-01-01'},
+];
+assert.deepEqual(orderRecords(teachers,'newest',recordSortTime).map(row=>row.id),['new-profile','old-profile'],'Teacher creation time takes priority over employment start');
+assert.deepEqual(orderRecords(teachers,'oldest',recordSortTime).map(row=>row.id),['old-profile','new-profile']);
 assert.equal(recordSortTime({dateStr: '02/11/2026'}), Date.parse('2026-11-02'));
 assert.equal(recordSortTime({lesson: {date: '2026-11-02'}}), Date.parse('2026-11-02'));
 assert.equal(recordSortTime({sessions: [{date: '2026-01-01'}, {date: '2026-11-02'}]}), Date.parse('2026-11-02'));

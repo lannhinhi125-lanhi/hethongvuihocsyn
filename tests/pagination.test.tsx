@@ -27,6 +27,7 @@ assert.ok(list.indexOf('<nav')>list.lastIndexOf('data-record='),'card list contr
 const short = renderToStaticMarkup(<PaginatedList><article key="single">Single</article></PaginatedList>);
 assert.ok(!short.includes('<nav'));
 for (const html of [table, list, short]) {
+  assert.ok(html.includes('value="newest" selected=""'), 'Newest is the default order.');
   assert.ok(html.includes('value="newest"'), 'Time ordering is available even for lists smaller than one page.');
   assert.ok(html.includes('value="oldest"'));
 }

@@ -28,7 +28,7 @@ function rowTime(row: React.ReactNode): number | undefined {
 }
 
 function useChildPage(children: React.ReactNode) {
-  const [order, setOrder] = useState<ListOrder>('default');
+  const [order, setOrder] = useState<ListOrder>('newest');
   const rows = orderRecords(Children.toArray(children), order, rowTime);
   // Reset when filtering, sorting or switching datasets changes the record identities.
   const signature = order + ':' + rows.map((row, index) => isValidElement(row) ? row.key ?? index : index).join('|');
@@ -73,7 +73,6 @@ function OrderControls({page}: {page: Page}) {
   return <label title="Sắp xếp theo thời gian" className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500 print:hidden">
     <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
     <select aria-label="Sắp xếp danh sách theo thời gian" value={page.order} onChange={event => page.setOrder(event.target.value as ListOrder)} className="h-7 w-24 cursor-pointer rounded-md border-0 bg-transparent px-1 text-xs text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-orange-400">
-      <option value="default">Mặc định</option>
       <option value="newest">Mới nhất</option>
       <option value="oldest">Cũ nhất</option>
     </select>

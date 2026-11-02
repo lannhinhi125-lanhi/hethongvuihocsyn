@@ -4,7 +4,7 @@ import type { ClassItem } from '../types';
 import { useApp } from '../context/AppContext';
 import { useBusinessValue } from '../lib/businessPersistence';
 import { teachingSessionDetails, teachingSessionsInWeek, type TeachingLesson } from '../lib/teachingSessionDetails';
-import {sessionCompletionWarning} from '../lib/sessionAlerts';
+import {monitoringStudyStatus, sessionCompletionWarning} from '../lib/sessionAlerts';
 
 interface Props {
   cls: ClassItem;
@@ -23,11 +23,23 @@ interface Props {
 }
 
 export function TeachingSessionDetails({ cls, session, date, time, readOnly, lessonId, hideFeedback, hideWeekNavigation, onSelect, onEnter, enterDisabled, endControl, children }: Props) {
-  const { students, teachers, timeSlots, subjects, levels } = useApp();
+  const { students, teachers, timeSlots, subjects, levels, showToast } = useApp();
   const [lessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 10_000); return () => window.clearInterval(timer); }, []);
   const detail = teachingSessionDetails(cls, session, date, time, lessons, timeSlots, now, lessonId);
+  const handleEnter = () => {
+    // Recheck at click time, including clicks before the timer refreshes the UI.
+    if (monitoringStudyStatus(date, time, new Date()) === 'CHUA_HOC') {
+      showToast('Buổi học chưa đến giờ. Vui lòng vào học khi đến giờ bắt đầu.', 'info');
+      return;
+    }
+    if (onEnter) onEnter();
+    else {
+      const current = teachingSessionDetails(cls, session, date, time, lessons, timeSlots, new Date(), lessonId);
+      if (current.actionUrl) window.open(current.actionUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
   const weekSessions = teachingSessionsInWeek(cls, date);
   const cover = cls.coverAssignments?.find(item => item.sessionNum === session && item.dateStr === date);
   const teacherId = detail.lesson ? detail.lesson.coverTeacherId || detail.lesson.primaryTeacherId : cover?.teacherId || detail.active?.coverTeacherId || cls.teacherId;
@@ -74,8 +86,8 @@ export function TeachingSessionDetails({ cls, session, date, time, readOnly, les
           {completionWarning&&<div className="text-[10px] font-normal text-orange-700">{completionWarning.replace('Chưa hoàn tất · ', '')}</div>}
           {!hideFeedback && <div className={feedbackDone ? 'font-semibold text-emerald-700' : 'font-semibold text-amber-700'}>Nhận xét: {feedbackDone ? 'Đã nhận xét' : feedbackCompleted>0 ? 'Chưa nhận xét đủ' : 'Chưa nhận xét'} ({feedbackCompleted}/{feedbackTotal} học sinh)</div>}
           {detail.lesson?.checkoutAt && <div className="text-slate-500">Check-out: {new Date(detail.lesson.checkoutAt).toLocaleTimeString('vi-VN', {timeZone:'Asia/Bangkok'})}</div>}
-          {detail.status === 'CHUA_HOC' ? <button type="button" disabled title={`Buổi học chưa diễn ra. Giờ học: ${time}`} className="mt-3 w-full rounded-xl bg-slate-200 px-4 py-2.5 font-bold text-slate-500 disabled:cursor-not-allowed">Chưa diễn ra</button> : !detail.actionUrl ? <button type="button" disabled className="mt-3 w-full rounded-xl bg-slate-200 px-4 py-2.5 font-bold text-slate-400 disabled:cursor-not-allowed">{detail.actionLabel} · Chưa có link</button> : onEnter && detail.status !== 'DA_HOC' ?
-            <button type="button" onClick={onEnter} disabled={enterDisabled} className="mt-3 w-full rounded-xl bg-[#FF5C00] px-4 py-2.5 font-bold text-white hover:bg-[#E05200] disabled:cursor-not-allowed disabled:bg-slate-300">{detail.actionLabel}</button> :
+          {detail.status === 'CHUA_HOC' ? <button type="button" onClick={handleEnter} disabled={enterDisabled} title={`Giờ học: ${time}`} className="mt-3 w-full rounded-xl bg-[#FF5C00] px-4 py-2.5 font-bold text-white hover:bg-[#E05200] disabled:cursor-not-allowed disabled:bg-slate-300">Vào học</button> : !detail.actionUrl ? <button type="button" disabled className="mt-3 w-full rounded-xl bg-slate-200 px-4 py-2.5 font-bold text-slate-400 disabled:cursor-not-allowed">{detail.actionLabel} · Chưa có link</button> : onEnter && detail.status !== 'DA_HOC' ?
+            <button type="button" onClick={handleEnter} disabled={enterDisabled} className="mt-3 w-full rounded-xl bg-[#FF5C00] px-4 py-2.5 font-bold text-white hover:bg-[#E05200] disabled:cursor-not-allowed disabled:bg-slate-300">{detail.actionLabel}</button> :
             <a href={detail.actionUrl} target="_blank" rel="noreferrer" className={`mt-3 flex w-full items-center justify-center gap-1 rounded-xl px-4 py-2.5 font-bold text-white ${detail.status === 'DA_HOC' ? 'bg-purple-700 hover:bg-purple-800' : 'bg-[#FF5C00] hover:bg-[#E05200]'}`}>{detail.actionLabel}<ExternalLink className="h-3 w-3" /></a>}
           {endControl}
           {readOnly && !endControl && <button type="button" disabled title="Màn hình dự giờ chỉ xem thông tin ca học" className="w-full rounded-xl bg-slate-200 px-4 py-2.5 font-bold text-slate-400 cursor-not-allowed">{detail.lesson?.checkoutAt ? 'Đã kết thúc lớp' : 'Kết thúc lớp'}</button>}

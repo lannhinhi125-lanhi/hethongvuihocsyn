@@ -74,7 +74,6 @@ export const Module3_Teachers: React.FC = () => {
   const [savingEvaluation, setSavingEvaluation] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
-  const [teacherDateSort, setTeacherDateSort] = useState<'newest' | 'oldest'>('newest');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
   const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>([]);
@@ -241,12 +240,6 @@ export const Module3_Teachers: React.FC = () => {
     const matchSts = filterStatus === 'ALL' || t.status === filterStatus;
 
     return matchesTeacherFields(t, profileFields) && matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts;
-  }).sort((a, b) => {
-    if (!a.startDate) return b.startDate ? 1 : 0;
-    if (!b.startDate) return -1;
-    return teacherDateSort === 'newest'
-      ? b.startDate.localeCompare(a.startDate)
-      : a.startDate.localeCompare(b.startDate);
   });
 
   // Handlers for Teacher Edit & Status
@@ -532,16 +525,6 @@ export const Module3_Teachers: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-                <ReportSelect
-                  aria-label="Sắp xếp theo ngày vào"
-                  title="Sắp xếp theo ngày vào"
-                  value={teacherDateSort}
-                  onChange={e => setTeacherDateSort(e.target.value as 'newest' | 'oldest')}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-medium text-slate-600 cursor-pointer"
-                >
-                  <option value="newest">Mới nhất</option>
-                  <option value="oldest">Cũ nhất</option>
-                </ReportSelect>
                 <ProfileExcelImport kind="teachers" disabled={!canCreateProfiles} />
                 <button
                   disabled={!canCreateProfiles} onClick={() => { if (canCreateProfiles) { setNewTeacherSubject(activeSubjects[0]?.code || ''); setNewTeacherLevel(activeCategories[0]?.id || ''); setIsCreateModalOpen(true); } }}
@@ -577,7 +560,7 @@ export const Module3_Teachers: React.FC = () => {
                     const badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
 
                     return (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime(t)}>
+                      <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime({created_at:t.created_at})}>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
                             <div
@@ -713,7 +696,7 @@ export const Module3_Teachers: React.FC = () => {
                   {filteredAvailability.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
                   {filteredAvailability
                     .map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime(t)}>
+                      <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime({created_at:t.created_at})}>
                         <td className="py-3 px-4 font-bold text-slate-800">
                           {t.name}
                           <div className="text-[11px] text-slate-400 font-normal font-mono">{t.id}</div>
@@ -857,7 +840,7 @@ export const Module3_Teachers: React.FC = () => {
                       const isScored = t.evalStatus === 'SCORED';
 
                       return (
-                        <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime(t)}>
+                        <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime({created_at:t.created_at})}>
                           <td className="py-3 px-4">
                             <div className="font-bold text-slate-800">{t.name}</div>
                             <div className="text-[11px] text-slate-400">{t.id}</div>
