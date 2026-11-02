@@ -84,7 +84,7 @@ export const teachingSessionDetails = (cls: ClassItem, session: number, date: st
     studentMaterial: lesson?.materials?.materialHs || active?.materialHs || '',
     exercise: currentPlan ? currentPlan.lms : lesson?.materials?.exerciseLms || lesson?.materials?.lms || active?.exerciseLms || material?.lms || '',
     roomUrl, recordingUrl: lesson?.recordingUrl || '',
-    actionLabel: ended || status === 'DA_HOC' ? 'Xem lại bản ghi' : 'Vào học',
-    actionUrl: ended || status === 'DA_HOC' ? lesson?.recordingUrl || '' : roomUrl
+    actionLabel: status === 'CHUA_HOC' ? 'Chưa diễn ra' : ended || status === 'DA_HOC' ? 'Xem lại bản ghi' : 'Vào học',
+    actionUrl: status === 'CHUA_HOC' ? '' : ended || status === 'DA_HOC' ? lesson?.recordingUrl || '' : roomUrl
   };
 };

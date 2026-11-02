@@ -110,6 +110,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
     }
     if (!selectedClass) return;
     const classroom = teachingSessionDetails(selectedClass, selectedSessionNum, selectedSessionDate || fromDate, selectedClassSchedule.find(entry => entry.session === selectedSessionNum)?.time || '', datedLessons, timeSlots, new Date());
+    if (classroom.status === 'CHUA_HOC') {
+      showToast('Buổi học chưa diễn ra. Vui lòng vào học khi đến giờ bắt đầu.', 'info');
+      return;
+    }
     if (!materialForSessionDate(selectedClass.materials || [],selectedSessionNum,selectedSessionDate || fromDate) || classroom.lifecycleStatus==='NGHI_HOC' || classroom.active?.status==='Nghỉ có phép') return;
     if (!classroom.roomUrl) {
       showToast('Lớp học này chưa có link phòng Zoom/ClassIn do Vận hành gán!', 'warning');

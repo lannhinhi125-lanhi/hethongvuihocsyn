@@ -19,7 +19,15 @@ assert.equal(scheduledMaterialForDate(cls,'2026-10-20','18:00-19:30'),undefined,
 assert.equal(scheduledMaterialForDate(cls,'2026-10-13','19:30-21:00'),undefined,'different time is not eligible');
 assert.equal(scheduledMaterialForDate({...cls,materials:[]},'2026-10-13','18:00-19:30'),undefined);
 const detailAt = (time: string) => teachingSessionDetails(cls, 1, '2026-10-13', '18:00 - 19:30', lessons, slots, new Date(`2026-10-13T${time}:00+07:00`));
-for (const time of ['17:59', '18:00', '19:29']) {
+const beforeStart = detailAt('17:59');
+assert.equal(beforeStart.actionLabel, 'Chưa diễn ra');
+assert.equal(beforeStart.actionUrl, '', 'Do not open the room before the scheduled start');
+assert.equal(beforeStart.lifecycleStatus, 'CHUA_DIEN_RA');
+assert.equal(beforeStart.slide, cls.materials[0].slide, 'Materials remain available before class');
+const tomorrow = teachingSessionDetails(cls,1,'2026-10-13','18:00 - 19:30',lessons,slots,new Date('2026-10-12T20:00:00+07:00'));
+assert.equal(tomorrow.actionLabel, 'Chưa diễn ra');
+assert.equal(tomorrow.actionUrl, '');
+for (const time of ['18:00', '19:29']) {
   const detail = detailAt(time);
   assert.equal(detail.actionLabel, 'Vào học');
   assert.equal(detail.actionUrl, lessons[0].roomUrl);
