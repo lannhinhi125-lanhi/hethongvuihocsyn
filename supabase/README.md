@@ -1,5 +1,7 @@
 # Bộ SQL Supabase Vuihoc
 
+**Chuẩn bị học liệu trước khai giảng:** chạy [migrations/20261224_preopening_class_materials.sql](migrations/20261224_preopening_class_materials.sql) sau khi đã có bộ kiểm tra học liệu `20261113`. Lớp Chờ khai giảng và Đang học đều nhận/cập nhật học liệu nếu không tạm dừng và còn hạn. Giữ cách tính thời hạn đang cài, không đổi trạng thái lớp và không reset dữ liệu.
+
 **Xóa riêng đăng ký môn nhập nhầm:** sau các bản chuẩn hóa đăng ký và `20261213`, chạy toàn bộ [migrations/20261219_remove_student_registration.sql](migrations/20261219_remove_student_registration.sql). Nút xóa ở dòng môn chỉ xóa đăng ký môn đó khi chưa có lớp, giữ hồ sơ học sinh và các môn/lớp khác. Ví dụ Toán có lớp, Tiếng Anh chưa có lớp: xóa được Tiếng Anh, vẫn chặn xóa đăng ký Toán. File chỉ bổ sung RPC, không reset dữ liệu.
 
 **Lớp và học sinh THCS/THPT:** sau bản bổ sung giáo viên và quy tắc công, chạy toàn bộ [add_secondary_demo_classes.sql](add_secondary_demo_classes.sql) để thêm 6 lớp, 18 học sinh, học liệu/lịch/buổi học và công đủ điều kiện. Giữ dữ liệu trước đó; nếu tháng 10 đã khóa, các lớp mới bắt đầu tháng 11. Xem [hướng dẫn demo](DEMO_REPORTING_UPDATE.md).

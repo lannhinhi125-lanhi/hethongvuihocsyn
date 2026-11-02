@@ -390,7 +390,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const batchAssignMaterials = (classIds: string[], newMaterials: ClassItem['materials']) => {
     if (!permit("Thêm, sửa, xóa và nạp học liệu theo tuần")) return false;
     if (classIds.some(id=>!classes.some(cls=>cls.id===id && canAssignClassMaterials(cls)))) {
-      showToast('Chỉ gắn học liệu cho lớp đang học, không tạm dừng và còn hạn.','warning');return false;
+      showToast('Chỉ gắn học liệu cho lớp chờ khai giảng hoặc đang học, không tạm dừng và còn hạn.','warning');return false;
     }
     setClasses(prev => prev.map(c => {
       if (classIds.includes(c.id)) {

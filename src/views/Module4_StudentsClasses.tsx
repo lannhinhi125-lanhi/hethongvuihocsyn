@@ -636,7 +636,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   ), [classes, batchCategoryId, batchGradeIds, batchLevelIds, batchSubject]);
   const batchEligibleClasses = batchMatchingClasses.filter(item => canAssignClassMaterials(item));
   const batchExcludedReasons = [
-    [batchMatchingClasses.filter(item => item.status !== 'Đang học').length, 'lớp không ở trạng thái Đang học'],
+    [batchMatchingClasses.filter(item => !['Chờ khai giảng', 'Đang học'].includes(item.status || '')).length, 'lớp không ở trạng thái Chờ khai giảng hoặc Đang học'],
     [batchMatchingClasses.filter(item => item.paused).length, 'lớp đang tạm dừng'],
     [batchMatchingClasses.filter(item => item.endDate && item.endDate < reportToday()).length, 'lớp đã hết hạn']
   ].filter(([count]) => Number(count) > 0).map(([count, reason]) => count + ' ' + reason).join('; ');
@@ -1199,7 +1199,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const openEditMaterials = (item: ClassItem, month: string, week: string, materials: ClassItem['materials']) => {
     if (!requirePermission("Thêm, sửa, xóa và nạp học liệu theo tuần")) return;
-    if (!canAssignClassMaterials(item)) {showToast('Chỉ gắn học liệu cho lớp đang học, không tạm dừng và còn hạn.','warning');return;}
+    if (!canAssignClassMaterials(item)) {showToast('Chỉ gắn học liệu cho lớp chờ khai giảng hoặc đang học, không tạm dừng và còn hạn.','warning');return;}
     const categoryId = classCategoryId(item);
     const sessionOne = materials.find(material => material.session === 1);
     const sessionTwo = materials.find(material => material.session === 2);
