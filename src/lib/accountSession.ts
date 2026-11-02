@@ -23,8 +23,23 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 function publish(next: Snapshot) { state = next; listeners.forEach(listener => listener()); }
 function remember(value: string | null) { token = value; try { if (value) sessionStorage.setItem(KEY,value); else sessionStorage.removeItem(KEY); } catch { /* Bộ nhớ là nguồn dự phòng. */ } }
 async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSignal) {
+  // Bound initial reads so a stalled connection cannot leave the whole app loading.
+  // Writes keep their existing behavior: aborting does not establish whether a save committed.
+  const controller = !signal && ['vuihoc_business_data', 'vuihoc_teacher_data', 'vuihoc_session'].includes(name) ? new AbortController() : undefined;
+  const timeout = controller ? setTimeout(() => controller.abort(), 30_000) : undefined;
+  const requestSignal = signal ?? controller?.signal;
   const request = supabase.schema('public').rpc(name,args);
-  const { data, error } = await (signal ? request.abortSignal(signal) : request);
+  let result;
+  try {
+    result = await (requestSignal ? request.abortSignal(requestSignal) : request);
+    if (controller?.signal.aborted) throw new Error('Kết nối Supabase quá 30 giây chưa phản hồi. Hãy kiểm tra mạng, trạng thái dự án Supabase và cấu hình VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY trên Vercel rồi thử lại.');
+  } catch (error) {
+    if (controller?.signal.aborted) throw new Error('Kết nối Supabase quá 30 giây chưa phản hồi. Hãy kiểm tra mạng, trạng thái dự án Supabase và cấu hình VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY trên Vercel rồi thử lại.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+  const { data, error } = result;
   if (error?.code === 'PGRST202' && name === 'vuihoc_remove_class_student') throw new Error('Hãy chạy supabase/apply_class_management_update.sql trong Supabase rồi thử lại.');
   if (error) throw new Error(error.code === 'PGRST202'
     ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261012_plaintext_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
