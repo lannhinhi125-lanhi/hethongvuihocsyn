@@ -42,7 +42,7 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
         <header className="login-brand mb-6 flex items-center gap-3 px-1 sm:mb-8">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 text-2xl font-extrabold text-white shadow-lg shadow-orange-500/15" aria-hidden="true">V</div>
           <div>
-            <p className="text-lg font-extrabold tracking-tight text-[#222342]">VUIHOC <span className="font-semibold text-orange-600">TUTOR</span></p>
+            <p className="text-lg font-extrabold tracking-tight text-[#222342]">VUIHOC</p>
             <p className="text-xs text-slate-500">Hệ thống quản lý & giảng dạy</p>
           </div>
         </header>
@@ -136,7 +136,7 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
             <p className="login-support mt-7 border-t border-slate-100 pt-5 text-center text-xs leading-5 text-slate-500">Cần hỗ trợ tài khoản?<br /><span className="text-slate-600">Vui lòng liên hệ quản trị viên của bạn.</span></p>
           </section>
         </div>
-        <footer className="login-footer mt-6 text-center text-xs text-slate-500">VUIHOC TUTOR · Đồng hành trên hành trình tri thức</footer>
+        <footer className="login-footer mt-6 text-center text-xs text-slate-500">VUIHOC · Đồng hành trên hành trình tri thức</footer>
       </div>
     </main>
   );

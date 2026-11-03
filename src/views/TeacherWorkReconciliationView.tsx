@@ -637,7 +637,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="text-center space-y-1 border-b pb-4">
-              <div className="text-xs font-bold uppercase text-slate-600">HỆ THỐNG ĐÀO TẠO VUIHOC TUTOR</div>
+              <div className="text-xs font-bold uppercase text-slate-600">HỆ THỐNG ĐÀO TẠO VUIHOC</div>
               <div className="text-base font-extrabold text-slate-900 uppercase">
                 PHIẾU XÁC NHẬN CÔNG DẠY CÁ NHÂN
               </div>

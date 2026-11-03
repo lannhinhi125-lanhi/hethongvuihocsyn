@@ -10,6 +10,7 @@ import type {TeachingLesson} from '../lib/teachingSessionDetails';
 import { useBusinessValue } from '../lib/businessPersistence';
 import type { WorkTeachingContext } from '../lib/workTeachingGroups';
 import { WorkHandoffDialog } from '../components/WorkHandoffDialog';
+import { selectWorkHandoffStaff } from '../lib/workCredits';
 import { reportExcelBytes } from '../lib/reportExcel';
 import { workHandoffExcel, workCreditText, isIncidentWorkSession as isIncidentSession, workCreditBreakdown as getCreditBreakdown, type WorkHandoffInfo } from '../lib/workReconciliationExport';
 import {useLessonCode} from '../hooks/useLessonCode';
@@ -61,7 +62,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const [dashboardFilter,setDashboardFilter]=useState(()=>dashboardSelection?.module===7?dashboardSelection:null);
   const lessonCode=useLessonCode();
   const [handoffScope, setHandoffScope] = useState<'staff' | 'sessions'>('staff');
-  const [handoffDetails, setHandoffDetails] = useState({ organization: 'VUIHOC TUTOR', address: '', reportNumber: '', receiver: 'Bộ phận tính lương', operationsSigner: '', receivingSigner: '', author: '' });
+  const [handoffDetails, setHandoffDetails] = useState({ organization: 'VUIHOC', address: '', reportNumber: '', receiver: 'Bộ phận tính lương', operationsSigner: '', receivingSigner: '', author: '' });
   const {confirmSave,isSavingChanges}=useSaveConfirmation('business');
   const { can, requirePermission } = usePermissions();
   const {
@@ -138,6 +139,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
   const [disputeDecision, setDisputeDecision] = useState<'DA_DUYET' | 'TU_CHOI'>('DA_DUYET');
   const [disputeCreditCoeff, setDisputeCreditCoeff] = useState(0);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  useEffect(() => { setSelectedTeacherIds([]); }, [selectedMonth]);
 
   const highlightSessionRow = (sessionId: string) => {
     if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
@@ -420,19 +422,20 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   // Shared scope for the Excel workbook and handoff document.
   const handoffStaff = useMemo(() => {
-    if (handoffScope === 'staff') return filteredStaff;
+    if (handoffScope === 'staff') return selectWorkHandoffStaff(filteredStaff, selectedTeacherIds);
     const sessions = detailTeacherId ? filteredSessions.filter(item => item.teacherId === detailTeacherId) : filteredSessions;
     const selected = new Map<string, SessionPayrollRecord[]>();
     sessions.filter(item=>!item.session.isPendingCredit).forEach(item => selected.set(item.teacherId, [...(selected.get(item.teacherId) || []), item.session]));
-    return monthData.teachers.filter(person => selected.has(person.teacherId)).map(person => ({ ...person, sessions: selected.get(person.teacherId)! }));
-  }, [handoffScope, filteredStaff, filteredSessions, detailTeacherId, monthData.teachers]);
+    return selectWorkHandoffStaff(monthData.teachers.filter(person => selected.has(person.teacherId)), selectedTeacherIds).map(person => ({ ...person, sessions: selected.get(person.teacherId)! }));
+  }, [handoffScope, filteredStaff, filteredSessions, detailTeacherId, monthData.teachers, selectedTeacherIds]);
   const handoffInfo: WorkHandoffInfo = useMemo(() => ({ ...handoffDetails, author: handoffDetails.author || currentUser.name,
     month: selectedMonth, isLocked: monthData.isLocked, lockedAt: monthData.locked_at,
-    scope: handoffScope === 'staff' ? 'Nhân sự theo bộ lọc bảng tổng hợp; toàn bộ buổi trong kỳ' : 'Buổi học theo bộ lọc' + (detailTeacherId ? ' / ' + (detailTeacher?.teacherName || detailTeacherId) : ''),
+    scope: (handoffScope === 'staff' ? 'Nhân sự theo bộ lọc bảng tổng hợp; toàn bộ buổi trong kỳ' : 'Buổi học theo bộ lọc' + (detailTeacherId ? ' / ' + (detailTeacher?.teacherName || detailTeacherId) : '')) + (selectedTeacherIds.length ? `; chỉ nhân sự đã tích chọn (${handoffStaff.length} người trong phạm vi)` : '; tất cả nhân sự trong phạm vi'),
     createdAt: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Bangkok' })
-  }), [handoffDetails, currentUser.name, selectedMonth, monthData.isLocked, monthData.locked_at, handoffScope, detailTeacherId, detailTeacher?.teacherName, showExportModal, showPrintModal]);
+  }), [handoffDetails, currentUser.name, selectedMonth, monthData.isLocked, monthData.locked_at, handoffScope, detailTeacherId, detailTeacher?.teacherName, showExportModal, showPrintModal, selectedTeacherIds, handoffStaff.length]);
   const handleDownloadExcel = () => {
     if (!requirePermission("Khóa, mở kỳ công và xuất CSV / in bảng công")) return;
+    if (!handoffStaff.length) { showToast('Không có nhân sự trong phạm vi đã chọn để xuất.', 'warning'); return; }
     try {
       const workbook = workHandoffExcel(handoffStaff, handoffInfo, teachingContext);
       const url = URL.createObjectURL(new Blob([reportExcelBytes(workbook)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -477,7 +480,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
   const sendSelectedPayrolls = () => {
     if (!requirePermission("Gửi bảng công cho giáo viên đối soát")) return;
-    sendPayrollToTeachers(selectedMonth, selectedTeacherIds);
+    sendPayrollToTeachers(selectedMonth, selectedTeacherIds.filter(id => sendableTeacherIds.includes(id)));
     setSelectedTeacherIds([]);
   };
 
@@ -495,14 +498,16 @@ export const Module7_WorkReconciliation: React.FC = () => {
       !monthData.isLocked
     )
     .map(teacher => teacher.teacherId);
+  const selectedSendableTeacherIds = selectedTeacherIds.filter(id => sendableTeacherIds.includes(id));
 
   const toggleVisibleTeacherSelection = () => {
+    const visibleIds = filteredStaff.map(person => person.teacherId);
     setSelectedTeacherIds(previous => {
-      const allVisibleSelected = sendableTeacherIds.length > 0 &&
-        sendableTeacherIds.every(id => previous.includes(id));
+      const allVisibleSelected = visibleIds.length > 0 &&
+        visibleIds.every(id => previous.includes(id));
       return allVisibleSelected
-        ? previous.filter(id => !sendableTeacherIds.includes(id))
-        : [...new Set([...previous, ...sendableTeacherIds])];
+        ? previous.filter(id => !visibleIds.includes(id))
+        : [...new Set([...previous, ...visibleIds])];
     });
   };
 
@@ -680,7 +685,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
               : `${filteredDisputes.length} đơn giải trình`}
           </span>
           <div className="flex items-center gap-2">
-            {activeTab === 'summary' && selectedTeacherIds.length > 0 && (
+            {activeTab === 'summary' && <span className="text-[11px] text-slate-500">{selectedTeacherIds.length ? `Đã chọn ${selectedTeacherIds.length} nhân sự để xuất Excel` : 'Xuất Excel: tất cả nhân sự theo bộ lọc; tích chọn để xuất riêng'}</span>}
+            {activeTab === 'summary' && selectedTeacherIds.length > 0 && <button type="button" onClick={() => setSelectedTeacherIds([])} className="shrink-0 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">Bỏ chọn tất cả</button>}
+            {activeTab === 'summary' && selectedSendableTeacherIds.length > 0 && (
               <button
                 type="button"
                 onClick={sendSelectedPayrolls}
@@ -688,7 +695,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Send className="h-3.5 w-3.5" />
-                Gửi đã chọn ({selectedTeacherIds.length})
+                Gửi đã chọn ({selectedSendableTeacherIds.length})
               </button>
             )}
             {activeTab === 'summary' && sendableTeacherIds.length > 0 && (
@@ -730,9 +737,9 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   <th className="py-3 px-3 text-center">
                     <input
                       type="checkbox"
-                      aria-label="Chọn tất cả giáo viên chưa gửi"
-                      checked={sendableTeacherIds.length > 0 && sendableTeacherIds.every(id => selectedTeacherIds.includes(id))}
-                      disabled={sendableTeacherIds.length === 0}
+                      aria-label="Chọn tất cả nhân sự theo bộ lọc để xuất Excel"
+                      checked={filteredStaff.length > 0 && filteredStaff.every(person => selectedTeacherIds.includes(person.teacherId))}
+                      disabled={filteredStaff.length === 0}
                       onChange={toggleVisibleTeacherSelection}
                       className="h-4 w-4 rounded border-slate-300 accent-blue-600 disabled:opacity-40"
                     />
@@ -761,15 +768,13 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   return (
                     <tr key={t.teacherId} className="hover:bg-slate-50/80 transition-colors" data-sort-time={recordSortTime(t)}>
                       <td className="py-3 px-3 text-center">
-                        {!t.payrollSent && !monthData.isLocked && (
                           <input
                             type="checkbox"
-                            aria-label={`Chọn ${t.teacherName} để gửi đối soát`}
+                            aria-label={`Chọn ${t.teacherName} để xuất Excel hoặc gửi đối soát`}
                             checked={selectedTeacherIds.includes(t.teacherId)}
                             onChange={() => toggleTeacherSelection(t.teacherId)}
                             className="h-4 w-4 rounded border-slate-300 accent-blue-600"
                           />
-                        )}
                       </td>
                       <td className="py-3 px-3 font-mono font-semibold text-slate-700">{t.teacherId}</td>
                       <td className="py-3 px-3">
@@ -1289,6 +1294,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       </FilterDrawer>
 
       {(showExportModal || showPrintModal) && <WorkHandoffDialog mode={showPrintModal ? 'print' : 'export'} staff={handoffStaff} info={handoffInfo} teachingContext={teachingContext}
+        selectionCount={selectedTeacherIds.length}
         scope={handoffScope} onScopeChange={setHandoffScope} onInfoChange={patch => setHandoffDetails(previous => ({ ...previous, ...patch }))}
         onClose={() => { setShowExportModal(false); setShowPrintModal(false); }} onExport={handleDownloadExcel}
         authorizePrint={() => requirePermission("Khóa, mở kỳ công và xuất CSV / in bảng công")} />}

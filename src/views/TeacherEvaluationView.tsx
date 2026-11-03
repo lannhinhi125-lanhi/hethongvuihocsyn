@@ -453,7 +453,7 @@ export const TeacherEvaluationView: React.FC = () => {
                   {/* Quốc hiệu / Tiêu ngữ tiêu chuẩn */}
                   <div className="text-center pb-2 border-b border-slate-100 space-y-0.5">
                     <div className="font-bold uppercase text-[10px] text-slate-800">
-                      HỆ THỐNG TRỰC TUYẾN VUIHOC TUTOR
+                      HỆ THỐNG TRỰC TUYẾN VUIHOC
                     </div>
                     <div className="font-semibold text-slate-600 text-[9px]">
                       HỘI ĐỒNG THẨM ĐỊNH CHẤT LƯỢNG SƯ PHẠM VÀ PHÁT TRIỂN GIÁO VIÊN

@@ -13,7 +13,7 @@ export const workHandoffFilename = (month: string) => `Doi-soat-cong-${month}.xl
 export function workHandoffExcel(staff: TeacherPayrollSummary[], info: WorkHandoffInfo, context: WorkTeachingContext = {}): ReportExcelData {
   const rows = workHandoffRows(staff);
   for (const person of rows) for (const session of person.sessions) {
-    if (session.creditCoeff===null || !Number.isFinite(session.creditCoeff) || session.creditCoeff < 0) throw new Error('Có hệ số công không hợp lệ. Vui lòng kiểm tra trước khi bàn giao.');
+    if (session.creditCoeff===null || !Number.isFinite(session.creditCoeff)) throw new Error('Có hệ số công không hợp lệ. Vui lòng kiểm tra trước khi bàn giao.');
   }
   const state = info.isLocked ? 'Đã khóa kỳ' : 'Chưa khóa kỳ';
   return { filename: workHandoffFilename(info.month), sheets: [
@@ -25,7 +25,7 @@ export function workHandoffExcel(staff: TeacherPayrollSummary[], info: WorkHando
     { name: 'Thông tin bàn giao', autoFilter: false, columnWidths: [30, 90], rows: [
       ['Thông tin', 'Giá trị'], ['Đơn vị', info.organization], ['Địa chỉ', info.address], ['Số biên bản', info.reportNumber || 'Chưa cấp số'], ['Kỳ công', info.month], ['Phạm vi', info.scope], ['Người lập', info.author], ['Ngày lập', info.createdAt],
       ['Bộ phận tiếp nhận', info.receiver], ['Trạng thái kỳ', state], ['Thời điểm khóa kỳ', info.lockedAt || 'Chưa khóa'],
-      ['Quy tắc', 'Buổi chuẩn gồm STANDARD và COVER (dạy thay). Các loại còn lại thuộc buổi sự cố; giữ nguyên hệ số đã đối soát, kể cả 0 công.'],
+      ['Quy tắc', 'Buổi chuẩn gồm STANDARD và COVER (dạy thay). Các loại còn lại thuộc buổi sự cố; giữ nguyên hệ số đã đối soát, kể cả công âm và 0 công.'],
       ['Cách cộng', 'Công chuẩn/công sự cố là tổng hệ số các buổi tương ứng. Tổng công = công chuẩn + công sự cố. Đơn vị: công quy chuẩn; không phải số tiền.'],
       ['Sử dụng', 'Mỗi dòng công theo nhóm dạy phân bổ theo từng tổ hợp môn, mô hình, chương trình/trình độ, cấp học. Cộng các nhóm của cùng mã nhân sự để lấy tổng công trong kỳ. Trạng thái chưa khóa/chưa chốt được giữ nguyên, không tự coi là công đã duyệt.'],
       ['Nguồn phân nhóm', 'Mô hình ưu tiên giá trị lưu trong dòng công. Chương trình/trình độ và cấp học theo lớp liên kết hiện có; chưa phải bản chụp lịch sử danh mục tại ngày dạy.'],

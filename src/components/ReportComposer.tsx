@@ -31,7 +31,7 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
   const [autoTitle, setAutoTitle] = useState(true);
   const [chartType, setChartType] = useState<ReportChartKind>('column');
   const [showCharts, setShowCharts] = useState(true);
-  const [organization, setOrganization] = useState('VUIHOC TUTOR');
+  const [organization, setOrganization] = useState('VUIHOC');
   const [documentInfo, setDocumentInfo] = useState({ address: '', reportNumber: '', reportType: 'Tổng hợp vận hành', circulation: 'internal' as 'internal' | 'external',
     location: '', recipients: '', authorRole: '', approvalEnabled: true, approverRole: 'Giám đốc', approverName: '' });
   const [scopeMode, setScopeMode] = useState<'all' | 'filtered'>('all');

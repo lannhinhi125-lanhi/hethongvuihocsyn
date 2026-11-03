@@ -15,6 +15,12 @@ export interface WorkHandoffInfo {
   organization: string; address: string; reportNumber: string; receiver: string;
   operationsSigner: string; receivingSigner: string; createdAt: string;
 }
+/** No selection means all rows in scope; hidden or stale IDs never broaden it. */
+export function selectWorkHandoffStaff<T extends { teacherId: string }>(staff: T[], selectedIds: string[]): T[] {
+  if (!selectedIds.length) return staff;
+  const selected = new Set(selectedIds);
+  return staff.filter(person => selected.has(person.teacherId));
+}
 export function workHandoffRows(staff: TeacherPayrollSummary[]) {
   return staff.map(person => {
     const sessions = (person.sessions || []).filter(session=>!session.isPendingCredit&&session.creditCoeff!==null), standardSessions = sessions.filter(session => !isIncidentWorkSession(session)).length;

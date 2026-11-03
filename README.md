@@ -1,4 +1,4 @@
-# VUIHOC TUTOR - Hệ thống Quản lý Vận hành Đào tạo Trực tuyến Tập trung
+# VUIHOC - Hệ thống Quản lý Vận hành Đào tạo Trực tuyến Tập trung
 
 Hệ thống được phát triển bằng **React 19**, **Vite**, **TypeScript**, **Tailwind CSS**, sử dụng duy nhất font chữ **Inter** theo đúng yêu cầu. Dữ liệu giữa các chức năng được quản lý tập trung và liên thông logic chặt chẽ (Centralized App Store & Supabase Relational Database).
 

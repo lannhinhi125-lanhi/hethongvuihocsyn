@@ -1,4 +1,4 @@
-// Định nghĩa toàn bộ types cho hệ thống Vuihoc Tutor liên thông 8 phân hệ
+// Định nghĩa toàn bộ types cho hệ thống Vuihoc liên thông 8 phân hệ
 
 export type UserRole = string;
 

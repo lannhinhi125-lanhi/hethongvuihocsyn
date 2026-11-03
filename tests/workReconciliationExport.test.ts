@@ -3,6 +3,7 @@ import type { SessionPayrollRecord, TeacherPayrollSummary } from '../src/types';
 import { workCreditBreakdown, workHandoffDocument, workHandoffExcel, workHandoffRows, workHandoffTotals, type WorkHandoffInfo } from '../src/lib/workReconciliationExport';
 import { workTeachingGroups, type WorkTeachingContext } from '../src/lib/workTeachingGroups';
 import { reportExcelBytes } from '../src/lib/reportExcel';
+import { selectWorkHandoffStaff } from '../src/lib/workCredits';
 const session = (id: string, type: SessionPayrollRecord['type'], creditCoeff: number): SessionPayrollRecord => ({
   id, lessonId: 'lesson-' + id, week: 'W1', date: '2026-10-01', dateStr: '01/10/2026', dayOfWeek: 'T5', time: '18:00 - 19:00',
   classCode: 'ENG-prefix-is-not-subject', className: 'Lớp không được xuất', studentName: 'Học sinh', type, statusText: 'Đã ghi nhận', checkin: '', checkout: '', hasAiReview: false,
@@ -11,7 +12,7 @@ const session = (id: string, type: SessionPayrollRecord['type'], creditCoeff: nu
 const staff = [{ teacherId: '00001', teacherName: 'Nhân sự <A>', staffRole: 'GIAO_VIEN', subject: 'TOAN', subjectName: 'Toán', payrollSent: true, reconcileStatus: 'DA_CHOT',
   sessions: [session('a', 'STANDARD', 1), session('b', 'COVER', 0.5), session('c', 'LATE', 0.25), session('d', 'STUDENT_CANCELED', 0), session('e', 'APPROVED_EXPLANATION', 0.75)]
 }, { teacherId: '00002', teacherName: 'Nhân sự B', staffRole: 'GIA_SU', subject: 'ANH', subjectName: 'Tiếng Anh', reconcileStatus: 'CHO_GUI', sessions: [session('f', 'STANDARD', 0.1), session('g', 'STANDARD', 0.2)] }] as TeacherPayrollSummary[];
-const info: WorkHandoffInfo = { month: '2026-10', isLocked: false, scope: 'Nhân sự đã lọc', author: 'Người lập thật', organization: 'VUIHOC TUTOR', address: 'Địa chỉ <test>', reportNumber: '01/BC', receiver: 'Bộ phận tính lương', operationsSigner: '', receivingSigner: '', createdAt: '18/10/2026 10:00' };
+const info: WorkHandoffInfo = { month: '2026-10', isLocked: false, scope: 'Nhân sự đã lọc', author: 'Người lập thật', organization: 'VUIHOC', address: 'Địa chỉ <test>', reportNumber: '01/BC', receiver: 'Bộ phận tính lương', operationsSigner: '', receivingSigner: '', createdAt: '18/10/2026 10:00' };
 const context: WorkTeachingContext = {
   classes: [
     { id: 'c1', code: 'ENG-prefix-is-not-subject', subject: 'TOAN', model: 'solo', level: 'basic', grade: 'g1' },
@@ -95,6 +96,23 @@ assert.ok(largeDocument.includes('500 người'));
 assert.ok(largeDocument.length < html.length + 1000);
 assert.equal(workHandoffExcel(many, { ...info, isLocked: true }, context).sheets[0].rows.length, workTeachingGroups(many, context).length + 1);
 assert.throws(() => workHandoffExcel([{ ...staff[0], sessions: [session('bad', 'STANDARD', NaN)] }], info), /hệ số công không hợp lệ/);
+const signedStaff = [{ ...staff[0], sessions: [session('standard', 'STANDARD', 20), session('penalty', 'LATE', -1), session('compensation', 'STUDENT_CANCELED', 0.5), session('zero', 'LATE', 0)] }];
+const signedWorkbook = workHandoffExcel(signedStaff, info);
+const signedRow = signedWorkbook.sheets[0].rows[1];
+assert.equal(signedRow[groupHeaders.indexOf('Công chuẩn')], 20);
+assert.equal(signedRow[groupHeaders.indexOf('Công sự cố')], -0.5);
+assert.equal(signedRow[groupHeaders.indexOf('Tổng công')], 19.5);
+assert.equal(workHandoffTotals(signedStaff).totalCredit, 19.5);
+assert.ok(new TextDecoder().decode(reportExcelBytes(signedWorkbook)).includes('<v>-0.5</v>'), 'Excel keeps negative credit as a number');
+assert.throws(() => workHandoffExcel([{ ...staff[0], sessions: [session('infinite', 'LATE', Infinity)] }], info), /hệ số công không hợp lệ/);
+assert.deepEqual(selectWorkHandoffStaff(staff, []), staff, 'No selection exports all staff in the current scope');
+const selectedStaff = selectWorkHandoffStaff(staff, ['00002']);
+assert.deepEqual(selectedStaff.map(person => person.teacherId), ['00002']);
+const selectedWorkbook = workHandoffExcel(selectedStaff, info, context);
+assert.ok(selectedWorkbook.sheets[0].rows.slice(1).every(row => row[1] === '00002'), 'Only checked staff appear in Excel');
+assert.equal(workHandoffTotals(selectedStaff).staff, 1);
+assert.deepEqual(selectWorkHandoffStaff(staff.slice(0, 1), ['00002']), [], 'A selection outside the filter must not export everyone');
+assert.deepEqual(selectWorkHandoffStaff(staff, ['00002', '00002', 'stale-id']), selectedStaff, 'Duplicate or stale IDs do not duplicate rows');
 const archiveText = new TextDecoder().decode(reportExcelBytes(workbook));
 assert.ok(archiveText.includes('t="inlineStr"><is><t xml:space="preserve">00001'));
 assert.ok(!archiveText.includes('<f>'));

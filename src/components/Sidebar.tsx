@@ -145,14 +145,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
         }`}
       >
         <div className="flex min-h-0 h-full w-64 flex-col">
-          {/* Brand Logo VUIHOC TUTOR - Figma style clean mark */}
+          {/* Brand Logo VUIHOC - Figma style clean mark */}
           <div className="px-5 py-4 border-b border-white/10 flex shrink-0 items-center gap-3 bg-gradient-to-b from-white/10 to-transparent">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-300 to-[#FF5C00] flex items-center justify-center text-white font-bold text-xl tracking-tight shadow-xs">
               V
             </div>
             <div>
               <h1 className="font-semibold text-sm tracking-tight text-white leading-tight">
-                VUIHOC <span className="text-orange-400 font-semibold">TUTOR</span>
+                VUIHOC
               </h1>
               <p className="text-[11px] font-normal text-[#9BAED4]">Quản lý & giảng dạy</p>
             </div>

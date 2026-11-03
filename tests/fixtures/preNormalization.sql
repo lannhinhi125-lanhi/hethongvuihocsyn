@@ -634,7 +634,7 @@ INSERT INTO vuihoc."TAI_LIEU_QUY_TRINH" ("madinhdanh", "tieude", "phanloai", "to
 ON CONFLICT DO NOTHING;
 
 INSERT INTO vuihoc."CAU_HINH_TRO_LY" ("madinhdanh", "loichaomung", "cauhoinhanh", "vanphong", "chiduatrentailieu", "cautraloiduphong", "chidanhethong") VALUES
-('global', 'Dạ em chào Thầy/Cô ạ! Em là Trợ lý AI Vận hành Vuihoc Tutor 24/7. Em có thể hỗ trợ giải đáp nhanh quy chế đào tạo, báo nghỉ và hướng dẫn ca dạy.', ARRAY['Quy định báo nghỉ trước ca dạy bao nhiêu tiếng?', 'Sự cố mất mạng đột xuất xử lý thế nào?', 'Quy trình bàn giao ca dạy và hỗ trợ kỹ thuật']::text[], 'Xưng ''Em'', gọi ''Thầy/Cô''; hòa nhã, ân cần, ngắn gọn và chuẩn mực sư phạm.', TRUE, 'Dạ thưa Thầy/Cô, hiện tại vấn đề này chưa có quy định trong tài liệu SOP. Vui lòng liên hệ trực tiếp Quản lý ca trực qua Zalo Nhóm Vận Hành để được hỗ trợ ạ!', 'Bạn là Trợ lý AI Vận hành VUIHOC TUTOR. Trả lời dựa trên tài liệu SOP được cung cấp.')
+('global', 'Dạ em chào Thầy/Cô ạ! Em là Trợ lý AI Vận hành Vuihoc 24/7. Em có thể hỗ trợ giải đáp nhanh quy chế đào tạo, báo nghỉ và hướng dẫn ca dạy.', ARRAY['Quy định báo nghỉ trước ca dạy bao nhiêu tiếng?', 'Sự cố mất mạng đột xuất xử lý thế nào?', 'Quy trình bàn giao ca dạy và hỗ trợ kỹ thuật']::text[], 'Xưng ''Em'', gọi ''Thầy/Cô''; hòa nhã, ân cần, ngắn gọn và chuẩn mực sư phạm.', TRUE, 'Dạ thưa Thầy/Cô, hiện tại vấn đề này chưa có quy định trong tài liệu SOP. Vui lòng liên hệ trực tiếp Quản lý ca trực qua Zalo Nhóm Vận Hành để được hỗ trợ ạ!', 'Bạn là Trợ lý AI Vận hành VUIHOC. Trả lời dựa trên tài liệu SOP được cung cấp.')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO vuihoc."BANG_CONG_THANG" ("madinhdanh", "kycong", "dakhoa", "daguithongbao", "danhsachgiaovien", "danhsachgiaitrinh") VALUES
