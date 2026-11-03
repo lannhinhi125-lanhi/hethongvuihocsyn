@@ -1,4 +1,3 @@
-import { useModuleSection } from '../hooks/useModuleSection';
 import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
@@ -43,7 +42,7 @@ export const Module1_UsersRoles: React.FC = () => {
   const [roleFormPortal, setRoleFormPortal] = useState<AccountPortal>('ADMIN');
   const portalUsers = users.filter(user => accountPortal(user, roleGroups) === portal);
   const portalRoles = roleGroups.filter(role => rolePortal(role) === portal);
-  const [activeTab, setActiveTab] = useModuleSection<'users' | 'roles'>(1, 'users');
+  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -301,7 +300,16 @@ export const Module1_UsersRoles: React.FC = () => {
         </div>
 
         {/* 2 Tab Chuyển đổi */}
-
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl self-start sm:self-auto border border-slate-200 text-xs">
+          <button type="button" onClick={() => setActiveTab('users')} aria-pressed={activeTab === 'users'}
+            className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <Users className="w-4 h-4" /><span>Danh sách Tài khoản</span>
+          </button>
+          <button type="button" onClick={() => setActiveTab('roles')} aria-pressed={activeTab === 'roles'}
+            className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'roles' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+            <ShieldCheck className="w-4 h-4" /><span>Thiết lập Nhóm quyền</span>
+          </button>
+        </div>
       </div>
 
       {/* ================= TAB 1: DANH SÁCH TÀI KHOẢN ================= */}
