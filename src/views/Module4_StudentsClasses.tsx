@@ -316,6 +316,12 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [stdName, setStdName] = useState('');
   const [stdGrade, setStdGrade] = useState('');
+  const [stdCategory, setStdCategory] = useState('');
+  const studentFormCategories = teachingCategories.filter(category => category.status !== false || category.id === stdCategory);
+  const studentFormCategory = teachingCategories.find(category => category.id === stdCategory);
+  const studentFormGrades = studentFormCategory?.options.filter(option =>
+    !studentFormCategory.options.some(child => child.parentId === option.id)
+  ) || [];
   const [stdSubject, setStdSubject] = useState('');
   const [stdFatherName, setStdFatherName] = useState('');
   const [stdFatherPhone, setStdFatherPhone] = useState('');
@@ -661,7 +667,8 @@ export const Module4_StudentsClasses: React.FC = () => {
     setIsAddingSubject(false);
     setStdDrafts([]);
     setStdName('');
-    setStdGrade(gradeOptions[0]?.id || '');
+    setStdCategory('');
+    setStdGrade('');
     setStdSubject(activeSubjects[0]?.code || '');
     setStdFatherName('');
     setStdFatherPhone('');
@@ -682,6 +689,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     setStdDrafts(studentRegistrations(s));
     setStdName(s.name);
     setStdGrade(s.grade);
+    setStdCategory(teachingCategories.find(category => category.options.some(option => option.id === s.grade))?.id || '');
     setStdSubject(s.subject);
     setStdFatherName(s.fatherName ? s.fatherName.replace(' (Bố)', '') : '');
     setStdFatherPhone(s.fatherPhone || '');
@@ -750,7 +758,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     const valid = (activeSubjects.some(item => item.code === stdSubject) || existing?.subject === stdSubject) &&
       (activeLevels.some(item => item.code === stdLevel) || existing?.level === stdLevel) &&
       (activeModels.some(item => item.code === stdModel) || existing?.model === stdModel) &&
-      (gradeOptions.some(item => item.id === stdGrade) || existing?.grade === stdGrade);
+      (studentFormGrades.some(item => item.id === stdGrade) || (existing?.grade === stdGrade && studentFormCategory?.options.some(item => item.id === stdGrade)));
     if (!valid) { showToast('Vui lòng chọn khối, môn, trình độ và mô hình hợp lệ từ danh mục.', 'error'); return false; }
     return true;
   };
@@ -1772,7 +1780,8 @@ export const Module4_StudentsClasses: React.FC = () => {
               <fieldset className="space-y-3"><legend className="font-semibold text-[#FF5C00] mb-2">Thông tin học tập</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="block text-slate-600">Họ và tên học sinh *<input type="text" required value={stdName} onChange={e => setStdName(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg" /></label>
-                  <label className="block text-slate-600">Khối<ReportSelect required disabled={studentGradeLocked} value={stdGrade} onChange={e => setStdGrade(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn khối</option>{gradeOptions.map(item => ({value:item.id,label:item.label})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdGrade && !gradeOptions.map(item => ({value:item.id,label:item.label})).some(item => item.value === stdGrade) && <option value={stdGrade}>{stdGrade} (đã lưu)</option>}</ReportSelect></label>
+                  <label className="block text-slate-600">Cấp học<ReportSelect required disabled={studentGradeLocked} value={stdCategory} onChange={e => { setStdCategory(e.target.value); setStdGrade(''); }} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn cấp học</option>{studentFormCategories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</ReportSelect></label>
+                  <label className="block text-slate-600">Khối lớp<ReportSelect required disabled={studentGradeLocked || !stdCategory} value={stdGrade} onChange={e => setStdGrade(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">{!stdCategory ? 'Chọn cấp học trước' : studentFormGrades.length ? 'Chọn khối lớp' : 'Cấp học chưa có khối lớp'}</option>{studentFormGrades.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}{stdGrade && !studentFormGrades.some(item => item.id === stdGrade) && <option value={stdGrade}>{gradeName(stdGrade)} (đã lưu)</option>}</ReportSelect></label>
                   <label className="block text-slate-600">Môn học<ReportSelect required disabled={isReenrolling} value={stdSubject} onChange={e => selectStudentSubject(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn môn học</option>{formSubjectOptions.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdSubject && !activeSubjects.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdSubject) && <option value={stdSubject}>{stdSubject} (đã lưu)</option>}</ReportSelect></label>
                   <label className="block text-slate-600">Trình độ<ReportSelect required disabled={studentStudyFieldsLocked} value={stdLevel} onChange={e => setStdLevel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn trình độ</option>{activeLevels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdLevel && !activeLevels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdLevel) && <option value={stdLevel}>{stdLevel} (đã lưu)</option>}</ReportSelect></label>
                   <label className="block text-slate-600">Mô hình lớp<ReportSelect required disabled={studentStudyFieldsLocked} value={stdModel} onChange={e => setStdModel(e.target.value)} className="block w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="">Chọn mô hình lớp</option>{activeModels.map(item => ({value:item.code,label:item.name})).map(item => <option key={item.value} value={item.value}>{item.label}</option>)}{stdModel && !activeModels.map(item => ({value:item.code,label:item.name})).some(item => item.value === stdModel) && <option value={stdModel}>{stdModel} (đã lưu)</option>}</ReportSelect></label>

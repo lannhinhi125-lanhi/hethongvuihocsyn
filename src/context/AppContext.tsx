@@ -179,31 +179,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const contactVersion=JSON.stringify(accountSession.users.map(user=>[user.id,user.name,user.username,user.email,user.phone]));
   const previousContactVersion=React.useRef(contactVersion);
   useEffect(()=>{
+    // Initial account hydration is already included in the first business load.
+    if (!businessStatus.loadedAt) { previousContactVersion.current=contactVersion; return; }
     if(previousContactVersion.current===contactVersion || businessStatus.loading || businessStatus.saving)return;
     previousContactVersion.current=contactVersion;
     if(accountSession.actor)void refreshBusinessData();
   },[contactVersion,businessStatus.loading,businessStatus.saving,accountSession.actor?.id]);
-  useEffect(() => {
-    if (!accountSession.actor || isPreviewAccount(accountSession.actor)) return;
-    let nextRefreshAt = 0, failures = 0, active = true;
-    const refresh = async () => {
-      const snapshot = getBusinessSnapshot();
-      if (document.visibilityState !== 'visible' || Date.now() < nextRefreshAt || snapshot.loading || snapshot.saving) return;
-      // Focus and visibility events often arrive together. Avoid another full read
-      // while the last successful snapshot is still recent.
-      if (snapshot.loadedAt && Date.now() - snapshot.loadedAt < 60_000) return;
-      nextRefreshAt = Date.now() + 60_000;
-      await refreshBusinessData();
-      if (!active) return;
-      failures = getBusinessSnapshot().refreshError ? failures + 1 : 0;
-      nextRefreshAt = Date.now() + Math.min(300_000, 60_000 * 2 ** Math.min(failures, 3));
-    };
-    const timer = window.setInterval(() => void refresh(), 60_000);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refresh);
-    return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
-  }, [accountSession.actor?.id]);
-  const teacherAccess = JSON.stringify(accountSession.groups.map(g=>[g.id,g.permissions,g.portal]));
+  // Reload only when this actor's access changes, rather than any other group.
+  const teacherAccess = JSON.stringify(accountSession.groups.filter(g=>g.id===accountSession.actor?.roleGroupId).map(g=>[g.id,g.permissions,g.portal]));
   useEffect(() => {
     resetBusinessData();
     if (accountSession.actor && !isPreviewAccount(accountSession.actor)) void loadBusinessData();

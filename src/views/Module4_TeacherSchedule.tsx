@@ -9,7 +9,7 @@ import { confirmAction } from '../components/ConfirmAction';
 import { ASSISTANT_QUICK_PROMPTS } from '../lib/assistantPrompts';
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingSessionDetails, teachingScheduleEntries, type TeachingLesson } from '../lib/teachingSessionDetails';
-import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
+import { useBusinessValue, useBusinessStatus, waitForBusinessSave } from '../lib/businessPersistence';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
 import { resolveAccountTeacher } from '../lib/evaluation';
@@ -290,12 +290,6 @@ export const Module4_TeacherSchedule: React.FC = () => {
     if(!selectedClassId)return;
     setClassLiveStatus(canReviewSession(checkoutFacts) ? 'DA_HOAN_THANH' : checkoutFacts.checkinAt ? 'DANG_HOC' : 'CHUA_DIEN_RA');
   },[selectedClassId,selectedSessionDate,reviewUnlocked,checkoutFacts.checkinAt]);
-  useEffect(()=>{
-    const refresh=()=>{if(document.visibilityState==='visible')void refreshBusinessData();};
-    const timer=window.setInterval(refresh,15_000);
-    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
-    return ()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
-  },[]);
   const selectedStudentIds=selectedLesson?.feedbackProgress?.studentIds ?? selectedClass?.studentIds ?? [];
   const selectedSubjectKey = selectedClass
     ? subjects.find(subject => subject.code === selectedClass.subject)?.code ||

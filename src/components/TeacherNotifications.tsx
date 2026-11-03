@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bell, Check, Clock, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { refreshBusinessData, useBusinessValue } from '../lib/businessPersistence';
+import { useBusinessValue } from '../lib/businessPersistence';
 import { teacherNotifications, notificationDateText, type NotificationLesson } from '../lib/teacherNotifications';
 
 const readKeysFor = (storageKey: string): string[] => {
@@ -29,13 +29,6 @@ export const TeacherNotifications: React.FC = () => {
   useEffect(() => setReadKeys(readKeysFor(storageKey)), [storageKey]);
   useEffect(() => setDeletedKeys(readKeysFor(deletedStorageKey)), [deletedStorageKey]);
   useEffect(() => {
-    const refresh = () => { if (document.visibilityState === 'visible') void refreshBusinessData(); };
-    const timer = window.setInterval(refresh, 15_000);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
-  }, []);
-  useEffect(() => {
     if (!isOpen) return;
     const closeOutside = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false);
@@ -60,7 +53,7 @@ export const TeacherNotifications: React.FC = () => {
   return <div ref={containerRef} className="relative">
     <button
       type="button"
-      onClick={() => { setIsOpen(open => !open); void refreshBusinessData(); }}
+      onClick={() => { setIsOpen(open => !open); }}
       aria-label={`Thông báo giáo viên${unread.length ? `, ${unread.length} chưa xem` : ''}`}
       aria-expanded={isOpen}
       className="relative rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"

@@ -18,7 +18,7 @@ import { monitoringSubjectCode, selectedMonitoringSubject } from '../lib/monitor
 import { TeachingSessionDetails } from '../components/TeachingSessionDetails';
 import { teachingScheduleEntries } from '../lib/teachingSessionDetails';
 import { EmptyState } from '../components/EmptyState';
-import { useBusinessValue, useBusinessStatus, waitForBusinessSave, refreshBusinessData } from '../lib/businessPersistence';
+import { useBusinessValue, useBusinessStatus, waitForBusinessSave } from '../lib/businessPersistence';
 import { storedMonitoringSession, persistMonitoringChanges } from '../lib/monitoringPersistence';
 import { monitoringSessionStatus, monitoringSessionPriority, isEarlyCheckout, minutesEndedEarly, sessionCompletionWarning, type MonitoringSessionState } from '../lib/sessionAlerts';
 import { PaginatedList } from '../components/Pagination';
@@ -264,12 +264,6 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(new Date()), 10_000);
     return () => window.clearInterval(timer);
-  }, []);
-  useEffect(() => {
-    const refresh = () => { if (document.visibilityState === 'visible') void refreshBusinessData(); };
-    const timer = window.setInterval(refresh, 30_000);
-    window.addEventListener('focus', refresh);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh); };
   }, []);
 
   // Lấy mốc thời gian hiện thời để đối chiếu

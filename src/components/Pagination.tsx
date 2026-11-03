@@ -102,11 +102,13 @@ function TablePageFooter({page,anchor,columns,hidden}:{page:Page;anchor:React.Re
     const table = anchor.current?.closest('table');
     if (!table) return;
     let boundary: HTMLElement = table;
-    for (let parent=table.parentElement;parent && parent!==document.body;parent=parent.parentElement) {
+    // Only move past the table's own scroll wrapper. Walking up to the main
+    // page scroller lets controls escape collapsed catalog branches and panels.
+    const parent = table.parentElement;
+    if (parent && parent !== document.body) {
       const style=window.getComputedStyle(parent);
       if (/(auto|scroll)/.test(`${style.overflowX} ${style.overflowY}`)) {
         boundary=parent;
-        break;
       }
     }
     const footer=document.createElement('div');

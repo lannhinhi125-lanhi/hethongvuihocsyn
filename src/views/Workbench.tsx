@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from 'react';
+import React,{useState} from 'react';
 import {RefreshCw} from 'lucide-react';
 import {WorkbenchOperations} from '../components/WorkbenchOperations';
 import {WorkbenchAnalytics} from '../components/WorkbenchAnalytics';
@@ -17,7 +17,6 @@ export function Workbench(){
  const [range,setRange]=useState(()=>workbenchRange(localDay(new Date()),'week'));
  const [period,setPeriod]=useState<WorkbenchPeriod>('week');
  const selected=sections.find(s=>s.id===section)!;
- useEffect(()=>{const refresh=()=>{if(document.visibilityState==='visible')void refreshBusinessData();};refresh();const timer=window.setInterval(refresh,30_000);window.addEventListener('focus',refresh);return()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);};},[section]);
  return <div className="space-y-4">
   <header className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-lg font-bold text-slate-900">Bàn làm việc</h1><p className="mt-1 text-xs text-slate-500">{selected.description}</p></div><button type="button" onClick={()=>void refreshBusinessData()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600"><RefreshCw className="h-3.5 w-3.5"/>Làm mới</button></div>
    <PeriodToolbar range={range} onChange={setRange} allowAll={false} initialPeriod="week" onPeriodChange={value=>setPeriod(value==='all'||value==='next30'?'custom':value)}/>

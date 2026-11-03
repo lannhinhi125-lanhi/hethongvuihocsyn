@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { SessionPayrollRecord, DisputeItem } from '../types';
 import { getCurrentPayrollMonth, getPayrollMonthOptions } from '../lib/payrollPeriods';
-import { useBusinessValue, refreshBusinessData } from '../lib/businessPersistence';
+import { useBusinessValue } from '../lib/businessPersistence';
 import { visibleTeacherWork, canDisputeTeacherWork } from '../lib/teacherWorkReconciliation';
 import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
@@ -43,7 +43,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
   const { currentUser, payrollStore, submitDispute, showToast, teachers, users,classes,students,timeSlots } = useApp();
   const [clockNow,setClockNow] = useState(()=>new Date());
   useEffect(()=>{
-    const refresh=()=>{if(document.visibilityState==='visible'){setClockNow(new Date());void refreshBusinessData();}};
+    const refresh=()=>{if(document.visibilityState==='visible'){setClockNow(new Date());}};
     refresh();
     const timer=window.setInterval(refresh,15_000);
     window.addEventListener('focus',refresh);
