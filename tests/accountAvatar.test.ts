@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { fromSupabaseRow, toSupabaseRow } from '../src/lib/supabaseMapper';
+import { accountAvatarInitials } from '../src/lib/accountAvatar';
 
 const admin = fromSupabaseRow('users', { madinhdanh: 'ADMIN', hoten: 'Trần Quản Trị' });
 assert.equal(admin.avatarInitials, 'QT');
@@ -9,4 +10,11 @@ assert.equal(fromSupabaseRow('users', { hoten: '' }).avatarInitials, 'VH');
 assert.equal(fromSupabaseRow('users', {}).avatarInitials, 'VH');
 assert.equal(fromSupabaseRow('users', { hoten: 'Trần Minh Anh' }).avatarInitials, 'MA');
 assert.ok(!Object.hasOwn(toSupabaseRow('users', admin), 'avatarInitials'), 'Initials are derived, never written to the database');
+assert.equal(accountAvatarInitials({ username: 'admin.tong', name: 'Trần Quản Trị' }), 'AT');
+assert.equal(accountAvatarInitials({ username: 'nguyen_van_an' }), 'NV');
+assert.equal(accountAvatarInitials({ username: 'gv001' }), 'GV');
+assert.equal(accountAvatarInitials({ username: '  admin  ' }), 'AD');
+assert.equal(accountAvatarInitials({ username: 'đức-an' }), 'ĐA');
+assert.equal(accountAvatarInitials({ username: 'a' }), 'A');
+assert.equal(fromSupabaseRow('users', { tendangnhap: 'admin.tong', hoten: 'Trần Quản Trị', chucaiavatar: '' }).avatarInitials, 'AT');
 console.log('PASS: account avatar initials survive server hydration and do not enter database writes.');

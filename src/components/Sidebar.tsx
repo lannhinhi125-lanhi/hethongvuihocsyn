@@ -1,4 +1,5 @@
 import { usePermissions } from '../hooks/usePermissions';
+import { accountAvatarInitials } from '../lib/accountAvatar';
 import { moduleNavigation } from '../lib/moduleNavigation';
 import { teacherModuleIds } from '../lib/accessControl';
 import { PORTAL_PREVIEW_MODE, isPreviewAccount } from '../lib/previewMode';
@@ -247,7 +248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-2 truncate">
                 <div className="w-7 h-7 rounded-md bg-slate-800 border border-slate-700 text-slate-200 font-semibold flex items-center justify-center text-xs">
-                  {currentUser.avatarInitials}
+                  {accountAvatarInitials(currentUser)}
                 </div>
                 <div className="truncate">
                   <div className="font-medium text-slate-200 truncate">{currentUser.name}</div>

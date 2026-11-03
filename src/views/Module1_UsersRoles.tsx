@@ -1,4 +1,5 @@
 import { recordSortTime } from '../lib/listOrder';
+import { accountAvatarInitials } from '../lib/accountAvatar';
 import { ReportSelect } from '../components/ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { EmptyState } from '../components/EmptyState';
@@ -105,12 +106,7 @@ export const Module1_UsersRoles: React.FC = () => {
       return;
     }
 
-    const avatarInitials = newUserName
-      .split(' ')
-      .slice(-2)
-      .map(p => p[0])
-      .join('')
-      .toUpperCase();
+    const avatarInitials = accountAvatarInitials({ username: newUserUsername, name: newUserName });
 
     const selectedGroup=portalRoles.find(group=>group.id===newUserRoleGroupId);
     if(!selectedGroup){showToast('Chọn nhóm quyền đang tồn tại.','error');return;}

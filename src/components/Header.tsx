@@ -1,4 +1,5 @@
 import { usePermissions } from '../hooks/usePermissions';
+import { accountAvatarInitials } from '../lib/accountAvatar';
 import { teacherModuleIds } from '../lib/accessControl';
 import { ReportSelect } from './ReportSelect';
 import React, { useRef, useState } from 'react';
@@ -152,7 +153,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
           {/* Avatar người dùng hiện tại */}
           <div className="flex items-center gap-2 pl-1">
             <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-700 flex items-center justify-center font-semibold text-xs border border-orange-100">
-              {currentUser.avatarInitials}
+              {accountAvatarInitials(currentUser)}
             </div>
             <div className="text-left hidden lg:block">
               <div className="text-xs font-semibold text-slate-800 leading-tight truncate max-w-[120px] tracking-tight">

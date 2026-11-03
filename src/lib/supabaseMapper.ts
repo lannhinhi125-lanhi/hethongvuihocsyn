@@ -1,4 +1,5 @@
 import { APP_DATABASE_FIELDS, DATABASE_NAMES } from './databaseNames';
+import { accountAvatarInitials } from './accountAvatar';
 import { inspectionDate } from './inspectionReport';
 export type SupabaseDataset = keyof typeof APP_DATABASE_FIELDS;
 type DataRow = Record<string, unknown>;
@@ -91,7 +92,7 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
   }
   if (dataset === 'users') {
     result.passwordRaw = '';
-    result.avatarInitials = String(result.name || '').trim().split(/\s+/).filter(Boolean).slice(-2).map(part => Array.from(part)[0]).join('').toLocaleUpperCase('vi') || 'VH';
+    result.avatarInitials = accountAvatarInitials(result);
   }
   if (dataset === 'report_templates') {
     const config = result.config as {filters?:Record<string,unknown>} | undefined;
