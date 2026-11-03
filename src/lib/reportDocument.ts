@@ -1,11 +1,15 @@
 import {reportDocumentTypography} from './reportTypography';
 import { reportFilterValues, reportFilterLabel } from './customReports';
-import { buildCustomReport, formatReportValue, type CustomReportConfig, type ReportDataset, type ReportResult } from './customReports';
+import { buildCustomReport, formatReportValue, reportRange, type CustomReportConfig, type ReportDataset, type ReportResult } from './customReports';
 import { alignComparisonRows, comparisonIssue, comparisonRange, defaultComparison, formatComparisonRange, reportChange, selectionInPreviousPeriod, withMissingPeriod, type ComparisonSettings } from './reportComparison';
 import { availableReportCharts, renderReportPlot } from './reportPlot';
 import { vuihocReportLogo } from './reportBrand';
 
-export interface ReportDocumentRequest { datasetId: string; config: CustomReportConfig }
+export interface ReportDocumentRequest { datasetId: string; config: CustomReportConfig; range?: { from: string; to: string } }
+export function reportDocumentRange(request: ReportDocumentRequest) {
+  const period = request.range ?? reportRange(request.config);
+  return { start: period.from, end: period.to };
+}
 export interface DocumentSection { dataset: ReportDataset; config: CustomReportConfig; result: ReportResult; previous: ReportResult | null }
 export interface ReportDocumentOptions {
   exportedAt?: string;

@@ -9,9 +9,9 @@ import { useApp } from '../context/AppContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { PeriodToolbar } from './PeriodToolbar';
 import { ComparisonControls } from './ReportComparison';
-import { defaultReportConfig, normalizeReportConfig, reportRange, reportToday, type ReportDataset } from '../lib/customReports';
+import { defaultReportConfig, normalizeReportConfig, reportToday, type ReportDataset } from '../lib/customReports';
 import { defaultComparison, type ComparisonSettings } from '../lib/reportComparison';
-import { buildReportDocument, prepareDocumentSection, suggestReportTitle, type ReportDocumentRequest } from '../lib/reportDocument';
+import { buildReportDocument, prepareDocumentSection, reportDocumentRange, suggestReportTitle, type ReportDocumentRequest } from '../lib/reportDocument';
 import { availableReportCharts, reportChartNames, type ReportChartKind } from '../lib/reportPlot';
 
 const input = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500';
@@ -78,11 +78,11 @@ export function ReportComposer({ datasets, request, updatedAt }: { datasets: Rep
     if (!request || !datasets.some(dataset => dataset.id === request.datasetId)) return;
     const dataset = datasets.find(item => item.id === request.datasetId)!;
     const config = normalizeReportConfig(request.config, datasets);
-    const period = reportRange(config);
+    const period = reportDocumentRange(request);
     setTemplate('custom'); setSelected([dataset.id]); setTitle(suggestReportTitle(dataset, config.groupBy)); setAutoTitle(true); setChartType(config.chartType || 'column');
     setDocumentInfo(info => ({ ...info, reportType: dataset.label }));
     setScopeMode(Object.values(config.filters).some(value => reportFilterValues(value).length > 0) || config.selection ? 'filtered' : 'all');
-    setRange({ start: period.from, end: period.to }); setComparison(config.comparison || defaultComparison);
+    setRange(period); setComparison(config.comparison || defaultComparison);
     setRemarks(''); setRecommendations(''); setPreview(''); setReady(false); setError('');
   }, [request]);
   // Editing invalidates the preview; a printed document always matches the reviewed snapshot.

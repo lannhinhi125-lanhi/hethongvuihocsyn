@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildReportDocument, prepareDocumentSection, type ReportDocumentOptions } from '../src/lib/reportDocument';
+import { buildReportDocument, prepareDocumentSection, reportDocumentRange, type ReportDocumentOptions } from '../src/lib/reportDocument';
 import { defaultReportConfig, type ReportDataset } from '../src/lib/customReports';
 
 const dataset: ReportDataset = { id: 'incidents', label: 'Sự cố', dateKind: 'event',
@@ -11,6 +11,11 @@ const dataset: ReportDataset = { id: 'incidents', label: 'Sự cố', dateKind: 
   defaultMetricIds: ['total', 'incidents', 'rate'], dimensions: [{ id: 'subject', label: 'Môn học' }], filters: [{ id: 'subject', label: 'Môn học' }],
   detailFields: ['id', 'date', 'name', 'extra1', 'extra2', 'extra3', 'extra4', 'extra5'].map(id => ({ id, label: id })) };
 const config = { ...defaultReportConfig(dataset), datePreset: 'custom' as const, from: '2026-10-01', to: '2026-10-31' };
+assert.deepEqual(reportDocumentRange({ datasetId: dataset.id, config }), { start: '2026-10-01', end: '2026-10-31' }, 'Legacy requests retain their custom reporting period');
+const transferredRange = reportDocumentRange({ datasetId: dataset.id, config: { ...config, datePreset: 'month', from: '', to: '' }, range: { from: '2026-09-01', to: '2026-09-30' } });
+assert.deepEqual(transferredRange, { start: '2026-09-01', end: '2026-09-30' }, 'Transfer uses the actual source result dates, not a recomputed current month');
+assert.deepEqual(reportDocumentRange({ datasetId: dataset.id, config, range: { from: '', to: '' } }), { start: '', end: '' }, 'All-time source resets a previous composer period');
+assert.deepEqual(reportDocumentRange({ datasetId: dataset.id, config, range: { from: '2026-11-02', to: '2026-11-08' } }), { start: '2026-11-02', end: '2026-11-08' }, 'A subsequent transfer replaces the prior period');
 const options: ReportDocumentOptions = { title: '<img src=x onerror=alert(1)>', organization: 'Đơn vị A', author: 'Người lập', date: '2026-10-18', updatedAt: '18/10/2026', remarks: 'Nhận xét dòng 1\nDòng 2', recommendations: 'Kiến nghị', appendix: true };
 const section = prepareDocumentSection(dataset, config);
 const html = buildReportDocument([section], options);
