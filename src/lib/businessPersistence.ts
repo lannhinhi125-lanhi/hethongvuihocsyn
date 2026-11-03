@@ -2,6 +2,7 @@ import { useCallback, useSyncExternalStore, type SetStateAction } from 'react';
 import { teacherSessionRequest } from './accountSession';
 import { fromSupabaseRow, toSupabaseRow, type SupabaseDataset } from './supabaseMapper';
 import { recordChanges } from './recordChanges';
+import { orderRecords, recordSortTime } from './listOrder';
 type Row = Record<string, any>;
 type Snapshot = { data: Record<string, any>; loading: boolean; saving: boolean; error: string; saved: number; loadedAt?:number;refreshError?:string;errorOperation?:'load'|'save' };
 const emptyRag = { welcomeGreeting:'',personaTone:'',strictGroundingOnly:true,fallbackResponse:'',systemPrompt:'' };
@@ -34,6 +35,7 @@ function decode(rows:Record<string,Row[]>){
  next.active_tone_key=rows.app_settings?.[0]?.mavanphongdangchon||'';
  next.tone_directives=Object.fromEntries((rows.tone_directives||[]).map(r=>{const x=fromSupabaseRow('tone_directives',r);return [x.id,{name:x.name,directive:x.directive}];}));
  next.monthly_payroll=Object.fromEntries((rows.monthly_payroll||[]).map(r=>{const x=fromSupabaseRow('monthly_payroll',r);const key=x.month_period;delete x.id;delete x.month_period;return [key,x];}));
+ for (const key of collections) next[key] = orderRecords(next[key], 'newest', recordSortTime);
  return next;
 }
 export function resetBusinessData(){generation++;raw={};confirmed={};publish({data:{},loading:false,saving:false,error:'',saved:0});}
@@ -43,16 +45,23 @@ export async function loadBusinessData(){
  try {const result=await teacherSessionRequest('vuihoc_business_data');if(version!==generation)return;raw=result;confirmed=decode(result);publish({...state,data:confirmed,loading:false,error:'',loadedAt:Date.now(),refreshError:''});}
  catch(error){if(version===generation)publish({...state,loading:false,errorOperation:'load',error:(error as Error).message});}
 }
-export async function refreshBusinessData(){
- if(refreshing || state.loading || state.saving || !Object.keys(state.data).length)return;
+let refreshTask: Promise<boolean> | null = null;
+export function refreshBusinessData(): Promise<boolean> {
+ if (refreshTask) return refreshTask;
+ refreshTask = performBusinessRefresh().finally(() => { refreshTask = null; });
+ return refreshTask;
+}
+async function performBusinessRefresh(): Promise<boolean> {
+ if(refreshing || state.loading || state.saving || !Object.keys(state.data).length)return false;
  refreshing=true;
  const version=generation, savedAt=state.saved;
  try {
   const result=await teacherSessionRequest('vuihoc_business_data');
-  if(version!==generation || state.loading || state.saving || state.saved!==savedAt)return;
+  if(version!==generation || state.loading || state.saving || state.saved!==savedAt)return false;
   raw=result;confirmed=decode(result);
   publish({...state,data:confirmed,error:'',loadedAt:Date.now(),refreshError:''});
- }catch(error) {if(version===generation)publish({...state,refreshError:(error as Error).message});}
+  return true;
+ }catch(error) {if(version===generation)publish({...state,refreshError:(error as Error).message});return false;}
  finally {refreshing=false;}
 }
 export function acceptBusinessTeacher(teacher:Row){
@@ -91,12 +100,6 @@ async function flush(){
    const more=JSON.stringify(state.data)!==JSON.stringify(snapshot);
    if(!more&&receipt.data){
     raw=receipt.data;confirmed=decode(raw);
-    // Keep the visible order after the server confirms the save.
-    for(const key of collections){
-     if(key==='time_slots'||!Array.isArray(snapshot[key]))continue;
-     const positions=new Map(snapshot[key].map((row:Row,index:number)=>[row.id,index]));
-     confirmed[key].sort((a:Row,b:Row)=>Number(positions.get(a.id)??Infinity)-Number(positions.get(b.id)??Infinity));
-    }
    }
    publish({...state,data:more?state.data:confirmed,saving:more,saved:state.saved+1,...(!more&&receipt.data?{loadedAt:Date.now(),refreshError:''}:{})});
   }

@@ -55,6 +55,8 @@ interface AppContextType {
   setActiveModule: (mod: number) => void;
   dashboardSelection: DashboardSelection | null;
   openDashboardDetail: (selection: DashboardSelection) => void;
+  moduleSections: Record<number, string>;
+  setModuleSections: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   reportSection: 'detail' | 'custom';
   setReportSection: React.Dispatch<React.SetStateAction<'detail' | 'custom'>>;
   workspaceMode: WorkspaceMode;
@@ -145,7 +147,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeModule, setActiveModuleState] = useState<number>(0);
   const [dashboardSelection, setDashboardSelection] = useState<DashboardSelection|null>(null);
   const setActiveModule = (mod:number) => {setDashboardSelection(null);setActiveModuleState(mod);};
-  const openDashboardDetail = (selection:DashboardSelection) => {setDashboardSelection(selection);setActiveModuleState(selection.module);};
+  const openDashboardDetail = (selection:DashboardSelection) => {setDashboardSelection(selection);setModuleSections(previous => ({...previous, [selection.module]: selection.module === 7 ? 'disputes' : selection.tab}));setActiveModuleState(selection.module);};
+  const [moduleSections, setModuleSections] = useState<Record<number, string>>({});
   const [reportSection, setReportSection] = useState<'detail' | 'custom'>('detail');
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('ADMIN');
   const [teacherPortalTab, setTeacherPortalTab] = useState<'schedule' | 'availability' | 'payroll' | 'evaluation' | 'reconcile'>('availability');
@@ -718,6 +721,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveModule,
         dashboardSelection,
         openDashboardDetail,
+        moduleSections,
+        setModuleSections,
         reportSection,
         setReportSection,
         workspaceMode,

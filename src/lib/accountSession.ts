@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase';
 import {saveErrorMessage} from './saveErrorMessage';
 import { fromSupabaseRow, toSupabaseRow } from './supabaseMapper';
 import type { UserAccount, SystemRoleGroup } from '../types';
+import { orderRecords, recordSortTime } from './listOrder';
 
 type Snapshot = { actor: UserAccount | null; users: UserAccount[]; groups: SystemRoleGroup[]; loading: boolean; saving: boolean; error: string; saved: boolean };
 let state: Snapshot = { actor: null, users: [], groups: [], loading: true, saving: false, error: '', saved: false };
@@ -13,7 +14,11 @@ export function getAccountSessionToken(): string {
   return token;
 }
 let token: string | null = null;
-try { token = sessionStorage.getItem(KEY); } catch { /* Phiên vẫn dùng được trong bộ nhớ. */ }
+try {
+  token = localStorage.getItem(KEY) || sessionStorage.getItem(KEY);
+  if (token) { localStorage.setItem(KEY, token); sessionStorage.removeItem(KEY); }
+} catch { /* Phiên vẫn dùng được trong bộ nhớ. */ }
+export function hasRememberedAccountSession() { return !!token; }
 let generation = 0;
 let revision = 0;
 let flushing = false;
@@ -21,7 +26,11 @@ let pending: { dataset: 'users' | 'role_groups'; before: object | null; after: o
 let confirmed: Snapshot = state;
 let timer: ReturnType<typeof setTimeout> | undefined;
 function publish(next: Snapshot) { state = next; listeners.forEach(listener => listener()); }
-function remember(value: string | null) { token = value; try { if (value) sessionStorage.setItem(KEY,value); else sessionStorage.removeItem(KEY); } catch { /* Bộ nhớ là nguồn dự phòng. */ } }
+function remember(value: string | null) {
+  token = value;
+  try { if (value) localStorage.setItem(KEY,value); else localStorage.removeItem(KEY); } catch { /* Bộ nhớ là nguồn dự phòng. */ }
+  try { sessionStorage.removeItem(KEY); } catch { /* Không có storage. */ }
+}
 async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSignal) {
   // Bound initial reads so a stalled connection cannot leave the whole app loading.
   // Writes keep their existing behavior: aborting does not establish whether a save committed.
@@ -49,16 +58,28 @@ async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSig
 }
 function hydrate(data: {actor: Record<string,unknown>; users: Record<string,unknown>[]; role_groups: Record<string,unknown>[]}) {
   const next: Snapshot = { actor: fromSupabaseRow('users',data.actor) as unknown as UserAccount,
-    users: data.users.map(row => fromSupabaseRow('users',row) as unknown as UserAccount),
-    groups: data.role_groups.map(row => fromSupabaseRow('role_groups',row) as unknown as SystemRoleGroup),
+    users: orderRecords(data.users.map(row => fromSupabaseRow('users',row) as unknown as UserAccount), 'newest', recordSortTime),
+    groups: orderRecords(data.role_groups.map(row => fromSupabaseRow('role_groups',row) as unknown as SystemRoleGroup), 'newest', recordSortTime),
     loading: false, saving: false, error: '', saved: state.saved };
   confirmed=next; publish(next);
 }
 export async function refreshAccountSession() {
-  if (!token || state.saving || pending.length) { if (!token) publish({...state,loading:false}); return; }
+  if (!token || state.saving || pending.length) { if (!token) publish({...state,loading:false}); return false; }
   const version=generation, startRevision=revision;
-  try { const data=await rpc('vuihoc_session',{p_token:token}); if(version===generation && startRevision===revision) hydrate(data); }
-  catch(error) { if(version!==generation || startRevision!==revision)return; remember(null); publish({...state,actor:null,users:[],groups:[],loading:false,error:(error as Error).message}); }
+  try {
+    const data=await rpc('vuihoc_session',{p_token:token});
+    if(version!==generation || startRevision!==revision)return false;
+    hydrate(data); return true;
+  } catch(error) {
+    if(version!==generation || startRevision!==revision)return false;
+    const message=(error as Error).message;
+    // Only an explicit session rejection may remove the session. Network and
+    // query errors keep the current actor and the last successfully loaded data.
+    if (/^Phiên đăng nhập không hợp lệ\.|^Phiên đã hết hạn hoặc tài khoản chưa được gán nhóm quyền\./.test(message)) {
+      remember(null); publish({...state,actor:null,users:[],groups:[],loading:false,error:message});
+    } else publish({...state,loading:false,error:message});
+    return false;
+  }
 }
 export async function loginAccount(username: string,password: string) {
   const version=++generation;
@@ -121,6 +142,12 @@ export function useAccountSession() { return useSyncExternalStore(listener=>{lis
 if(typeof window!=='undefined') {
   void refreshAccountSession();
   window.addEventListener('focus',()=>void refreshAccountSession());
+  window.addEventListener('storage',event=>{
+    if (event.key !== KEY || event.newValue === token) return;
+    ++generation; token=event.newValue; pending=[]; clearTimeout(timer);
+    confirmed={actor:null,users:[],groups:[],loading:!!token,saving:false,error:'',saved:false}; publish(confirmed);
+    void refreshAccountSession();
+  });
   window.addEventListener('beforeunload',event=>{if(state.saving){event.preventDefault();event.returnValue='';}});
   setInterval(()=>void refreshAccountSession(),60_000);
 }

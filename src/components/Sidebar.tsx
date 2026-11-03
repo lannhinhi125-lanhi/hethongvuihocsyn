@@ -1,4 +1,5 @@
 import { usePermissions } from '../hooks/usePermissions';
+import { moduleNavigation } from '../lib/moduleNavigation';
 import { teacherModuleIds } from '../lib/accessControl';
 import { PORTAL_PREVIEW_MODE, isPreviewAccount } from '../lib/previewMode';
 import { resolveAccountTeacher } from '../lib/evaluation';
@@ -31,6 +32,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onCloseMobile, onLogout }) => {
   const { canModule, can } = usePermissions();
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [expandedModules, setExpandedModules] = useState<Record<number, boolean>>({});
   const [currentTime, setCurrentTime] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 30_000);
@@ -39,6 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
 
   const {
     activeModule,
+    moduleSections,
+    setModuleSections,
     setActiveModule,
     reportSection,
     setReportSection,
@@ -53,6 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
     showToast
   } = useApp();
   useEffect(() => { if (activeModule === 8) setReportsOpen(true); }, [activeModule]);
+  useEffect(() => { setExpandedModules(previous => ({ ...previous, [activeModule]: true })); }, [activeModule]);
   const reportItems = [
     { id: 'detail' as const, label: 'Báo cáo chi tiết', allowed: can('Xem báo cáo giáo viên, học sinh và lớp học') || can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Công cụ tạo báo cáo tùy biến (Dynamic Report)') },
     { id: 'custom' as const, label: 'Lập báo cáo', allowed: can('Xem báo cáo giáo viên, học sinh và lớp học') || can('Xem Báo cáo sự cố, dạy thay & dự giờ chuyên môn') || can('Công cụ tạo báo cáo tùy biến (Dynamic Report)') }
@@ -165,6 +170,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
                     {items.map(item => {
                       const isActive = activeModule === item.id;
                       const Icon = item.icon;
+                      const sections = moduleNavigation[item.id];
+                      if (item.id === 2) return <div key={item.id}>
+                        <button type="button" aria-expanded={isActive && !!expandedModules[2]} aria-controls="catalog-sidebar-menu" onClick={() => {
+                          setExpandedModules(previous => ({ ...previous, 2: isActive ? !previous[2] : true }));
+                          if (!isActive) setActiveModule(2);
+                        }} className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs ${isActive ? 'bg-[#FF5C00] font-semibold text-white' : 'text-[#A9BDE2] hover:bg-white/5'}`}>
+                          <Icon className="h-4 w-4 shrink-0" /><span className="flex-1 leading-5">{item.label}</span><ChevronRight className={`h-4 w-4 transition-transform ${isActive && expandedModules[2] ? 'rotate-90' : ''}`} />
+                        </button>
+                        <div id="catalog-sidebar-menu" hidden={!isActive || !expandedModules[2]} className="mt-1" />
+                      </div>;
+                      if (sections) return <div key={item.id}>
+                        <button type="button" aria-expanded={!!expandedModules[item.id]} aria-controls={`module-sidebar-${item.id}`} onClick={() => {
+                          setExpandedModules(previous => ({ ...previous, [item.id]: isActive ? !previous[item.id] : true }));
+                          if (!isActive) setActiveModule(item.id);
+                        }} className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs ${isActive ? 'bg-[#FF5C00] font-semibold text-white' : 'text-[#A9BDE2] hover:bg-white/5'}`}>
+                          <Icon className="h-4 w-4 shrink-0" /><span className="flex-1 leading-5">{item.label}</span><ChevronRight className={`h-4 w-4 transition-transform ${expandedModules[item.id] ? 'rotate-90' : ''}`} />
+                        </button>
+                        {expandedModules[item.id] && <div id={`module-sidebar-${item.id}`} className="ml-5 mt-1 space-y-1 border-l border-white/15 pl-3">{sections.map(entry => {
+                          const selected = isActive && (moduleSections[item.id] || sections[0].id) === entry.id;
+                          return <button key={entry.id} type="button" aria-current={selected ? 'page' : undefined} onClick={() => {
+                            setModuleSections(previous => ({ ...previous, [item.id]: entry.id })); handleAdminNavClick(item.id);
+                          }} className={`w-full rounded-lg px-3 py-2.5 text-left text-xs ${selected ? 'bg-white/10 font-semibold text-orange-300' : 'text-[#A9BDE2] hover:bg-white/5 hover:text-white'}`}>{entry.label}</button>;
+                        })}</div>}
+                      </div>;
                       if (item.id === 8) return <div key={item.id}>
                         <button type="button" aria-expanded={reportsOpen} aria-controls="report-sidebar-menu" onClick={() => {
                           setReportsOpen(activeModule === 8 ? !reportsOpen : true);

@@ -1,3 +1,4 @@
+import { useModuleSection } from '../hooks/useModuleSection';
 import { recordSortTime } from '../lib/listOrder';
 import { coverScheduleConflict, isUnresolvedIncident } from '../lib/monitoringWorkflow';
 import { canAssignCover } from '../lib/coverTiming';
@@ -115,7 +116,8 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const [monitoringRange,setMonitoringRange]=useState(()=>dashboardFilter?.range||workbenchRange(reportToday(),'day'));
   const dateFrom=monitoringRange.start,dateTo=monitoringRange.end;
   // Tab chính
-  const [activeTab, setActiveTab] = useState<'diary' | 'incidents'>(dashboardFilter?.tab||'diary');
+  const [activeTab, setActiveTab] = useModuleSection<'diary' | 'incidents'>(5, dashboardFilter?.tab||'diary');
+  useEffect(() => { if (dashboardFilter && dashboardFilter.tab !== activeTab) setDashboardFilter(null); }, [activeTab, dashboardFilter]);
   const [allUnresolved, setAllUnresolved] = useState(false);
   const unresolvedMode = activeTab === 'incidents' && allUnresolved;
 
@@ -697,30 +699,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-            <button
-              type="button"
-              onClick={() => setActiveTab('diary')}
-              aria-pressed={activeTab === 'diary'}
-              className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-                activeTab === 'diary' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <CalendarDays className="w-4 h-4" />
-              <span>Nhật ký giám sát</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('incidents')}
-              aria-pressed={activeTab === 'incidents'}
-              className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-                activeTab === 'incidents' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <TriangleAlert className="w-4 h-4" />
-              <span>Sự cố &amp; điều phối dạy thay</span>
-            </button>
-          </div>
+
           <button
             type="button"
             onClick={() => setIsTimeFilterOpen(true)}

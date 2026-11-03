@@ -1,5 +1,5 @@
 import { useBusinessStatus, loadBusinessData } from './lib/businessPersistence';
-import { useAccountSession, logoutAccount, refreshAccountSession } from './lib/accountSession';
+import { useAccountSession, logoutAccount, refreshAccountSession, hasRememberedAccountSession } from './lib/accountSession';
 import { canAccessModule, teacherModuleIds, accountPortal } from './lib/accessControl';
 import { LoginView } from './views/LoginView';
 import React, { useEffect, useState, useRef } from 'react';
@@ -48,6 +48,7 @@ const MainLayout: React.FC = () => {
     }
   },[activeAccount,currentUser,roleGroups,activeModule,teacherPortalTab]);
   if(session.loading)return <main className="p-8" role="status">Đang kiểm tra phiên đăng nhập…</main>;
+  if(!activeAccount && hasRememberedAccountSession() && session.error)return <main className="space-y-3 p-8" role="alert"><p>Chưa thể kết nối để khôi phục phiên đăng nhập. Bạn có thể thử lại mà không cần đăng nhập lại.</p><p>{session.error}</p><button className="mr-4 underline" onClick={()=>void refreshAccountSession()}>Thử kết nối lại</button><button className="underline" onClick={()=>void logoutAccount()}>Đăng xuất</button></main>;
   if(!activeAccount)return <LoginView onLogin={()=>setMobileMenuOpen(false)} />;
   if(currentUser.id!==activeAccount.id)return null;
   if(business.loading)return <main className="p-8" role="status">Đang tải dữ liệu…</main>;

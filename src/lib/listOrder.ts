@@ -13,7 +13,7 @@ function timestamp(value: unknown): number | undefined {
 export function recordSortTime(record: unknown): number | undefined {
   if (!record || typeof record !== 'object') return undefined;
   const row = record as Record<string, unknown>;
-  for (const field of ['created_at', 'createdAt', 'occurredAt', 'registeredAt', 'dateISO', 'date', 'dateStr', 'sessionDate', 'evaluationDate', 'submittedAt', 'reportedAt', 'incidentUpdatedAt', 'updatedAt', 'fromDate', 'startDate']) {
+  for (const field of ['created_at', 'createdAt', 'ngaytao', 'occurredAt', 'registeredAt', 'dateISO', 'date', 'dateStr', 'sessionDate', 'evaluationDate', 'submittedAt', 'reportedAt', 'incidentUpdatedAt', 'updatedAt', 'fromDate', 'startDate']) {
     const time = timestamp(row[field]);
     if (time !== undefined) return time;
   }

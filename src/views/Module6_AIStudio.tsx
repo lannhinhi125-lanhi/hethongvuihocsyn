@@ -1,3 +1,4 @@
+import { useModuleSection } from '../hooks/useModuleSection';
 import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
@@ -71,7 +72,7 @@ export const Module6_AIStudio: React.FC = () => {
 
   const [documentCategories]=useBusinessValue<DocumentCategory[]>('document_categories');
   const [savingDocument,setSavingDocument]=useState(false);
-  const [activeTab, setActiveTab] = useState<'knowledge' | 'rag-config'>('knowledge');
+  const [activeTab, setActiveTab] = useModuleSection<'knowledge' | 'rag-config'>(6, 'knowledge');
   const enabledKnowledgeDocuments = sopDocuments.filter(document => document.isEnabled !== false);
   // Document Modal state
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
@@ -229,26 +230,7 @@ export const Module6_AIStudio: React.FC = () => {
         <h1 className="text-lg font-bold text-slate-800">Quản lý tri thức và cấu hình AI</h1>
 
         {/* Knowledge and chatbot tabs */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl overflow-x-auto border border-slate-200/80 self-start lg:self-auto text-xs">
-          <button
-            onClick={() => setActiveTab('knowledge')}
-            className={`px-3.5 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'knowledge' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Tài liệu tri thức</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('rag-config')}
-            className={`px-3.5 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'rag-config' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>Bot chat AI</span>
-          </button>
-        </div>
+
       </div>
 
       {activeTab === 'knowledge' && (

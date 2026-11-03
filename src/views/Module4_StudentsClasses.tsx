@@ -1,4 +1,6 @@
-import { recordSortTime } from '../lib/listOrder';
+import { useModuleSection } from '../hooks/useModuleSection';
+import { orderRecords, recordSortTime } from '../lib/listOrder';
+import { matchesSearch } from '../lib/textSearch';
 import { classStatusLabel, effectiveClassStatus, materialClassStatusLabel } from '../lib/classStatus';
 import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
@@ -148,7 +150,8 @@ export const Module4_StudentsClasses: React.FC = () => {
 
   const students = useMemo(() => studentRegistrationRows(studentProfiles,true), [studentProfiles]);
 
-  const [activeTab, setActiveTab] = useState<'students' | 'classes' | 'materials'>(dashboardFilter?.tab||'students');
+  const [activeTab, setActiveTab] = useModuleSection<'students' | 'classes' | 'materials'>(4, dashboardFilter?.tab||'students');
+  useEffect(() => { if (dashboardFilter && dashboardFilter.tab !== activeTab) setDashboardFilter(null); }, [activeTab, dashboardFilter]);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [pauseClassIds, setPauseClassIds] = useState<string[]>([]);
   const [pauseReason, setPauseReason] = useState('');
@@ -310,6 +313,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   };
 
   // Student Modal state
+  const studentSavePending = useRef(false);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
   const [viewingDetailStudent, setViewingDetailStudent] = useState<StudentRecord | null>(null);
@@ -383,9 +387,12 @@ export const Module4_StudentsClasses: React.FC = () => {
   const [isReenrolling,setIsReenrolling]=useState(false);
   const [clsTeacher, setClsTeacher] = useState('');
   const [clsSelectedStudentIds, setClsSelectedStudentIds] = useState<string[]>([]);
+  const [classStudentSearch, setClassStudentSearch] = useState('');
+  useEffect(() => { setClassStudentSearch(''); }, [isClassModalOpen, editingClassId]);
   const editingClass = classes.find(item=>item.id===editingClassId);
   const showClassWaitingStudents = !editingClassId || Boolean(editingClass && classHasVacancy(editingClass));
   const classWaitingStudents = students.filter(student => student.subject===clsSubject && student.status==='Chờ xếp lớp' && !assignedClass(student) && (!editingClassId || (student.grade===editingClass?.grade && student.model===editingClass?.model && student.level===editingClass?.level)));
+  const visibleClassStudents = orderRecords((!editingClassId ? students.filter(student => student.subject === clsSubject && (clsSelectedStudentIds.includes(student.id) || (student.status === 'Chờ xếp lớp' && !assignedClass(student)))) : classWaitingStudents).filter(student => matchesSearch(classStudentSearch, student.name, student.id)), 'newest', recordSortTime);
 
   useEffect(() => {
     if (isClassModalOpen && !editingClassId) setClsCode(generateClassCode(clsSubject, clsLevel));
@@ -449,8 +456,9 @@ export const Module4_StudentsClasses: React.FC = () => {
       }
 
       return true;
-    }).sort((a, b) => b.freeSlots - a.freeSlots || a.name.localeCompare(b.name, 'vi'));
+    }).sort((a, b) => (recordSortTime(b) ?? -Infinity) - (recordSortTime(a) ?? -Infinity) || 0);
   }, [teachers, classes, timeSlots, clsSubject, clsGrade, clsModel, clsSchedule, editingClassId]);
+  const recommendedClassTeacher = [...eligibleTeachersForClass].sort((a, b) => b.freeSlots - a.freeSlots)[0];
 
   // Tự động kiểm tra tính hợp lệ của giáo viên khi thay đổi môn, khối hoặc lịch học
   useEffect(() => {
@@ -770,56 +778,61 @@ export const Module4_StudentsClasses: React.FC = () => {
     return 'HS-' + year + '-' + String(number).padStart(3, '0');
   };
 
-  const handleSaveStudentSubmit = (e: React.FormEvent) => {
-    if(isSavingChanges){e.preventDefault();return;}
-    e.preventDefault();
-    if (!requirePermission("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
-    e.preventDefault();
-    if (!validateStudentForm()) return;
+  const handleSaveStudentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); if (studentSavePending.current) return;
+    studentSavePending.current = true;
+    try {
+      if(isSavingChanges){e.preventDefault();return;}
+      e.preventDefault();
+      if (!requirePermission("Tiếp nhận học sinh, nhu cầu môn & bảo lưu/hủy")) return;
+      e.preventDefault();
+      if (!validateStudentForm()) return;
 
-    if ((!editingProfile || editingProfile.fatherPhone || editingProfile.motherPhone) && !stdFatherPhone.trim() && !stdMotherPhone.trim()) {
-      showToast('Vui lòng nhập số điện thoại của ít nhất Bố hoặc Mẹ để liên hệ!', 'error');
-      return;
-    }
+      if ((!editingProfile || editingProfile.fatherPhone || editingProfile.motherPhone) && !stdFatherPhone.trim() && !stdMotherPhone.trim()) {
+        showToast('Vui lòng nhập số điện thoại của ít nhất Bố hoặc Mẹ để liên hệ!', 'error');
+        return;
+      }
 
-    const fatherFormatted = stdFatherPhone.trim() ? (stdFatherName ? `${stdFatherName.trim()} (Bố)` : 'Bố') : '';
-    const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
+      const fatherFormatted = stdFatherPhone.trim() ? (stdFatherName ? `${stdFatherName.trim()} (Bố)` : 'Bố') : '';
+      const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
 
-    if (editingStudentId) {
-      if (!updateStudent(editingStudentId, {
-        name: stdName.trim(),
-        grade: stdGrade,
-        subject: stdSubject,
-        model: stdModel,
-        level: stdLevel,
-        status: stdStatus,
-        fatherName: fatherFormatted,
-        fatherPhone: stdFatherPhone.trim(),
-        motherName: motherFormatted,
-        motherPhone: stdMotherPhone.trim(),
-        registrations: formRegistrations(),
-        scheduleSlots: stdSlots
-      })) return;
-    } else {
-      const newStudent: StudentRecord = {
-        id: nextStudentId(),
-        name: stdName.trim(),
-        grade: stdGrade,
-        subject: stdSubject,
-        model: stdModel,
-        level: stdLevel,
-        fatherName: fatherFormatted,
-        fatherPhone: stdFatherPhone.trim(),
-        motherName: motherFormatted,
-        motherPhone: stdMotherPhone.trim(),
-        registrations: formRegistrations(),
-        scheduleSlots: stdSlots,
-        status: stdStatus,
-        currentClassCode: undefined
-      };
-      if (!addStudent(newStudent)) return;
-    }
-    void confirmSave(()=>setIsStudentModalOpen(false));
+      if (editingStudentId) {
+        if (!updateStudent(editingStudentId, {
+          name: stdName.trim(),
+          grade: stdGrade,
+          subject: stdSubject,
+          model: stdModel,
+          level: stdLevel,
+          status: stdStatus,
+          fatherName: fatherFormatted,
+          fatherPhone: stdFatherPhone.trim(),
+          motherName: motherFormatted,
+          motherPhone: stdMotherPhone.trim(),
+          registrations: formRegistrations(),
+          scheduleSlots: stdSlots
+        })) return;
+      } else {
+        const newStudent: StudentRecord = {
+          id: nextStudentId(),
+          name: stdName.trim(),
+          grade: stdGrade,
+          subject: stdSubject,
+          model: stdModel,
+          level: stdLevel,
+          fatherName: fatherFormatted,
+          fatherPhone: stdFatherPhone.trim(),
+          motherName: motherFormatted,
+          motherPhone: stdMotherPhone.trim(),
+          registrations: formRegistrations(),
+          scheduleSlots: stdSlots,
+          status: stdStatus,
+          currentClassCode: undefined
+        };
+        if (!addStudent(newStudent)) return;
+        setEditingStudentId(newStudent.id);
+      }
+      await confirmSave(()=>setIsStudentModalOpen(false));
+    } finally { studentSavePending.current = false; }
   };
 
   // Tìm danh sách lớp học phù hợp đang còn chỗ trống cho học sinh (Mô hình 1-n)
@@ -840,148 +853,158 @@ export const Module4_StudentsClasses: React.FC = () => {
   };
 
   // Ghép ngay học sinh từ Form Modal vào lớp học có sẵn đang thiếu người
-  const handleSaveAndAssignToClass = (targetClass: ClassItem) => {
-    if(isSavingChanges)return;
-    if (!requirePermission("Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)")) return;
-    if (!validateStudentForm()) return;
-    targetClass = classes.find(item => item.id === targetClass.id) || targetClass;
-    if (editingStudentId && targetClass.studentIds.includes(editingStudentId)) { showToast('Học sinh đã có trong lớp này.', 'warning'); return; }
-    if (editingStudentId && studentScheduleConflict(editingStudentId, targetClass, classes)) { showToast('Lịch lớp trùng với lớp môn khác của học sinh.', 'error'); return; }
-    if (targetClass.studentIds.length >= targetClass.maxStudents) { showToast('Lớp đã đủ sĩ số. Vui lòng chọn lớp khác.', 'error'); return; }
-    if (!stdName.trim()) {
-      showToast('Vui lòng nhập họ tên học sinh!', 'error');
-      return;
-    }
-    if (!stdFatherPhone.trim() && !stdMotherPhone.trim()) {
-      showToast('Vui lòng nhập số điện thoại của ít nhất Bố hoặc Mẹ để liên hệ!', 'error');
-      return;
-    }
+  const handleSaveAndAssignToClass = async (targetClass: ClassItem) => {
+    if (studentSavePending.current) return;
+    studentSavePending.current = true;
+    try {
+      if(isSavingChanges)return;
+      if (!requirePermission("Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)")) return;
+      if (!validateStudentForm()) return;
+      targetClass = classes.find(item => item.id === targetClass.id) || targetClass;
+      if (editingStudentId && targetClass.studentIds.includes(editingStudentId)) { showToast('Học sinh đã có trong lớp này.', 'warning'); return; }
+      if (editingStudentId && studentScheduleConflict(editingStudentId, targetClass, classes)) { showToast('Lịch lớp trùng với lớp môn khác của học sinh.', 'error'); return; }
+      if (targetClass.studentIds.length >= targetClass.maxStudents) { showToast('Lớp đã đủ sĩ số. Vui lòng chọn lớp khác.', 'error'); return; }
+      if (!stdName.trim()) {
+        showToast('Vui lòng nhập họ tên học sinh!', 'error');
+        return;
+      }
+      if (!stdFatherPhone.trim() && !stdMotherPhone.trim()) {
+        showToast('Vui lòng nhập số điện thoại của ít nhất Bố hoặc Mẹ để liên hệ!', 'error');
+        return;
+      }
 
-    const fatherFormatted = stdFatherPhone.trim() ? (stdFatherName ? `${stdFatherName.trim()} (Bố)` : 'Bố') : '';
-    const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
+      const fatherFormatted = stdFatherPhone.trim() ? (stdFatherName ? `${stdFatherName.trim()} (Bố)` : 'Bố') : '';
+      const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
 
-    const studentIdToUse: string = editingStudentId || nextStudentId();
-    const previousClass = assignedClass(editingSubjectProfile);
-    if (editingStudentId) {
-      classes.filter(item => item.id !== targetClass.id && item.subject === stdSubject && item.studentIds.includes(editingStudentId)).forEach(item => {
-        updateClass(item.id, { studentIds: item.studentIds.filter(id => id !== editingStudentId) });
-      });
-      if (!updateStudent(editingStudentId, {
-        name: stdName.trim(),
-        grade: stdGrade,
-        subject: stdSubject,
-        model: stdModel,
-        level: stdLevel,
-        status: 'Đang học',
-        currentClassCode: targetClass.code,
-        fatherName: fatherFormatted,
-        fatherPhone: stdFatherPhone.trim(),
-        motherName: motherFormatted,
-        motherPhone: stdMotherPhone.trim(),
-        registrations: formRegistrations(targetClass),
-        scheduleSlots: stdSlots
-      })) return;
-    } else {
-      const newStudent: StudentRecord = {
-        id: studentIdToUse,
-        name: stdName.trim(),
-        grade: stdGrade,
-        subject: stdSubject,
-        model: stdModel,
-        level: stdLevel,
-        fatherName: fatherFormatted,
-        fatherPhone: stdFatherPhone.trim(),
-        motherName: motherFormatted,
-        motherPhone: stdMotherPhone.trim(),
-        registrations: formRegistrations(targetClass),
-        scheduleSlots: stdSlots,
-        status: 'Đang học',
-        currentClassCode: targetClass.code
-      };
-      if (!addStudent(newStudent)) return;
-    }
+      const studentIdToUse: string = editingStudentId || nextStudentId();
+      const previousClass = assignedClass(editingSubjectProfile);
+      if (editingStudentId) {
+        classes.filter(item => item.id !== targetClass.id && item.subject === stdSubject && item.studentIds.includes(editingStudentId)).forEach(item => {
+          updateClass(item.id, { studentIds: item.studentIds.filter(id => id !== editingStudentId) });
+        });
+        if (!updateStudent(editingStudentId, {
+          name: stdName.trim(),
+          grade: stdGrade,
+          subject: stdSubject,
+          model: stdModel,
+          level: stdLevel,
+          status: 'Đang học',
+          currentClassCode: targetClass.code,
+          fatherName: fatherFormatted,
+          fatherPhone: stdFatherPhone.trim(),
+          motherName: motherFormatted,
+          motherPhone: stdMotherPhone.trim(),
+          registrations: formRegistrations(targetClass),
+          scheduleSlots: stdSlots
+        })) return;
+      } else {
+        const newStudent: StudentRecord = {
+          id: studentIdToUse,
+          name: stdName.trim(),
+          grade: stdGrade,
+          subject: stdSubject,
+          model: stdModel,
+          level: stdLevel,
+          fatherName: fatherFormatted,
+          fatherPhone: stdFatherPhone.trim(),
+          motherName: motherFormatted,
+          motherPhone: stdMotherPhone.trim(),
+          registrations: formRegistrations(targetClass),
+          scheduleSlots: stdSlots,
+          status: 'Đang học',
+          currentClassCode: targetClass.code
+        };
+        if (!addStudent(newStudent)) return;
+        setEditingStudentId(newStudent.id);
+      }
 
-    // Cập nhật học sinh vào lớp học
-    if (!targetClass.studentIds.includes(studentIdToUse)) {
-      updateClass(targetClass.id, {
-        studentIds: [...targetClass.studentIds, studentIdToUse]
-      });
-    }
+      // Cập nhật học sinh vào lớp học
+      if (!targetClass.studentIds.includes(studentIdToUse)) {
+        updateClass(targetClass.id, {
+          studentIds: [...targetClass.studentIds, studentIdToUse]
+        });
+      }
 
-    void confirmSave(()=>setIsStudentModalOpen(false));
-    showToast(
-      `${previousClass ? "Đã chuyển" : "Đã ghép"} học sinh ${stdName.trim()} ${previousClass ? "từ lớp " + previousClass.code + " " : ""}vào lớp ${targetClass.name} (${targetClass.code})! Sĩ số: ${targetClass.studentIds.length + 1}/${targetClass.maxStudents} HS`,
-      'success'
-    );
+      await confirmSave(()=>setIsStudentModalOpen(false));
+      showToast(
+        `${previousClass ? "Đã chuyển" : "Đã ghép"} học sinh ${stdName.trim()} ${previousClass ? "từ lớp " + previousClass.code + " " : ""}vào lớp ${targetClass.name} (${targetClass.code})! Sĩ số: ${targetClass.studentIds.length + 1}/${targetClass.maxStudents} HS`,
+        'success'
+      );
+    } finally { studentSavePending.current = false; }
   };
 
   // Lưu hồ sơ và mở ngay luồng Tạo lớp mới (1-1 hoặc 1-n khi chưa có lớp ghép)
-  const handleSaveAndCreateClass = () => {
-    if(isSavingChanges)return;
-    if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
-    if (!validateStudentForm()) return;
-    if (!stdName.trim()) {
-      showToast('Vui lòng nhập họ tên học sinh!', 'error');
-      return;
-    }
-    if (!stdFatherPhone.trim() && !stdMotherPhone.trim()) {
-      showToast('Vui lòng nhập số điện thoại của ít nhất Bố hoặc Mẹ để liên hệ!', 'error');
-      return;
-    }
+  const handleSaveAndCreateClass = async () => {
+    if (studentSavePending.current) return;
+    studentSavePending.current = true;
+    try {
+      if(isSavingChanges)return;
+      if (!requirePermission("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
+      if (!validateStudentForm()) return;
+      if (!stdName.trim()) {
+        showToast('Vui lòng nhập họ tên học sinh!', 'error');
+        return;
+      }
+      if (!stdFatherPhone.trim() && !stdMotherPhone.trim()) {
+        showToast('Vui lòng nhập số điện thoại của ít nhất Bố hoặc Mẹ để liên hệ!', 'error');
+        return;
+      }
 
-    const fatherFormatted = stdFatherPhone.trim() ? (stdFatherName ? `${stdFatherName.trim()} (Bố)` : 'Bố') : '';
-    const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
+      const fatherFormatted = stdFatherPhone.trim() ? (stdFatherName ? `${stdFatherName.trim()} (Bố)` : 'Bố') : '';
+      const motherFormatted = stdMotherPhone.trim() ? (stdMotherName ? `${stdMotherName.trim()} (Mẹ)` : 'Mẹ') : '';
 
-    let studentObj: StudentRecord;
-    if (editingStudentId) {
-      studentObj = {
-        id: editingStudentId,
-        name: stdName.trim(),
-        grade: stdGrade,
-        subject: stdSubject,
-        model: stdModel,
-        level: stdLevel,
-        status: 'Chờ xếp lớp',
-        fatherName: fatherFormatted,
-        fatherPhone: stdFatherPhone.trim(),
-        motherName: motherFormatted,
-        motherPhone: stdMotherPhone.trim(),
-        registrations: formRegistrations(),
-        scheduleSlots: stdSlots,
-        currentClassCode: undefined
-      };
-      if (!updateStudent(editingStudentId, studentObj)) return;
-    } else {
-      studentObj = {
-        id: nextStudentId(),
-        name: stdName.trim(),
-        grade: stdGrade,
-        subject: stdSubject,
-        model: stdModel,
-        level: stdLevel,
-        fatherName: fatherFormatted,
-        fatherPhone: stdFatherPhone.trim(),
-        motherName: motherFormatted,
-        motherPhone: stdMotherPhone.trim(),
-        registrations: formRegistrations(),
-        scheduleSlots: stdSlots,
-        status: 'Chờ xếp lớp',
-        currentClassCode: undefined
-      };
-      if (!addStudent(studentObj)) return;
-    }
+      let studentObj: StudentRecord;
+      if (editingStudentId) {
+        studentObj = {
+          id: editingStudentId,
+          name: stdName.trim(),
+          grade: stdGrade,
+          subject: stdSubject,
+          model: stdModel,
+          level: stdLevel,
+          status: 'Chờ xếp lớp',
+          fatherName: fatherFormatted,
+          fatherPhone: stdFatherPhone.trim(),
+          motherName: motherFormatted,
+          motherPhone: stdMotherPhone.trim(),
+          registrations: formRegistrations(),
+          scheduleSlots: stdSlots,
+          currentClassCode: undefined
+        };
+        if (!updateStudent(editingStudentId, studentObj)) return;
+      } else {
+        studentObj = {
+          id: nextStudentId(),
+          name: stdName.trim(),
+          grade: stdGrade,
+          subject: stdSubject,
+          model: stdModel,
+          level: stdLevel,
+          fatherName: fatherFormatted,
+          fatherPhone: stdFatherPhone.trim(),
+          motherName: motherFormatted,
+          motherPhone: stdMotherPhone.trim(),
+          registrations: formRegistrations(),
+          scheduleSlots: stdSlots,
+          status: 'Chờ xếp lớp',
+          currentClassCode: undefined
+        };
+        if (!addStudent(studentObj)) return;
+        setEditingStudentId(studentObj.id);
+      }
 
-    void confirmSave(()=>{
-    setIsStudentModalOpen(false);
-    showToast(
-      `Đã lưu hồ sơ học sinh ${stdName.trim()}. Đang mở form tạo lớp ${stdModel === '1-1' ? '1 Kèm 1' : stdModel} mới...`,
-      'success'
-    );
+      await confirmSave(()=>{
+      setIsStudentModalOpen(false);
+      showToast(
+        `Đã lưu hồ sơ học sinh ${stdName.trim()}. Đang mở form tạo lớp ${stdModel === '1-1' ? '1 Kèm 1' : stdModel} mới...`,
+        'success'
+      );
 
-    setTimeout(() => {
-      openCreateClass(studentObj);
-    }, 150);
-    });
+      setTimeout(() => {
+        openCreateClass(studentObj);
+      }, 150);
+      });
+    } finally { studentSavePending.current = false; }
   };
 
   // Class CRUD
@@ -1369,35 +1392,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         </div>
 
         {/* 3 Tabs Phân hệ 4 */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl self-start sm:self-auto border border-slate-200 text-xs">
-          <button
-            onClick={() => {if(activeTab!=='students')setDashboardFilter(null);setActiveTab('students');}}
-            className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'students' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Hồ sơ Học sinh</span>
-          </button>
-          <button
-            onClick={() => {if(activeTab!=='classes')setDashboardFilter(null);setActiveTab('classes');}}
-            className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'classes' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Presentation className="w-4 h-4" />
-            <span>Quản lý Lớp học</span>
-          </button>
-          <button
-            onClick={() => {if(activeTab!=='materials')setDashboardFilter(null);setActiveTab('materials');}}
-            className={`px-4 py-2 font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'materials' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Phân phối Học liệu</span>
-          </button>
-        </div>
+
       </div>
 
       {/* ================= TAB 1: HỒ SƠ HỌC SINH ================= */}
@@ -2041,12 +2036,13 @@ export const Module4_StudentsClasses: React.FC = () => {
               {showClassWaitingStudents && (!editingClassId || can('Ghép học sinh vào lớp (Kiểm soát chặn vượt trần)')) && <section className="border border-orange-200 rounded-xl p-3 bg-orange-50/40 space-y-2">
                 <div className="flex justify-between gap-2"><h4 className="font-semibold text-[#FF5C00]">Chọn học sinh chờ lớp</h4><span className="text-[11px] text-slate-500">Đã chọn: {clsSelectedStudentIds.length}/{models.find(item => item.code === clsModel)?.maxStudents || 0}</span></div>
                 <p className="text-[11px] text-slate-500">{editingClassId ? 'Thêm học sinh có cùng môn, khối, mô hình và trình độ với lớp.' : 'Chọn học sinh đầu tiên để tự điền loại lớp, khối, môn, mô hình, trình độ, lịch đăng ký và mã lớp.'}</p>
+                <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" /><input type="search" aria-label="Tìm học sinh chờ lớp theo tên hoặc mã" value={classStudentSearch} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }} onChange={event => setClassStudentSearch(event.target.value)} placeholder="Tìm tên hoặc mã học sinh..." className="w-full rounded-lg border border-orange-200 bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-orange-400" /></div>
                 <div className="max-h-44 overflow-y-auto divide-y divide-orange-100 rounded-lg border border-orange-100 bg-white">
-                  {(!editingClassId ? students.filter(student => student.subject === clsSubject && (clsSelectedStudentIds.includes(student.id) || (student.status === 'Chờ xếp lớp' && !assignedClass(student)))) : classWaitingStudents).map(student => <label key={student.id + student.subject} className="p-2 flex items-start gap-2 hover:bg-orange-50 cursor-pointer">
+                  {visibleClassStudents.map(student => <label key={student.id + student.subject} className="p-2 flex items-start gap-2 hover:bg-orange-50 cursor-pointer">
                     <input type="checkbox" disabled={Boolean(editingClassId) && !clsSelectedStudentIds.includes(student.id) && clsSelectedStudentIds.length >= (editingClass?.maxStudents || 0)} checked={clsSelectedStudentIds.includes(student.id)} onChange={event => handleSelectClassStudent(student,event.target.checked)} className="mt-1 accent-[#FF5C00]" />
                     <div className="min-w-0"><p><strong>{student.name}</strong> <span className="text-slate-400">({student.id})</span></p><p className="text-[11px] text-slate-500">{gradeName(student.grade)} · {subjectName(student.subject)} · {levelName(student.level)} · {student.model}</p><p className="text-[10px] text-[#FF5C00]">{student.scheduleSlots.join(', ') || 'Chưa đăng ký khung giờ'}</p></div>
                   </label>)}
-                  {!(editingClassId ? classWaitingStudents.length : students.some(student => student.subject===clsSubject && (clsSelectedStudentIds.includes(student.id) || (student.status==='Chờ xếp lớp' && !assignedClass(student))))) && <p className="p-3 text-slate-400">Không có học sinh chờ lớp.</p>}
+                  {!visibleClassStudents.length && <p role="status" className="p-3 text-slate-400">{classStudentSearch.trim() ? 'Không tìm thấy học sinh phù hợp.' : 'Không có học sinh chờ lớp.'}</p>}
                 </div>
               </section>}
 
@@ -2155,7 +2151,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                         </option>
                         {eligibleTeachersForClass.map(t => (
                           <option key={t.id} value={t.id}>
-                            {t.name} ({t.grades.join(', ')}){editingClassId && classes.find(item=>item.id===editingClassId)?.teacherId===t.id ? ' · Đang phụ trách' : ` - Còn ${t.freeSlots} ca rảnh${t.id===eligibleTeachersForClass[0].id?' · Đề xuất':''}`}
+                            {t.name} ({t.grades.join(', ')}){editingClassId && classes.find(item=>item.id===editingClassId)?.teacherId===t.id ? ' · Đang phụ trách' : ` - Còn ${t.freeSlots} ca rảnh${t.id===recommendedClassTeacher?.id?' · Đề xuất':''}`}
                           </option>
                         ))}
                       </>
@@ -2572,7 +2568,7 @@ export const Module4_StudentsClasses: React.FC = () => {
           {([['Mã lớp','code'],['Tên lớp','name'],['Cấp học / lớp dạy','category'],['Khối lớp','grade'],['Môn học','subject'],['Mô hình','model'],['Trình độ','level'],['Lịch học','schedule'],['Sĩ số','occupancy'],['Trạng thái','status'],['Giáo viên','teacher']] as [string, ClassFilterKey][]).map(([label,key]) => <section key={key} className="space-y-2 border-t border-slate-100 pt-3"><div className="flex justify-between"><h4 className="font-semibold">{label}</h4><button type="button" className="text-[#FF5C00]" onClick={() => setClassFilter(key,[])}>Xóa lọc</button></div><CheckboxFilterOptions label={label} values={clsFilters[key] || []} options={classFilterOptions(key)} onChange={values => setClassFilter(key,values)} /></section>)}
         </div>
       </FilterDrawer>
-    
+
     </div>
   );
 };

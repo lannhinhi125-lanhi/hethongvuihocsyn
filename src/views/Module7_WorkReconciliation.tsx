@@ -1,3 +1,4 @@
+import { useModuleSection } from '../hooks/useModuleSection';
 import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
@@ -81,7 +82,8 @@ export const Module7_WorkReconciliation: React.FC = () => {
   // State bộ lọc
   const [selectedMonth, setSelectedMonth] = useState<string>(() => dashboardFilter?.range.end.slice(0,7)||getCurrentPayrollMonth());
   const payrollMonthOptions = getPayrollMonthOptions(new Date(), [...Object.keys(payrollStore), ...handoffLessons.map(lesson => lesson.date.slice(0,7))]);
-  const [activeTab, setActiveTab] = useState<'summary' | 'sessions' | 'disputes'>(dashboardFilter?'disputes':'summary');
+  const [activeTab, setActiveTab] = useModuleSection<'summary' | 'sessions' | 'disputes'>(7, dashboardFilter?'disputes':'summary');
+  useEffect(() => { if (dashboardFilter && dashboardFilter.tab !== activeTab) setDashboardFilter(null); }, [activeTab, dashboardFilter]);
   const [detailTeacherId, setDetailTeacherId] = useState<string | null>(null);
   const [staffTypeFilter, setStaffTypeFilter] = useState<'ALL' | 'GIAO_VIEN' | 'GIA_SU'>('ALL');
   const [subjectFilter, setSubjectFilter] = useState<string>('ALL');
@@ -655,54 +657,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       </div>}
       {/* Tabs Chuyển đổi màn hình */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="flex overflow-x-auto border-b border-slate-200 px-3 pt-2 bg-slate-50/50">
-          <button
-            onClick={() => { setDashboardFilter(null);setDetailTeacherId(null); setActiveTab('summary'); }}
-            className={`shrink-0 px-3 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'summary'
-                ? 'border-[#FF5C00] text-[#E05200]'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>Tổng hợp công theo nhân sự (GV &amp; Gia sư)</span>
-            <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded-full text-[10px] font-bold">
-              {filteredStaff.length}
-            </span>
-          </button>
 
-          <button
-            onClick={() => {setDashboardFilter(null);setActiveTab('sessions');}}
-            className={`shrink-0 px-3 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'sessions'
-                ? 'border-[#FF5C00] text-[#E05200]'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Chi tiết từng buổi học &amp; Chốt công</span>
-            <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded-full text-[10px] font-bold">
-              {detailSessions.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('disputes')}
-            className={`shrink-0 px-3 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'disputes'
-                ? 'border-[#FF5C00] text-[#E05200]'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Xử lý giải trình &amp; Khiếu nại công</span>
-            {pendingDisputeCount > 0 && (
-              <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-bold">
-                {pendingDisputeCount}
-              </span>
-            )}
-          </button>
-        </div>
 
         {/* Thanh công cụ lọc */}
         <div className="p-3 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-2">

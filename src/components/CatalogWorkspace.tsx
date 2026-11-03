@@ -1,4 +1,5 @@
 import { recordSortTime } from '../lib/listOrder';
+import { createPortal } from 'react-dom';
 import { ReportSelect } from './ReportSelect';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { EmptyState } from './EmptyState';
@@ -25,6 +26,8 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   const toggleBranch = (id: string) => setExpandedIds(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id]);
   const [selectedId, setSelectedId] = useState('');
   const [query, setQuery] = useState('');
+  const [sidebarTarget, setSidebarTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => { setSidebarTarget(document.getElementById('catalog-sidebar-menu')); }, []);
   const [entryQuery, setEntryQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [dialog, setDialog] = useState<'catalog' | 'entry' | null>(null);
@@ -72,7 +75,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
   const matches = (value: string) => value.toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi'));
   const groups = [...new Set(items.map(item => item.group))];
   const rows = (selected?.entries || []).filter(entry => (entry.name + ' ' + entry.code).toLocaleLowerCase('vi').includes(entryQuery.trim().toLocaleLowerCase('vi')) && (status === 'all' || entry.status === (status === 'active')));
-  const navClass = (chosen: boolean) => 'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs ' + (chosen ? 'bg-orange-50 font-semibold text-orange-700' : 'text-slate-600 hover:bg-slate-50');
+  const navClass = (chosen: boolean) => 'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs ' + (chosen ? 'bg-white/10 font-semibold text-orange-300' : 'text-[#A9BDE2] hover:bg-white/5 hover:text-white');
   const isRoot = (item: Catalog) => !navigationFor(item) && (!item.parentId || ![...items, ...catalogs].some(parent => parent.id === item.parentId));
   const navigationChildren = (item: Navigation) => {
     const catalogId = catalogs.find(catalog => navigationFor(catalog)?.id === item.id)?.id;
@@ -98,8 +101,8 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
     <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
       <div><h2 className="text-lg font-bold text-slate-900">Danh mục dùng chung</h2><p className="mt-1 text-xs text-slate-500">Quản lý danh mục và các giá trị dùng trong hệ thống.</p></div>
     </header>
-    <div className="grid items-start gap-3 lg:grid-cols-[235px_minmax(0,1fr)]">
-      <aside className="rounded-xl border border-slate-200 bg-white p-3">
+    <div className="space-y-3">
+      {sidebarTarget && createPortal(<aside className="ml-2 border-l border-white/15 p-2 text-slate-300 [&_input]:border-white/15 [&_input]:bg-white/5 [&_input]:text-slate-200 [&_input]:placeholder:text-slate-400">
         <label className="relative block"><Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" /><input aria-label="Tìm loại danh mục" placeholder="Tìm danh mục..." value={query} onChange={event => setQuery(event.target.value)} className={input + ' pl-8'} /></label>
         <nav aria-label="Các danh mục dùng chung" className="mt-3 space-y-3">
           {groups.map(group => <div key={group}><h3 className="mb-1 px-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">{group}</h3>
@@ -112,7 +115,7 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
           </div>
           {query && ![...items, ...catalogs].some(item => matches(item.name)) && <p className="px-3 text-xs text-slate-500">Không tìm thấy danh mục.</p>}
         </nav>
-      </aside>
+      </aside>, sidebarTarget)}
       <main className="min-w-0">
         {selected && <nav aria-label="Đường dẫn danh mục" className="mb-3 flex flex-wrap items-center gap-1 text-xs text-slate-500">{path.map((item, index) => <React.Fragment key={item.id}>{index > 0 && <span>/</span>}<button type="button" className="rounded px-1 py-1 hover:bg-orange-50 hover:text-orange-700" onClick={() => { if (items.some(builtin => builtin.id === item.id)) { setSelectedId(''); onSelect(item.id); } else selectCatalog(item.id); }}>{item.name}</button></React.Fragment>)}</nav>}
         {!selected ? children : <CatalogTreeBranch key={selected.id} title={selected.name} code={selected.code} count={selected.entries.length} disabled={!canEdit} addLabel="Thêm giá trị" onAdd={() => open('entry')} revealKey={entryQuery || (status !== 'all' ? status : '')}>

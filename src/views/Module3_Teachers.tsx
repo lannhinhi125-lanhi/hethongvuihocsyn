@@ -1,3 +1,4 @@
+import { useModuleSection } from '../hooks/useModuleSection';
 import { recordSortTime } from '../lib/listOrder';
 import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import { PeriodToolbar } from '../components/PeriodToolbar';
@@ -73,7 +74,7 @@ export const Module3_Teachers: React.FC = () => {
   const [, setEvaluations] = useBusinessValue<EvaluationRecord[]>('teacher_evaluations');
   const [savingEvaluation, setSavingEvaluation] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'availability' | 'evaluation'>('profile');
+  const [activeTab, setActiveTab] = useModuleSection<'profile' | 'availability' | 'evaluation'>(3, 'profile');
   const [isTeacherFilterOpen, setIsTeacherFilterOpen] = useState(false);
   const [isAvailabilityFilterOpen, setIsAvailabilityFilterOpen] = useState(false);
   const [newTeacherModels, setNewTeacherModels] = useState<string[]>([]);
@@ -441,35 +442,7 @@ export const Module3_Teachers: React.FC = () => {
         </div>
 
         {/* 3 Tabs */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl self-start md:self-auto border border-slate-200/80 text-xs">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'profile' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Contact className="w-4 h-4" />
-            <span>Hồ sơ Giáo viên</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('availability')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'availability' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Lịch rảnh &amp; Thời khóa biểu</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('evaluation')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'evaluation' ? 'bg-white text-[#FF5C00] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ClipboardCheck className="w-4 h-4" />
-            <span>Đánh giá Dự giờ</span>
-          </button>
-        </div>
+
       </div>
 
       {/* ================= TAB 1: HỒ SƠ GIÁO VIÊN ================= */}

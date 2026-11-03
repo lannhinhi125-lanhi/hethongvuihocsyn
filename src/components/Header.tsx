@@ -1,13 +1,16 @@
 import { usePermissions } from '../hooks/usePermissions';
 import { teacherModuleIds } from '../lib/accessControl';
 import { ReportSelect } from './ReportSelect';
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { useAccountSession, refreshAccountSession, getAccountSnapshot } from '../lib/accountSession';
+import { useBusinessStatus, refreshBusinessData, getBusinessSnapshot } from '../lib/businessPersistence';
 import { PORTAL_PREVIEW_MODE, PREVIEW_ACCOUNT } from '../lib/previewMode';
 import { useApp } from '../context/AppContext';
 import { TeacherNotifications } from './TeacherNotifications';
 import { SystemGuide } from './SystemGuide';
 import {
   Menu,
+  RefreshCw,
   PanelLeftClose,
   PanelLeftOpen,
   ChevronRight,
@@ -21,6 +24,10 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarCollapsed, onToggleSidebar }) => {
+  const session = useAccountSession();
+  const business = useBusinessStatus();
+  const [reloading, setReloading] = useState(false);
+  const reloadPending = useRef(false);
   const { canModule } = usePermissions();
   const {
     setActiveModule,
@@ -35,6 +42,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
     teacherPortalTab,
     showToast
   } = useApp();
+  const reloadData = async () => {
+    if (reloadPending.current || getAccountSnapshot().saving || getBusinessSnapshot().saving) return;
+    reloadPending.current = true; setReloading(true);
+    try {
+      if (!await refreshAccountSession()) throw new Error(getAccountSnapshot().error || 'Chưa thể tải lại dữ liệu. Vui lòng thử lại.');
+      const refreshed = await refreshBusinessData();
+      const latest = getBusinessSnapshot();
+      if (latest.refreshError || latest.error) throw new Error(latest.refreshError || latest.error);
+      if (!refreshed) throw new Error('Dữ liệu đang thay đổi. Vui lòng đợi rồi tải lại.');
+      showToast('Đã tải lại dữ liệu mới nhất.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Chưa tải lại được dữ liệu. Vui lòng thử lại.', 'error');
+    } finally { reloadPending.current = false; setReloading(false); }
+  };
 
   // Tiêu đề chức năng hệ thống (chuẩn nghiệp vụ, có đối soát công, không có thù lao)
   const adminModuleTitles: Record<number, { cat: string; title: string }> = {
@@ -101,6 +122,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
 
         {/* Thanh công cụ phải */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+          <button type="button" onClick={()=>void reloadData()} disabled={reloading || session.saving || business.saving || business.loading} aria-label="Tải lại dữ liệu" aria-busy={reloading} title="Tải lại dữ liệu từ hệ thống" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50">
+            <RefreshCw className={`h-4 w-4 ${reloading ? 'animate-spin' : ''}`} /><span className="hidden sm:inline">{reloading ? 'Đang tải…' : 'Tải lại dữ liệu'}</span>
+          </button>
           <SystemGuide />
           {workspaceMode === 'TEACHER' && <TeacherNotifications />}
 

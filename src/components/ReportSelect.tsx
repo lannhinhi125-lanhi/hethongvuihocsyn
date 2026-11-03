@@ -1,6 +1,7 @@
 ﻿import React, { Children, isValidElement, useEffect, useId, useRef, useState, type ReactNode, type SelectHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Search } from 'lucide-react';
+import { matchesSearch } from '../lib/textSearch';
 
 type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value' | 'defaultValue' | 'multiple'> & {
   value?: string | number; onChange?: (event: { target: { value: string } }) => void;
@@ -16,6 +17,10 @@ const optionsFrom = (nodes: ReactNode): Choice[] => Children.toArray(nodes).flat
 export function ReportSelect({ children, value, onChange, className = '', disabled, id, title, name, required, ...props }: Props) {
   const choices = optionsFrom(children), selected = choices.findIndex(item => item.value === String(value ?? ''));
   const [open, setOpen] = useState(false), [active, setActive] = useState(0);
+  const [query, setQuery] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const visible = choices.map((item, index) => ({ item, index })).filter(({ item }) => matchesSearch(query, item.label, item.value));
+  const enabled = visible.filter(({ item }) => !item.disabled).map(({ index }) => index);
   const [position, setPosition] = useState({ left: 0, top: 0, width: 200, maxHeight: 280 });
   const trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null);
   const search = useRef({ text: '', time: 0 });
@@ -27,10 +32,10 @@ export function ReportSelect({ children, value, onChange, className = '', disabl
     const below = window.innerHeight - rect.bottom - 12, above = rect.top - 12;
     const upward = below < 180 && above > below;
     const maxHeight = Math.min(300, Math.max(80, upward ? above : below));
-    const height = Math.min(maxHeight, choices.length * 38 + 12);
+    const height = Math.min(maxHeight, choices.length * 38 + 60);
     setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top: upward ? Math.max(8, rect.top - height - 6) : rect.bottom + 6, width, maxHeight });
   };
-  const show = () => { placeMenu(); setActive(selected >= 0 && !choices[selected].disabled ? selected : Math.max(0, choices.findIndex(item => !item.disabled))); setOpen(true); };
+  const show = () => { setQuery(''); placeMenu(); setActive(selected >= 0 && !choices[selected].disabled ? selected : Math.max(0, choices.findIndex(item => !item.disabled))); setOpen(true); };
   const choose = (index: number) => {
     if (disabled || !choices[index] || choices[index].disabled) return;
     onChange?.({ target: { value: choices[index].value } }); setOpen(false); trigger.current?.focus();
@@ -43,6 +48,7 @@ export function ReportSelect({ children, value, onChange, className = '', disabl
     return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', placeMenu); window.removeEventListener('scroll', scroll, true); };
   }, [open]);
   useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
+  useEffect(() => { if (open) searchInput.current?.focus(); }, [open]);
   useEffect(() => { if (open) menu.current?.querySelector(`[data-option-index="${active}"]`)?.scrollIntoView({ block: 'nearest' }); }, [active, open]);
   return <>
     <button type="button" ref={trigger} id={id} title={title || choices[selected]?.label} disabled={disabled} role="combobox"
@@ -52,7 +58,6 @@ export function ReportSelect({ children, value, onChange, className = '', disabl
       className={'report-select inline-flex items-center justify-between gap-2 text-left ' + className}
       onClick={() => open ? setOpen(false) : show()} onBlur={event => { if (!menu.current?.contains(event.relatedTarget as Node)) setOpen(false); }}
       onKeyDown={event => {
-        const enabled = choices.map((item, index) => item.disabled ? -1 : index).filter(index => index >= 0);
         if (event.key === 'Escape') { event.preventDefault(); if(open)event.stopPropagation(); setOpen(false); return; }
         if (event.key === 'Tab') { setOpen(false); return; }
         if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
@@ -75,12 +80,31 @@ export function ReportSelect({ children, value, onChange, className = '', disabl
       value={value ?? choices[0]?.value ?? ''} onChange={()=>{}} onInvalid={event=>{event.preventDefault();show();trigger.current?.focus();}}>
       {choices.map(item=><option key={item.value} value={item.value} disabled={item.disabled}>{item.label}</option>)}
     </select>
-    {open && !disabled && createPortal(<div ref={menu} id={listId} role="listbox" aria-label={props['aria-label']} className="font-inter fixed z-[200] overflow-y-auto rounded-xl border border-orange-100 bg-white p-1.5 text-xs shadow-xl shadow-slate-900/10" style={position} onMouseDown={event => event.preventDefault()}>
-      {choices.map((item, index) => <div key={item.value} id={`${listId}-${index}`} data-option-index={index} role="option" aria-selected={index === selected} aria-disabled={item.disabled || undefined}
+    {open && !disabled && createPortal(<div ref={menu} className="font-inter fixed z-[200] flex flex-col overflow-hidden rounded-xl border border-orange-100 bg-white p-1.5 text-xs shadow-xl shadow-slate-900/10" style={position} onMouseDown={event => { if (!(event.target instanceof HTMLInputElement)) event.preventDefault(); }} onBlur={event => { if (!menu.current?.contains(event.relatedTarget as Node) && !trigger.current?.contains(event.relatedTarget as Node)) setOpen(false); }}>
+      <div className="relative mb-1.5 shrink-0">
+        <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+        <input ref={searchInput} type="search" value={query} placeholder="Tìm theo tên, mã..." aria-label="Tìm lựa chọn theo tên hoặc mã" role="combobox" aria-expanded="true" aria-controls={listId} aria-autocomplete="list" aria-activedescendant={enabled.includes(active) ? `${listId}-${active}` : undefined} className="w-full rounded-lg border border-slate-200 py-2 pl-8 pr-2 text-xs text-slate-700 outline-none focus:border-orange-400" onChange={event => {
+          const value = event.target.value; setQuery(value);
+          setActive(choices.findIndex(item => !item.disabled && matchesSearch(value, item.label, item.value)));
+        }} onKeyDown={event => {
+          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus(); }
+          else if (event.key === 'Tab') setOpen(false);
+          else if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); if (enabled.includes(active)) choose(active); }
+          else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault(); const offset = event.key === 'ArrowDown' ? 1 : -1;
+            const next = enabled[Math.max(0, Math.min(enabled.length - 1, enabled.indexOf(active) + offset))];
+            if (next !== undefined) setActive(next);
+          }
+        }} />
+      </div>
+      <div id={listId} role="listbox" aria-label={props['aria-label']} className="min-h-0 overflow-y-auto">
+      {visible.map(({ item, index }) => <div key={item.value} id={`${listId}-${index}`} data-option-index={index} role="option" aria-selected={index === selected} aria-disabled={item.disabled || undefined}
         onPointerMove={() => { if (!item.disabled) setActive(index); }} onClick={() => choose(index)}
         className={'flex min-h-9 items-center justify-between gap-3 rounded-lg px-3 py-2 leading-5 ' + (item.disabled ? 'cursor-not-allowed text-slate-400' : 'cursor-pointer ' + (index === selected ? 'bg-orange-50 font-semibold text-orange-700' : index === active ? 'bg-orange-50/70 text-slate-900' : 'text-slate-700'))}>
         <span>{item.label}</span>{index === selected && <Check className="h-3.5 w-3.5 shrink-0 text-orange-600" />}
       </div>)}
+      {!visible.length && <p role="status" className="px-3 py-3 text-slate-400">Không tìm thấy kết quả phù hợp.</p>}
+      </div>
     </div>, document.body)}
   </>;
 }

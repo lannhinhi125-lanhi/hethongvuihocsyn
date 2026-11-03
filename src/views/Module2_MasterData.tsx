@@ -1,3 +1,4 @@
+import { useModuleSection } from '../hooks/useModuleSection';
 import { recordSortTime } from '../lib/listOrder';
 import { useSaveConfirmation } from '../hooks/useSaveConfirmation';
 import { DocumentCategoryManager } from '../components/DocumentCategoryManager';
@@ -48,7 +49,7 @@ export const Module2_MasterData: React.FC = () => {
     showToast
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching' | 'document-types' | 'durations'>('subjects');
+  const [activeTab, setActiveTab] = useModuleSection<'subjects' | 'levels' | 'times' | 'models' | 'incidents' | 'teaching' | 'document-types' | 'durations'>(2, 'subjects');
   const [documentCategories] = useBusinessValue<DocumentCategory[]>('document_categories');
   const [durationCatalogs]=useBusinessValue<{code:string;name:string;entries:unknown[]}[]>('custom_catalogs');
   const [searchKeyword, setSearchKeyword] = useState('');
