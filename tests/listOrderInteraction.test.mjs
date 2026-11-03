@@ -42,5 +42,20 @@ try{
  assert.deepEqual(ids(page),[24,23,22,21,20,19,18,17,16,15]);
  page=render(rows.filter(row=>row.props['data-id']<3));
  assert.deepEqual(ids(page),[2,1,0],'Sorting applies to the filtered records');
+ globalThis.listHooks={cursor:0,slots:[]};
+ let materialOrder='newest';
+ const renderMaterials=()=>{
+  globalThis.listHooks.cursor=0;
+  return compiled.exports.PaginatedTableBody({children:rows,sortOrder:materialOrder,onSortOrderChange:order=>{materialOrder=order;}}).props.children[1].props.page;
+ };
+ page=renderMaterials();
+ assert.deepEqual(ids(page),[24,23,22,21,20,19,18,17,16,15]);
+ page.onChange(2);page=renderMaterials();assert.equal(page.page,2);
+ materialOrder='oldest';page=renderMaterials();
+ assert.equal(page.page,0,'The toolbar sort resets pagination');
+ assert.deepEqual(ids(page),[0,1,2,3,4,5,6,7,8,9],'Pagination must respect the toolbar sort');
+ page.setOrder('newest');page=renderMaterials();
+ assert.equal(materialOrder,'newest','Footer sorting updates the same toolbar state');
+ assert.deepEqual(ids(page),[24,23,22,21,20,19,18,17,16,15]);
  console.log('PASS ordering interaction: newest default, full-dataset order, oldest/newest switching, pagination reset and filtering.');
 }finally{delete globalThis.listHooks;}

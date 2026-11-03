@@ -1,4 +1,5 @@
 import { useModuleSection } from '../hooks/useModuleSection';
+import { materialRowUpdateTime } from '../lib/materialOrder';
 import { orderRecords, recordSortTime } from '../lib/listOrder';
 import { matchesSearch } from '../lib/textSearch';
 import { classStatusLabel, effectiveClassStatus, materialClassStatusLabel } from '../lib/classStatus';
@@ -635,8 +636,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         (!selected('lessonTwo').length || selected('lessonTwo').includes(titleTwo)) &&
         (!selected('materialStatus').length || selected('materialStatus').includes(hasMaterials ? 'assigned' : 'missing'));
   }).sort((a, b) => {
-    const updated = (row: typeof a) => Math.max(materialUpdateTimes[`${row.item.id}-${row.week}`] || 0, ...row.materials.map(material => Date.parse(material.updatedAt || '') || 0));
-    const first = updated(a), second = updated(b);
+    const first = materialRowUpdateTime(a, materialUpdateTimes), second = materialRowUpdateTime(b, materialUpdateTimes);
     if (!first || !second) return first ? -1 : second ? 1 : a.item.code.localeCompare(b.item.code, 'vi');
     return materialSort === 'newest' ? second - first : first - second;
   }), [classes, materialFilters, materialRange, dashboardFilter, materialSort, materialUpdateTimes]);
@@ -1549,19 +1549,19 @@ export const Module4_StudentsClasses: React.FC = () => {
       {/* ================= TAB 3: PHÂN PHỐI HỌC LIỆU ================= */}
       {activeTab === 'materials' && (
         <div className="space-y-4">
-          <header className="flex flex-col gap-4 border-b border-slate-200/80 px-1 pb-5 pt-1 xl:flex-row xl:items-center xl:justify-between">
+          <header className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight text-slate-900">Phân phối học liệu</h1>
-              <p className="mt-1.5 text-xs leading-5 text-slate-500">
+              <h1 className="text-lg font-bold text-slate-800">Phân phối học liệu</h1>
+              <p className="mt-0.5 text-xs text-slate-500">
                 Phân phối và tra cứu học liệu của các lớp theo tuần.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Thao tác phân phối học liệu">
+            <div className="flex flex-wrap items-center gap-2.5" role="group" aria-label="Thao tác phân phối học liệu">
               <button
                 type="button"
                 disabled={!can("Thêm, sửa, xóa và nạp học liệu theo tuần")} onClick={openBatchMaterials}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#FF5C00] px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#E05200] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#FF5C00] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#E05200] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FolderKanban className="h-4 w-4" />
                 <span>Phân phối học liệu</span>
@@ -1569,15 +1569,15 @@ export const Module4_StudentsClasses: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsImportRoomModalOpen(true)}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
               >
-                <FileSpreadsheet className="h-4 w-4" />
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                 <span>Nhập link phòng</span>
               </button>
               <button
                 type="button"
                 onClick={downloadRoomLinkTemplate}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
               >
                 <Download className="h-4 w-4" />
                 <span>Tải mẫu Excel</span>
@@ -1643,13 +1643,13 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <th className="py-3.5 px-4 text-center">Hành động</th>
                   </tr>
                 </thead>
-                <PaginatedTableBody className="divide-y divide-slate-100 font-normal">
+                <PaginatedTableBody sortOrder={materialSort} onSortOrderChange={order => setMaterialSort(order === 'oldest' ? 'oldest' : 'newest')} className="divide-y divide-slate-100 font-normal">
                   {materialRowsForView.map(({ item: c, month, week, materials }) => {
                     const hasMat = materials.length > 0;
                     const sessionOne = materials.find(material => material.session === 1);
                     const sessionTwo = materials.find(material => material.session === 2);
                     return (
-                      <tr key={`${c.id}-${month}-${week}`} data-sort-time={Math.max(...materials.map(material => recordSortTime(material) ?? 0)) || recordSortTime(c)} className="hover:bg-slate-50/80">
+                      <tr key={`${c.id}-${month}-${week}`} data-sort-time={materialRowUpdateTime({item:c, week, materials}, materialUpdateTimes)} className="hover:bg-slate-50/80">
                         <td className="py-3 px-4 font-mono font-bold text-[#FF5C00]">{c.code}</td>
                         <td className="py-3 px-4 font-bold text-slate-800">{c.name}</td>
                         <td className="py-3 px-4 font-medium text-slate-700">

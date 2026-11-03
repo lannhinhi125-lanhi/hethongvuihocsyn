@@ -27,8 +27,10 @@ function rowTime(row: React.ReactNode): number | undefined {
   return undefined;
 }
 
-function useChildPage(children: React.ReactNode) {
-  const [order, setOrder] = useState<ListOrder>('newest');
+function useChildPage(children: React.ReactNode, controlledOrder?: ListOrder, onOrderChange?: (order: ListOrder) => void) {
+  const [internalOrder, setInternalOrder] = useState<ListOrder>('newest');
+  const order = controlledOrder ?? internalOrder;
+  const setOrder = (next: ListOrder) => { if (controlledOrder === undefined) setInternalOrder(next); onOrderChange?.(next); };
   const rows = orderRecords(Children.toArray(children), order, rowTime);
   // Reset when filtering, sorting or switching datasets changes the record identities.
   const signature = order + ':' + rows.map((row, index) => isValidElement(row) ? row.key ?? index : index).join('|');
@@ -57,6 +59,7 @@ function useChildPage(children: React.ReactNode) {
 
   }, [contentSignature]);
   const [selection, setSelection] = useState({ signature, page: 0 });
+  if (selection.signature !== signature) setSelection({ signature, page: 0 });
   const window = getPageWindow(rows.length, selection.signature === signature ? selection.page : 0);
   return { ...window, order, setOrder, total: rows.length, rows: rows.slice(window.start, window.end).map((row, index) => {
       if (!isValidElement<{ className?: string }>(row) || row.type === React.Fragment) return row;
@@ -123,8 +126,8 @@ function TablePageFooter({page,anchor,columns,hidden}:{page:Page;anchor:React.Re
     : <tr className="print:hidden"><td colSpan={columns} className="border-t border-slate-200 bg-slate-50"><PageControls page={page} /></td></tr>;
 }
 
-export function PaginatedTableBody({ children, ...props }: React.ComponentProps<'tbody'>) {
-  const page = useChildPage(children);
+export function PaginatedTableBody({ children, sortOrder, onSortOrderChange, ...props }: React.ComponentProps<'tbody'> & { sortOrder?: ListOrder; onSortOrderChange?: (order: ListOrder) => void }) {
+  const page = useChildPage(children, sortOrder, onSortOrderChange);
   const anchor=useRef<HTMLTableSectionElement>(null);
   return <tbody {...props} ref={anchor}>{page.rows}<TablePageFooter page={page} anchor={anchor} columns={columnCount(children)} hidden={props.hidden} /></tbody>;
 }

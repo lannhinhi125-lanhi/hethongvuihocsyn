@@ -6,6 +6,7 @@ import { stripTypeScriptTypes } from 'node:module';
 const load = file => import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(readFileSync(file, 'utf8'))).toString('base64'));
 const { matchesSearch } = await load('src/lib/textSearch.ts');
 const { orderRecords, recordSortTime } = await load('src/lib/listOrder.ts');
+const { materialRowUpdateTime } = await load('src/lib/materialOrder.ts');
 
 test('teacher and student searches accept Vietnamese, unaccented names, codes and multiple words', () => {
   assert.ok(matchesSearch('bui duc thanh', 'Bùi Đức Thành', 'GV-123'));
@@ -30,4 +31,16 @@ test('equal and missing dates retain stable ordering; explicit oldest remains av
   const records = [{ id: 'first', created_at: '2026-11-03' }, { id: 'second', created_at: '2026-11-03' }, { id: 'old', created_at: '2026-11-01' }, { id: 'unknown-1' }, { id: 'unknown-2' }];
   assert.deepEqual(orderRecords(records, 'newest', recordSortTime).map(row => row.id), ['first', 'second', 'old', 'unknown-1', 'unknown-2']);
   assert.deepEqual(orderRecords(records, 'oldest', recordSortTime).map(row => row.id), ['old', 'first', 'second', 'unknown-1', 'unknown-2']);
+});
+
+test('material sorting uses update time instead of class creation or teaching date', () => {
+  const rows = [
+    { item: { id: 'A', created_at: '2026-11-03' }, week: 'week', materials: [{ updatedAt: '2026-11-01T10:00:00Z', date: '2026-12-01' }] },
+    { item: { id: 'B', created_at: '2026-10-01' }, week: 'week', materials: [{ updatedAt: '2026-11-03T10:00:00Z', date: '2026-01-01' }] },
+    { item: { id: 'unknown' }, week: 'week', materials: [] },
+  ];
+  const time = row => materialRowUpdateTime(row, {});
+  assert.deepEqual(orderRecords(rows, 'newest', time).map(row => row.item.id), ['B', 'A', 'unknown']);
+  assert.deepEqual(orderRecords(rows, 'oldest', time).map(row => row.item.id), ['A', 'B', 'unknown']);
+  assert.equal(materialRowUpdateTime(rows[0], { 'A-week': Date.parse('2026-11-04') }), Date.parse('2026-11-04'));
 });
