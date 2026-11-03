@@ -1,5 +1,7 @@
 # Bộ SQL Supabase Vuihoc
 
+**Trạng thái và ngày vào của giáo viên:** chạy toàn bộ [migrations/20261210_sync_teacher_class_status.sql](migrations/20261210_sync_teacher_class_status.sql). Gán giáo viên vào lớp Chờ khai giảng/Đang học tự chuyển sang Đang dạy; bỏ phân công, dừng hoặc kết thúc lớp cuối cùng tự chuyển Đang dạy về Chờ lớp. Vẫn cho phép chọn trạng thái thủ công cho đến lần thay đổi phân công/trạng thái lớp tiếp theo. Ngày vào còn trống lấy ngày tạo hồ sơ theo múi giờ Việt Nam, giữ ngày đã nhập. Migration cập nhật cả hồ sơ cũ có lớp và không reset dữ liệu.
+
 **Chuẩn bị học liệu trước khai giảng:** chạy [migrations/20261224_preopening_class_materials.sql](migrations/20261224_preopening_class_materials.sql) sau khi đã có bộ kiểm tra học liệu `20261113`. Lớp Chờ khai giảng và Đang học đều nhận/cập nhật học liệu nếu không tạm dừng và còn hạn. Giữ cách tính thời hạn đang cài, không đổi trạng thái lớp và không reset dữ liệu.
 
 **Xóa riêng đăng ký môn nhập nhầm:** sau các bản chuẩn hóa đăng ký và `20261213`, chạy toàn bộ [migrations/20261219_remove_student_registration.sql](migrations/20261219_remove_student_registration.sql). Nút xóa ở dòng môn chỉ xóa đăng ký môn đó khi chưa có lớp, giữ hồ sơ học sinh và các môn/lớp khác. Ví dụ Toán có lớp, Tiếng Anh chưa có lớp: xóa được Tiếng Anh, vẫn chặn xóa đăng ký Toán. File chỉ bổ sung RPC, không reset dữ liệu.

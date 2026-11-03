@@ -126,6 +126,12 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
     result.subject='';result.model='';result.level='';result.scheduleSlots=[];result.status='Chờ xếp lớp';
   }
   if (dataset === 'teachers') {
+    if (!result.startDate && row.ngaytao) {
+      const created = new Date(String(row.ngaytao));
+      if (Number.isFinite(created.getTime())) result.startDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(created);
+    }
     result.subjectName = find('subjects','mamonhoc',row.mamonhoc)?.tenmonhoc ?? '';
     result.levelName = find('teaching_categories','madinhdanh',row.macaphoc)?.tencaphoc ?? '';
     result.statusLabel = ({DANG_DAY:'Đang dạy',CHO_LOP:'Chờ lớp',TAM_NGUNG:'Tạm ngưng'} as Record<string,string>)[String(result.status)] ?? '';
