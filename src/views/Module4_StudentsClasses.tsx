@@ -1381,19 +1381,17 @@ export const Module4_StudentsClasses: React.FC = () => {
       <DashboardFilterNotice selection={dashboardFilter} onClear={()=>setDashboardFilter(null)}/>
       {pauseClassIds.length > 0 && createPortal(<div className="workspace-ui fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 text-slate-800"><div role="dialog" aria-modal="true" aria-label="Tạm dừng lớp" aria-labelledby="class-pause-title" className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl"><div className="border-b border-slate-100 px-5 py-4"><h2 id="class-pause-title" className="text-sm font-bold text-slate-800">Tạm dừng ({pauseClassIds.length} lớp)</h2></div><div className="space-y-4 px-5 py-4 text-xs"><p className="text-sm text-slate-600">Giữ nguyên giáo viên và học sinh. Lớp chỉ học lại khi bạn chọn Tiếp tục lớp. Bạn có thể sửa lý do khi lớp đang nghỉ.</p><label className="block text-sm">Loại sự cố / nghỉ học<ReportSelect value={pauseReason} onChange={event => setPauseReason(event.target.value)} className="mt-1 w-full rounded-lg border p-2"><option value="" disabled>Chọn từ danh mục sự cố</option>{pauseReasons.map(reason => <option key={reason.key} value={reason.key} disabled={!reason.isScheduledBreak && reason.creditCoeff===undefined}>{reason.group} · {reason.name}{!reason.isScheduledBreak && reason.creditCoeff===undefined ? ' (chưa có hệ số công)' : ''}</option>)}</ReportSelect></label>{!pauseReasons.length && <p className="text-sm text-amber-700">Chưa có lý do đang áp dụng. Vui lòng bật “Cho phép tạm dừng lớp” cho loại tương ứng trong Danh mục sự cố.</p>}<textarea aria-label="Chi tiết lý do khác" placeholder="Nhập lý do tạm dừng" value={pauseNote} onChange={event => setPauseNote(event.target.value)} className="w-full rounded-lg border p-2" /></div><div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3"><button type="button" disabled={isSavingChanges} onClick={() => setPauseClassIds([])} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Hủy</button><button type="button" disabled={!pauseReasons.some(entry => entry.key === pauseReason) || isSavingChanges} onClick={savePause} className="rounded-lg bg-[#FF5C00] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#E05200] disabled:opacity-40">Lưu lý do</button></div></div></div>, document.body)}
       {/* Header Banner Phân hệ 4 Quản trị chuẩn Figma */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+      {activeTab !== 'materials' && <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-slate-800">Học sinh &amp; Ghép lớp</h1>
+            <h1 className="text-lg font-bold text-slate-800">{activeTab === 'classes' ? 'Quản lý Lớp học' : 'Hồ sơ Học sinh'}</h1>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Tiếp nhận hồ sơ, khởi tạo lớp gán link phòng Zoom/ClassIn, ghép lớp chặn trần sĩ số và phân phối học liệu động theo tuần.
           </p>
         </div>
 
-        {/* 3 Tabs Phân hệ 4 */}
-
-      </div>
+      </div>}
 
       {/* ================= TAB 1: HỒ SƠ HỌC SINH ================= */}
       {activeTab === 'students' && (
@@ -1551,40 +1549,41 @@ export const Module4_StudentsClasses: React.FC = () => {
       {/* ================= TAB 3: PHÂN PHỐI HỌC LIỆU ================= */}
       {activeTab === 'materials' && (
         <div className="space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-800">Phân Phối Học Liệu Cho Các Lớp Học</h2>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Theo dõi học liệu đã gắn theo khối, lớp, trạng thái và lịch sử từng tháng/tuần.
+          <header className="flex flex-col gap-4 border-b border-slate-200/80 px-1 pb-5 pt-1 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-slate-900">Phân phối học liệu</h1>
+              <p className="mt-1.5 text-xs leading-5 text-slate-500">
+                Phân phối và tra cứu học liệu của các lớp theo tuần.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Thao tác phân phối học liệu">
               <button
+                type="button"
                 disabled={!can("Thêm, sửa, xóa và nạp học liệu theo tuần")} onClick={openBatchMaterials}
-                className="px-4 py-2.5 bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#FF5C00] px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#E05200] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <FolderKanban className="w-4 h-4 font-bold" />
-                <span>Phân Phối Học Liệu Cho Các Lớp</span>
+                <FolderKanban className="h-4 w-4" />
+                <span>Phân phối học liệu</span>
               </button>
               <button
+                type="button"
                 onClick={() => setIsImportRoomModalOpen(true)}
-                className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
               >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span>Nhập Link Phòng (Excel)</span>
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>Nhập link phòng</span>
               </button>
               <button
+                type="button"
                 onClick={downloadRoomLinkTemplate}
-                className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
               >
-                <Download className="w-4 h-4" />
-                <span>Tải Mẫu Excel</span>
+                <Download className="h-4 w-4" />
+                <span>Tải mẫu Excel</span>
               </button>
             </div>
-          </div>
+          </header>
 
           <PeriodToolbar label="Thời gian học liệu" range={materialRange} onChange={range=>{setDashboardFilter(null);setMaterialRange(range);setShowRecentMaterials(false);}} initialPeriod="week"/>
 

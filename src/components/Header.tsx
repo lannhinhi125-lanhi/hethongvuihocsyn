@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, sidebarColla
     1: { cat: 'Hệ thống', title: 'Tài khoản & phân quyền' },
     2: { cat: 'Hệ thống', title: 'Danh mục dùng chung' },
     3: { cat: 'Chuyên môn', title: 'Hồ sơ & chuyên môn' },
-    4: { cat: 'Vận hành', title: 'Học sinh & ghép lớp' },
+    4: { cat: 'Vận hành', title: 'Học sinh & lớp học' },
     5: { cat: 'Vận hành', title: 'Giám sát ca & sự cố' },
     6: { cat: 'Vận hành', title: 'Quản lý tri thức và cấu hình AI' },
     7: { cat: 'Vận hành & Đối soát', title: 'Đối soát công ca dạy' },

@@ -69,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
     { id: 1, label: 'Tài khoản & phân quyền', icon: ShieldCheck },
     { id: 2, label: 'Danh mục dùng chung', icon: SlidersHorizontal },
     { id: 3, label: 'Hồ sơ & chuyên môn', icon: UserCheck },
-    { id: 4, label: 'Học sinh & ghép lớp', icon: Users },
+    { id: 4, label: 'Học sinh & lớp học', icon: Users },
     { id: 5, label: 'Giám sát ca & sự cố', icon: CalendarCheck },
     { id: 6, label: 'Tri thức & Cấu hình AI', icon: Sparkles },
     { id: 7, label: 'Đối soát công ca dạy', icon: ClipboardCheck },
@@ -171,15 +171,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
                       const isActive = activeModule === item.id;
                       const Icon = item.icon;
                       const sections = moduleNavigation[item.id];
-                      if (item.id === 2) return <div key={item.id}>
-                        <button type="button" aria-expanded={isActive && !!expandedModules[2]} aria-controls="catalog-sidebar-menu" onClick={() => {
-                          setExpandedModules(previous => ({ ...previous, 2: isActive ? !previous[2] : true }));
-                          if (!isActive) setActiveModule(2);
-                        }} className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs ${isActive ? 'bg-[#FF5C00] font-semibold text-white' : 'text-[#A9BDE2] hover:bg-white/5'}`}>
-                          <Icon className="h-4 w-4 shrink-0" /><span className="flex-1 leading-5">{item.label}</span><ChevronRight className={`h-4 w-4 transition-transform ${isActive && expandedModules[2] ? 'rotate-90' : ''}`} />
-                        </button>
-                        <div id="catalog-sidebar-menu" hidden={!isActive || !expandedModules[2]} className="mt-1" />
-                      </div>;
                       if (sections) return <div key={item.id}>
                         <button type="button" aria-expanded={!!expandedModules[item.id]} aria-controls={`module-sidebar-${item.id}`} onClick={() => {
                           setExpandedModules(previous => ({ ...previous, [item.id]: isActive ? !previous[item.id] : true }));
