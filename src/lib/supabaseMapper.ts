@@ -89,7 +89,10 @@ export function fromSupabaseRow(dataset: SupabaseDataset, row: DataRow, referenc
   for (const [field,column] of Object.entries(APP_DATABASE_FIELDS[dataset])) {
     if (Object.hasOwn(row,column)) result[field] = row[column];
   }
-  if (dataset === 'users') result.passwordRaw = '';
+  if (dataset === 'users') {
+    result.passwordRaw = '';
+    result.avatarInitials = String(result.name || '').trim().split(/\s+/).filter(Boolean).slice(-2).map(part => Array.from(part)[0]).join('').toLocaleUpperCase('vi') || 'VH';
+  }
   if (dataset === 'report_templates') {
     const config = result.config as {filters?:Record<string,unknown>} | undefined;
     const value = config?.filters?.pauseReason;
