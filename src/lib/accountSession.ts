@@ -15,8 +15,8 @@ export function getAccountSessionToken(): string {
 }
 let token: string | null = null;
 try {
-  token = localStorage.getItem(KEY) || sessionStorage.getItem(KEY);
-  if (token) { localStorage.setItem(KEY, token); sessionStorage.removeItem(KEY); }
+  // A login belongs to this tab, including after a page reload.
+  token = sessionStorage.getItem(KEY);
 } catch { /* Phiên vẫn dùng được trong bộ nhớ. */ }
 export function hasRememberedAccountSession() { return !!token; }
 let generation = 0;
@@ -28,8 +28,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 function publish(next: Snapshot) { state = next; listeners.forEach(listener => listener()); }
 function remember(value: string | null) {
   token = value;
-  try { if (value) localStorage.setItem(KEY,value); else localStorage.removeItem(KEY); } catch { /* Bộ nhớ là nguồn dự phòng. */ }
-  try { sessionStorage.removeItem(KEY); } catch { /* Không có storage. */ }
+  try { if (value) sessionStorage.setItem(KEY,value); else sessionStorage.removeItem(KEY); } catch { /* Bộ nhớ là nguồn dự phòng. */ }
 }
 async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSignal) {
   // Bound initial reads so a stalled connection cannot leave the whole app loading.
@@ -142,12 +141,6 @@ export function useAccountSession() { return useSyncExternalStore(listener=>{lis
 if(typeof window!=='undefined') {
   void refreshAccountSession();
   window.addEventListener('focus',()=>void refreshAccountSession());
-  window.addEventListener('storage',event=>{
-    if (event.key !== KEY || event.newValue === token) return;
-    ++generation; token=event.newValue; pending=[]; clearTimeout(timer);
-    confirmed={actor:null,users:[],groups:[],loading:!!token,saving:false,error:'',saved:false}; publish(confirmed);
-    void refreshAccountSession();
-  });
   window.addEventListener('beforeunload',event=>{if(state.saving){event.preventDefault();event.returnValue='';}});
   setInterval(()=>void refreshAccountSession(),60_000);
 }

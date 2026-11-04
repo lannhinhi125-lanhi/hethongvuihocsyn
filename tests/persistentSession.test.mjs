@@ -45,27 +45,47 @@ test('network and query failures preserve the signed-in actor, token and loaded 
     assert.equal(await h.module.refreshAccountSession(), false);
     assert.equal(h.module.getAccountSnapshot().actor, original.actor);
     assert.equal(h.module.getAccountSnapshot().users, original.users);
-    assert.equal(h.local.get(key), 'token');
+    assert.equal(h.session.get(key), 'token');
   }
   h.responses.push({ data: payload });
   assert.equal(await h.module.refreshAccountSession(), true);
   assert.equal(h.module.getAccountSnapshot().error, '');
 });
 
-test('legacy tokens migrate to persistent storage and restore after a page restart', async () => {
-  const h = await sessionHarness({ legacy: 'legacy-token' });
-  assert.equal(h.local.get(key), 'legacy-token');
-  assert.equal(h.session.has(key), false);
+test('tab sessions survive reload and ignore shared legacy logins', async () => {
+  const h = await sessionHarness({ stored: 'shared-token', legacy: 'tab-token' });
   h.responses.push({ data: payload });
   await h.module.refreshAccountSession();
-  const restarted = await sessionHarness({ stored: h.local.get(key) });
+  assert.equal(h.calls.at(-1).args.p_token, 'tab-token');
+  const restarted = await sessionHarness({ legacy: h.session.get(key) });
   restarted.responses.push({ data: payload });
   assert.equal(await restarted.module.refreshAccountSession(), true);
-  assert.equal(restarted.module.getAccountSnapshot().actor.id, actor.id);
+  const newTab = await sessionHarness({ stored: 'shared-token' });
+  assert.equal(newTab.module.hasRememberedAccountSession(), false);
+});
+
+test('logging in and out of a teacher tab preserves the admin tab', async () => {
+  const admin = await sessionHarness();
+  const teacher = await sessionHarness();
+  admin.responses.push({ data: { ...payload, token: 'admin-token' } });
+  await admin.module.loginAccount('admin', 'password');
+  teacher.responses.push({ data: { ...payload, actor: { id: 'teacher' }, token: 'teacher-token' } });
+  await teacher.module.loginAccount('teacher', 'password');
+  assert.equal(admin.module.getAccountSnapshot().actor.id, 'admin');
+  assert.equal(teacher.module.getAccountSnapshot().actor.id, 'teacher');
+  assert.equal(admin.module.getAccountSessionToken(), 'admin-token');
+  assert.equal(teacher.module.getAccountSessionToken(), 'teacher-token');
+  assert.equal(admin.local.has(key), false);
+  assert.equal(teacher.local.has(key), false);
+  teacher.responses.push({ data: {} });
+  await teacher.module.logoutAccount();
+  assert.equal(admin.module.getAccountSessionToken(), 'admin-token');
+  assert.equal(admin.session.get(key), 'admin-token');
+  assert.equal(teacher.session.has(key), false);
 });
 
 test('a failed startup retains its token and can reconnect without login', async () => {
-  const h = await sessionHarness({ stored: 'token' });
+  const h = await sessionHarness({ legacy: 'token' });
   h.responses.push(new Error('offline'));
   assert.equal(await h.module.refreshAccountSession(), false);
   assert.equal(h.module.hasRememberedAccountSession(), true);
@@ -75,24 +95,24 @@ test('a failed startup retains its token and can reconnect without login', async
 });
 
 test('explicit logout clears storage and revokes the server session', async () => {
-  const h = await sessionHarness({ stored: 'token' });
+  const h = await sessionHarness({ legacy: 'token' });
   h.responses.push({ data: payload });
   await h.module.refreshAccountSession();
   h.responses.push({ data: {} });
   await h.module.logoutAccount();
-  assert.equal(h.local.has(key), false);
+  assert.equal(h.session.has(key), false);
   assert.equal(h.module.getAccountSnapshot().actor, null);
   assert.deepEqual(h.calls.at(-1), { name: 'vuihoc_logout', args: { p_token: 'token' } });
 });
 
 test('an explicit server rejection still revokes local access', async () => {
-  const h = await sessionHarness({ stored: 'token' });
+  const h = await sessionHarness({ legacy: 'token' });
   h.responses.push({ data: payload });
   await h.module.refreshAccountSession();
   h.responses.push({ error: { message: 'Phiên đã hết hạn hoặc tài khoản chưa được gán nhóm quyền.' } });
   assert.equal(await h.module.refreshAccountSession(), false);
   assert.equal(h.module.getAccountSnapshot().actor, null);
-  assert.equal(h.local.has(key), false);
+  assert.equal(h.session.has(key), false);
 });
 
 async function businessHarness() {
