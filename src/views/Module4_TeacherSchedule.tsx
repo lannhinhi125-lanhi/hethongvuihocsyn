@@ -46,6 +46,25 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   // Only teacher questions are persisted. AI answers remain in memory.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
+  const [chatSize, setChatSize] = useState({ width: 380, height: 560 });
+  const resizeChat = (width: number, height: number) => {
+    setChatSize({
+      width: Math.min(Math.max(320, width), window.innerWidth - 48),
+      height: Math.min(Math.max(400, height), window.innerHeight - 48),
+    });
+  };
+  const handleChatResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    const bounds = handle.parentElement!.getBoundingClientRect();
+    const startX = event.clientX, startY = event.clientY;
+    handle.setPointerCapture(event.pointerId);
+    handle.onpointermove = move => resizeChat(bounds.width + startX - move.clientX, bounds.height + startY - move.clientY);
+    handle.onlostpointercapture = () => {
+      handle.onpointermove = null;
+      handle.onlostpointercapture = null;
+    };
+  };
   const [chatInput, setChatInput] = useState('');
   const chatPermission=portal==='TEACHER'?'Sử dụng AI hỗ trợ nhận xét và chatbot giảng dạy':'Sử dụng chatbot tra cứu quy chế và nghiệp vụ';
   const knowledgeChat=useTeacherChatHistory(currentUser.id,isKnowledgeBotOpen && can(chatPermission),sopDocuments,ragBotConfig);
@@ -649,7 +668,24 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
         {/* Khung Chat nổi ghim sát mép phải khi mở */}
         {isKnowledgeBotOpen && (
-          <div className="w-[380px] max-w-[calc(100vw-2rem)] h-[560px] bg-white rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden font-infer animate-in fade-in slide-in-from-bottom-4">
+          <div style={{ width: chatSize.width, height: chatSize.height }} className="relative max-w-[calc(100vw-3rem)] max-h-[calc(100dvh-3rem)] bg-white rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden font-infer animate-in fade-in slide-in-from-bottom-4">
+            <button
+              type="button"
+              aria-label="Kéo góc trên bên trái để thay đổi kích thước khung chat; dùng phím mũi tên để điều chỉnh"
+              title="Kéo để thay đổi kích thước khung chat"
+              onPointerDown={handleChatResize}
+              onKeyDown={event => {
+                const changes: Record<string, [number, number]> = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] };
+                const change = changes[event.key];
+                if (!change) return;
+                event.preventDefault();
+                const bounds = event.currentTarget.parentElement!.getBoundingClientRect();
+                resizeChat(bounds.width + change[0], bounds.height + change[1]);
+              }}
+              className="absolute top-0 left-0 z-10 flex h-6 w-6 touch-none cursor-nwse-resize items-center justify-center rounded-tl-2xl text-white/80 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-2"
+            >
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 10V3h7M3 3l9 9" /></svg>
+            </button>
             {/* Header Bot màu cam hiện đại, tinh tế */}
             <div className="p-3.5 border-b border-orange-600/30 bg-gradient-to-r from-[#E05200] via-[#FF5C00] to-orange-500 text-white flex items-center justify-between flex-shrink-0 shadow-sm">
               <div className="flex items-center gap-2.5">
