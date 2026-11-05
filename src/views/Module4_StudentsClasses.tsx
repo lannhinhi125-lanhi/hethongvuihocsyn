@@ -56,6 +56,7 @@ import {
   Phone,
   Eye,
   Clock,
+  ArrowDownWideNarrow,
   ArrowRight,
   Search,
   Calendar,
@@ -387,6 +388,7 @@ export const Module4_StudentsClasses: React.FC = () => {
   const selectedDuration=durationEntries.find(row=>row.id===clsDurationId);
   const [isReenrolling,setIsReenrolling]=useState(false);
   const [clsTeacher, setClsTeacher] = useState('');
+  const [newestClassTeachersFirst, setNewestClassTeachersFirst] = useState(false);
   const [clsSelectedStudentIds, setClsSelectedStudentIds] = useState<string[]>([]);
   const [classStudentSearch, setClassStudentSearch] = useState('');
   useEffect(() => { setClassStudentSearch(''); }, [isClassModalOpen, editingClassId]);
@@ -457,8 +459,8 @@ export const Module4_StudentsClasses: React.FC = () => {
       }
 
       return true;
-    }).sort((a, b) => (recordSortTime(b) ?? -Infinity) - (recordSortTime(a) ?? -Infinity) || 0);
-  }, [teachers, classes, timeSlots, clsSubject, clsGrade, clsModel, clsSchedule, editingClassId]);
+    }).sort((a, b) => (newestClassTeachersFirst ? 0 : b.freeSlots - a.freeSlots) || (recordSortTime(b) ?? -Infinity) - (recordSortTime(a) ?? -Infinity) || 0);
+  }, [teachers, classes, timeSlots, clsSubject, clsGrade, clsModel, clsSchedule, editingClassId, newestClassTeachersFirst]);
   const recommendedClassTeacher = [...eligibleTeachersForClass].sort((a, b) => b.freeSlots - a.freeSlots)[0];
 
   // Tự động kiểm tra tính hợp lệ của giáo viên khi thay đổi môn, khối hoặc lịch học
@@ -2117,7 +2119,17 @@ export const Module4_StudentsClasses: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block font-semibold text-slate-700">Giáo viên phụ trách</label>
+                    <div className="flex items-center gap-1">
+                      <label className="block font-semibold text-slate-700">Giáo viên phụ trách</label>
+                      {!editingClassId && <button
+                        type="button"
+                        aria-label="Ưu tiên giáo viên mới nhất"
+                        aria-pressed={newestClassTeachersFirst}
+                        title={newestClassTeachersFirst ? 'Đang xếp giáo viên mới nhất trước · Bấm để ưu tiên nhiều ca rảnh' : 'Xếp giáo viên mới nhất lên đầu'}
+                        onClick={() => setNewestClassTeachersFirst(value => !value)}
+                        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${newestClassTeachersFirst ? 'bg-orange-100 text-orange-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'}`}
+                      ><ArrowDownWideNarrow className="h-3.5 w-3.5" /></button>}
+                    </div>
                     {editingClassId ? null : eligibleTeachersForClass.length > 0 ? (
                       <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                         ✓ Có {eligibleTeachersForClass.length} GV hợp lệ

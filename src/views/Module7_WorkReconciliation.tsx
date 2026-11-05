@@ -4,7 +4,6 @@ import { ReportSelect } from '../components/ReportSelect';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
 import {dashboardDisputes as selectDashboardDisputes,dashboardDisputeMonth} from '../lib/dashboardNavigation';
 import {WorkEvidenceLinks} from '../components/WorkEvidenceLinks';
-import { workNoteDisplay } from '../lib/workNoteDisplay';
 import {pendingLessonWork,lessonWorkDetails,lessonWorkStatus} from '../lib/pendingLessonWork';
 import type {TeachingLesson} from '../lib/teachingSessionDetails';
 import { useBusinessValue } from '../lib/businessPersistence';
@@ -78,6 +77,8 @@ export const Module7_WorkReconciliation: React.FC = () => {
   } = useApp();
 
   const [handoffLessons] = useBusinessValue<(TeachingLesson & {id:string})[]>('dated_lessons');
+  const [handoffIncidents] = useBusinessValue<{id:string;displayCode?:string}[]>('lesson_incidents');
+  const incidentCodes = useMemo(() => new Map(handoffIncidents.map(incident => [incident.id, incident.displayCode])), [handoffIncidents]);
   const teachingContext: WorkTeachingContext = useMemo(() => ({ classes, subjects, models, levels, teachingCategories, lessons: handoffLessons }), [classes, subjects, models, levels, teachingCategories, handoffLessons]);
 
   // State bộ lọc
@@ -441,7 +442,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
       const url = URL.createObjectURL(new Blob([reportExcelBytes(workbook)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const link = document.createElement('a'); link.href = url; link.download = workbook.filename;
       document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      showToast('Đã xuất bảng tổng hợp và công theo nhóm dạy (.xlsx).', 'success');
+      showToast('Đã xuất tổng công mỗi nhân sự trên một dòng (.xlsx).', 'success');
     } catch (error) { showToast(error instanceof Error ? error.message : 'Không xuất được file Excel.', 'error'); }
   };
 
@@ -1325,8 +1326,8 @@ export const Module7_WorkReconciliation: React.FC = () => {
                 <div><dt className="text-slate-500">Trạng thái đối soát</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.isPendingCredit?'—':viewingSession.session.reconcileStatus === 'DA_XAC_NHAN' ? 'Đã xác nhận' : viewingSession.session.reconcileStatus === 'CO_GIAI_TRINH' ? 'Có giải trình' : viewingSession.session.reconcileStatus === 'DA_CHOT' ? 'Đã chốt công' : 'Chờ đối soát'}</dd></div>
                 <div><dt className="text-slate-500">Hệ số ghi nhận</dt><dd className="mt-1 font-bold text-emerald-700">{viewingSession.session.isPendingCredit?'—':viewingSession.session.creditCoeff}</dd></div>
                 {viewingSession.session.isPendingCredit&&<div className="sm:col-span-2"><dt className="text-slate-500">Lý do chưa ghi công</dt><dd className="mt-1 font-semibold text-amber-700">{viewingSession.session.pendingCreditReason}</dd></div>}
-                <div><dt className="text-slate-500">AI rà soát</dt><dd className="mt-1 font-semibold text-slate-800">{viewingSession.session.hasAiReview ? 'Đã rà soát' : 'Chưa rà soát'}</dd></div>
-                <div className="sm:col-span-2"><dt className="text-slate-500">Ghi chú đối soát</dt><dd className="mt-1 rounded-lg bg-slate-50 p-3 text-slate-700">{workNoteDisplay(viewingSession.session,lessonCode(viewingSession.session.lessonId||viewingSession.session.id)) || 'Không có ghi chú'}</dd></div>
+                <div><dt className="text-slate-500">Mã sự cố</dt><dd className="mt-1 font-mono font-semibold text-slate-800">{viewingSession.session.incidentId ? incidentCodes.get(viewingSession.session.incidentId) || 'Chưa cấp mã' : 'Không có sự cố'}</dd></div>
+                <div><dt className="text-slate-500">Mã buổi học</dt><dd className="mt-1 font-mono font-semibold text-slate-800">{lessonCode(viewingSession.session.lessonId||viewingSession.session.id)}</dd></div>
                 {viewingSession.session.dispute && (
                   <div className="sm:col-span-2"><dt className="text-slate-500">Giải trình liên quan</dt><dd className="mt-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-slate-700">{viewingSession.session.dispute.content}</dd></div>
                 )}
