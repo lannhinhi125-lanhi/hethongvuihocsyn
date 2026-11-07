@@ -576,7 +576,7 @@ export const Module6_AIStudio: React.FC = () => {
             <form onSubmit={handleSaveDocument} className="mt-4 space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Tên hiển thị</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Tên hiển thị<span className="text-red-600" aria-hidden="true"> *</span></label>
                   <input
                     type="text"
                     required
@@ -586,7 +586,7 @@ export const Module6_AIStudio: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Phân loại nghiệp vụ</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Phân loại nghiệp vụ<span className="text-red-600" aria-hidden="true"> *</span></label>
                   <ReportSelect
                     required value={docCategory}
                     onChange={e => setDocCategory(e.target.value)}

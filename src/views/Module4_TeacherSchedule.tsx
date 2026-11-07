@@ -630,7 +630,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
           <div className="bg-white rounded-2xl p-6 w-full max-w-xl space-y-4">
             <h3 className="font-bold text-lg">Nhận xét buổi học — {reviewStudentName}</h3>
             <p className="text-sm text-slate-500">Giáo viên nhập nhận xét sau checkout; cần nhận xét đủ học sinh để tính công.</p>
-            <textarea className="w-full border rounded-xl p-3 min-h-48" value={reviewText} onChange={e=>setReviewText(e.target.value)} placeholder="Nhập nhận xét cho học sinh..." />
+            <label htmlFor="lesson-review" className="block text-sm font-semibold text-slate-700">Nội dung nhận xét <span className="text-red-600" aria-hidden="true">*</span></label>
+            <textarea id="lesson-review" required className="w-full border rounded-xl p-3 min-h-48" value={reviewText} onChange={e=>setReviewText(e.target.value)} placeholder="Nhập nhận xét cho học sinh..." />
             <div className="flex justify-end gap-3"><button onClick={()=>setIsReviewModalOpen(false)}>Đóng</button><button className="bg-orange-500 text-white rounded-lg px-4 py-2" onClick={handleSaveReview}>Lưu nhận xét</button></div>
           </div>
         </div>

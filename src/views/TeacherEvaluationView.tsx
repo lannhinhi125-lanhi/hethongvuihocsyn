@@ -598,7 +598,7 @@ export const TeacherEvaluationView: React.FC = () => {
               {/* Chọn lớp học & Buổi học */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Chọn ca dạy dự giờ:</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Chọn ca dạy dự giờ:<span className="text-red-600" aria-hidden="true"> *</span></label>
                   <ReportSelect
                     required
                     value={newSessionCode}
@@ -627,7 +627,7 @@ export const TeacherEvaluationView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tên buổi / Tiết học dự giờ:</label>
+                <label className="block font-semibold text-slate-700 mb-1">Tên buổi / Tiết học dự giờ:<span className="text-red-600" aria-hidden="true"> *</span></label>
                 <input
                   type="text"
                   required
@@ -640,7 +640,7 @@ export const TeacherEvaluationView: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Ngày dự giờ:</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Ngày dự giờ:<span className="text-red-600" aria-hidden="true"> *</span></label>
                   <input
                     type="date"
                     required
@@ -650,7 +650,7 @@ export const TeacherEvaluationView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Người dự giờ:</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Người dự giờ:<span className="text-red-600" aria-hidden="true"> *</span></label>
                   <input
                     type="text"
                     required
@@ -660,7 +660,7 @@ export const TeacherEvaluationView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Chức vụ:</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Chức vụ:<span className="text-red-600" aria-hidden="true"> *</span></label>
                   <input
                     type="text"
                     required

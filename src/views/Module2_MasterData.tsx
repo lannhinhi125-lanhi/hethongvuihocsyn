@@ -908,7 +908,7 @@ export const Module2_MasterData: React.FC = () => {
 
             <form onSubmit={handleSaveModel} className="mt-4 space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Mã mô hình (1-1, 1-3, 1-5)</label>
+                <label className="block font-semibold text-slate-700 mb-1">Mã mô hình (1-1, 1-3, 1-5)<span className="text-red-600" aria-hidden="true"> *</span></label>
                 <input
                   type="text"
                   required
@@ -919,7 +919,7 @@ export const Module2_MasterData: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tên mô hình</label>
+                <label className="block font-semibold text-slate-700 mb-1">Tên mô hình<span className="text-red-600" aria-hidden="true"> *</span></label>
                 <input
                   type="text"
                   required

@@ -166,8 +166,8 @@ export const CatalogWorkspace: React.FC<{ items: Navigation[]; active: string; o
             })}
           </ReportSelect></label>
         </>}
-        <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Mã *</span><input autoFocus required maxLength={40} pattern="[A-Za-z0-9_-]+" title="Dùng chữ không dấu, số, dấu gạch ngang hoặc gạch dưới." value={code} onChange={event => setCode(event.target.value)} className={input} placeholder={dialog === 'catalog' ? 'NGUON_TUYEN_SINH' : 'GIOI_THIEU'} /></label>
-        <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Tên *</span><input required maxLength={100} value={name} onChange={event => setName(event.target.value)} className={input} /></label>
+        <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Mã <span className="text-red-600" aria-hidden="true">*</span></span><input autoFocus required maxLength={40} pattern="[A-Za-z0-9_-]+" title="Dùng chữ không dấu, số, dấu gạch ngang hoặc gạch dưới." value={code} onChange={event => setCode(event.target.value)} className={input} placeholder={dialog === 'catalog' ? 'NGUON_TUYEN_SINH' : 'GIOI_THIEU'} /></label>
+        <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Tên <span className="text-red-600" aria-hidden="true">*</span></span><input required maxLength={100} value={name} onChange={event => setName(event.target.value)} className={input} /></label>
         <label className="block space-y-1.5 text-xs font-semibold text-slate-600"><span>Mô tả</span><textarea rows={3} maxLength={500} value={desc} onChange={event => setDesc(event.target.value)} className={input} /></label>
         <div className="flex justify-end gap-2"><button type="button" className={button} onClick={() => setDialog(null)}>Hủy</button><button type="submit" disabled={isSavingChanges} className={button + ' border-orange-600 bg-orange-600 text-white hover:bg-orange-700'}>Lưu</button></div>
       </form>

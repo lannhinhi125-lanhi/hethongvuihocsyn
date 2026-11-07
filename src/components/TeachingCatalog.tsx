@@ -37,9 +37,9 @@ export const TeachingCatalog: React.FC = () => {
       setTeachingCategories(prev => editingId ? prev.map(c => c.id === editingId ? category : c) : [...prev, category]); void confirmSave(()=>setOpened(false));
     }}>
       <h3 className="font-bold">{editingId ? 'Sửa cấp học & lớp dạy' : 'Thêm cấp học & lớp dạy'}</h3>
-      <label className="block text-xs">Mã cấp học<input required readOnly={Boolean(editingId)} value={code} onChange={e => setCode(e.target.value)} className="w-full border p-2 rounded-lg" /></label>
-      <label className="block text-xs">Tên cấp học<input required value={name} onChange={e => setName(e.target.value)} className="w-full border p-2 rounded-lg" /></label>
-      <label className="block text-xs">Lớp dạy (mỗi dòng một lớp)<textarea required rows={8} value={options} onChange={e => setOptions(e.target.value)} className="w-full border p-2 rounded-lg" /></label>
+      <label className="block text-xs">Mã cấp học<span className="text-red-600" aria-hidden="true"> *</span><input required readOnly={Boolean(editingId)} value={code} onChange={e => setCode(e.target.value)} className="w-full border p-2 rounded-lg" /></label>
+      <label className="block text-xs">Tên cấp học<span className="text-red-600" aria-hidden="true"> *</span><input required value={name} onChange={e => setName(e.target.value)} className="w-full border p-2 rounded-lg" /></label>
+      <label className="block text-xs">Lớp dạy (mỗi dòng một lớp)<span className="text-red-600" aria-hidden="true"> *</span><textarea required rows={8} value={options} onChange={e => setOptions(e.target.value)} className="w-full border p-2 rounded-lg" /></label>
       <p className="text-xs text-slate-500">Nhập “- Tên mục” cho cấp 1, “-- Tên mục con” cho cấp 2, “--- Tên mục con” cho cấp 3.</p>
       <button type="button" onClick={() => setOpened(false)} className="p-2 border rounded-lg">Đóng</button><button type="submit" disabled={isSavingChanges} className="ml-2 p-2 bg-orange-600 text-white rounded-lg">Lưu danh mục</button>
     </form></div>}

@@ -924,7 +924,7 @@ export const Module3_Teachers: React.FC = () => {
                 </div>
               </div>
 
-              <label className="block font-bold text-slate-700">Môn chuyên trách
+              <label className="block font-bold text-slate-700">Môn chuyên trách<span className="text-red-600" aria-hidden="true"> *</span>
                 <ReportSelect required value={newTeacherSubject} onChange={e => setNewTeacherSubject(e.target.value)} className="mt-1 w-full p-2 border border-slate-200 rounded-xl">
                   <option value="">Chọn môn từ danh mục</option>
                   {activeSubjects.map(subject => <option key={subject.id} value={subject.code}>{subject.name}</option>)}

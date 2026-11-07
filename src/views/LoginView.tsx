@@ -100,14 +100,14 @@ export const LoginView: React.FC<{ onLogin: (userId: string) => void }> = ({ onL
               }
             }}>
               <div>
-                <label htmlFor="login-username" className="mb-2 block text-sm font-semibold text-slate-700">Tên đăng nhập</label>
+                <label htmlFor="login-username" className="mb-2 block text-sm font-semibold text-slate-700">Tên đăng nhập<span className="text-red-600" aria-hidden="true"> *</span></label>
                 <div className="relative">
                   <UserRound aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
                   <input id="login-username" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={username} onChange={e => setUsername(e.target.value)} placeholder="Nhập tên đăng nhập" aria-invalid={loginError ? true : undefined} aria-describedby={loginError ? 'login-error' : undefined} className="block w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3.5 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-orange-200 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100" />
                 </div>
               </div>
               <div>
-                <label htmlFor="login-password" className="mb-2 block text-sm font-semibold text-slate-700">Mật khẩu</label>
+                <label htmlFor="login-password" className="mb-2 block text-sm font-semibold text-slate-700">Mật khẩu<span className="text-red-600" aria-hidden="true"> *</span></label>
                 <div className="relative">
                   <LockKeyhole aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
                   <input id="login-password" name="password" type={passwordVisible ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Nhập mật khẩu của bạn" aria-invalid={loginError ? true : undefined} aria-describedby={loginError ? 'login-error' : undefined} className="block w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3.5 pl-11 pr-12 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-orange-200 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100" />

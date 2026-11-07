@@ -581,10 +581,10 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-600 font-semibold mb-1">Vấn đề cần giải trình:</label>
+                <label className="block text-slate-600 font-semibold mb-1">Vấn đề cần giải trình: <span className="text-red-600" aria-hidden="true">*</span></label>
                 <input
                   type="text"
-                  value={disputeType}
+                  required value={disputeType}
                   onChange={e => setDisputeType(e.target.value)}
                   placeholder="Mô tả ngắn vấn đề cần đối soát"
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:border-blue-500"
@@ -592,10 +592,10 @@ export const TeacherWorkReconciliationView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-600 font-semibold mb-1">Nội dung giải trình chi tiết:</label>
+                <label className="block text-slate-600 font-semibold mb-1">Nội dung giải trình chi tiết: <span className="text-red-600" aria-hidden="true">*</span></label>
                 <textarea
                   rows={4}
-                  value={disputeContent}
+                  required value={disputeContent}
                   onChange={e => setDisputeContent(e.target.value)}
                   placeholder="Trình bày cụ thể diễn biến, thời gian vào phòng, học sinh vắng hay bù giờ..."
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-blue-500"
