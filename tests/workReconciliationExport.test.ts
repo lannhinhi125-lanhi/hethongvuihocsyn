@@ -1,7 +1,7 @@
 ﻿import assert from 'node:assert/strict';
 import type { SessionPayrollRecord, TeacherPayrollSummary } from '../src/types';
 import { workCreditBreakdown, workHandoffDocument, workHandoffExcel, workHandoffRows, workHandoffTotals, type WorkHandoffInfo } from '../src/lib/workReconciliationExport';
-import { workTeachingGroups, type WorkTeachingContext } from '../src/lib/workTeachingGroups';
+import { workModelGroups, workTeachingGroups, type WorkTeachingContext } from '../src/lib/workTeachingGroups';
 import { reportExcelBytes } from '../src/lib/reportExcel';
 import { selectWorkHandoffStaff } from '../src/lib/workCredits';
 const session = (id: string, type: SessionPayrollRecord['type'], creditCoeff: number): SessionPayrollRecord => ({
@@ -48,11 +48,12 @@ assert.equal(workTeachingGroups([fallback], context)[0].categoryName, 'Tiểu h�
 const ambiguous = { ...context, classes: [...context.classes!, { ...context.classes![0], id: 'other' }] };
 assert.equal(workTeachingGroups([fallback], ambiguous)[0].categoryName, 'Chưa xác định');
 const workbook = workHandoffExcel(staff, info, context);
-assert.equal(workbook.sheets.length, 2);
+assert.equal(workbook.sheets.length, 3);
 assert.equal(workbook.filename, 'Doi-soat-cong-2026-10.xlsx');
 assert.equal(workbook.sheets[0].name, 'Tổng hợp công dạy giáo viên');
-assert.equal(workbook.sheets[1].name, 'Thông tin bàn giao');
-assert.equal(workbook.sheets[0].rows.length, 5);
+assert.equal(workbook.sheets[1].name, 'Công theo mô hình');
+assert.equal(workbook.sheets[2].name, 'Thông tin bàn giao');
+assert.equal(workbook.sheets[0].rows.length, 3);
 assert.ok(!workbook.sheets.some(sheet => sheet.name === 'Tổng hợp công'));
 assert.ok(!JSON.stringify(workbook).includes('Chi tiết buổi dạy'));
 assert.ok(!JSON.stringify(workbook).includes('Lớp không được xuất'));
@@ -66,6 +67,29 @@ for (const person of workHandoffRows(staff)) {
     assert.equal(person[key as keyof typeof metrics], Number(groups.reduce((sum, row) => sum + Number(row[groupHeaders.indexOf(label)]), 0).toFixed(6)));
   }
 }
+const modelHeaders = workbook.sheets[1].rows[0];
+for (const person of workHandoffRows(staff)) {
+  const models = workbook.sheets[1].rows.slice(1).filter(row => row[1] === person.teacherId);
+  for (const [key, label] of Object.entries(metrics)) {
+    assert.equal(person[key as keyof typeof metrics], Number(models.reduce((sum, row) => sum + Number(row[modelHeaders.indexOf(label)]), 0).toFixed(6)));
+  }
+}
+const modelStaff = [{ ...staff[0], sessions: [
+  { ...session('one', 'STANDARD', 1), model: '1-1' },
+  { ...session('three', 'COVER', 0.5), model: '1-3' },
+  { ...session('five', 'LATE', -0.25), model: '1-5' },
+  { ...session('ten', 'STUDENT_CANCELED', 0), model: '1-10' },
+  { ...session('another-program', 'STANDARD', 1), model: '1-1', classCode: 'C2' },
+  { ...session('missing', 'STANDARD', 0.75), classCode: 'MISSING' },
+  { ...session('pending', 'STANDARD', 1), model: '1-1', isPendingCredit: true }
+] }];
+const modelGroups = workModelGroups(modelStaff, context);
+assert.equal(modelGroups.length, 5);
+assert.equal(modelGroups.find(row => row.modelCode === '1-1')!.totalCredit, 2);
+assert.equal(modelGroups.find(row => row.modelCode === '1-5')!.totalCredit, -0.25);
+assert.equal(modelGroups.find(row => row.modelCode === '1-10')!.incidentSessions, 1);
+assert.equal(modelGroups.find(row => row.modelCode === '')!.totalCredit, 0.75);
+assert.equal(Number(modelGroups.reduce((sum, row) => sum + row.totalCredit, 0).toFixed(6)), workHandoffTotals(modelStaff).totalCredit);
 const html = workHandoffDocument([staff[0]], info);
 assert.ok(html.includes('data:image/png;base64,'));
 assert.ok(html.includes('size:A4 portrait'));
@@ -94,7 +118,8 @@ const largeDocument = workHandoffDocument(hundreds, info);
 assert.ok(!largeDocument.includes('Nhân sự dòng'));
 assert.ok(largeDocument.includes('500 người'));
 assert.ok(largeDocument.length < html.length + 1000);
-assert.equal(workHandoffExcel(many, { ...info, isLocked: true }, context).sheets[0].rows.length, workTeachingGroups(many, context).length + 1);
+assert.equal(workHandoffExcel(many, { ...info, isLocked: true }, context).sheets[0].rows.length, many.length + 1);
+assert.equal(workHandoffExcel(many, { ...info, isLocked: true }, context).sheets[1].rows.length, workModelGroups(many, context).length + 1);
 assert.throws(() => workHandoffExcel([{ ...staff[0], sessions: [session('bad', 'STANDARD', NaN)] }], info), /hệ số công không hợp lệ/);
 const signedStaff = [{ ...staff[0], sessions: [session('standard', 'STANDARD', 20), session('penalty', 'LATE', -1), session('compensation', 'STUDENT_CANCELED', 0.5), session('zero', 'LATE', 0)] }];
 const signedWorkbook = workHandoffExcel(signedStaff, info);

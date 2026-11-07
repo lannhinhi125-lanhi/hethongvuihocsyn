@@ -20,7 +20,7 @@ const catalogName = (catalog: { code: string; name: string }[] | undefined, code
 export function workTeachingGroups(staff: TeacherPayrollSummary[], context: WorkTeachingContext = {}) {
   const classesById = new Map(context.classes?.map(row => [row.id, row]));
   const lessonsById = new Map(context.lessons?.map(row => [row.id, row]));
-  const groups: Array<ReturnType<typeof workHandoffRows>[number] & { modelName: string; programName: string; categoryName: string; groupKey: string }> = [];
+  const groups: Array<ReturnType<typeof workHandoffRows>[number] & { modelCode: string; modelName: string; programName: string; categoryName: string; groupKey: string }> = [];
   for (const person of staff) {
     const map = new Map<string, { sessions: SessionPayrollRecord[]; subjectCode: string; modelCode?: string; programCode?: string; categoryId?: string }>();
     for (const session of person.sessions || []) {
@@ -40,10 +40,22 @@ export function workTeachingGroups(staff: TeacherPayrollSummary[], context: Work
     for (const [key, group] of map) {
       const summary = workHandoffRows([{ ...person, sessions: group.sessions }])[0];
       groups.push({ ...summary, subjectName: catalogName(context.subjects, group.subjectCode),
-        modelName: catalogName(context.models, group.modelCode), programName: catalogName(context.levels, group.programCode),
+        modelCode: group.modelCode || '', modelName: catalogName(context.models, group.modelCode), programName: catalogName(context.levels, group.programCode),
         categoryName: context.teachingCategories?.find(row => row.id === group.categoryId)?.name || unknown,
         groupKey: JSON.stringify([person.teacherId, key]) });
     }
   }
   return groups;
+}
+
+/** One row per person/model so different programs do not duplicate model totals. */
+export function workModelGroups(staff: TeacherPayrollSummary[], context: WorkTeachingContext = {}) {
+  const groups = new Map<string, ReturnType<typeof workTeachingGroups>[number]>();
+  for (const row of workTeachingGroups(staff, context)) {
+    const key = JSON.stringify([row.teacherId, row.modelCode]);
+    const previous = groups.get(key);
+    groups.set(key, { ...row, groupKey: key, sessions: [...(previous?.sessions || []), ...row.sessions] });
+  }
+  return Array.from(groups.values(), row => ({ ...row, ...workHandoffRows([row])[0] }))
+    .sort((a, b) => a.teacherId.localeCompare(b.teacherId, 'vi', { numeric: true }) || a.modelCode.localeCompare(b.modelCode, 'vi', { numeric: true }));
 }

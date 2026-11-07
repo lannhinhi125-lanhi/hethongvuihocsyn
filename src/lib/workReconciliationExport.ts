@@ -1,5 +1,5 @@
 import {reportDocumentTypography} from './reportTypography';
-import { type WorkTeachingContext } from './workTeachingGroups';
+import { workModelGroups, type WorkTeachingContext } from './workTeachingGroups';
 ﻿import type { TeacherPayrollSummary } from '../types';
 import type { ReportExcelData } from './reportExcel';
 import { escapeReportHtml } from './reportDocument';
@@ -10,8 +10,9 @@ import { workCreditText, staffReconcileLabel, workHandoffRows, workHandoffTotals
 
 export const workHandoffFilename = (month: string) => `Doi-soat-cong-${month}.xlsx`;
 
-export function workHandoffExcel(staff: TeacherPayrollSummary[], info: WorkHandoffInfo, _context: WorkTeachingContext = {}): ReportExcelData {
+export function workHandoffExcel(staff: TeacherPayrollSummary[], info: WorkHandoffInfo, context: WorkTeachingContext = {}): ReportExcelData {
   const rows = workHandoffRows(staff);
+  const modelRows = workModelGroups(staff, context);
   for (const person of rows) for (const session of person.sessions) {
     if (session.creditCoeff===null || !Number.isFinite(session.creditCoeff)) throw new Error('Có hệ số công không hợp lệ. Vui lòng kiểm tra trước khi bàn giao.');
   }
@@ -22,12 +23,18 @@ export function workHandoffExcel(staff: TeacherPayrollSummary[], info: WorkHando
       ...rows.map(row => [info.month, row.teacherId, row.teacherName, row.staffRole === 'GIA_SU' ? 'Gia sư' : 'Giáo viên',
         row.standardSessions, row.incidentSessions, row.standardCredit, row.incidentCredit, row.totalCredit, staffReconcileLabel(row.reconcileStatus), state])
     ] },
+    { name: 'Công theo mô hình', autoFilter: true, columnWidths: [12, 20, 28, 22, 16, 26, 14, 14, 16, 16, 16, 24, 20], rows: [
+      ['Kỳ công', 'Mã nhân sự', 'Họ và tên', 'Phân loại nhân sự', 'Mã mô hình', 'Mô hình dạy', 'Buổi chuẩn', 'Buổi sự cố', 'Công chuẩn', 'Công sự cố', 'Tổng công', 'Trạng thái đối soát', 'Trạng thái kỳ công'],
+      ...modelRows.map(row => [info.month, row.teacherId, row.teacherName, row.staffRole === 'GIA_SU' ? 'Gia sư' : 'Giáo viên',
+        row.modelCode || 'Chưa xác định', row.modelName, row.standardSessions, row.incidentSessions, row.standardCredit, row.incidentCredit, row.totalCredit, staffReconcileLabel(row.reconcileStatus), state])
+    ] },
     { name: 'Thông tin bàn giao', autoFilter: false, columnWidths: [30, 90], rows: [
       ['Thông tin', 'Giá trị'], ['Đơn vị', info.organization], ['Địa chỉ', info.address], ['Số biên bản', info.reportNumber || 'Chưa cấp số'], ['Kỳ công', info.month], ['Phạm vi', info.scope], ['Người lập', info.author], ['Ngày lập', info.createdAt],
       ['Bộ phận tiếp nhận', info.receiver], ['Trạng thái kỳ', state], ['Thời điểm khóa kỳ', info.lockedAt || 'Chưa khóa'],
       ['Quy tắc', 'Buổi chuẩn gồm STANDARD và COVER (dạy thay). Các loại còn lại thuộc buổi sự cố; giữ nguyên hệ số đã đối soát, kể cả công âm và 0 công.'],
       ['Cách cộng', 'Công chuẩn/công sự cố là tổng hệ số các buổi tương ứng. Tổng công = công chuẩn + công sự cố. Đơn vị: công quy chuẩn; không phải số tiền.'],
-      ['Sử dụng', 'Mỗi nhân sự có một dòng tổng hợp số buổi và công trong phạm vi đã chọn.'],
+      ['Sử dụng', 'Bảng tổng hợp có một dòng mỗi nhân sự. Bảng Công theo mô hình tách riêng công từng mô hình của mỗi nhân sự để áp đơn giá tương ứng; không cộng hai bảng với nhau.'],
+      ['Mô hình', 'Ưu tiên mô hình đã ghi trong ca công, sau đó tra lớp liên kết với buổi học. Dòng Chưa xác định cần kiểm tra trước khi tính lương; không mặc định là 1-3. File không tự đặt đơn giá hay tính tiền.'],
     ] }
   ] };
 }
@@ -49,7 +56,7 @@ export function workHandoffDocument(staff: TeacherPayrollSummary[], info: WorkHa
 ${reportDocumentTypography}</style></head><body><main><section class="handoff-cover"><header><div class="letterhead"><div><p class="organization">${esc(info.organization)}</p><img src="${vuihocReportLogo}" alt="VUIHOC">${info.address ? `<p>${esc(info.address)}</p>` : ''}<p>Số: ${esc(info.reportNumber || 'Chưa cấp số')}</p></div><div class="classification"><strong>BIÊN BẢN NỘI BỘ</strong><p>Ngày lập: ${esc(info.createdAt)}</p></div></div><h1>BIÊN BẢN ĐỐI SOÁT VÀ BÀN GIAO CÔNG DẠY</h1><div class="meta"><p>Kỳ công: ${esc(info.month)}</p><p>Phạm vi: ${esc(info.scope)}</p><p>Bộ phận tiếp nhận: ${esc(info.receiver)}</p><p>Người lập: ${esc(info.author)}</p><p>Trạng thái kỳ: <strong>${info.isLocked ? 'Đã khóa kỳ' : 'Chưa khóa kỳ — số liệu có thể thay đổi'}</strong></p></div></header>
 <p class="notice">Bàn giao số buổi và công quy chuẩn làm dữ liệu đầu vào cho bộ phận tính lương. Trạng thái đối soát của từng nhân sự được ghi trong file Excel kèm theo; biên bản không tự xác nhận các dòng chưa chốt công.</p>
 <h2>1. Số liệu bàn giao</h2><table class="totals-table"><tbody>${metrics.map(([label, value]) => `<tr><th scope="row">${label}</th><td>${esc(value)}</td></tr>`).join('')}</tbody></table>
-<section class="attachments"><h2>2. Tài liệu kèm theo</h2><p>File Excel: <strong>${esc(filename)}</strong>.</p><p>Gồm 2 trang tính: Tổng hợp công dạy giáo viên và Thông tin bàn giao. Tổng công đối chiếu: <strong>${workCreditText(total.totalCredit)}</strong> công; tổng số buổi: <strong>${total.sessions}</strong>.</p><p>Mỗi nhân sự có một dòng Excel tổng hợp số buổi và công trong phạm vi đã chọn.</p></section>
+<section class="attachments"><h2>2. Tài liệu kèm theo</h2><p>File Excel: <strong>${esc(filename)}</strong>.</p><p>Gồm 3 trang tính: Tổng hợp công dạy giáo viên, Công theo mô hình và Thông tin bàn giao. Tổng công đối chiếu: <strong>${workCreditText(total.totalCredit)}</strong> công; tổng số buổi: <strong>${total.sessions}</strong>.</p><p>Mỗi nhân sự có một dòng tổng hợp. Bảng Công theo mô hình tách riêng công từng mô hình để áp đơn giá tương ứng; không cộng hai bảng với nhau.</p></section>
 <p class="notice">Buổi chuẩn bao gồm dạy thay. Công được cộng theo hệ số đã ghi nhận; buổi 0 công vẫn có trong số buổi. Bên giao và bên nhận kiểm tra phạm vi, số nhân sự và tổng công trước khi ký xác nhận.</p>
 <div class="signatures">${signer('NGƯỜI LẬP BIÊN BẢN', info.author)}${signer('VẬN HÀNH ĐÀO TẠO', info.operationsSigner)}${signer('BỘ PHẬN TIẾP NHẬN', info.receivingSigner)}</div><p class="footer">Số liệu trong phạm vi đã chọn tại thời điểm lập biên bản. Công quy chuẩn không phải số tiền lương.</p></section>
 </main></body></html>`;
