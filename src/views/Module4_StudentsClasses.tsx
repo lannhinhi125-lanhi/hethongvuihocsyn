@@ -2028,7 +2028,7 @@ export const Module4_StudentsClasses: React.FC = () => {
 
             <form onSubmit={handleSaveClassSubmit} className="mt-4 space-y-3.5 text-xs">
               {classSaveError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">Chưa lưu được lớp học: {classSaveError}. Thông tin bạn nhập vẫn được giữ để thử lại.</p>}
-              <fieldset disabled={savingClass} className="contents">
+              <fieldset disabled={savingClass} className="min-w-0 space-y-5">
               {!editingClassId && <label className="block font-semibold text-slate-700">Năm học tạo lớp
                 <ReportSelect aria-label="Năm học tạo lớp" value={clsSchoolYear} onChange={event => setClsSchoolYear(event.target.value)} className="block w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white">
                   {Array.from({ length: 12 }, (_, index) => 2020 + index).map(year => <option key={year} value={String(year)}>{year} - {year + 1}</option>)}

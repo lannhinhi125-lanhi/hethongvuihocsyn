@@ -4,6 +4,8 @@ Hệ thống được phát triển bằng **React 19**, **Vite**, **TypeScript*
 
 ---
 
+Tối ưu lưu dữ liệu: xem [hướng dẫn triển khai frontend và SQL](docs/save-performance.md). Bản cập nhật chỉ truy vấn lại các nhóm dữ liệu liên quan sau khi lưu.
+
 ## 📌 Kiến Trúc Chức Năng Hệ Thống
 
 ### A. KHÔNG GIAN QUẢN TRỊ VIÊN (ADMIN / VẬN HÀNH / CHUYÊN MÔN)

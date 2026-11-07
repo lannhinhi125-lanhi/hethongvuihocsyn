@@ -98,10 +98,28 @@ async function flush(){
    confirmed=snapshot;
    for(const c of changes){const existing=raw[c.dataset]?.find(r=>r.madinhdanh===(c.after||c.before).madinhdanh);raw[c.dataset]=(raw[c.dataset]||[]).filter(r=>r.madinhdanh!==(c.after||c.before).madinhdanh);if(c.after)raw[c.dataset].push({...existing,...c.after});}
    const more=JSON.stringify(state.data)!==JSON.stringify(snapshot);
-   if(!more&&receipt.data){
-    raw=receipt.data;confirmed=decode(raw);
+   let nextData=state.data;
+   if(receipt.data){
+    raw=receipt.partial ? {...raw,...receipt.data} : receipt.data;
+    confirmed=decode(raw);
+    if(more){
+     // Rebase edits made during the request onto the server's derived data.
+     const rebased={...raw};
+     for(const key of Object.keys(state.data)){
+      if(JSON.stringify(state.data[key])===JSON.stringify(snapshot[key]))continue;
+      const dataset=key==='active_tone_key'?'app_settings':key;
+      const queued=recordChanges(dataset,encode(key,snapshot[key]),encode(key,state.data[key]),raw[dataset]||[]);
+      for(const edit of queued){
+       const id=(edit.after||edit.before)!.madinhdanh;
+       const existing=rebased[dataset]?.find(row=>row.madinhdanh===id);
+       rebased[dataset]=(rebased[dataset]||[]).filter(row=>row.madinhdanh!==id);
+       if(edit.after)rebased[dataset].push({...existing,...edit.after});
+      }
+     }
+     nextData=decode(rebased);
+    }
    }
-   publish({...state,data:more?state.data:confirmed,saving:more,saved:state.saved+1,...(!more&&receipt.data?{loadedAt:Date.now(),refreshError:''}:{})});
+   publish({...state,data:more?nextData:confirmed,saving:more,saved:state.saved+1,...(receipt.data?{loadedAt:Date.now(),refreshError:''}:{})});
   }
  }catch(error){if(version===generation)publish({...state,data:confirmed,saving:false,errorOperation:'save',error:(error as Error).message});}
  finally{flushing=false;if(state.saving)queueMicrotask(()=>void flush());}
@@ -117,7 +135,7 @@ export async function removeClassStudent(classId:string,studentId:string) {
  try {
   const receipt=await teacherSessionRequest('vuihoc_remove_class_student',{p_class_id:classId,p_student_id:studentId});
   if(version!==generation)return;
-  raw=receipt.data;confirmed=decode(raw);
+  raw=receipt.partial ? {...raw,...receipt.data} : receipt.data;confirmed=decode(raw);
   publish({...state,data:confirmed,saving:false,error:'',saved:state.saved+1,loadedAt:Date.now(),refreshError:''});
  }catch(error){
   if(version===generation)publish({...state,saving:false,errorOperation:'save',error:(error as Error).message});
@@ -133,7 +151,7 @@ export async function removeStudentRegistration(studentId: string, subject: stri
  try {
   const receipt=await teacherSessionRequest('vuihoc_remove_student_registration',{p_student_id:studentId,p_subject:subject});
   if(version!==generation)throw new Error('Phiên dữ liệu đã thay đổi. Hãy tải lại.');
-  raw=receipt.data;confirmed=decode(raw);
+  raw=receipt.partial ? {...raw,...receipt.data} : receipt.data;confirmed=decode(raw);
   publish({...state,data:confirmed,saving:false,error:'',saved:state.saved+1,loadedAt:Date.now(),refreshError:''});
  }catch(error){
   if(version===generation)publish({...state,saving:false,errorOperation:'save',error:(error as Error).message});

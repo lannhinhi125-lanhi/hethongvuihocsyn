@@ -164,7 +164,11 @@ export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuiho
   try {
     const data = await rpc(name,{...args,p_token:token});
     if (version !== generation) throw new Error('Phiên đăng nhập đã thay đổi.');
-    if (writing) { publish({...state,saving:false,saved:true}); void refreshAccountSession(); }
+    if (writing) {
+      publish({...state,saving:false,saved:true});
+      // Only teacher profile changes can also update an account.
+      if (name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' && Array.isArray(args.p_changes) && args.p_changes.some((change: any) => change.dataset === 'teachers')) void refreshAccountSession();
+    }
     return data;
   } catch (error) {
     if (writing && version === generation) publish({...state,saving:false,saved:false,error:(error as Error).message});
