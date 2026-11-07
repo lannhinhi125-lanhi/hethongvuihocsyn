@@ -37,7 +37,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
   const { can, requirePermission, portal } = usePermissions();
   const {
     incidents, classes, setClasses, students, teachers, showToast, currentUser,
-    timeSlots, subjects, sopDocuments, ragBotConfig, users
+    timeSlots, subjects, levels, sopDocuments, ragBotConfig, users
   } = useApp();
 
   const contactOperations = () => window.alert('Khi mất điện, mất mạng hoặc cần nghỉ đột xuất, hãy gọi ngay cho Vận hành qua số điện thoại hoặc Zalo đã được trung tâm cung cấp.\n\nCung cấp mã lớp, ngày giờ ca dạy, tình huống và minh chứng nếu có. Vận hành sẽ xác minh và cập nhật trạng thái buổi học.\n\nNếu chưa có thông tin liên hệ, hãy hỏi người phụ trách lớp. Mở hướng dẫn này chưa gửi yêu cầu hỗ trợ.');
@@ -557,7 +557,10 @@ export const Module4_TeacherSchedule: React.FC = () => {
                           selectedStudentIds.map(sid => {
                             const studentItem = students.find(s => s.id === sid);
                             const studentDisplayName = studentItem ? studentItem.name : sid;
-                            const studentGradeLevel = studentItem ? `${studentItem.grade} - Trình độ ${studentItem.level}` : 'Khối Tiểu học';
+                            const studentLevel = studentItem?.registrations?.find(registration => registration.subject === selectedClass.subject)?.level
+                              || studentItem?.level || selectedClass.level;
+                            const studentLevelName = levels.find(level => level.code === studentLevel || level.id === studentLevel)?.name || 'Chưa xác định';
+                            const studentGradeLevel = `${studentItem?.grade || selectedClass.grade} - Trình độ ${studentLevelName}`;
 
                             return (
                               <tr key={sid} data-sort-time={recordSortTime(studentItem)}>
