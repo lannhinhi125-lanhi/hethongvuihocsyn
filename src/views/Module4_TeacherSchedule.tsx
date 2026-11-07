@@ -46,7 +46,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
 
   // Only teacher questions are persisted. AI answers remain in memory.
   const [isKnowledgeBotOpen, setIsKnowledgeBotOpen] = useState(false);
-  const [chatSize, setChatSize] = useState({ width: 380, height: 560 });
+  const [chatSize, setChatSize] = useState({ width: 1040, height: 800 });
   const resizeChat = (width: number, height: number) => {
     setChatSize({
       width: Math.min(Math.max(320, width), window.innerWidth - 48),

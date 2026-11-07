@@ -16,18 +16,18 @@ export function TeacherChatThread({turns,greeting,isBusy,isAnswering,hasOlder,on
     previous.current={first,last,height:element.scrollHeight};
   },[turns,isAnswering]);
   const time=(value:string)=>new Date(value).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
-  return <div ref={scroll} className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 text-xs bg-slate-50/40">
+  return <div ref={scroll} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-5 text-sm leading-relaxed text-slate-900 bg-slate-100">
     {hasOlder && <button type="button" disabled={isBusy} onClick={onOlder} className="w-full text-orange-700 text-[11px] hover:underline disabled:opacity-40">Xem câu hỏi cũ hơn</button>}
-    {!turns.length && <div className="p-2.5 rounded-2xl bg-white border border-slate-200"><ChatMessageText text={greeting||'Thầy/cô cần hỗ trợ nội dung gì?'} /></div>}
+    {!turns.length && <div className="p-4 rounded-2xl bg-white border border-slate-300 shadow-sm"><ChatMessageText text={greeting||'Thầy/cô cần hỗ trợ nội dung gì?'} /></div>}
     {turns.map(turn=><div key={turn.macauhoi} className="space-y-2">
       <div className="flex flex-col items-end">
-        <span className="mb-1 text-[9px] text-slate-400">Thầy/Cô · {time(turn.thoigianhoi)}</span>
-        <div className="max-w-[90%] p-2.5 rounded-2xl rounded-br-sm bg-[#FF5C00] text-white"><ChatMessageText text={turn.noidung} format={false} /></div>
-        <button type="button" disabled={isBusy} onClick={()=>onAskAgain(turn)} className="mt-1 text-[10px] text-orange-700 hover:underline disabled:opacity-40">Hỏi lại câu này</button>
+        <span className="mb-1 text-xs font-medium text-slate-600">Thầy/Cô · {time(turn.thoigianhoi)}</span>
+        <div className="max-w-[90%] p-3.5 rounded-2xl rounded-br-sm bg-orange-700 text-white shadow-sm"><ChatMessageText text={turn.noidung} format={false} /></div>
+        <button type="button" disabled={isBusy} onClick={()=>onAskAgain(turn)} className="mt-1 text-xs font-medium text-orange-800 hover:underline disabled:opacity-40">Hỏi lại câu này</button>
       </div>
       {turn.traloi!==null && <div className="flex flex-col items-start">
-        <span className="mb-1 text-[9px] text-slate-400">Bot chat AI{turn.thoigiantraloi?' · '+time(turn.thoigiantraloi):''}</span>
-        <div className="max-w-[90%] p-2.5 rounded-2xl rounded-bl-sm bg-white border border-slate-200 text-slate-800"><ChatMessageText text={turn.traloi} /></div>
+        <span className="mb-1 text-xs font-medium text-slate-600">Bot chat AI{turn.thoigiantraloi?' · '+time(turn.thoigiantraloi):''}</span>
+        <div className="max-w-[90%] p-4 rounded-2xl rounded-bl-sm bg-white border border-slate-300 text-slate-900 shadow-sm"><ChatMessageText text={turn.traloi} /></div>
       </div>}
     </div>)}
     {isAnswering && <p role="status" className="text-slate-500 animate-pulse">AI đang soạn câu trả lời…</p>}
