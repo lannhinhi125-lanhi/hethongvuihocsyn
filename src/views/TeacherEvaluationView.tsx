@@ -38,8 +38,8 @@ import { useBusinessValue, waitForBusinessSave } from '../lib/businessPersistenc
 import type { TeachingLesson } from '../lib/teachingSessionDetails';
 
 export const TeacherEvaluationView: React.FC = () => {
-  const { can, requirePermission } = usePermissions();
-  const { currentUser, teachers, classes, showToast, users, timeSlots } = useApp();
+  const { can, requirePermission, portal } = usePermissions();
+  const { currentUser, teachers, classes, showToast, users, timeSlots, workspaceMode } = useApp();
   const [datedLessons] = useBusinessValue<TeachingLesson[]>('dated_lessons');
   const [, setEvaluations] = useBusinessValue<EvaluationRecord[]>('teacher_evaluations');
   const [savingEvaluation, setSavingEvaluation] = useState(false);
@@ -49,7 +49,8 @@ export const TeacherEvaluationView: React.FC = () => {
   const resizeProfile = (width: number) => setProfileWidth(Math.max(240, Math.min(420, width)));
 
   // Tìm hồ sơ giáo viên đang đăng nhập hoặc mặc định
-  const isTeacherAccount = currentUser.role === 'Giáo viên Giảng dạy';
+  const isTeacherAccount = portal === 'TEACHER' || workspaceMode === 'TEACHER';
+  const canCreateReport = !isTeacherAccount && can('Chấm điểm và cập nhật báo cáo dự giờ');
   const defaultTeacher = teachers.find(t => resolveTeacherAccount(t, users)?.id === currentUser.id);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(defaultTeacher?.id || teachers[0]?.id || '');
   const currentTeacher = isTeacherAccount ? defaultTeacher : teachers.find(t => t.id === selectedTeacherId) || teachers[0];
@@ -97,7 +98,7 @@ export const TeacherEvaluationView: React.FC = () => {
     e.preventDefault();
     if (!requirePermission("Chấm điểm và cập nhật báo cáo dự giờ")) return;
     e.preventDefault();
-    if (isTeacherAccount || !currentTeacher || savingEvaluation) return;
+    if (!canCreateReport || !currentTeacher || savingEvaluation) return;
     if (!newSession?.sessionNum) { showToast('Vui lòng chọn ca dạy có số buổi từ ca gốc. Nếu thiếu, hãy cập nhật truy vấn dự giờ.', 'error'); return; }
     const finalScore = weightedEvaluationScore(newTc1,newTc2,newTc3);
     if(finalScore==null) { showToast('Điểm từng tiêu chí phải nằm trong khoảng 0–10.','error'); return; }
@@ -185,7 +186,7 @@ export const TeacherEvaluationView: React.FC = () => {
               {averageScore==null ? 'Chưa có điểm' : `${averageScore.toFixed(2)} / 10 (Hạng ${averageRating!.code})`}
             </div>
           </div>
-          {!isTeacherAccount && <button
+          {canCreateReport && <button
             onClick={() => setIsCreateModalOpen(true)}
             className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
           >
@@ -574,7 +575,7 @@ export const TeacherEvaluationView: React.FC = () => {
       )}
 
       {/* ================= MODAL: LẬP BIÊN BẢN DỰ GIỜ BUỔI HỌC MỚI ================= */}
-      {isCreateModalOpen && !isTeacherAccount && (
+      {isCreateModalOpen && canCreateReport && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-slate-200 flex items-center justify-between">

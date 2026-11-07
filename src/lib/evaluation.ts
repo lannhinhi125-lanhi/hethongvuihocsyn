@@ -21,7 +21,7 @@ export function sessionsInRange(teacher: TeacherProfile, from: string, to: strin
 
 export function resolveAccountTeacher(user: UserAccount, teachers: TeacherProfile[], users: UserAccount[]): TeacherProfile | undefined {
   if (isPreviewAccount(user)) return teachers[0];
-  if (user.role !== 'Giáo viên Giảng dạy' || user.status !== 'active') return undefined;
+  if (user.status !== 'active') return undefined;
   const matches = teachers.filter(teacher => resolveTeacherAccount(teacher, users)?.id === user.id);
   return matches.length === 1 ? matches[0] : undefined;
 }
