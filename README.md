@@ -1,112 +1,47 @@
-# VUIHOC - Hệ thống Quản lý Vận hành Đào tạo Trực tuyến Tập trung
+# Xây dựng hệ thống quản lý vận hành lớp học tại nền tảng giáo dục trực tuyến VUIHOC tích hợp AI hỗ trợ giáo viên
 
-Hệ thống được phát triển bằng **React 19**, **Vite**, **TypeScript**, **Tailwind CSS**, sử dụng duy nhất font chữ **Inter** theo đúng yêu cầu. Dữ liệu giữa các chức năng được quản lý tập trung và liên thông logic chặt chẽ (Centralized App Store & Supabase Relational Database).
+## Giới thiệu
 
----
+Đề tài xây dựng hệ thống web phục vụ công tác vận hành lớp học trực tuyến tại VUIHOC. Hệ thống hỗ trợ bộ phận Vận hành, bộ phận Chuyên môn và giáo viên phối hợp trong suốt quá trình tổ chức lớp học, từ xếp lớp, phân công giáo viên và chuẩn bị học liệu đến theo dõi ca dạy, xử lý sự cố, đánh giá dự giờ và tổng hợp báo cáo.
 
-Tối ưu lưu dữ liệu: xem [hướng dẫn triển khai frontend và SQL](docs/save-performance.md). Bản cập nhật chỉ truy vấn lại các nhóm dữ liệu liên quan sau khi lưu.
+Hệ thống gồm **Cổng quản trị** dành cho quản trị viên, nhân viên Vận hành và nhân viên Chuyên môn, cùng **Cổng giáo viên** để theo dõi lịch dạy, đăng ký lịch rảnh và tra cứu thông tin nghiệp vụ. Trợ lý AI được tích hợp vào Cổng giáo viên, sử dụng tài liệu nội bộ để hỗ trợ giải đáp các câu hỏi về quy trình, quy định và cách xử lý tình huống trong ca dạy.
 
-## 📌 Kiến Trúc Chức Năng Hệ Thống
+## Chức năng chính
 
-### A. KHÔNG GIAN QUẢN TRỊ VIÊN (ADMIN / VẬN HÀNH / CHUYÊN MÔN)
-1. **Quản trị Tài khoản & Phân quyền (RBAC)**
-   - Quản lý tài khoản người dùng, cấp mới tài khoản, xem/sao chép mật khẩu, khóa/mở khóa tài khoản.
-   - Nhóm quyền hệ thống: Quản trị Toàn quyền, Quản lý Chuyên môn, Nhân viên Vận hành, Giáo viên Giảng dạy.
+### Cổng quản trị
 
-2. **Danh mục Dùng chung (Master Data)**
-   - Môn học (`SUB-MATH`, `SUB-ENG`), Khung trình độ (`LVL-F1`, `LVL-F2`, `LVL-STD`, `LVL-ADV`).
-   - Khung giờ ca dạy chuẩn (`Time Slots`), Mô hình lớp & Sĩ số trần (`1-1`, `1-3`, `1-5`).
-   - Cây phân loại sự cố 2 cấp (Sự cố báo trước >12h, Sự cố khẩn cấp <2h).
+| Nhóm chức năng | Nội dung |
+| --- | --- |
+| **Quản trị tài khoản và phân quyền** | Cấp mới, cập nhật, khóa hoặc mở khóa tài khoản. Thiết lập quyền truy cập các chức năng theo nhóm quyền. |
+| **Quản lý danh mục dùng chung** | Thiết lập môn học, khối lớp, trình độ, khung giờ, mô hình lớp, giới hạn sĩ số và danh mục sự cố để sử dụng thống nhất khi xếp lớp và vận hành ca dạy. |
+| **Quản lý giáo viên** | Quản lý hồ sơ, thông tin chuyên môn và lịch rảnh của giáo viên. Tra cứu giáo viên phù hợp khi phân công đứng lớp hoặc bố trí dạy thay. |
+| **Quản lý và điều phối lớp học** | Tiếp nhận thông tin phục vụ xếp lớp, tạo lớp theo mô hình và giới hạn sĩ số, phân công giáo viên, thiết lập liên kết phòng học và phân phối học liệu theo tuần. |
+| **Giám sát ca dạy và xử lý sự cố** | Theo dõi lịch dạy và thời điểm giáo viên vào lớp, cập nhật tình trạng ca dạy, ghi nhận sự cố và điều phối giáo viên dạy thay khi cần. |
+| **Đánh giá dự giờ** | Chọn ca dạy để dự giờ, chấm điểm theo các tiêu chí chuyên môn, ghi nhận nhận xét và gửi kết quả cho giáo viên. |
+| **Quản lý kho tri thức AI** | Tải lên tài liệu về quy trình vận hành, quy định nội bộ và hướng dẫn xử lý sự cố. Kiểm tra nội dung và bật sử dụng các tài liệu được phép đưa vào phạm vi tra cứu của trợ lý AI. |
+| **Báo cáo và thống kê** | Tổng hợp kết quả vận hành ca dạy và đánh giá dự giờ. Hỗ trợ chọn trường dữ liệu, lưu mẫu và xuất báo cáo theo nhu cầu theo dõi. |
 
-3. **Hồ sơ Giáo viên & Đánh giá Dự giờ**
-   - Quản lý hồ sơ giáo viên, lọc theo môn học, cấp học & khối lớp.
-   - Quy trình chấm điểm dự giờ sư phạm 3 tiêu chí theo thang điểm 10.
+### Cổng giáo viên
 
-4. **Quản lý Học sinh & Điều phối Lớp học**
-   - Tiếp nhận hồ sơ học sinh Tiểu học (Lớp 1-5), lưu số điện thoại phụ huynh, ca rảnh mong muốn.
-   - Khởi tạo lớp học với mã tự sinh chuẩn Master Data: `[Môn]_[Khối]_[TrìnhĐộ]_[MôHình]_[STT]`.
-   - Ghép học sinh từ danh sách "Chờ xếp lớp" (tự động chặn vượt trần sĩ số mô hình `1-1`, `1-3`, `1-5`), gán link phòng Zoom/ClassIn.
-   - Phân công giáo viên đứng lớp và phân phối học liệu theo tuần.
+- **Xem lịch dạy và thực hiện ca dạy** — Theo dõi lịch giảng dạy theo tuần, xem học liệu của từng buổi, truy cập phòng học bằng nút **Vào lớp** và xác nhận hoàn tất ca dạy.
+- **Đăng ký lịch rảnh** — Cập nhật các khung giờ có thể giảng dạy để bộ phận Vận hành sử dụng khi phân công lớp hoặc tìm giáo viên dạy thay.
+- **Trao đổi với bộ phận Vận hành** — Nhắn tin khi cần hỗ trợ hoặc khi phát sinh vấn đề trong ca dạy. Bộ phận Vận hành tiếp nhận thông tin và cập nhật sự cố vào ca tương ứng.
+- **Xem kết quả dự giờ** — Theo dõi điểm đánh giá và nhận xét do bộ phận Chuyên môn gửi.
+- **Tra cứu với trợ lý AI** — Đặt câu hỏi về quy trình, quy định nội bộ hoặc cách xử lý tình huống. Trợ lý tra cứu nội dung liên quan trong các tài liệu đang được sử dụng để hỗ trợ trả lời.
 
-5. **Lịch dạy & Giám sát Ca học**
-   - Theo dõi thời khóa biểu toàn hệ thống, giám sát check-in của giáo viên.
-   - **Xử lý sự cố:** Ghi nhận sự cố trực tiếp vào ca học, lập biên bản sự cố và theo dõi tỷ lệ vận hành.
-   - **Điều phối Cover:** Phân công giáo viên dạy thay trực tiếp từ danh sách giáo viên có lịch rảnh.
+## Công nghệ sử dụng
 
-6. **Trợ lý AI Giảng dạy & SOP Vận hành**
-   - Cấu hình cây tiêu chí nhận xét 3 cấp (Toán & Tiếng Anh).
-   - Quản lý tài liệu tri thức quy chế SOP nội bộ và cấu hình trợ lý AI.
+Hệ thống sử dụng **React 19**, **TypeScript**, **Vite** và **Tailwind CSS** cho giao diện, **Supabase** cho cơ sở dữ liệu và **Gemini** cho trợ lý AI. Trong phiên bản này, chức năng đăng nhập, quản lý tài khoản và nhóm quyền đã kết nối Supabase. Các màn hình nghiệp vụ còn lại hiện sử dụng dữ liệu trong bộ nhớ.
 
-7. **Trung tâm Báo cáo & Thống kê**
-   - Dashboard tỷ lệ vận hành, ma trận ca dạy 2 chiều theo môn và khối lớp, báo cáo dự giờ.
-   - Trình tạo báo cáo tùy biến (Cross-Module Builder) chọn trường dữ liệu, vẽ biểu đồ linh động và xuất file Excel CSV tải về máy.
+## Hướng dẫn chạy và build
 
----
+Yêu cầu **Node.js 22.12 trở lên** và **npm**. Tại thư mục gốc của dự án, tạo tệp `.env` từ `.env.example` rồi điền `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY`. Nếu sử dụng trợ lý AI, cấu hình thêm `GEMINI_API_KEY`.
 
-### B. CỔNG GIÁO VIÊN (TEACHER PORTAL)
-1. **Lịch dạy & Phòng học của tôi:**
-   - Xem lịch giảng dạy trong tuần, nút **VÀO LỚP** Zoom/ClassIn, tài liệu bài giảng.
-   - Điểm danh học sinh trong lớp, tạo nhận xét AI tự động, xác nhận hoàn tất ca dạy.
-   - Nút **Báo sự cố ca học / Xin vắng** gửi ngay tín hiệu cho bộ phận Vận hành.
-2. **Hồ sơ chuyên môn & Đánh giá dự giờ của tôi:**
-   - Xem xếp hạng Sư phạm (Hạng A/B), điểm chi tiết 3 tiêu chí và nhận xét từ Ban chuyên môn.
-3. **Đăng ký lịch rảnh (Availability) trong tuần:**
-   - Ma trận chọn ca rảnh tối (T2 - CN) theo khung giờ chuẩn để bộ phận Vận hành xếp lớp.
+Cài đặt thư viện và chạy hệ thống ở chế độ phát triển.
 
----
+```bash
+npm install
+npm run dev
+```
 
-## 🔌 Cấu trúc Supabase
-
-[supabase/schema.sql](supabase/schema.sql) tạo 32 bảng trong schema vuihoc và dữ liệu mẫu. Chạy toàn bộ file trong Supabase SQL Editor.
-
-Xem [hướng dẫn chọn file SQL](supabase/README.md), [bảng đối chiếu UI → database](supabase/DATA_DICTIONARY.md) và [SQL kiểm tra](supabase/verify_schema.sql).
-
-Đợt cập nhật danh mục, giáo viên, tiêu chí nhận xét, mẫu báo cáo và ngày/giờ: chạy một file [apply_relational_update.sql](supabase/apply_relational_update.sql). File gộp cả các sửa đổi chưa chạy trước đó; xem [chi tiết chuyển đổi](docs/relational-catalogs-dates.md). Chạy file gộp cuối cùng, không chạy lại schema hoặc migration cũ sau đó.
-
-Đăng nhập và đọc/lưu tài khoản, nhóm quyền đã nối Supabase bằng SQL RPC, không dùng Supabase Auth. Xem [hướng dẫn áp dụng](supabase/SIMPLE_ACCOUNTS.md). Các màn nghiệp vụ khác vẫn giữ dữ liệu trong bộ nhớ, chưa tự lưu vào Supabase; cần tích hợp CRUD theo mapper và kiểm tra quyền tại database.
-
----
-
-## 🚀 Hướng Dẫn Cài Đặt & Chạy Trên VS Code
-
-1. **Cài đặt thư viện:**
-   ```bash
-   npm install
-   ```
-
-2. **Cấu hình biến môi trường (`.env`):**
-   Tạo file `.env` từ file `.env.example`:
-   ```env
-   VITE_SUPABASE_URL="https://your-project-id.supabase.co"
-   VITE_SUPABASE_ANON_KEY="your-anon-key"
-   ```
-
-3. **Chạy ứng dụng chế độ phát triển (Development):**
-   ```bash
-   npm run dev
-   ```
-   Ứng dụng sẽ chạy tại địa chỉ: `http://localhost:3000`.
-
-4. **Kiểm tra linter & biên dịch (Build):**
-   ```bash
-   npm run lint
-   npm run build
-   ```
-
----
-
-## 🌐 Triển Khai Lên Vercel
-
-Dự án đã có sẵn cấu hình `vercel.json` tối ưu cho Vite Single Page Application:
-1. Đẩy code lên GitHub repository.
-2. Kết nối dự án trên Vercel Dashboard.
-3. Trong mục **Environment Variables** trên Vercel, thêm 2 biến:
-   * `VITE_SUPABASE_URL`
-   * `VITE_SUPABASE_ANON_KEY`
-4. Bấm **Deploy**.
-
-
-Đã bổ sung 8 bảng nghiệp vụ theo tuần/ngày và luồng sinh công. Xem [thiết kế theo thời gian](supabase/TIMED_WORKFLOW.md) để chạy schema mới hoặc migration nâng cấp. Giao diện chưa chuyển sang bảng mới.
-
-
-Bổ sung bảng thứ 32: BIEN_BAN_DU_GIO có FK bắt buộc tới mã giáo viên. Xem [hướng dẫn](supabase/TEACHER_EVALUATIONS.md).
+Mở hệ thống tại `http://localhost:3000`. Để tạo bản build, chạy `npm run build`. Kết quả build được lưu trong thư mục `dist/`.
