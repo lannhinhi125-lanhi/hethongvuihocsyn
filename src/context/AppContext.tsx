@@ -1,4 +1,6 @@
 import { ConfirmAction } from '../components/ConfirmAction';
+import { resumeClassUpdates } from '../lib/classPause';
+import { deleteUnusedClass } from '../lib/businessPersistence';
 import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
 import { canAssignCover } from '../lib/coverTiming';
 import {classBindingEditIssue,studentsNeedingScheduleValidation} from '../lib/classEditing';
@@ -104,7 +106,7 @@ interface AppContextType {
   deleteStudent: (id: string) => void;
   addClass: (cls: ClassItem) => boolean;
   updateClass: (id: string, updates: Partial<ClassItem>, successMessage?: string) => boolean;
-  deleteClass: (id: string) => void;
+  deleteClass: (id: string) => Promise<boolean>;
   batchAssignMaterials: (classIds: string[], materials: ClassItem['materials']) => boolean;
   batchImportRoomLinks: (updates: { classCode: string; roomLink: string }[]) => { updated: number; skipped: number };
 
@@ -351,6 +353,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateClass = (id: string, updates: Partial<ClassItem>, successMessage?: string) => {
     const existing = classes.find(item => item.id === id);
+    if (existing && updates.paused === false && (updates.status === undefined || updates.status === 'Chờ khai giảng' || updates.status === 'Đang học')) {
+      updates = { ...updates, ...resumeClassUpdates(existing) };
+    }
     if (!existing || !classChangeAllowed([existing], [{ ...existing, ...updates }], can, ownTeacher?.id, ownTeacher?.name)) { showToast('Bạn không có quyền sửa các trường lớp học đã chọn.', 'error'); return false; }
     const releasing = updates.status === 'Dừng lớp' || updates.status === 'Đã kết thúc';
     if (releasing) updates = { ...updates, studentIds: [], paused: false };
@@ -365,12 +370,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const deleteClass = (id: string) => {
-    if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return;
+  const deleteClass = async (id: string): Promise<boolean> => {
+    if (!permit("Tạo, sửa, xóa lớp và cập nhật link phòng học")) return false;
     const existing=classes.find(cls=>cls.id===id);
-    if(existing&&!['Dừng lớp','Đã kết thúc'].includes(existing.status||'')&&(existing.teacherId||existing.studentIds.length)){showToast('Dừng hoạt động lớp để giải phóng ca trước khi xóa.','warning');return;}
-    setClasses(prev => prev.filter(c => c.id !== id));
-    showToast('Đã xóa lớp học thành công! Học sinh đã được đưa về danh sách chờ xếp lớp.', 'info');
+    if(!existing){showToast('Lớp học không còn tồn tại. Hãy tải lại dữ liệu.','warning');return false;}
+    if((getBusinessSnapshot().data.dated_lessons || []).some((lesson: {classId?:string})=>lesson.classId===id)){
+      showToast('Lớp đã phát sinh buổi học nên không thể xóa vĩnh viễn. Bạn có thể dừng hẳn lớp.','warning');return false;
+    }
+    try {
+      await deleteUnusedClass(id);
+      showToast('Đã xóa vĩnh viễn lớp. Học sinh trong lớp đã về Chờ xếp lớp.', 'success');
+      return true;
+    } catch(error) {
+      showToast(error instanceof Error ? error.message : 'Không thể xóa lớp. Vui lòng thử lại.', 'error');
+      return false;
+    }
   };
 
   const batchAssignMaterials = (classIds: string[], newMaterials: ClassItem['materials']) => {

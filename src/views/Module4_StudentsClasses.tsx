@@ -6,7 +6,7 @@ import { classStatusLabel, effectiveClassStatus, materialClassStatusLabel } from
 import { ProfileExcelImport } from '../components/ProfileExcelImport';
 import {DashboardFilterNotice} from '../components/DashboardFilterNotice';
 import {matchesDashboardSelection} from '../lib/dashboardNavigation';
-import {classPauseReasons,pauseReasonKey} from '../lib/classPause';
+import {classPauseReasons,pauseReasonKey,resumeClassUpdates} from '../lib/classPause';
 import { readRoomLinkFile } from '../lib/roomLinkImport';
 import { ReportSelect } from '../components/ReportSelect';
 import { canAssignClassMaterials } from '../lib/classMaterialEligibility';
@@ -193,7 +193,7 @@ export const Module4_StudentsClasses: React.FC = () => {
       return;
     }
     if (pendingDelete.type === 'student') deleteStudent(pendingDelete.id);
-    else deleteClass(pendingDelete.id);
+    else if (!await deleteClass(pendingDelete.id)) return;
     setPendingDelete(null);
   };
 
@@ -304,7 +304,7 @@ export const Module4_StudentsClasses: React.FC = () => {
     if (paused) { openPause(selectedClasses); return; }
     const ids = new Set(selectedClasses.filter(item => Boolean(item.paused) !== paused).map(item => item.id));
     if (!ids.size) return;
-    setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? { ...item, paused } : item));
+    setClasses(previous => previous.map(item => ids.has(item.id) && !['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? { ...item, ...resumeClassUpdates(item) } : item));
     try {
       await waitForBusinessSave();
       setSelectedClassIds([]);
@@ -1541,7 +1541,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     ...(item.paused ? [{label:'Sửa lý do tạm dừng',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>openPause([item])}] : []),
                     {label:'Dừng hẳn',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {status:'Dừng lớp',paused:false}, 'Đã dừng hẳn lớp và giải phóng ca. Học sinh về Chờ xếp lớp của môn này.')}
                   ] : []),
-                  {label:'Xóa lớp',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>setPendingDelete({type:'class',id:item.id,name:item.name})}
+                  {label:'Xóa lớp vĩnh viễn',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>setPendingDelete({type:'class',id:item.id,name:item.name})}
                 ]}/></div></td>
               </tr>)}
             </PaginatedTableBody></table></div></div>
@@ -1701,7 +1701,7 @@ export const Module4_StudentsClasses: React.FC = () => {
         <div role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-description" className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl" onClick={event => event.stopPropagation()}>
           <div className="border-b border-slate-100 px-5 py-4"><h3 id="delete-confirm-title" className="text-sm font-bold text-slate-800">Xác nhận xóa {pendingDelete.type === 'registration' ? 'đăng ký môn' : pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'}</h3></div><div className="px-5 py-4">
           <p id="delete-confirm-description" className="text-xs leading-relaxed text-slate-600">{pendingDelete.type === 'registration' ? <>Xóa đăng ký môn <strong>{subjectName(pendingDelete.subject)}</strong> của học sinh <strong>{pendingDelete.name}</strong>?</> : <>Bạn có muốn xóa {pendingDelete.type === 'student' ? 'học sinh' : 'lớp học'} <strong>{pendingDelete.name}</strong> không?</>}</p>
-          <p className="mt-2 text-xs text-slate-500">{pendingDelete.type === 'registration' ? 'Chỉ xóa đăng ký môn này khi chưa có lớp. Hồ sơ học sinh, các môn khác và lớp của các môn khác được giữ nguyên.' : pendingDelete.type === 'student' ? 'Chỉ xóa hồ sơ khi học sinh không còn lớp đang hoạt động.' : 'Lớp học sẽ bị xóa. Học sinh trong lớp được đưa về danh sách chờ xếp lớp.'}</p>
+          <p className="mt-2 text-xs text-slate-500">{pendingDelete.type === 'registration' ? 'Chỉ xóa đăng ký môn này khi chưa có lớp. Hồ sơ học sinh, các môn khác và lớp của các môn khác được giữ nguyên.' : pendingDelete.type === 'student' ? 'Chỉ xóa hồ sơ khi học sinh không còn lớp đang hoạt động.' : 'Chỉ xóa khi chưa có bất kỳ buổi học nào, kể cả buổi chưa diễn ra. Xóa vĩnh viễn lớp, lịch và học liệu của lớp cùng lịch sử xếp/gỡ học sinh riêng của lớp; không thể hoàn tác. Hồ sơ học sinh được giữ và về Chờ xếp lớp. Lớp có lịch sử chuyển sang/từ lớp khác sẽ được giữ lại.'}</p>
           </div><div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
             <button type="button" autoFocus onClick={() => setPendingDelete(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
             <button type="button" disabled={isSavingChanges} onClick={() => void handleConfirmDelete()} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40">{isSavingChanges ? 'Đang xử lý…' : 'Xóa'}</button>

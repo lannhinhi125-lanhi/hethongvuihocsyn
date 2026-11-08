@@ -1,5 +1,9 @@
 # Bộ SQL Supabase Vuihoc
 
+**Công ca kết thúc sớm:** chạy toàn bộ [fix_early_checkout_credit.sql](fix_early_checkout_credit.sql). Kết thúc sớm vẫn Đã học; đủ nhận xét và vận hành duyệt thì tính ngay, chưa duyệt chờ hết giờ ca. Giữ luồng hệ số sự cố, công cũ và kỳ khóa. Job vòng đời mỗi phút xử lý công đến hạn. Không chạy lại bản quy tắc cũ sau file này. Xem [hướng dẫn](../docs/early-checkout-credit.md).
+
+**Xóa vĩnh viễn lớp chưa có buổi học:** trên database đã nâng cấp quản lý lớp và đăng ký môn, chạy toàn bộ [migrations/20261225_delete_unused_classes.sql](migrations/20261225_delete_unused_classes.sql), rồi triển khai frontend mới. Lớp có bất kỳ buổi học nào (kể cả buổi tương lai) không xóa được; lớp chưa có buổi trả học sinh về Chờ xếp lớp. Giữ lớp có lịch sử chuyển trực tiếp sang/từ lớp khác. File chỉ cài chức năng, không tự xóa dữ liệu. Xem [chi tiết](../docs/delete-unused-classes.md).
+
 **Trạng thái và ngày vào của giáo viên:** chạy toàn bộ [migrations/20261210_sync_teacher_class_status.sql](migrations/20261210_sync_teacher_class_status.sql). Gán giáo viên vào lớp Chờ khai giảng/Đang học tự chuyển sang Đang dạy; bỏ phân công, dừng hoặc kết thúc lớp cuối cùng tự chuyển Đang dạy về Chờ lớp. Vẫn cho phép chọn trạng thái thủ công cho đến lần thay đổi phân công/trạng thái lớp tiếp theo. Ngày vào còn trống lấy ngày tạo hồ sơ theo múi giờ Việt Nam, giữ ngày đã nhập. Migration cập nhật cả hồ sơ cũ có lớp và không reset dữ liệu.
 
 **Chuẩn bị học liệu trước khai giảng:** chạy [migrations/20261224_preopening_class_materials.sql](migrations/20261224_preopening_class_materials.sql) sau khi đã có bộ kiểm tra học liệu `20261113`. Lớp Chờ khai giảng và Đang học đều nhận/cập nhật học liệu nếu không tạm dừng và còn hạn. Giữ cách tính thời hạn đang cài, không đổi trạng thái lớp và không reset dữ liệu.

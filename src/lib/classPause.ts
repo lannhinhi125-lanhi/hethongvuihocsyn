@@ -1,3 +1,11 @@
+import type { ClassItem } from '../types';
+
+/** Resuming a temporary pause explicitly returns an active class to teaching. */
+export function resumeClassUpdates(item: Pick<ClassItem, 'paused' | 'status'>): Partial<ClassItem> {
+  if (!item.paused || item.status === 'Dừng lớp' || item.status === 'Đã kết thúc') return {};
+  return { paused: false, status: 'Đang học' };
+}
+
 export type PauseCategory = {id:string;name:string;code?:string;subIncidents:{id?:string;code:string;name:string;status?:boolean;allowClassPause?:boolean;isScheduledBreak?:boolean;creditCoeff?:number}[]};
 export type LessonPause = {pausedByClass?:boolean;pauseReason?:string|null;pauseCategoryId?:string|null;pauseNote?:string|null};
 export const pauseReasonKey=(categoryId:string,reasonId:string)=>JSON.stringify([categoryId,reasonId]);

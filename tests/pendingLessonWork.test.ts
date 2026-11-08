@@ -18,11 +18,16 @@ assert.equal(canDisputeTeacherWork({...pending[0],reconciliationSent:true},false
 const credited={...pending[0],isPendingCredit:undefined,creditCoeff:0.75} as SessionPayrollRecord;
 assert.equal(derive([lesson],[credited]).length,0,'same lesson/teacher replaces pending with credited row');
 assert.equal(derive([{...lesson,coverTeacherId:'G2'}],[credited]).length,1,'original teacher incident must not hide the substitute lesson');
-for(const change of [{status:'NGHI_HOC'},{checkoutAt:null},{date:'2026-11-01'},{checkoutAt:'2026-10-20T19:00:00+07:00'},{feedbackProgress:{...lesson.feedbackProgress!,completed:2}}]){
+for(const change of [{status:'NGHI_HOC'},{checkoutAt:null},{date:'2026-11-01'},{checkoutAt:'2026-10-20T19:00:00+07:00'}]){
  assert.equal(derive([{...lesson,...change}]).length,0);
 }
 assert.equal(derive([{...lesson,status:'CHUA_HOAN_TAT'}]).length,1,'early-completed teaching with incomplete feedback stays visible');
 assert.equal(derive([{...lesson,feedbackProgress:undefined}]).length,0,'only genuinely missing feedback is listed');
+const complete={...lesson,feedbackProgress:{...lesson.feedbackProgress!,completed:2,state:'DA_DU'}};
+assert.match(derive([complete])[0].pendingCreditReason!,/chờ đồng bộ/);
+const waiting=pendingLessonWork({...context,lessons:[{...complete,checkoutAt:'2026-10-12T18:20:00+07:00'}],credited:[],now:new Date('2026-10-12T18:30:00+07:00')});
+assert.match(waiting[0].pendingCreditReason!,/chờ vận hành duyệt hoặc hết giờ ca/);
+assert.equal(waiting[0].creditCoeff,null,'a waiting row is never counted as work');
 assert.deepEqual(workCreditBreakdown([...pending,credited]),{standardCredit:0.75,incidentCredit:0});
 const handoff=workHandoffRows([{teacherId:'G1',sessions:[...pending,credited]} as TeacherPayrollSummary])[0];
 assert.equal(handoff.sessions.length,1);assert.equal(handoff.totalCredit,0.75);

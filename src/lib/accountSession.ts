@@ -49,6 +49,7 @@ async function rpc(name: string, args: Record<string,unknown>, signal?: AbortSig
   }
   const { data, error } = result;
   if (error?.code === 'PGRST202' && name === 'vuihoc_remove_class_student') throw new Error('Hãy chạy supabase/apply_class_management_update.sql trong Supabase rồi thử lại.');
+  if (error?.code === 'PGRST202' && name === 'vuihoc_delete_unused_class') throw new Error('Hãy chạy supabase/migrations/20261225_delete_unused_classes.sql trong Supabase rồi thử lại.');
   if (error) throw new Error(error.code === 'PGRST202'
     ? (name === 'vuihoc_business_data' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident' ? 'Hãy chạy migration 20261011_business_persistence.sql trong Supabase.' : name.startsWith('vuihoc_teacher_') || name === 'vuihoc_create_teacher' ? 'Hãy chạy migration 20261011_teacher_persistence.sql trong Supabase.' : name === 'vuihoc_reveal_password' ? 'Hãy chạy migration 20261012_plaintext_passwords.sql trong Supabase để xem mật khẩu.' : 'Chưa có SQL đăng nhập. Hãy chạy migration 20261011_simple_accounts.sql trong Supabase.')
     : saveErrorMessage(error, ['vuihoc_business_data', 'vuihoc_teacher_data', 'vuihoc_session', 'vuihoc_reveal_password'].includes(name) ? 'load' : 'save'));
@@ -156,9 +157,9 @@ export async function revealAccountPassword(userId: string, signal: AbortSignal)
 }
 
 /** Teacher RPCs share the existing internal login token; no direct table access. */
-export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_report_lesson_incident' | 'vuihoc_remove_class_student' | 'vuihoc_remove_student_registration', args: Record<string,unknown> = {}) {
+export async function teacherSessionRequest(name: 'vuihoc_teacher_data' | 'vuihoc_create_teacher' | 'vuihoc_business_data' | 'vuihoc_save_business' | 'vuihoc_report_lesson_incident' | 'vuihoc_remove_class_student' | 'vuihoc_remove_student_registration' | 'vuihoc_delete_unused_class', args: Record<string,unknown> = {}) {
   if (!token || !state.actor) throw new Error('Vui lòng đăng nhập lại.');
-  const version = generation, writing = name === 'vuihoc_remove_student_registration' || name === 'vuihoc_remove_class_student' || name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident';
+  const version = generation, writing = name === 'vuihoc_delete_unused_class' || name === 'vuihoc_remove_student_registration' || name === 'vuihoc_remove_class_student' || name === 'vuihoc_create_teacher' || name === 'vuihoc_save_business' || name === 'vuihoc_report_lesson_incident';
   if (writing && (state.saving || flushing || pending.length)) throw new Error('Đang lưu thay đổi khác. Vui lòng thử lại sau.');
   if (writing) { revision++; publish({...state,saving:true,error:'',saved:false}); }
   try {

@@ -23,8 +23,12 @@ export function pendingLessonWork({lessons,credited,classes,teachers,students,sl
    checkinAt:lesson.checkinAt,checkoutAt:lesson.checkoutAt},now);
   if(!lesson.id||!teacherId||lesson.date.slice(0,7)!==month||!lesson.checkinAt||!Number.isFinite(Date.parse(lesson.checkinAt))||Date.parse(lesson.checkinAt)>now.getTime()||!lesson.checkoutAt||!Number.isFinite(Date.parse(lesson.checkoutAt))||Date.parse(lesson.checkoutAt)<Date.parse(lesson.checkinAt)||
    !['DA_HOC','DA_HOC_CU','DAY_THAY_CU'].includes(state)||lesson.date>now.toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok'})||
-   Date.parse(lesson.checkoutAt)>now.getTime()||!progress||progress.total<1||progress.completed>=progress.total||existing.has(JSON.stringify([lesson.id,teacherId])))return [];
-  const pendingCreditReason=`Chưa ghi công — thiếu nhận xét (${progress.completed}/${progress.total})`;
+   Date.parse(lesson.checkoutAt)>now.getTime()||!progress||progress.total<1||existing.has(JSON.stringify([lesson.id,teacherId])))return [];
+  const pendingCreditReason=progress.completed<progress.total
+   ? `Chưa ghi công — thiếu nhận xét (${progress.completed}/${progress.total})`
+   : lesson.endsAt && Date.parse(lesson.endsAt)>now.getTime()
+    ? 'Chưa ghi công — chờ vận hành duyệt hoặc hết giờ ca; sự cố áp dụng hệ số riêng'
+    : 'Chưa ghi công — chờ đồng bộ hoặc xử lý hệ số sự cố. Hãy tải lại dữ liệu.';
   const cls=classes.find(row=>row.id===lesson.classId),teacher=teachers.find(row=>row.id===teacherId);
   if(!cls||!teacher)return [];
   const names=(progress?.studentIds||[]).map(id=>students.find(student=>student.id===id)?.name||id);
