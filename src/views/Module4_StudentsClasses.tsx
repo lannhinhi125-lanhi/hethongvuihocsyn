@@ -1,4 +1,5 @@
 import { useModuleSection } from '../hooks/useModuleSection';
+import { confirmAction } from '../components/ConfirmAction';
 import { materialRowUpdateTime } from '../lib/materialOrder';
 import { orderRecords, recordSortTime } from '../lib/listOrder';
 import { matchesSearch } from '../lib/textSearch';
@@ -1539,7 +1540,10 @@ export const Module4_StudentsClasses: React.FC = () => {
                   ...(!['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? [
                     {label:item.paused ? 'Tiếp tục lớp' : 'Tạm dừng tạm thời',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>item.paused ? updateClass(item.id, {paused:false}) : openPause([item])},
                     ...(item.paused ? [{label:'Sửa lý do tạm dừng',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>openPause([item])}] : []),
-                    {label:'Dừng hẳn',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>updateClass(item.id, {status:'Dừng lớp',paused:false}, 'Đã dừng hẳn lớp và giải phóng ca. Học sinh về Chờ xếp lớp của môn này.')}
+                    {label:'Dừng hẳn',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:async()=>{
+                      if(await confirmAction('Dừng hẳn lớp? Học sinh sẽ về Chờ xếp lớp. Học liệu tương lai chưa sử dụng sẽ được xóa và các ca tương lai được ẩn khỏi lịch giáo viên. Lịch sử buổi đã học và công được giữ nguyên.'))
+                        updateClass(item.id, {status:'Dừng lớp',paused:false}, 'Đã dừng hẳn lớp và giải phóng ca. Học sinh về Chờ xếp lớp của môn này.');
+                    }}
                   ] : []),
                   {label:'Xóa lớp vĩnh viễn',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>setPendingDelete({type:'class',id:item.id,name:item.name})}
                 ]}/></div></td>

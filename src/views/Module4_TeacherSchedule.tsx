@@ -19,6 +19,7 @@ import { ClassItem } from '../types';
 import { useTeacherChatHistory } from '../hooks/useTeacherChatHistory';
 import { materialForSessionDate, teachingWeekForDate } from '../lib/teacherScheduleMaterials';
 import { scheduledClassStart } from '../lib/classSessionTiming';
+import { showStoppedClassSession } from '../lib/stoppedClassSchedule';
 import {
   Calendar,
   Sparkles,
@@ -277,6 +278,9 @@ export const Module4_TeacherSchedule: React.FC = () => {
       scheduleEntriesForClass(cls)
         .filter(entry => entry.time === time && entry.dayIndex === dayIndex)
         .flatMap(entry => {
+          const lesson=datedLessons.find(item=>item.classId===cls.id && item.date===dateStringForWeekDay(dayIndex)
+            && timeSlots.find(slot=>slot.id===item.timeSlotId)?.timeRange.replace(/\s/g,'')===entry.time.replace(/\s/g,''));
+          if(!showStoppedClassSession(cls,dateStringForWeekDay(dayIndex),entry.time,lesson))return [];
           if (cls.startDate && dateStringForWeekDay(dayIndex) < cls.startDate) return [];
           if (cls.endDate && dateStringForWeekDay(dayIndex) > cls.endDate) return [];
           if (!selectedWeekMaterial(cls,entry.session,dateStringForWeekDay(dayIndex))) return [];
@@ -295,7 +299,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
           }];
         })
     ))
-  }));
+  })).filter(row=>row.days.some(day=>day.length>0));
   const selectedClassSchedule = selectedClass ? scheduleEntriesForClass(selectedClass) : [];
   const selectedClassMaterial = selectedClass
     ? selectedWeekMaterial(selectedClass, selectedSessionNum, selectedSessionDate || fromDate)

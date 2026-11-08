@@ -1,5 +1,7 @@
 # Bộ SQL Supabase Vuihoc
 
+**Dừng hẳn lớp và dọn học liệu tương lai:** chạy toàn bộ [migrations/20261227_stop_class_future_materials.sql](migrations/20261227_stop_class_future_materials.sql), rồi triển khai frontend mới. Tự dọn kế hoạch chưa sử dụng khi dừng hẳn và cho lớp đã dừng trước đó; lịch giáo viên ẩn ca tương lai. Giữ lịch sử buổi, học liệu đã dùng, công và kỳ khóa; không áp dụng cho tạm dừng lịch. Xem [phạm vi dọn dữ liệu](../docs/stopped-class-materials.md).
+
 **Công ca kết thúc sớm:** chạy toàn bộ [fix_early_checkout_credit.sql](fix_early_checkout_credit.sql). Kết thúc sớm vẫn Đã học; đủ nhận xét và vận hành duyệt thì tính ngay, chưa duyệt chờ hết giờ ca. Giữ luồng hệ số sự cố, công cũ và kỳ khóa. Job vòng đời mỗi phút xử lý công đến hạn. Không chạy lại bản quy tắc cũ sau file này. Xem [hướng dẫn](../docs/early-checkout-credit.md).
 
 **Xóa vĩnh viễn lớp chưa có buổi học:** trên database đã nâng cấp quản lý lớp và đăng ký môn, chạy toàn bộ [migrations/20261225_delete_unused_classes.sql](migrations/20261225_delete_unused_classes.sql), rồi triển khai frontend mới. Lớp có bất kỳ buổi học nào (kể cả buổi tương lai) không xóa được; lớp chưa có buổi trả học sinh về Chờ xếp lớp. Giữ lớp có lịch sử chuyển trực tiếp sang/từ lớp khác. File chỉ cài chức năng, không tự xóa dữ liệu. Xem [chi tiết](../docs/delete-unused-classes.md).

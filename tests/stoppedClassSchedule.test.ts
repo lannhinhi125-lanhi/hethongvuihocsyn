@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {showStoppedClassSession} from '../src/lib/stoppedClassSchedule';
+const now=new Date('2026-11-08T10:43:00+07:00');
+const stopped={status:'Dừng lớp' as const};
+assert.equal(showStoppedClassSession(stopped,'2026-11-08','11:00 - 12:00',undefined,now),false);
+assert.equal(showStoppedClassSession(stopped,'2026-11-09','9:00 - 10:00',{},now),false,'future cancelled lessons stay hidden even if persisted');
+assert.equal(showStoppedClassSession(stopped,'2026-11-08','10:15 - 11:15',{},now),true,'already-started time remains history');
+assert.equal(showStoppedClassSession(stopped,'2026-11-07','18:00 - 19:00',{},now),true);
+assert.equal(showStoppedClassSession(stopped,'2026-11-07','18:00 - 19:00',{status:'NGHI_HOC',materials:{}},now),false,'cleaned cancelled plans never reappear after the date passes');
+assert.equal(showStoppedClassSession(stopped,'2026-11-07','18:00 - 19:00',{status:'NGHI_HOC',materials:{materialGv:'historical-slide'}},now),true,'historical absence with retained materials stays available');
+assert.equal(showStoppedClassSession(stopped,'2026-11-09','18:00 - 19:00',{checkinAt:'2026-11-08T10:00:00+07:00'},now),true,'actual teaching evidence is retained');
+assert.equal(showStoppedClassSession({status:'Đang học'},'2026-11-09','18:00 - 19:00',{},now),true,'temporary pauses use the active status and remain visible');
+assert.equal(showStoppedClassSession({status:'Chờ khai giảng'},'2026-11-09','18:00 - 19:00',undefined,now),true);
+console.log('PASS stopped class schedule: future hidden, current/past/started history preserved, active/paused/preopening unaffected.');
