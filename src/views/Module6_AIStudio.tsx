@@ -28,7 +28,7 @@ import {
   X,
   Send,
   CheckCircle,
-  Brain,
+  MessageSquareText,
   Search,
   FileText,
   Eye,
@@ -373,16 +373,17 @@ export const Module6_AIStudio: React.FC = () => {
 
       {/* ================= TAB 3: CẤU HÌNH BOT CHAT AI ================= */}
       {activeTab === 'rag-config' && (
+       <div className="admin-ai-config">
         <ReportSplitPane initialWidth={420} controlsLabel="Thiết lập chatbot quản trị" controlsTitle="Cấu hình chatbot" resultsLabel="Chatbot quản trị"
          controls={
           <div className="space-y-4">
-            <fieldset disabled={savingConfig || businessStatus.loading || !canConfigure} className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4 text-xs disabled:opacity-70">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Cấu hình Bot chat AI</h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">AI Rules</span>
+            <fieldset disabled={savingConfig || businessStatus.loading || !canConfigure} className="ai-config-card rounded-xl border border-slate-200 bg-white shadow-2xs p-4 space-y-4 text-xs disabled:opacity-70">
+              <div className="flex flex-wrap gap-2 items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="flex items-center gap-2 font-bold text-[13px] text-slate-900"><Sliders aria-hidden="true" className="h-4 w-4 text-orange-700"/>Cấu hình Bot chat AI</h3>
+                <span className="px-2 py-1 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600">Thiết lập</span>
               </div>
 
-              <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3.5">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-bold text-slate-800">Phạm vi trả lời</div>
@@ -412,7 +413,7 @@ export const Module6_AIStudio: React.FC = () => {
                 )}
               </div>
 
-              <div>
+              <div className="ai-config-group">
                 <label htmlFor="ai-welcome-greeting" className="block font-semibold text-slate-700 mb-1">Câu chào mở đầu</label>
                 <textarea
                   id="ai-welcome-greeting"
@@ -423,7 +424,7 @@ export const Module6_AIStudio: React.FC = () => {
                 />
               </div>
 
-              <div>
+              <div className="ai-config-group">
                 <label htmlFor="ai-persona-tone" className="block font-semibold text-slate-700 mb-1">Giọng văn &amp; cách xưng hô</label>
                 <input
                   id="ai-persona-tone"
@@ -434,7 +435,7 @@ export const Module6_AIStudio: React.FC = () => {
                 />
               </div>
 
-              <div>
+              <div className="ai-config-group">
                 <label htmlFor="ai-response-length" className="block font-semibold text-slate-700 mb-1">Độ dài câu trả lời</label>
                 <ReportSelect id="ai-response-length" value={responseLength(configDraft.systemPrompt)}
                   onChange={e=>setConfigDraft(prev=>({...prev,systemPrompt:responseStylePrompt(e.target.value as ResponseLength,additionalAIInstructions(prev.systemPrompt))}))}
@@ -445,7 +446,7 @@ export const Module6_AIStudio: React.FC = () => {
                 </ReportSelect>
                 <p className="mt-1 text-[11px] text-slate-500">AI vẫn giữ đủ điều kiện quan trọng trong tài liệu dù chọn trả lời ngắn.</p>
               </div>
-              <div>
+              <div className="ai-config-group">
                 <label htmlFor="ai-extra-instructions" className="block font-semibold text-slate-700 mb-1">Hướng dẫn bổ sung</label>
                 <textarea id="ai-extra-instructions" rows={3} value={additionalAIInstructions(configDraft.systemPrompt)}
                   onChange={e=>setConfigDraft(prev=>({...prev,systemPrompt:responseStylePrompt(responseLength(prev.systemPrompt),e.target.value)}))}
@@ -453,7 +454,7 @@ export const Module6_AIStudio: React.FC = () => {
                   className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed" />
                 <p className="mt-1 text-[11px] text-slate-500">Bấm Lưu cấu hình để lưu lại. Áp dụng cho câu trả lời tiếp theo ở cả chatbot quản trị và giáo viên.</p>
               </div>
-              <div>
+              <div className="ai-config-group ai-config-fallback">
                 <label htmlFor="ai-fallback-response" className="block font-semibold text-slate-700 mb-1">Câu trả lời khi không tìm thấy căn cứ trong tài liệu</label>
                 <textarea
                   id="ai-fallback-response"
@@ -464,8 +465,8 @@ export const Module6_AIStudio: React.FC = () => {
                 />
               </div>
 
-              <p role="status" className="text-[11px] text-slate-500">{savingConfig?'Đang lưu cấu hình…':configDirty?'Có thay đổi chưa lưu. Chatbot đang dùng cấu hình đã lưu.':'Chatbot đang dùng cấu hình đã lưu.'}</p>
-              <div className="flex justify-end gap-2 pt-2">
+              <p role="status" className={'ai-config-save-status text-[11px] leading-relaxed '+(configDirty||savingConfig?'text-amber-800':'text-emerald-800')}>{savingConfig?'Đang lưu cấu hình…':configDirty?'Có thay đổi chưa lưu. Chatbot đang dùng cấu hình đã lưu.':'Chatbot đang dùng cấu hình đã lưu.'}</p>
+              <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
                   <button
                     type="button"
                     disabled={!canChat || sandboxChat.isBusy || savingConfig || businessStatus.loading || businessStatus.saving || configDirty}
@@ -479,7 +480,7 @@ export const Module6_AIStudio: React.FC = () => {
                 <button type="button" disabled={!configDirty || savingConfig} onClick={()=>{setConfigDraft(ragBotConfig);setConfigBase(ragBotConfig);}} className="px-3 py-2 border border-slate-200 rounded-lg disabled:opacity-50">Hủy thay đổi</button>
                 <button
                   type="button" disabled={savingConfig || businessStatus.saving || !configDirty} onClick={() => void saveConfiguration()}
-                  className="px-4 py-2 bg-[#FF5C00] hover:bg-[#E05200] text-white font-bold rounded-lg shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-orange-700 hover:bg-orange-800 text-white font-bold rounded-lg shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {savingConfig?'Đang lưu…':'Lưu cấu hình AI'}
                 </button>
@@ -491,10 +492,10 @@ export const Module6_AIStudio: React.FC = () => {
          }>
           <div className="min-w-0">
             <ResizableChatPanel>
-              <div className="p-3.5 shrink-0 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-2 items-center justify-between">
+              <div className="p-3.5 shrink-0 border-b border-slate-200 bg-white flex flex-wrap gap-2 items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-[#FF5C00] text-white flex items-center justify-center font-bold text-sm">
-                    <Brain className="w-4 h-4" />
+                    <MessageSquareText className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="font-bold text-xs text-slate-800">Thử nghiệm Bot chat AI</h4>
@@ -526,14 +527,16 @@ export const Module6_AIStudio: React.FC = () => {
                 onAskAgain={turn=>{if(!savingConfig&&requirePermission('Sử dụng chatbot tra cứu quy chế và nghiệp vụ'))void sandboxChat.send(turn.noidung,turn.macauhoi);}} />
 
               {/* Quick prompts */}
-              <div className="px-4 py-2 shrink-0 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-1.5 text-[10px]">
+              <div className="px-4 py-3 shrink-0 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-2 text-[11px]">
                 {ASSISTANT_QUICK_PROMPTS.map((p, idx) => (
                   <button
                     key={idx}
+                    type="button"
+                    aria-pressed={sandboxInput===p}
                     onClick={() => {
                       setSandboxInput(p);
                     }}
-                    className="px-2 py-0.5 rounded bg-white border border-slate-200 hover:border-[#FF5C00] text-slate-600 cursor-pointer"
+                    className={'px-2.5 py-1.5 rounded-lg border font-medium text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 '+(sandboxInput===p?'border-orange-700 bg-orange-700 text-white':'border-slate-200 bg-white text-orange-800 hover:border-orange-300 hover:bg-orange-50')}
                   >
                     {p}
                   </button>
@@ -541,19 +544,20 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
 
               {/* Input form */}
-              <form onSubmit={handleSandboxSend} className="p-3 shrink-0 border-t border-slate-200 flex items-center gap-2">
+              <form onSubmit={handleSandboxSend} className="p-3 shrink-0 border-t border-slate-200 bg-white flex items-center gap-2">
                 <input
                   type="text"
                   maxLength={8000}
                   value={sandboxInput}
                   onChange={e => setSandboxInput(e.target.value)}
                   placeholder="Đặt câu hỏi trong phạm vi kho tài liệu..."
-                  className="min-w-0 flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-[#FF5C00]"
+                  className="min-w-0 flex-1 bg-slate-50 px-3 py-2.5 text-xs rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                 />
                 <button
                   type="submit"
                   disabled={sandboxChat.isBusy || savingConfig || !canChat || !sandboxInput.trim()}
-                  className="px-3.5 py-2 rounded-lg bg-[#FF5C00] hover:bg-[#E05200] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  aria-label="Gửi câu hỏi"
+                  className="px-3.5 py-2 rounded-lg bg-orange-700 hover:bg-orange-800 text-white text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
@@ -561,6 +565,7 @@ export const Module6_AIStudio: React.FC = () => {
             </ResizableChatPanel>
           </div>
         </ReportSplitPane>
+       </div>
       )}
 
       {/* MODAL: Thêm/Sửa Danh mục */}

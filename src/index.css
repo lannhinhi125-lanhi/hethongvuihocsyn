@@ -308,6 +308,16 @@ body:has(.workspace-ui) #root {
   .report-filter-grid { grid-template-columns: minmax(0, 1fr); }
 }
 /* Native mirrors of custom selects must not inherit visible select padding. */
+.admin-ai-config .ai-config-group { padding-top: 16px; border-top: 1px solid #f1f5f9; }
+.admin-ai-config .ai-config-group > label { color: #334155; margin-bottom: 8px; }
+.admin-ai-config .ai-config-group input, .admin-ai-config .ai-config-group textarea { background: #f8fafc; border-color: #e2e8f0; transition: border-color .15s,background-color .15s; }
+.admin-ai-config .ai-config-group input:focus, .admin-ai-config .ai-config-group textarea:focus { background: #fff; }
+.admin-ai-config .ai-config-save-status::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: currentColor; vertical-align: middle; }
+.admin-ai-config .ai-config-card input:focus-visible, .admin-ai-config .ai-config-card textarea:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+.admin-ai-config .ai-config-card input[type=checkbox] { accent-color: #c2410c; }
+.admin-ai-config .ai-chat-thread { background: #f5f7fa; }
+.admin-ai-config .ai-chat-greeting { border-color: #e2e8f0; border-left: 3px solid #ea580c; background: #fff; color: #334155; }
+.admin-ai-config .ai-chat-answer { border-color: #e2e8f0; background: #fff; box-shadow: 0 1px 3px #0f172a06; }
 .report-comparison-controls label { color: #312e81; }
 .report-comparison-controls > div > span:first-child { color: #3730a3; }
 .report-comparison-controls > div > span:nth-child(2) { color: #9a3412; }
