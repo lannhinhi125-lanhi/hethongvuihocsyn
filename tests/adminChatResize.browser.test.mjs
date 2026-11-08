@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const {chromium}=await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE_PATH||'node_modules/playwright','index.mjs')));
+const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('http://127.0.0.1:3109/tests/fixtures/adminChatResize.html');
+ const heightHandle=page.getByRole('separator',{name:'Điều chỉnh chiều cao chatbot'});
+ const panel=heightHandle.locator('..');
+ const input=page.getByRole('textbox',{name:'Câu hỏi'});
+ await input.fill('Giữ câu hỏi đang nhập');
+ assert.equal(Math.round((await panel.boundingBox()).height),650);
+ const handle=await heightHandle.boundingBox();
+ await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);
+ await page.mouse.down();await page.mouse.move(handle.x+handle.width/2,handle.y-120,{steps:10});await page.mouse.up();
+ assert.ok((await panel.boundingBox()).height<550,'drag up shrinks height');
+ await heightHandle.focus();await heightHandle.press('ArrowDown');
+ await heightHandle.press('End');assert.equal(Math.round((await panel.boundingBox()).height),868);
+ await heightHandle.press('Home');assert.equal(Math.round((await panel.boundingBox()).height),420);
+ await heightHandle.dblclick();assert.equal(Math.round((await panel.boundingBox()).height),650);
+ const widthHandle=page.getByRole('separator',{name:'Điều chỉnh độ rộng cấu hình chatbot'});
+ const widthBefore=(await panel.boundingBox()).width;
+ const grip=await widthHandle.boundingBox();
+ await page.mouse.move(grip.x+grip.width/2,grip.y+50);await page.mouse.down();await page.mouse.move(grip.x-100,grip.y+50,{steps:10});await page.mouse.up();
+ assert.ok((await panel.boundingBox()).width>widthBefore+60,'drag divider expands chat width');
+ assert.equal(await input.inputValue(),'Giữ câu hỏi đang nhập');
+ await page.setViewportSize({width:390,height:740});
+ await heightHandle.scrollIntoViewIfNeeded();
+ assert.ok((await panel.boundingBox()).height<=708,'viewport resize clamps height');
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'mobile never overflows horizontally');
+ await input.scrollIntoViewIfNeeded();assert.ok(await input.isVisible());
+ assert.equal(await input.inputValue(),'Giữ câu hỏi đang nhập');
+ assert.deepEqual(errors,[]);
+ console.log('PASS admin chat resize: vertical drag, keyboard/min/max/reset, horizontal divider, draft preservation, mobile viewport and no browser errors.');
+}finally{await browser.close();}

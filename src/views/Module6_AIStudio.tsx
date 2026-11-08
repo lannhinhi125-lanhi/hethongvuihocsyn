@@ -1,4 +1,6 @@
 import { useModuleSection } from '../hooks/useModuleSection';
+import {ReportSplitPane} from '../components/ReportSplitPane';
+import {ResizableChatPanel} from '../components/ResizableChatPanel';
 import { recordSortTime } from '../lib/listOrder';
 import { ReportSelect } from '../components/ReportSelect';
 import { GeminiConnectionStatus } from '../components/GeminiConnectionStatus';
@@ -371,9 +373,9 @@ export const Module6_AIStudio: React.FC = () => {
 
       {/* ================= TAB 3: CẤU HÌNH BOT CHAT AI ================= */}
       {activeTab === 'rag-config' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Cột trái (6/12): Cấu hình */}
-          <div className="lg:col-span-6 space-y-4">
+        <ReportSplitPane initialWidth={420} controlsLabel="Thiết lập chatbot quản trị" controlsTitle="Cấu hình chatbot" resultsLabel="Chatbot quản trị"
+         controls={
+          <div className="space-y-4">
             <fieldset disabled={savingConfig || businessStatus.loading || !canConfigure} className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-5 space-y-4 text-xs disabled:opacity-70">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Cấu hình Bot chat AI</h3>
@@ -486,10 +488,10 @@ export const Module6_AIStudio: React.FC = () => {
             </fieldset>
           </div>
 
-          {/* Cột phải (6/12): Sandbox */}
-          <div className="lg:col-span-6">
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs flex flex-col h-[650px] overflow-hidden">
-              <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+         }>
+          <div className="min-w-0">
+            <ResizableChatPanel>
+              <div className="p-3.5 shrink-0 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-2 items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-[#FF5C00] text-white flex items-center justify-center font-bold text-sm">
                     <Brain className="w-4 h-4" />
@@ -524,7 +526,7 @@ export const Module6_AIStudio: React.FC = () => {
                 onAskAgain={turn=>{if(!savingConfig&&requirePermission('Sử dụng chatbot tra cứu quy chế và nghiệp vụ'))void sandboxChat.send(turn.noidung,turn.macauhoi);}} />
 
               {/* Quick prompts */}
-              <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-1.5 text-[10px]">
+              <div className="px-4 py-2 shrink-0 border-t border-slate-100 bg-slate-50/50 flex flex-wrap gap-1.5 text-[10px]">
                 {ASSISTANT_QUICK_PROMPTS.map((p, idx) => (
                   <button
                     key={idx}
@@ -539,14 +541,14 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
 
               {/* Input form */}
-              <form onSubmit={handleSandboxSend} className="p-3 border-t border-slate-200 flex items-center gap-2">
+              <form onSubmit={handleSandboxSend} className="p-3 shrink-0 border-t border-slate-200 flex items-center gap-2">
                 <input
                   type="text"
                   maxLength={8000}
                   value={sandboxInput}
                   onChange={e => setSandboxInput(e.target.value)}
                   placeholder="Đặt câu hỏi trong phạm vi kho tài liệu..."
-                  className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-[#FF5C00]"
+                  className="min-w-0 flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-[#FF5C00]"
                 />
                 <button
                   type="submit"
@@ -556,9 +558,9 @@ export const Module6_AIStudio: React.FC = () => {
                   <Send className="w-3.5 h-3.5" />
                 </button>
               </form>
-            </div>
+            </ResizableChatPanel>
           </div>
-        </div>
+        </ReportSplitPane>
       )}
 
       {/* MODAL: Thêm/Sửa Danh mục */}

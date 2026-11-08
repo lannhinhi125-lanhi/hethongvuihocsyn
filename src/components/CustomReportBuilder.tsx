@@ -15,7 +15,7 @@ import {PeriodToolbar} from './PeriodToolbar';
 import { useBusinessValue, useBusinessStatus } from '../lib/businessPersistence';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw } from 'lucide-react';
+import { Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw, Sparkles, ChevronDown, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from './FilterDrawer';
 import {
@@ -191,7 +191,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold text-slate-900">{suggestReportTitle(dataset, config.groupBy)}</h2>{onCompose && <button type="button" disabled={result.invalidRange || comparison.enabled && !compareActive} onClick={() => onCompose({ datasetId: dataset.id, config: structuredClone(config), range: { ...result.range } })} className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-[#FF5C00] transition-colors hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-40">Lập báo cáo từ kết quả này</button>}</div>
     <ReportSplitPane controls={<div className="space-y-3">
     {isDetail ? <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3"><label className="min-w-0 w-full text-xs font-medium text-slate-500">Báo cáo<ReportSelect aria-label="Chọn báo cáo chi tiết" value={dataset.id} onChange={event => switchDataset(event.target.value)} className={control + ' mt-1'}>{datasets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label><label className="min-w-0 w-full text-xs font-medium text-slate-500">Xem theo<ReportSelect aria-label="Cách nhóm báo cáo chi tiết" value={config.groupBy} onChange={event => patch({ groupBy: event.target.value, selection: undefined })} className={control + ' mt-1'}><option value="all">Toàn bộ</option>{dataset.dimensions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label></div> : <>
-    <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+    <section className="rounded-xl border border-orange-200 bg-orange-50/50 p-3 shadow-2xs">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {templates.length > 0 && <ReportSelect aria-label="Mở mẫu báo cáo đã lưu" value={templateId} className={control + ' max-w-52'}
@@ -209,8 +209,9 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
           }}><Save className="h-3.5 w-3.5" />Lưu mẫu{hasChanges ? ' •' : ''}</button>
         </div>
       </div>
-      <details className="mt-2"><summary className="cursor-pointer text-xs font-medium text-slate-600">Mẫu gợi ý</summary>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <details open className="group mt-3"><summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-orange-200 bg-orange-100 px-3 py-2.5 text-xs font-bold text-orange-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 [&::-webkit-details-marker]:hidden"><Sparkles aria-hidden="true" className="h-4 w-4 text-orange-700"/>Mẫu gợi ý<ChevronDown aria-hidden="true" className="ml-auto h-4 w-4 transition-transform group-open:rotate-180"/></summary>
+      <p className="mt-2 text-[11px] leading-relaxed text-orange-900">Chọn một mẫu để xem nhanh số liệu.</p>
+      <div className="mt-2 grid gap-2">
         {[
           { name: 'Lớp theo môn', source: 'classes', group: 'subject' },
           { name: 'Học sinh theo khối', source: 'students', group: 'grade' },
@@ -221,16 +222,20 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
           { name: 'Sự cố theo khung giờ', source: 'incidents', group: 'timeSlot' },
           { name: 'Ca dạy theo giáo viên', source: 'lessons', group: 'teacher' },
           { name: 'Đăng ký theo môn', source: 'student_registrations', group: 'subject' }
-        ].filter(item => datasets.some(dataset => dataset.id === item.source)).map(item => <button key={item.source + item.group} type="button" className="rounded-lg border border-orange-100 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-orange-400 hover:bg-orange-50"
+        ].filter(item => datasets.some(dataset => dataset.id === item.source)).map(item => {
+          const selected=dataset.id===item.source && config.groupBy===item.group;
+          return <button key={item.source + item.group} type="button" aria-pressed={selected}
+          className={'flex min-w-0 items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 '+(selected ? 'border-orange-700 bg-orange-700 text-white shadow-sm' : 'border-orange-200 bg-orange-100/70 text-orange-950 hover:border-orange-400 hover:bg-orange-200')}
           onClick={() => {
             const target = datasets.find(dataset => dataset.id === item.source);
             if (target) { setConfig({ ...defaultReportConfig(target), groupBy: item.group }); setTemplateId(''); setSearch(''); }
-          }}>{item.name}</button>)}
+          }}><span>{item.name}</span>{selected ? <Check aria-hidden="true" className="h-4 w-4 shrink-0"/> : <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-orange-700"/>}</button>;
+        })}
       </div>
       </details>
     </section>
     </>}
-    {!isDetail && <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3"><label className="text-xs font-medium text-slate-500">Dữ liệu cần xem<ReportSelect aria-label="Dữ liệu báo cáo tùy chỉnh" value={dataset.id} onChange={event => switchDataset(event.target.value)} className={control + ' mt-1'}>{datasets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label><label className="text-xs font-medium text-slate-500">Xem theo<ReportSelect aria-label="Cách nhóm báo cáo tùy chỉnh" value={config.groupBy} onChange={event => patch({ groupBy: event.target.value, selection: undefined })} className={control + ' mt-1'}><option value="all">Toàn bộ</option>{dataset.dimensions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label></div>}
+    {!isDetail && <div className="grid gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3"><label className="text-xs font-semibold text-indigo-950">Dữ liệu cần xem<ReportSelect aria-label="Dữ liệu báo cáo tùy chỉnh" value={dataset.id} onChange={event => switchDataset(event.target.value)} className={control + ' mt-1'}>{datasets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label><label className="text-xs font-semibold text-indigo-950">Xem theo<ReportSelect aria-label="Cách nhóm báo cáo tùy chỉnh" value={config.groupBy} onChange={event => patch({ groupBy: event.target.value, selection: undefined })} className={control + ' mt-1'}><option value="all">Toàn bộ</option>{dataset.dimensions.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</ReportSelect></label></div>}
 
         <section className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
           <div className="flex flex-wrap items-center gap-2">
@@ -292,15 +297,15 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
             format={value => chartMetric ? formatReportValue(value, chartMetric) : '—'} onSelect={selectChartGroup} onClearSelection={() => patch({ selection: undefined })} />
           {config.selection && result.rows.length > 0 && <div className="flex justify-end"><button type="button" onClick={() => { setDetailPeriod('current'); setDetailKey(result.rows[0].key); }} className="text-xs font-semibold text-orange-700 hover:underline">Xem {result.records.length} bản ghi của nhóm đã chọn ↗</button></div>}
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-            {result.metrics.map(metric => <div key={metric.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-              <div className="text-xs text-slate-500">{metric.label}</div>
+            {result.metrics.map((metric,index) => <div key={metric.id} className={'rounded-xl border border-t-[3px] px-3 py-3 '+['border-orange-200 border-t-[#FF5C00] bg-orange-50/60','border-indigo-200 border-t-indigo-500 bg-indigo-50/60','border-teal-200 border-t-teal-600 bg-teal-50/60'][index%3]}>
+              <div className="text-xs font-medium text-slate-700">{metric.label}</div>
               <div className="mt-0.5 text-lg font-bold tabular-nums text-slate-900">{formatReportValue(result.totals[metric.id], metric)}</div>
             </div>)}
           </div>
           <p className="rounded-xl border border-orange-100 bg-orange-50/60 px-4 py-3 text-sm text-orange-900">{insight}</p>
           {!result.records.length&&dataset.dateKind==='event'&&!dataset.prepareRange&&availableDates.length>0&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600"><span>Dữ liệu nguồn đã tải có ngày từ {displayDate(availableDates[0])} đến {displayDate(availableDates[availableDates.length-1])}. Khoảng ngày và điều kiện đang chọn không có bản ghi phù hợp.</span><button type="button" onClick={()=>patch({datePreset:'all',from:'',to:'',filters:{},selection:undefined})} className="font-semibold text-orange-700 underline">Xem toàn bộ dữ liệu</button></div>}
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
-            <div className="space-y-2.5 border-b border-slate-100 p-3">
+            <div className="space-y-2.5 border-b border-indigo-100 bg-indigo-50/40 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div><h4 className="text-xs font-semibold text-slate-800">{dataset.label} theo {groupName.toLocaleLowerCase('vi')}</h4>
                   <p className="mt-0.5 text-xs text-slate-500">{isDetail && dataset.id === 'classes' ? `${visibleClassRecords.length}/${result.records.length} lớp · Bấm tên lớp để xem chi tiết` : `${result.records.length} bản ghi nguồn · ${visibleRows.length}/${result.rows.length} nhóm · Bấm tên nhóm để xem chi tiết`}</p>
@@ -326,12 +331,12 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
             </div> : isDetail && dataset.id === 'classes' ? <CompactClassReportTable records={visibleClassRecords} /> : <>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-xs">
-                  <thead className="bg-slate-50 text-xs font-semibold text-slate-600"><tr>
+                  <thead className="bg-orange-50 text-xs font-semibold text-orange-950"><tr>
                     <th scope="col" className="px-3 py-2.5">{groupName}</th>
                     {result.metrics.map(metric => <th scope="col" key={metric.id} className="whitespace-nowrap px-3 py-2.5 text-right">{metric.label}</th>)}
                     {showSourceCount && <th scope="col" className="px-3 py-2.5 text-right">Bản ghi nguồn</th>}
                   </tr></thead>
-                  <tbody className="divide-y divide-slate-100">{pageRows.map(row => <tr key={row.key} className="hover:bg-slate-50">
+                  <tbody className="divide-y divide-slate-100">{pageRows.map(row => <tr key={row.key} className="even:bg-slate-50/60 hover:bg-orange-50/70">
                     <th scope="row" className="px-3 py-2.5 font-medium"><button type="button" onClick={() => { setDetailPeriod('current'); setDetailKey(row.key); }} className="inline-flex items-center gap-1.5 text-orange-700 hover:underline">{row.label}<ArrowUpRight className="h-3 w-3" /></button></th>
                     {result.metrics.map(metric => <td key={metric.id} className="px-3 py-2.5 text-right tabular-nums text-slate-800">{formatReportValue(row.values[metric.id], metric)}</td>)}
                     {showSourceCount && <td className="px-3 py-2.5 text-right tabular-nums text-slate-500">{row.records.length}</td>}
