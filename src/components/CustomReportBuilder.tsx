@@ -15,7 +15,7 @@ import {PeriodToolbar} from './PeriodToolbar';
 import { useBusinessValue, useBusinessStatus } from '../lib/businessPersistence';
 import { usePermissions } from '../hooks/usePermissions';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw, Sparkles, ChevronDown, Check } from 'lucide-react';
+import { Filter, Save, Download, Search, X, Trash2, ArrowUpRight, SlidersHorizontal, RotateCcw, FileText, ChevronDown, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { FilterDrawer } from './FilterDrawer';
 import {
@@ -209,7 +209,7 @@ export const CustomReportBuilder: React.FC<{ datasets: ReportDataset[]; mode?: '
           }}><Save className="h-3.5 w-3.5" />Lưu mẫu{hasChanges ? ' •' : ''}</button>
         </div>
       </div>
-      <details open className="group mt-3"><summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-orange-200 bg-orange-100 px-3 py-2.5 text-xs font-bold text-orange-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 [&::-webkit-details-marker]:hidden"><Sparkles aria-hidden="true" className="h-4 w-4 text-orange-700"/>Mẫu gợi ý<ChevronDown aria-hidden="true" className="ml-auto h-4 w-4 transition-transform group-open:rotate-180"/></summary>
+      <details open className="group mt-3"><summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-orange-200 bg-orange-100 px-3 py-2.5 text-xs font-bold text-orange-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 [&::-webkit-details-marker]:hidden"><FileText aria-hidden="true" className="h-4 w-4 text-orange-700"/>Mẫu gợi ý<ChevronDown aria-hidden="true" className="ml-auto h-4 w-4 transition-transform group-open:rotate-180"/></summary>
       <p className="mt-2 text-[11px] leading-relaxed text-orange-900">Chọn một mẫu để xem nhanh số liệu.</p>
       <div className="mt-2 grid gap-2">
         {[

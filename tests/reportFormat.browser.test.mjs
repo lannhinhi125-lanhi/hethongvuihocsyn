@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const {chromium}=await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE_PATH,'index.mjs')));
+const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1366,height:900}});
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('http://127.0.0.1:3107/tests/fixtures/reportComparisonColors.html');
+ const table=page.getByRole('table');await table.waitFor();
+ const current=await table.locator('thead th').nth(1).evaluate(el=>getComputedStyle(el).backgroundColor);
+ const previous=await table.locator('thead th').nth(2).evaluate(el=>getComputedStyle(el).backgroundColor);
+ assert.notEqual(current,previous,'comparison periods have distinct tints matching the chart');
+ assert.ok((await table.innerText()).includes('Toán'));
+ await page.getByRole('textbox',{name:'Tìm nhóm so sánh'}).fill('Tiếng Anh');
+ assert.equal(await table.locator('tbody tr').count(),1);
+ await page.getByRole('textbox',{name:'Tìm nhóm so sánh'}).fill('');
+ if(process.env.REPORT_SCREENSHOT_DIR)await page.screenshot({path:resolve(process.env.REPORT_SCREENSHOT_DIR,'comparison-format.png'),fullPage:true});
+ await page.setViewportSize({width:390,height:900});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.goto('http://127.0.0.1:3107/tests/fixtures/reportComposer.html');
+ const controls=page.getByRole('complementary',{name:'Thiết lập tài liệu báo cáo'});
+ await controls.waitFor();
+ await controls.getByText('Thông tin đầu báo cáo & người ký',{exact:true}).click();
+ await controls.getByLabel('Người lập báo cáo',{exact:true}).fill('Người kiểm thử');
+ await page.getByRole('button',{name:'Xem trước',exact:true}).click();
+ const frame=page.frameLocator('iframe');
+ await frame.locator('.report-section h2').first().waitFor();
+ assert.equal(await frame.locator('.report-section h2').first().evaluate(el=>getComputedStyle(el).borderLeftWidth),'4px');
+ assert.equal(await frame.locator('thead th').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 241, 230)');
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.setViewportSize({width:1366,height:900});
+ if(process.env.REPORT_SCREENSHOT_DIR)await page.screenshot({path:resolve(process.env.REPORT_SCREENSHOT_DIR,'composer-format.png'),fullPage:true});
+ assert.equal(await page.locator('.lucide-sparkles').count(),0,'reporting uses document icons');
+ assert.deepEqual(errors,[]);
+ console.log('PASS report formatting: comparison colors/data/search/mobile, generated document accents and header styles, no overflow or browser errors.');
+}finally{await browser.close();}

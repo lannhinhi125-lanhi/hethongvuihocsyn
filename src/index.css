@@ -308,6 +308,25 @@ body:has(.workspace-ui) #root {
   .report-filter-grid { grid-template-columns: minmax(0, 1fr); }
 }
 /* Native mirrors of custom selects must not inherit visible select padding. */
+.report-comparison-controls label { color: #312e81; }
+.report-comparison-controls > div > span:first-child { color: #3730a3; }
+.report-comparison-controls > div > span:nth-child(2) { color: #9a3412; }
+.report-comparison > section:last-child { border-color: #c7d2fe; }
+.report-comparison > section:last-child > div:first-child { background: #eef2ff80; border-color: #e0e7ff; }
+.report-comparison table thead { background: #f1f5f9; color: #334155; }
+.report-comparison table th:nth-child(2) { background: #eef2ff; color: #3730a3; }
+.report-comparison table th:nth-child(3) { background: #fff7ed; color: #9a3412; }
+.report-comparison table td:nth-child(2), .report-comparison table td:nth-child(2) button { color: #3730a3; }
+.report-comparison table td:nth-child(3), .report-comparison table td:nth-child(3) button { color: #9a3412; }
+.report-comparison table tbody tr:nth-child(even) { background: #f8fafc; }
+.report-comparison table tbody tr:hover { background: #fff7ed; }
+.report-composer .composer-settings > .composer-field-grid:first-child { padding: 12px; border: 1px solid #fed7aa; border-radius: 10px; background: #fff7ed; }
+.report-composer .composer-settings > .composer-field-grid:first-child label { color: #7c2d12; font-weight: 600; }
+.report-composer .composer-settings > details { padding: 12px; border: 1px solid #c7d2fe; border-radius: 10px; background: #fff; }
+.report-composer .composer-settings > details > summary { color: #312e81; font-weight: 600; line-height: 1.5; }
+.report-composer .composer-settings > details > summary::marker { color: #c2410c; }
+.report-composer .composer-settings > details[open] > summary { padding-bottom: 8px; border-bottom: 1px solid #e0e7ff; }
+.report-composer .composer-toolbar button:not(:first-child) { color: #9a3412; }
 .report-interface select[aria-hidden='true'] { padding: 0; border: 0; min-width: 0; }
 .composer-field-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr)); }
 @media (min-width: 1024px) {
