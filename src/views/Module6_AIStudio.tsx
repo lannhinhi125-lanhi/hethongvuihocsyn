@@ -13,7 +13,7 @@ import { confirmAction } from '../components/ConfirmAction';
 import { PaginatedList } from '../components/Pagination';
 import { PaginatedTableBody } from '../components/Pagination';
 import { usePermissions } from '../hooks/usePermissions';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { SOPDocument, RAGBotConfig, DocumentCategory } from '../types';
 import { useTeacherChatHistory } from '../hooks/useTeacherChatHistory';
@@ -36,6 +36,45 @@ import {
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
+
+function AutoExpandingTextarea({
+  id,
+  value,
+  onChange,
+  placeholder,
+  minRows = 3,
+  className = '',
+}: {
+  id?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  minRows?: number;
+  className?: string;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      const minHeight = minRows * 26;
+      el.style.height = `${Math.max(el.scrollHeight, minHeight)}px`;
+    }
+  }, [value, minRows]);
+
+  return (
+    <textarea
+      id={id}
+      ref={textareaRef}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={minRows}
+      className={`w-full p-2.5 rounded-xl border border-slate-200 leading-relaxed text-xs focus:bg-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all resize-y overflow-hidden shadow-2xs ${className}`}
+    />
+  );
+}
 
 export const Module6_AIStudio: React.FC = () => {
   const { can, requirePermission } = usePermissions();
@@ -415,12 +454,12 @@ export const Module6_AIStudio: React.FC = () => {
 
               <div className="ai-config-group">
                 <label htmlFor="ai-welcome-greeting" className="block font-semibold text-slate-700 mb-1">Câu chào mở đầu</label>
-                <textarea
+                <AutoExpandingTextarea
                   id="ai-welcome-greeting"
-                  rows={2}
+                  minRows={3}
                   value={configDraft.welcomeGreeting}
                   onChange={e => setConfigDraft(prev => ({ ...prev, welcomeGreeting: e.target.value }))}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed"
+                  placeholder="Ví dụ: Xin chào thầy/cô! Tôi là Trợ lý AI VUIHOC, sẵn sàng hỗ trợ tra cứu quy chế và nghiệp vụ..."
                 />
               </div>
 
@@ -448,20 +487,23 @@ export const Module6_AIStudio: React.FC = () => {
               </div>
               <div className="ai-config-group">
                 <label htmlFor="ai-extra-instructions" className="block font-semibold text-slate-700 mb-1">Hướng dẫn bổ sung</label>
-                <textarea id="ai-extra-instructions" rows={3} value={additionalAIInstructions(configDraft.systemPrompt)}
+                <AutoExpandingTextarea
+                  id="ai-extra-instructions"
+                  minRows={3}
+                  value={additionalAIInstructions(configDraft.systemPrompt)}
                   onChange={e=>setConfigDraft(prev=>({...prev,systemPrompt:responseStylePrompt(responseLength(prev.systemPrompt),e.target.value)}))}
                   placeholder="Ví dụ: Xưng hô thầy/cô. Nêu ý chính trước, sau đó thêm một lời nhắc thân thiện."
-                  className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed" />
+                />
                 <p className="mt-1 text-[11px] text-slate-500">Bấm Lưu cấu hình để lưu lại. Áp dụng cho câu trả lời tiếp theo ở cả chatbot quản trị và giáo viên.</p>
               </div>
               <div className="ai-config-group ai-config-fallback">
                 <label htmlFor="ai-fallback-response" className="block font-semibold text-slate-700 mb-1">Câu trả lời khi không tìm thấy căn cứ trong tài liệu</label>
-                <textarea
+                <AutoExpandingTextarea
                   id="ai-fallback-response"
-                  rows={3}
+                  minRows={3}
                   value={configDraft.fallbackResponse}
                   onChange={e => setConfigDraft(prev => ({ ...prev, fallbackResponse: e.target.value }))}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 leading-relaxed"
+                  placeholder="Ví dụ: Chưa có đủ thông tin trong tài liệu để trả lời câu hỏi này. Thầy/cô vui lòng liên hệ bộ phận Vận hành..."
                 />
               </div>
 
