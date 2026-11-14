@@ -771,7 +771,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   {/* Hàng 1: Tiêu đề các cột */}
                   <tr>
                     {diaryColumns.map(column => <th key={column.label} className="py-3 px-3 whitespace-nowrap"><MultiSelectColumnFilter {...column} /></th>)}
-                    <th className="py-3 px-3 text-center">Hành động<button type="button" onClick={resetColFilters} className="block mx-auto text-slate-500 hover:text-orange-600 normal-case font-medium">Xóa lọc</button></th>
+                    <th className="py-3 px-3 text-center table-sticky-action-th">Hành động<button type="button" onClick={resetColFilters} className="block mx-auto text-slate-500 hover:text-orange-600 normal-case font-medium">Xóa lọc</button></th>
                   </tr>
                 </thead>
 
@@ -917,7 +917,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                             return <button type="button" onClick={()=>setSelectedClassViewSession(s)} title="Xem nhận xét của buổi học" className={`whitespace-nowrap rounded-lg px-2 py-1 font-semibold ${completed===0?'bg-rose-50 text-rose-700':completed>=total?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{completed===0 ? 'Chưa nhận xét' : completed>=total ? 'Đã đủ '+completed+'/'+total : 'Chưa đủ '+completed+'/'+total}</button>;
                           })()}</td>
                           {/* Hành động */}
-                          <td className="py-3.5 px-3 text-center">
+                          <td className="py-3.5 px-3 text-center table-sticky-action-td">
                             <div className="flex items-center justify-center gap-1.5">
                               {monitoringWarning(s) && !isMonitoringApproved(s, monitoringWarning(s)) && can('Ghi nhận và xử lý sự cố ca dạy') && (
                                 <button
@@ -1026,7 +1026,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   {/* Hàng 1: Tiêu đề cột Tab 2 */}
                   <tr>
                     {incidentColumns.map(column => <th key={column.label} className="py-3 px-3 whitespace-nowrap"><MultiSelectColumnFilter {...column} /></th>)}
-                    <th className="py-3 px-3 text-center">
+                    <th className="py-3 px-3 text-center table-sticky-action-th">
                       <div className="inline-flex items-center gap-2">
                         Thao tác
                         <button
@@ -1172,7 +1172,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                           </td>
 
                           {/* Thao tác */}
-                          <td className="py-3.5 px-3 text-center">
+                          <td className="py-3.5 px-3 text-center table-sticky-action-td">
                             {isResolved ? (
                               <button
                                 type="button"

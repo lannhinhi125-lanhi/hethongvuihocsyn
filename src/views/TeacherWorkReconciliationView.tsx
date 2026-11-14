@@ -422,7 +422,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                 <th className="py-3 px-4">{column('Loại buổi','kind')}</th>
                 <th className="py-3 px-4">{column('Trạng thái','status')}</th>
                 <th className="py-3 px-4 text-center">{column('Công','credit')}</th>
-                <th className="py-3 px-4 text-center">Thao tác</th>
+                <th className="py-3 px-4 text-center table-sticky-action-th">Thao tác</th>
               </tr>
             </thead>
             <PaginatedTableBody className="divide-y divide-slate-100">
@@ -451,7 +451,7 @@ export const TeacherWorkReconciliationView: React.FC = () => {
                       {session.isPendingCredit?'—':session.creditCoeff}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center table-sticky-action-td">
                     <button type="button" onClick={()=>setViewingSessionId(session.id)} aria-label={'Xem chi tiết buổi '+lessonCode(session.lessonId||session.id)} title="Xem chi tiết" className="mr-2 inline-flex rounded-md p-1.5 text-slate-600 hover:bg-slate-100"><Eye className="h-4 w-4"/></button>
                     <button
                       disabled={!canDisputeSession(session) || myDisputes.some(dispute => dispute.sessionId === session.id && dispute.status === 'CHO_DUYET')}

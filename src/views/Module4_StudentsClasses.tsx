@@ -1444,7 +1444,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-[11px]">
                   <tr>
                     {studentColumns.map(column=><th key={column.label} className="py-3 px-3 text-left whitespace-nowrap"><MultiSelectColumnFilter {...column}/></th>)}
-                    <th className="py-3 px-3 text-center">Thao tác</th>
+                    <th className="py-3 px-3 text-center table-sticky-action-th">Thao tác</th>
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 text-xs">
@@ -1460,7 +1460,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <td className="px-3 py-3 whitespace-nowrap"><span className="rounded bg-orange-50 px-2 py-1 font-semibold text-[#FF5C00]">{student.model}</span></td>
                     <td className="px-3 py-3 min-w-44 text-[11px] text-slate-600">{student.scheduleSlots.length ? student.scheduleSlots.map(slot => <div key={slot}>{slot}</div>) : 'Chưa đăng ký'}</td>
                     <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 rounded-full border text-[10px] font-semibold ${statusColor(student.status)}`}>{student.subject?student.status:'Chưa đăng ký học'}</span></td>
-                    <td className="px-3 py-3"><div className="flex items-center justify-center gap-1">
+                    <td className="px-3 py-3 table-sticky-action-td"><div className="flex items-center justify-center gap-1">
                       <button type="button" onClick={() => setViewingDetailStudent(student)} title="Chi tiết học sinh và phụ huynh" className="p-1.5 rounded hover:bg-blue-50 text-blue-600"><Eye className="w-3.5 h-3.5" /></button>
                       <button type="button" onClick={() => openEditStudent(student)} title="Sửa thông tin và ghép lớp" className="p-1.5 rounded hover:bg-orange-50 text-[#FF5C00]"><Pencil className="w-3.5 h-3.5" /></button>
                       <RowActionMenu label={'Thao tác khác của '+student.name+' · '+student.id} actions={[
@@ -1525,7 +1525,7 @@ export const Module4_StudentsClasses: React.FC = () => {
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px]"><tr>
               <th className="px-3 py-3"><input type="checkbox" aria-label="Chọn tất cả lớp có thể tạm dừng trong bộ lọc, gồm mọi trang" title="Chọn tất cả lớp trong bộ lọc (mọi trang)" checked={allClassesSelected} disabled={!selectableClasses.length || !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onChange={event => setSelectedClassIds(event.target.checked ? selectableClasses.map(item => item.id) : [])} className="accent-orange-500" /></th>
               {([['Mã lớp','code'],['Tên lớp','name'],['Cấp học / lớp dạy','category'],['Khối lớp','grade'],['Môn học','subject'],['Mô hình','model'],['Trình độ','level'],['Lịch học','schedule'],['Sĩ số','occupancy'],['Trạng thái','status'],['Giáo viên','teacher']] as [string, ClassFilterKey][]).map(([label,key]) => <th key={key} className="py-3 px-3 whitespace-nowrap">{classColumn(label,key)}</th>)}
-              <th className="py-3 px-3 text-center">Thao tác</th>
+              <th className="py-3 px-3 text-center table-sticky-action-th">Thao tác</th>
             </tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
               {!filteredClasses.length && <tr><td colSpan={13} className="px-4 py-2 text-center"><EmptyState title="Không có lớp học phù hợp với bộ lọc." /></td></tr>}
               {filteredClasses.map(item => <tr key={item.id} className="hover:bg-slate-50" data-sort-time={recordSortTime(item)}>
@@ -1536,7 +1536,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                 <td className="px-3 py-3 min-w-44 text-[11px]">{item.schedule || 'Chưa có lịch'}{item.startDate && <div className="mt-1 text-slate-500">Bắt đầu: {new Date(`${item.startDate}T00:00:00`).toLocaleDateString('vi-VN')}</div>}</td><td className="px-3 py-3 whitespace-nowrap"><span className={item.studentIds.length >= item.maxStudents ? 'font-semibold text-amber-600' : 'font-semibold text-emerald-700'}>{item.studentIds.length}/{item.maxStudents}</span></td>
                 <td className="px-3 py-3 whitespace-nowrap"><span className={'px-2 py-1 rounded text-[10px] font-semibold ' + (item.status === 'Dừng lớp' ? 'bg-red-50 text-red-700' : item.status === 'Đã kết thúc' ? 'bg-slate-100 text-slate-500' : item.paused ? 'bg-amber-50 text-amber-700' : (item.status || 'Đang học') === 'Đang học' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700')}>{classStatusLabel(item)}</span></td>
                 <td className="px-3 py-3 min-w-32">{item.teacherName || 'Chưa phân công'}</td>
-                <td className="px-3 py-3"><div className="flex items-center justify-center gap-1"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button><RowActionMenu label={'Thao tác khác của lớp '+item.code} actions={[
+                <td className="px-3 py-3 table-sticky-action-td"><div className="flex items-center justify-center gap-1"><button type="button" title="Xem chi tiết lớp" aria-label={'Xem chi tiết lớp ' + item.name} onClick={() => setViewingClassId(item.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Eye className="w-3.5 h-3.5" /></button><button type="button" title="Sửa lớp" onClick={() => openEditClass(item)} className="p-1.5 text-[#FF5C00] hover:bg-orange-50 rounded"><Pencil className="w-3.5 h-3.5" /></button><RowActionMenu label={'Thao tác khác của lớp '+item.code} actions={[
                   ...(!['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') ? [
                     {label:item.paused ? 'Tiếp tục lớp' : 'Tạm dừng tạm thời',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>item.paused ? updateClass(item.id, {paused:false}) : openPause([item])},
                     ...(item.paused ? [{label:'Sửa lý do tạm dừng',disabled:!can('Tạo, sửa, xóa lớp và cập nhật link phòng học'),onSelect:()=>openPause([item])}] : []),
@@ -1646,7 +1646,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                     <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 1', 'lessonOne')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Học liệu Buổi 2', 'lessonTwo')}</th>
                     <th className="py-3.5 px-4">{materialColumnFilter('Trạng thái học liệu', 'materialStatus')}</th>
-                    <th className="py-3.5 px-4 text-center">Hành động</th>
+                    <th className="py-3.5 px-4 text-center table-sticky-action-th">Hành động</th>
                   </tr>
                 </thead>
                 <PaginatedTableBody sortOrder={materialSort} onSortOrderChange={order => setMaterialSort(order === 'oldest' ? 'oldest' : 'newest')} className="divide-y divide-slate-100 font-normal">
@@ -1682,7 +1682,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3 px-4 text-center table-sticky-action-td">
                           <div className="flex justify-center gap-2">
                             <button type="button" title="Chi tiết học liệu" aria-label={`Chi tiết học liệu lớp ${c.name}`} onClick={() => openMaterialDetails(c, month, week, materials)} className="rounded p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-3.5 w-3.5" /></button>
                             <button type="button" title="Cập nhật học liệu trong tuần đã chọn" aria-label={`Cập nhật học liệu lớp ${c.name}`} disabled={!hasMat || !canAssignClassMaterials(c)} onClick={() => openEditMaterials(c, month, week, materials)} className="inline-flex items-center gap-1 rounded px-2 py-1.5 text-[#FF5C00] hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"><Pencil className="h-3.5 w-3.5" /><span className="text-[11px] font-semibold">Cập nhật</span></button>

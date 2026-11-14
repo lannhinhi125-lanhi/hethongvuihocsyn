@@ -731,7 +731,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
         {/* Nội dung Tab 1: Tổng hợp công theo nhân sự */}
         {activeTab === 'summary' && (
-          <div className="p-4 overflow-x-auto">
+          <div className="workspace-table-scroll p-4 overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
@@ -756,7 +756,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   <th className="py-3 px-3 text-right">{columnRangeFilter('Tổng công', summaryRanges.totalCredit, range => setSummaryRanges(previous => ({ ...previous, totalCredit: range })), '0.1')}</th>
                   <th className="py-3 px-3 text-center">{columnSelectFilter('Trạng thái gửi', payrollSentFilter, setPayrollSentFilter, [{ value: 'true', label: 'Đã gửi' }, { value: 'false', label: 'Chưa gửi' }])}</th>
                   <th className="py-3 px-3 text-center">{columnSelectFilter('Trạng thái đối soát', statusFilter, setStatusFilter, [{ value: 'CHO_GUI', label: 'Chờ gửi đối soát' }, { value: 'DA_GUI', label: 'Đã gửi nhân sự' }, { value: 'CO_GIAI_TRINH', label: 'Có giải trình' }, { value: 'DA_XU_LY_GT', label: 'Đã xử lý giải trình' }, { value: 'DA_CHOT', label: 'Đã chốt công' }])}</th>
-                  <th className="py-3 px-3 text-center">Thao tác</th>
+                  <th className="py-3 px-3 text-center table-sticky-action-th">Thao tác</th>
                 </tr>
               </thead>
               <PaginatedTableBody className="divide-y divide-slate-100">
@@ -826,7 +826,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-3 px-3 text-center table-sticky-action-td">
                         <div className="flex justify-center gap-1">
                           <button
                             type="button"
@@ -863,7 +863,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
 
         {/* Nội dung Tab 2: Chi tiết từng buổi học & Chốt công */}
         {activeTab === 'sessions' && (
-          <div className="p-4 overflow-x-auto">
+          <div className="workspace-table-scroll p-4 overflow-x-auto">
             {!detailTeacher ? (
               <div className="py-12 text-center text-sm text-slate-500">
                 <p>Vui lòng chọn gia sư từ bảng chốt công để xem chi tiết.</p>
@@ -897,7 +897,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                   <th className="py-3 px-3">{columnSelectFilter('Loại buổi', sessionClassificationFilter, value => setSessionClassificationFilter(value as SessionClassification), [{ value: 'STANDARD', label: 'Buổi chuẩn' }, { value: 'INCIDENT', label: 'Buổi sự cố' }])}</th>
                   <th className="py-3 px-3">{columnSelectFilter('Trạng thái', sessionReconcileFilter, setSessionReconcileFilter, [{ value: 'CHO_DOI_SOAT', label: 'Chờ đối soát' }, { value: 'DA_XAC_NHAN', label: 'Đã xác nhận' }, { value: 'CO_GIAI_TRINH', label: 'Có giải trình' }, { value: 'DA_CHOT', label: 'Đã chốt công' }])}</th>
                   <th className="py-3 px-3 text-center">{columnRangeFilter('Công', sessionRanges.creditCoeff, range => setSessionRanges(previous => ({ ...previous, creditCoeff: range })), '0.1')}</th>
-                  <th className="py-3 px-3 text-center">Thao tác</th>
+                  <th className="py-3 px-3 text-center table-sticky-action-th">Thao tác</th>
                 </tr>
               </thead>
               <PaginatedTableBody className="divide-y divide-slate-100">
@@ -950,7 +950,7 @@ export const Module7_WorkReconciliation: React.FC = () => {
                           {session.isPendingCredit?'—':session.creditCoeff}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-3 px-3 text-center table-sticky-action-td">
                         <div className="flex justify-center gap-1">
                           <button type="button" onClick={() => { highlightSessionRow(session.id); setViewingSession({ teacherId, teacherName, staffRole, subject, session }); }} className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100 cursor-pointer" title="Xem chi tiết" aria-label={`Xem chi tiết buổi ${lessonCode(session.lessonId||session.id)}`}>
                             <Eye className="w-4 h-4" />

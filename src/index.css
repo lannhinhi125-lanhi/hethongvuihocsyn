@@ -130,6 +130,78 @@ body:has(.workspace-ui) #root {
   line-height: 1.6;
 }
 
+/* Sticky action column: keeps the rightmost actions pinned while scrolling tables horizontally */
+.table-sticky-action-th {
+  position: sticky;
+  right: 0;
+  z-index: 20;
+  background-color: #f8fafc;
+  box-shadow: -4px 0 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.table-sticky-action-td {
+  position: sticky;
+  right: 0;
+  z-index: 5;
+  background-color: #ffffff;
+  box-shadow: -4px 0 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.workspace-table-scroll > table > tbody > tr:hover > td.table-sticky-action-td,
+tr:hover > td.table-sticky-action-td {
+  background-color: #fff7ed;
+}
+
+tr[class*='bg-rose-'] > td.table-sticky-action-td {
+  background-color: #ffe4e6;
+}
+tr[class*='bg-rose-']:hover > td.table-sticky-action-td {
+  background-color: #fecdd3;
+}
+
+tr[class*='bg-orange-'] > td.table-sticky-action-td {
+  background-color: #ffedd5;
+}
+tr[class*='bg-orange-']:hover > td.table-sticky-action-td {
+  background-color: #fed7aa;
+}
+
+/* Sticky action column: keeps the rightmost actions pinned while scrolling tables horizontally */
+.table-sticky-action-th {
+  position: sticky;
+  right: 0;
+  z-index: 20;
+  background-color: #f8fafc;
+  box-shadow: -4px 0 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.table-sticky-action-td {
+  position: sticky;
+  right: 0;
+  z-index: 5;
+  background-color: #ffffff;
+  box-shadow: -4px 0 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.workspace-table-scroll > table > tbody > tr:hover > td.table-sticky-action-td,
+tr:hover > td.table-sticky-action-td {
+  background-color: #fff7ed;
+}
+
+tr[class*='bg-rose-'] > td.table-sticky-action-td {
+  background-color: #ffe4e6;
+}
+tr[class*='bg-rose-']:hover > td.table-sticky-action-td {
+  background-color: #fecdd3;
+}
+
+tr[class*='bg-orange-'] > td.table-sticky-action-td {
+  background-color: #ffedd5;
+}
+tr[class*='bg-orange-']:hover > td.table-sticky-action-td {
+  background-color: #fed7aa;
+}
+
 /* Compact working pages: preserve text size and isolate forms/dialogs from density changes. */
 .workspace-content :where(.p-4, .p-5, .p-6):not(:where(.fixed, .fixed *, dialog, dialog *, [role='dialog'], [role='dialog'] *, [role='alertdialog'], [role='alertdialog'] *)) {
   padding: 0.75rem;

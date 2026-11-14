@@ -366,7 +366,7 @@ export const Module1_UsersRoles: React.FC = () => {
                     <th className="py-3.5 px-4">Liên hệ</th>
                     <th className="py-3.5 px-4">Nhóm quyền</th>
                     <th className="py-3.5 px-4">Trạng thái</th>
-                    <th className="py-3.5 px-4 text-center">Thao tác</th>
+                    <th className="py-3.5 px-4 text-center table-sticky-action-th">Thao tác</th>
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-normal">
@@ -433,7 +433,7 @@ export const Module1_UsersRoles: React.FC = () => {
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-center table-sticky-action-td">
                             {u.id === 'USR-01' ? (
                               <span className="text-slate-400 italic text-[11px]">Tài khoản Gốc</span>
                             ) : (

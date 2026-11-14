@@ -532,7 +532,7 @@ export const Module3_Teachers: React.FC = () => {
                     <th className="py-3 px-3">{fieldHeading('profile', 'grades', 'Khối lớp phụ trách', catFilterSubOptions.length > 0)}</th>
                     <th className="py-3 px-3 text-center">{fieldHeading('profile', 'model', 'Hình thức dạy', colFilterModel !== 'ALL')}</th>
                     <th className="py-3 px-3 text-center">{fieldHeading('profile', 'status', 'Trạng thái', filterStatus !== 'ALL')}</th>
-                    <th className="py-3 px-4 text-center">Thao tác</th>
+                    <th className="py-3 px-4 text-center table-sticky-action-th">Thao tác</th>
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
@@ -591,7 +591,7 @@ export const Module3_Teachers: React.FC = () => {
                             <option value="TAM_NGUNG">● Tạm ngưng</option>
                           </ReportSelect>
                         </td>
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3 px-4 text-center table-sticky-action-td">
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => { setCreatedCredentials(null); setSelectedTeacherForDetail(t); }}
@@ -670,7 +670,7 @@ export const Module3_Teachers: React.FC = () => {
                     <th className="py-3 px-4 text-center">{fieldHeading('availability', 'free', 'Số ca đăng ký rảnh', Boolean(availabilityFields.minFree || availabilityFields.maxFree))}</th>
                     <th className="py-3 px-4 text-center">{fieldHeading('availability', 'busy', 'Số ca đã xếp lớp', Boolean(availabilityFields.minBusy || availabilityFields.maxBusy))}</th>
                     <th className="py-3 px-4 text-center">{fieldHeading('availability', 'status', 'Tình trạng lịch', availStatus !== 'ALL')}</th>
-                    <th className="py-3 px-4 text-center">Thời khóa biểu</th>
+                    <th className="py-3 px-4 text-center table-sticky-action-th">Thời khóa biểu</th>
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
@@ -702,7 +702,7 @@ export const Module3_Teachers: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3 px-4 text-center table-sticky-action-td">
                           <button
                             onClick={() => setScheduleModalTeacher(t)}
                             className="px-3 py-1.5 bg-slate-100 hover:bg-[#FF5C00] hover:text-white text-slate-700 font-semibold rounded-lg text-xs transition-colors inline-flex items-center gap-1 cursor-pointer"

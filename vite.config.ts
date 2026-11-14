@@ -1,3 +1,4 @@
+process.env.RAYON_NUM_THREADS = process.env.RAYON_NUM_THREADS || '2';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
