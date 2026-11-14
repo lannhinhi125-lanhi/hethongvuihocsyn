@@ -1,4 +1,5 @@
 import { useModuleSection } from '../hooks/useModuleSection';
+import { confirmAction } from '../components/ConfirmAction';
 import { recordSortTime } from '../lib/listOrder';
 import { coverScheduleConflict, isUnresolvedIncident } from '../lib/monitoringWorkflow';
 import { canAssignCover } from '../lib/coverTiming';
@@ -427,9 +428,9 @@ export const Module5_OperationsMonitoring: React.FC = () => {
   const incidentInitial = useRef('');
   const incidentDraft = JSON.stringify([incParent, incChild, incUrgency, incStatus, incNote, incHasCover, incCoverTeacher]);
   const incidentDirty = Boolean(selectedIncidentSession && incidentInitial.current !== incidentDraft);
-  const closeIncidentModal = () => {
+  const closeIncidentModal = async () => {
     if (savingIncident || businessStatus.saving) return;
-    if (incidentDirty && !window.confirm('Bạn có muốn bỏ thay đổi chưa lưu trong biên bản?')) return;
+    if (incidentDirty && !(await confirmAction('Bạn có muốn bỏ thay đổi chưa lưu trong biên bản?'))) return;
     setSelectedIncidentSession(null);
   };
   useEffect(() => {
@@ -1267,16 +1268,16 @@ export const Module5_OperationsMonitoring: React.FC = () => {
             <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <h4 className="font-bold text-slate-800">Các phiếu sự cố trong buổi ({lessonIncidentRows(persistedIncidents, selectedIncidentSession.sessionCode).length})</h4>
-                <button type="button" disabled={savingIncident || businessStatus.saving || !can('Ghi nhận và xử lý sự cố ca dạy')} onClick={() => {
-                  if (incidentDirty && !window.confirm('Bỏ thay đổi chưa lưu để lập phiếu mới?')) return;
+                <button type="button" disabled={savingIncident || businessStatus.saving || !can('Ghi nhận và xử lý sự cố ca dạy')} onClick={async () => {
+                  if (incidentDirty && !(await confirmAction('Bỏ thay đổi chưa lưu để lập phiếu mới?'))) return;
                   newIncident(selectedIncidentSession);
                 }} className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 font-semibold text-orange-700 disabled:opacity-40">+ Thêm sự cố</button>
               </div>
               <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
                 {lessonIncidentRows(persistedIncidents, selectedIncidentSession.sessionCode).map(row => <button key={row.id} type="button"
                   disabled={savingIncident || businessStatus.saving}
-                  onClick={() => {
-                    if (incidentDirty && !window.confirm('Bỏ thay đổi chưa lưu để xem phiếu khác?')) return;
+                  onClick={async () => {
+                    if (incidentDirty && !(await confirmAction('Bỏ thay đổi chưa lưu để xem phiếu khác?'))) return;
                     openIncidentModal(withIncident(selectedIncidentSession,row,incidents,users));
                   }}
                   className={`block w-full rounded-lg border p-2 text-left ${selectedIncidentSession.incidentId === row.id ? 'border-orange-300 bg-orange-50' : 'border-slate-200 bg-white'}`}>

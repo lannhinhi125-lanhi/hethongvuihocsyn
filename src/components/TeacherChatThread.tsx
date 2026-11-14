@@ -30,6 +30,16 @@ export function TeacherChatThread({turns,greeting,isBusy,isAnswering,hasOlder,on
         <div className="ai-chat-answer max-w-[90%] p-4 rounded-2xl rounded-bl-sm bg-white border border-slate-300 text-slate-900 shadow-sm"><ChatMessageText text={turn.traloi} /></div>
       </div>}
     </div>)}
-    {isAnswering && <p role="status" className="text-slate-500 animate-pulse">AI đang soạn câu trả lời…</p>}
+    {isAnswering && (
+      <div className="flex flex-col items-start space-y-1">
+        <span className="text-xs font-medium text-slate-500">Bot chat AI</span>
+        <div className="flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-bl-sm bg-white border border-slate-300 shadow-sm" role="status" aria-label="AI đang soạn câu trả lời">
+          <span className="h-2 w-2 rounded-full bg-orange-500 animate-bounce [animation-delay:-0.3s]" />
+          <span className="h-2 w-2 rounded-full bg-orange-500 animate-bounce [animation-delay:-0.15s]" />
+          <span className="h-2 w-2 rounded-full bg-orange-500 animate-bounce" />
+          <span className="ml-2 text-xs text-slate-500 font-medium">AI đang soạn câu trả lời…</span>
+        </div>
+      </div>
+    )}
   </div>;
 }

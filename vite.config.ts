@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {defineConfig, loadEnv, type Plugin} from 'vite';
 import {createGeminiHandler} from './server/geminiHandler.ts';
 
@@ -25,7 +26,7 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss(), localGeminiApi()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': fileURLToPath(new URL('.', import.meta.url)),
       },
     },
     server: {

@@ -6,19 +6,19 @@ import React, { useEffect, useState, useRef } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { Module1_UsersRoles } from './views/Module1_UsersRoles';
-import { Module2_MasterData } from './views/Module2_MasterData';
-import { Module3_Teachers } from './views/Module3_Teachers';
-import { Module4_StudentsClasses } from './views/Module4_StudentsClasses';
-import { Module4_TeacherSchedule } from './views/Module4_TeacherSchedule';
-import { Module5_OperationsMonitoring } from './views/Module5_OperationsMonitoring';
-import { Module6_AIStudio } from './views/Module6_AIStudio';
-import { Module7_WorkReconciliation } from './views/Module7_WorkReconciliation';
-import { ReportWorkspace } from './views/ReportWorkspace';
-import { Workbench } from './views/Workbench';
-import { TeacherEvaluationView } from './views/TeacherEvaluationView';
-import { TeacherAvailabilityView } from './views/TeacherAvailabilityView';
-import { TeacherWorkReconciliationView } from './views/TeacherWorkReconciliationView';
+const Module1_UsersRoles = React.lazy(() => import('./views/Module1_UsersRoles').then(m => ({ default: m.Module1_UsersRoles })));
+const Module2_MasterData = React.lazy(() => import('./views/Module2_MasterData').then(m => ({ default: m.Module2_MasterData })));
+const Module3_Teachers = React.lazy(() => import('./views/Module3_Teachers').then(m => ({ default: m.Module3_Teachers })));
+const Module4_StudentsClasses = React.lazy(() => import('./views/Module4_StudentsClasses').then(m => ({ default: m.Module4_StudentsClasses })));
+const Module4_TeacherSchedule = React.lazy(() => import('./views/Module4_TeacherSchedule').then(m => ({ default: m.Module4_TeacherSchedule })));
+const Module5_OperationsMonitoring = React.lazy(() => import('./views/Module5_OperationsMonitoring').then(m => ({ default: m.Module5_OperationsMonitoring })));
+const Module6_AIStudio = React.lazy(() => import('./views/Module6_AIStudio').then(m => ({ default: m.Module6_AIStudio })));
+const Module7_WorkReconciliation = React.lazy(() => import('./views/Module7_WorkReconciliation').then(m => ({ default: m.Module7_WorkReconciliation })));
+const ReportWorkspace = React.lazy(() => import('./views/ReportWorkspace').then(m => ({ default: m.ReportWorkspace })));
+const Workbench = React.lazy(() => import('./views/Workbench').then(m => ({ default: m.Workbench })));
+const TeacherEvaluationView = React.lazy(() => import('./views/TeacherEvaluationView').then(m => ({ default: m.TeacherEvaluationView })));
+const TeacherAvailabilityView = React.lazy(() => import('./views/TeacherAvailabilityView').then(m => ({ default: m.TeacherAvailabilityView })));
+const TeacherWorkReconciliationView = React.lazy(() => import('./views/TeacherWorkReconciliationView').then(m => ({ default: m.TeacherWorkReconciliationView })));
 
 const MainLayout: React.FC = () => {
   const { activeModule, workspaceMode, teacherPortalTab, currentUser, users, roleGroups, setCurrentUser, setActiveModule, setTeacherPortalTab } = useApp();
@@ -69,30 +69,32 @@ const MainLayout: React.FC = () => {
           {business.loading && <p role="status" className="mb-4 rounded-lg bg-blue-50 p-3 text-sm">Đang tải dữ liệu…</p>}
           {session.saving && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm">Đang lưu…</p>}
           <div className={workspaceMode === 'ADMIN' && activeModule === 5 ? 'w-full' : 'max-w-[1600px] mx-auto w-full'}>
-            {workspaceMode === 'ADMIN' && accountPortal(currentUser, roleGroups) === 'ADMIN' ? (
-              // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================
-              <>
-                {!canAccessModule(currentUser, roleGroups, 'PH' + activeModule) && <p role="alert" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Nhóm quyền chưa được cấp quyền truy cập phân hệ này.</p>}
-                {activeModule === 1 && canAccessModule(currentUser, roleGroups, 'PH1') && <Module1_UsersRoles />}
-                {activeModule === 2 && canAccessModule(currentUser, roleGroups, 'PH2') && <Module2_MasterData />}
-                {activeModule === 3 && canAccessModule(currentUser, roleGroups, 'PH3') && <Module3_Teachers />}
-                {activeModule === 4 && canAccessModule(currentUser, roleGroups, 'PH4') && <Module4_StudentsClasses />}
-                {activeModule === 5 && canAccessModule(currentUser, roleGroups, 'PH5') && <Module5_OperationsMonitoring />}
-                {activeModule === 6 && canAccessModule(currentUser, roleGroups, 'PH6') && <Module6_AIStudio />}
-                {activeModule === 7 && canAccessModule(currentUser, roleGroups, 'PH7') && <Module7_WorkReconciliation />}
-                {activeModule === 0 && canAccessModule(currentUser, roleGroups, 'PH0') && <Workbench />}
-                {activeModule === 8 && canAccessModule(currentUser, roleGroups, 'PH8') && <ReportWorkspace />}
-              </>
-            ) : (
-              // ================= GIAO DIỆN CỔNG GIÁO VIÊN & GIA SƯ =================
-              <>
-                {!canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <p role="alert" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Nhóm quyền chưa được cấp quyền truy cập phân hệ giảng dạy này.</p>}
-                {teacherPortalTab === 'availability' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <TeacherAvailabilityView />}
-                {teacherPortalTab === 'schedule' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <Module4_TeacherSchedule />}
-                {teacherPortalTab === 'evaluation' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <TeacherEvaluationView />}
-                {(teacherPortalTab === 'reconcile' || teacherPortalTab === 'payroll') && canAccessModule(currentUser, roleGroups, 'T_RECONCILE') && <TeacherWorkReconciliationView />}
-              </>
-            )}
+            <React.Suspense fallback={<div className="flex items-center justify-center p-12 text-sm font-medium text-slate-500 animate-pulse">Đang tải phân hệ…</div>}>
+              {workspaceMode === 'ADMIN' && accountPortal(currentUser, roleGroups) === 'ADMIN' ? (
+                // ================= GIAO DIỆN QUẢN TRỊ VIÊN =================
+                <>
+                  {!canAccessModule(currentUser, roleGroups, 'PH' + activeModule) && <p role="alert" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Nhóm quyền chưa được cấp quyền truy cập phân hệ này.</p>}
+                  {activeModule === 1 && canAccessModule(currentUser, roleGroups, 'PH1') && <Module1_UsersRoles />}
+                  {activeModule === 2 && canAccessModule(currentUser, roleGroups, 'PH2') && <Module2_MasterData />}
+                  {activeModule === 3 && canAccessModule(currentUser, roleGroups, 'PH3') && <Module3_Teachers />}
+                  {activeModule === 4 && canAccessModule(currentUser, roleGroups, 'PH4') && <Module4_StudentsClasses />}
+                  {activeModule === 5 && canAccessModule(currentUser, roleGroups, 'PH5') && <Module5_OperationsMonitoring />}
+                  {activeModule === 6 && canAccessModule(currentUser, roleGroups, 'PH6') && <Module6_AIStudio />}
+                  {activeModule === 7 && canAccessModule(currentUser, roleGroups, 'PH7') && <Module7_WorkReconciliation />}
+                  {activeModule === 0 && canAccessModule(currentUser, roleGroups, 'PH0') && <Workbench />}
+                  {activeModule === 8 && canAccessModule(currentUser, roleGroups, 'PH8') && <ReportWorkspace />}
+                </>
+              ) : (
+                // ================= GIAO DIỆN CỔNG GIÁO VIÊN & GIA SƯ =================
+                <>
+                  {!canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <p role="alert" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Nhóm quyền chưa được cấp quyền truy cập phân hệ giảng dạy này.</p>}
+                  {teacherPortalTab === 'availability' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <TeacherAvailabilityView />}
+                  {teacherPortalTab === 'schedule' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <Module4_TeacherSchedule />}
+                  {teacherPortalTab === 'evaluation' && canAccessModule(currentUser, roleGroups, teacherModuleIds[teacherPortalTab]) && <TeacherEvaluationView />}
+                  {(teacherPortalTab === 'reconcile' || teacherPortalTab === 'payroll') && canAccessModule(currentUser, roleGroups, 'T_RECONCILE') && <TeacherWorkReconciliationView />}
+                </>
+              )}
+            </React.Suspense>
           </div>
         </main>
       </div>

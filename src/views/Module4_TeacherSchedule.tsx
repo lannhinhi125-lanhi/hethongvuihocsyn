@@ -41,7 +41,8 @@ export const Module4_TeacherSchedule: React.FC = () => {
     timeSlots, subjects, levels, sopDocuments, ragBotConfig, users
   } = useApp();
 
-  const contactOperations = () => window.alert('Khi mất điện, mất mạng hoặc cần nghỉ đột xuất, hãy gọi ngay cho Vận hành qua số điện thoại hoặc Zalo đã được trung tâm cung cấp.\n\nCung cấp mã lớp, ngày giờ ca dạy, tình huống và minh chứng nếu có. Vận hành sẽ xác minh và cập nhật trạng thái buổi học.\n\nNếu chưa có thông tin liên hệ, hãy hỏi người phụ trách lớp. Mở hướng dẫn này chưa gửi yêu cầu hỗ trợ.');
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const contactOperations = () => setContactModalOpen(true);
   const [fromDate, setFromDate] = useState(initialWeek.from);
   const [toDate, setToDate] = useState(initialWeek.to);
 
@@ -201,7 +202,7 @@ export const Module4_TeacherSchedule: React.FC = () => {
     if (!checkoutFacts.checkinAt || checkoutFacts.checkoutAt || ['HUY','NGHI_HOC'].includes(checkoutFacts.status || '')) {
       showToast('Chỉ kết thúc buổi đã check-in và chưa checkout.', 'warning'); return;
     }
-    if (!window.confirm('Kết thúc lớp và ghi nhận checkout? Kết thúc sớm hơn 5 phút sẽ được ghi nhận để lọc ca chưa hoàn tất.')) return;
+    if (!await confirmAction('Kết thúc lớp và ghi nhận checkout? Kết thúc sớm hơn 5 phút sẽ được ghi nhận để lọc ca chưa hoàn tất.')) return;
     const checkoutAt=new Date().toISOString();
     const time=selectedClassSchedule.find(entry=>entry.session===selectedSessionNum)?.time;
     if(!time){showToast('Chưa xác định được khung giờ buổi học.', 'error');return;}
@@ -790,6 +791,51 @@ export const Module4_TeacherSchedule: React.FC = () => {
           </div>
         )}
 
+
+        {contactModalOpen && (
+          <div className="workspace-ui fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/40 p-4 text-slate-800 backdrop-blur-xs">
+            <div role="dialog" aria-modal="true" aria-labelledby="contact-modal-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+                    <Phone className="h-4 w-4" />
+                  </span>
+                  <h2 id="contact-modal-title" className="text-sm font-bold text-slate-800">Hướng dẫn liên hệ Vận hành</h2>
+                </div>
+                <button type="button" onClick={() => setContactModalOpen(false)} aria-label="Đóng" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-3 px-5 py-4 text-xs leading-relaxed text-slate-600">
+                <p className="font-semibold text-slate-800">
+                  Khi gặp sự cố (mất điện, mất mạng, thiết bị lỗi) hoặc cần xin nghỉ / đổi ca đột xuất:
+                </p>
+                <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-3.5 space-y-2 text-slate-700">
+                  <p className="flex items-start gap-2">
+                    <span className="font-bold text-orange-600">1.</span>
+                    <span>Gọi hotline Vận hành hoặc nhắn tin nhóm Zalo điều phối của VUIHOC đã được cung cấp.</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="font-bold text-orange-600">2.</span>
+                    <span>Cung cấp: <strong>Mã lớp</strong>, <strong>Ngày & giờ ca dạy</strong>, <strong>Tình huống</strong> kèm ảnh minh chứng (nếu có).</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="font-bold text-orange-600">3.</span>
+                    <span>Vận hành sẽ tiếp nhận, điều phối giáo viên dạy thay hoặc hoãn ca và cập nhật lên hệ thống.</span>
+                  </p>
+                </div>
+                <p className="text-[11px] text-slate-400 italic">
+                  * Nếu chưa có số hotline, thầy/cô vui lòng liên hệ Trưởng bộ môn phụ trách lớp. Mở bảng này chưa gửi yêu cầu tự động.
+                </p>
+              </div>
+              <div className="flex justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-3">
+                <button type="button" onClick={() => setContactModalOpen(false)} className="rounded-xl bg-[#FF5C00] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#E05200] cursor-pointer">
+                  Đã hiểu
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
