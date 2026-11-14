@@ -160,6 +160,8 @@ export const Module3_Teachers: React.FC = () => {
   const [availTo, setAvailTo] = useState('');
   const [profileFrom, setProfileFrom] = useState('');
   const [profileTo, setProfileTo] = useState('');
+  const [profileTimeSlot, setProfileTimeSlot] = useState('ALL');
+  const [availabilityTimeSlot, setAvailabilityTimeSlot] = useState('ALL');
   // Availability filters
   const [availSubject, setAvailSubject] = useState('ALL');
   const [availStatus, setAvailStatus] = useState('ALL');
@@ -217,12 +219,18 @@ export const Module3_Teachers: React.FC = () => {
     (category === 'ALL' || t.levelId === category) && (options.length === 0 || options.some(option => t.grades.includes(option)));
   const matchesPeriod = (t: TeacherProfile, from: string, to: string) =>
     (!from || !to || from <= to) && (!to || !t.startDate || t.startDate <= to) && (!from || !t.endDate || t.endDate >= from);
+  const hasRegisteredTimeSlot = (t: TeacherProfile, slotId: string) => {
+    if (slotId === 'ALL') return true;
+    const slot = timeSlots.find(item => item.id === slotId);
+    const registration = t.schedule?.[slot?.code || ''] || t.schedule?.[slotId];
+    return Boolean(registration?.some(status => status === 'free' || status === 'busy'));
+  };
   const filteredAvailability = teachers.filter(t =>
     matchesTeacherFields(t, availabilityFields) &&
     (availSubject === 'ALL' || t.subject === availSubject) &&
     (availStatus === 'ALL' || (availStatus === 'FULL' ? t.isFull : t.freeSlots > 0)) &&
     matchesCategory(t, availCategory, availSubOptions) &&
-    (availModel === 'ALL' || matchesTeachingModelFilter(t.models || [],availModel)) && matchesPeriod(t, availFrom, availTo)
+    (availModel === 'ALL' || matchesTeachingModelFilter(t.models || [],availModel)) && matchesPeriod(t, availFrom, availTo) && hasRegisteredTimeSlot(t, availabilityTimeSlot)
   );
   // Kết hợp tìm kiếm với các tiêu chí trong bảng lọc bên phải.
   const filteredTeachers = teachers.filter(t => {
@@ -240,7 +248,7 @@ export const Module3_Teachers: React.FC = () => {
 
     const matchSts = filterStatus === 'ALL' || t.status === filterStatus;
 
-    return matchesTeacherFields(t, profileFields) && matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts;
+    return matchesTeacherFields(t, profileFields) && matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts && hasRegisteredTimeSlot(t, profileTimeSlot);
   });
 
   // Handlers for Teacher Edit & Status
@@ -1768,6 +1776,7 @@ export const Module3_Teachers: React.FC = () => {
           catFilterCategory !== 'ALL' ? 1 : 0,
           catFilterSubOptions.length > 0 ? 1 : 0,
           colFilterModel !== 'ALL' ? 1 : 0,
+          profileTimeSlot !== 'ALL' ? 1 : 0,
           profileFrom || profileTo ? 1 : 0
         ].reduce((a, b) => a + b, 0)}
         onReset={() => {
@@ -1778,6 +1787,7 @@ export const Module3_Teachers: React.FC = () => {
           setCatFilterSubOptions([]);
           setSearchKeyword('');
           setColFilterModel('ALL');
+          setProfileTimeSlot('ALL');
           setProfileFrom('');
           setProfileTo('');
         }}
@@ -1786,6 +1796,13 @@ export const Module3_Teachers: React.FC = () => {
           {/* Lọc theo Danh mục & Cấp độ đa chọn */}
           <TeacherFieldInputs prefix="profile-filter" value={profileFields} onChange={setProfileFields}  />
           <TeacherCategoryFields prefix="profile-filter" categories={teachingCategories} category={catFilterCategory} grades={catFilterSubOptions} onCategory={setCatFilterCategory} onGrades={setCatFilterSubOptions} />
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Khung thời gian đã đăng ký</label>
+            <ReportSelect aria-label="Lọc theo khung thời gian đã đăng ký" value={profileTimeSlot} onChange={e => setProfileTimeSlot(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+              <option value="ALL">Tất cả khung thời gian</option>
+              {timeSlots.filter(slot => slot.status).map(slot => <option key={slot.id} value={slot.id}>{slot.name} · {slot.timeRange}</option>)}
+            </ReportSelect>
+          </div>
           <fieldset className="space-y-2">
             <legend className="font-bold text-slate-700">Khoảng thời gian giảng dạy</legend>
             <p className="text-slate-500">Giáo viên có thời gian giảng dạy giao với khoảng ngày đã chọn.</p>
@@ -1843,6 +1860,7 @@ export const Module3_Teachers: React.FC = () => {
           availCategory !== 'ALL' ? 1 : 0,
           availSubOptions.length > 0 ? 1 : 0,
           availModel !== 'ALL' ? 1 : 0,
+          availabilityTimeSlot !== 'ALL' ? 1 : 0,
           availFrom || availTo ? 1 : 0
         ].reduce((a, b) => a + b, 0)}
         onReset={() => {
@@ -1852,6 +1870,7 @@ export const Module3_Teachers: React.FC = () => {
           setAvailCategory('ALL');
           setAvailSubOptions([]);
           setAvailModel('ALL');
+          setAvailabilityTimeSlot('ALL');
           setAvailFrom('');
           setAvailTo('');
         }}
@@ -1860,6 +1879,13 @@ export const Module3_Teachers: React.FC = () => {
           {/* Lọc theo Danh mục & Cấp độ đa chọn */}
           <TeacherFieldInputs prefix="availability-filter" value={availabilityFields} onChange={setAvailabilityFields} showCounts />
           <TeacherCategoryFields prefix="availability-filter" categories={teachingCategories} category={availCategory} grades={availSubOptions} onCategory={setAvailCategory} onGrades={setAvailSubOptions} />
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Khung thời gian đã đăng ký</label>
+            <ReportSelect aria-label="Lọc lịch theo khung thời gian đã đăng ký" value={availabilityTimeSlot} onChange={e => setAvailabilityTimeSlot(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50">
+              <option value="ALL">Tất cả khung thời gian</option>
+              {timeSlots.filter(slot => slot.status).map(slot => <option key={slot.id} value={slot.id}>{slot.name} · {slot.timeRange}</option>)}
+            </ReportSelect>
+          </div>
           <fieldset className="space-y-2">
             <legend className="font-bold text-slate-700">Khoảng thời gian giảng dạy</legend>
             <p className="text-slate-500">Giáo viên có thời gian giảng dạy giao với khoảng ngày đã chọn.</p>
