@@ -289,6 +289,12 @@ export const Module4_StudentsClasses: React.FC = () => {
     });
   }, [students, classes, teachingCategories, stdCategoryFilter, stdSearch, stdGradeFilter, stdSubjectFilter, stdLevelFilter, stdStatusFilter, stdCodeFilter, stdNameFilter, stdClassFilter, stdSlotFilter, stdModelFilter, dashboardFilter]);
 
+  const resetStudentFilters = () => {
+    setStdCodeFilter([]); setStdNameFilter([]); setStdClassFilter([]); setStdSlotFilter([]); setStdModelFilter([]); setStdLevelFilter([]);
+    setStdGradeFilter([]); setStdSubjectFilter([]); setStdStatusFilter([]);
+    setStdSearch(''); setStdCategoryFilter([]);
+  };
+
   const filteredClasses = useMemo(() => classes.filter(item => {
     if(dashboardFilter?.tab==='classes'&&!matchesDashboardSelection(dashboardFilter,item.id))return false;
     const search = clsSearch.trim().toLowerCase();
@@ -1448,7 +1454,7 @@ export const Module4_StudentsClasses: React.FC = () => {
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 text-xs">
-                  {filteredStudents.length === 0 && <tr><td colSpan={11} className="px-4 py-2 text-center"><EmptyState title="Không có học sinh phù hợp với bộ lọc." /></td></tr>}
+                  {filteredStudents.length === 0 && <tr><td colSpan={11} className="px-4 py-2 text-center"><EmptyState title="Không có học sinh phù hợp với bộ lọc." onReset={resetStudentFilters} /></td></tr>}
                   {filteredStudents.map(student => <tr key={student.id + student.subject} className="hover:bg-slate-50" data-sort-time={recordSortTime(student)}>
                     <td className="px-3 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{student.id}</td>
                     <td className="px-3 py-3 font-semibold text-[#FF5C00] min-w-36">{student.name}</td>
@@ -1527,7 +1533,7 @@ export const Module4_StudentsClasses: React.FC = () => {
               {([['Mã lớp','code'],['Tên lớp','name'],['Cấp học / lớp dạy','category'],['Khối lớp','grade'],['Môn học','subject'],['Mô hình','model'],['Trình độ','level'],['Lịch học','schedule'],['Sĩ số','occupancy'],['Trạng thái','status'],['Giáo viên','teacher']] as [string, ClassFilterKey][]).map(([label,key]) => <th key={key} className="py-3 px-3 whitespace-nowrap">{classColumn(label,key)}</th>)}
               <th className="py-3 px-3 text-center table-sticky-action-th">Thao tác</th>
             </tr></thead><PaginatedTableBody className="divide-y divide-slate-100">
-              {!filteredClasses.length && <tr><td colSpan={13} className="px-4 py-2 text-center"><EmptyState title="Không có lớp học phù hợp với bộ lọc." /></td></tr>}
+              {!filteredClasses.length && <tr><td colSpan={13} className="px-4 py-2 text-center"><EmptyState title="Không có lớp học phù hợp với bộ lọc." onReset={() => { setClsFilters({}); setClsSearch(''); }} /></td></tr>}
               {filteredClasses.map(item => <tr key={item.id} className="hover:bg-slate-50" data-sort-time={recordSortTime(item)}>
                 <td className="px-3 py-3"><input type="checkbox" aria-label={'Chọn lớp ' + item.code} checked={selectedClasses.some(selected => selected.id === item.id)} disabled={['Dừng lớp', 'Đã kết thúc'].includes(item.status || '') || !can('Tạo, sửa, xóa lớp và cập nhật link phòng học')} onChange={event => setSelectedClassIds(previous => event.target.checked ? [...previous.filter(id => id !== item.id), item.id] : previous.filter(id => id !== item.id))} className="accent-orange-500" /></td>
                 <td className="px-3 py-3 font-mono font-semibold text-[#FF5C00] whitespace-nowrap">{item.code}</td><td className="px-3 py-3 font-semibold min-w-40">{item.name}</td>

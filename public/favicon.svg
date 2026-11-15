@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="vuihocGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B00" />
+      <stop offset="100%" stop-color="#E04800" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#vuihocGrad)" />
+  <!-- Mũ cử nhân Vuihoc học tập vui vẻ -->
+  <path d="M16 7L6 12L16 17L26 12L16 7Z" fill="#FFFFFF" />
+  <path d="M10 14.5V19.5C10 21.5 12.7 23 16 23C19.3 23 22 21.5 22 19.5V14.5L16 17.5L10 14.5Z" fill="#FFFFFF" opacity="0.9" />
+  <path d="M26 12.5V19C26 19.3 25.8 19.5 25.5 19.5C25.2 19.5 25 19.3 25 19V13L26 12.5Z" fill="#FFFFFF" opacity="0.8" />
+  <circle cx="25.5" cy="20.5" r="1.5" fill="#FFE27A" />
+</svg>

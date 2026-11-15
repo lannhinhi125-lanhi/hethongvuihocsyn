@@ -251,6 +251,31 @@ export const Module3_Teachers: React.FC = () => {
     return matchesTeacherFields(t, profileFields) && matchTime && matchCat && matchSearch && matchSub && matchModel && matchSts && hasRegisteredTimeSlot(t, profileTimeSlot);
   });
 
+  const resetAllProfileFilters = () => {
+    setProfileFields({ id: '', name: '' });
+    setFilterSubject('ALL');
+    setCatFilterCategory('ALL');
+    setCatFilterSubOptions([]);
+    setColFilterModel('ALL');
+    setFilterStatus('ALL');
+    setSearchKeyword('');
+    setProfileFrom('');
+    setProfileTo('');
+    setProfileTimeSlot('ALL');
+  };
+
+  const resetAllAvailFilters = () => {
+    setAvailabilityFields({ minFree: '', maxFree: '', minBusy: '', maxBusy: '' });
+    setAvailSubject('ALL');
+    setAvailStatus('ALL');
+    setAvailCategory('ALL');
+    setAvailSubOptions([]);
+    setAvailModel('ALL');
+    setAvailFrom('');
+    setAvailTo('');
+    setAvailabilityTimeSlot('ALL');
+  };
+
   // Handlers for Teacher Edit & Status
   const handleOpenEditModal = (t: TeacherProfile) => {
     if (!canManageProfiles) return;
@@ -536,7 +561,7 @@ export const Module3_Teachers: React.FC = () => {
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
-                  {filteredTeachers.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
+                  {filteredTeachers.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." onReset={resetAllProfileFilters} /></td></tr>}
                   {filteredTeachers.map(t => {
                     const badgeColor = 'bg-orange-50 text-orange-700 border-orange-200';
 
@@ -674,7 +699,7 @@ export const Module3_Teachers: React.FC = () => {
                   </tr>
                 </thead>
                 <PaginatedTableBody className="divide-y divide-slate-100 font-medium">
-                  {filteredAvailability.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." /></td></tr>}
+                  {filteredAvailability.length === 0 && <tr><td colSpan={8} className="px-4 py-2 text-center"><EmptyState title="Không có giáo viên phù hợp với bộ lọc." onReset={resetAllAvailFilters} /></td></tr>}
                   {filteredAvailability
                     .map(t => (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors" data-sort-time={recordSortTime({created_at:t.created_at})}>

@@ -373,7 +373,7 @@ export const Module1_UsersRoles: React.FC = () => {
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-2 text-center">
-                        <EmptyState title="Không tìm thấy tài khoản phù hợp." />
+                        <EmptyState title="Không tìm thấy tài khoản phù hợp." onReset={() => { setSearchKeyword(''); setFilterRole(''); setFilterStatus(''); }} />
                       </td>
                     </tr>
                   ) : (

@@ -779,7 +779,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   {diaryFilteredSessions.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-4 py-2 text-center">
-                        <EmptyState title="Không có buổi học nào phù hợp với bộ lọc." />
+                        <EmptyState title="Không có buổi học nào phù hợp với bộ lọc." onReset={resetColFilters} />
                       </td>
                     </tr>
                   ) : (
@@ -1048,7 +1048,7 @@ export const Module5_OperationsMonitoring: React.FC = () => {
                   {incidentFilteredSessions.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="px-4 py-2 text-center">
-                        <EmptyState title="Không có ca sự cố nào phù hợp với bộ lọc." />
+                        <EmptyState title="Không có ca sự cố nào phù hợp với bộ lọc." onReset={resetIncColFilters} />
                       </td>
                     </tr>
                   ) : (
