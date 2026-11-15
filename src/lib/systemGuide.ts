@@ -1,5 +1,10 @@
 import type {AccountPortal} from './portalPermissions';
 
+export const DETAILED_GUIDE_URLS: Record<AccountPortal, string> = {
+  ADMIN: 'https://drive.google.com',
+  TEACHER: 'https://drive.google.com',
+};
+
 export interface SystemGuideTopic {
  id:string; portal:AccountPortal; moduleId:string; title:string; summary:string;
  steps:string[]; notes?:string[];
