@@ -47,6 +47,38 @@ const MainLayout: React.FC = () => {
       if(first)setTeacherPortalTab(first as 'availability'|'schedule'|'evaluation'|'reconcile');
     }
   },[activeAccount,currentUser,roleGroups,activeModule,teacherPortalTab]);
+
+  useEffect(() => {
+    if (!activeAccount) {
+      document.title = 'VUIHOC | Đăng nhập hệ thống';
+      return;
+    }
+    if (workspaceMode === 'ADMIN' && accountPortal(activeAccount, roleGroups) === 'ADMIN') {
+      const adminModuleTitles: Record<number, string> = {
+        0: 'Bàn làm việc tổng quan',
+        1: 'Người dùng & Phân quyền',
+        2: 'Dữ liệu gốc Master Data',
+        3: 'Quản lý Giáo viên & Gia sư',
+        4: 'Học sinh & Lớp học',
+        5: 'Giám sát Vận hành Ca học',
+        6: 'AI Studio Trợ lý Đào tạo',
+        7: 'Đối soát & Quyết toán Thù lao',
+        8: 'Báo cáo & Thống kê Vận hành',
+      };
+      const title = adminModuleTitles[activeModule] || 'Quản trị hệ thống';
+      document.title = `[Admin] ${title} | VUIHOC`;
+    } else {
+      const teacherTabTitles: Record<string, string> = {
+        availability: 'Đăng ký Lịch rảnh',
+        schedule: 'Lịch dạy & Điểm danh',
+        evaluation: 'Đánh giá & Nhật ký học sinh',
+        reconcile: 'Đối soát Thù lao Ca dạy',
+        payroll: 'Bảng lương & Thu nhập',
+      };
+      const title = teacherTabTitles[teacherPortalTab] || 'Cổng giảng dạy';
+      document.title = `[Giáo viên] ${title} | VUIHOC`;
+    }
+  }, [activeAccount, workspaceMode, activeModule, teacherPortalTab, roleGroups]);
   if(session.loading)return <main className="p-8" role="status">Đang kiểm tra phiên đăng nhập…</main>;
   if(!activeAccount && hasRememberedAccountSession() && session.error)return <main className="space-y-3 p-8" role="alert"><p>Chưa thể kết nối để khôi phục phiên đăng nhập. Bạn có thể thử lại mà không cần đăng nhập lại.</p><p>{session.error}</p><button className="mr-4 underline" onClick={()=>void refreshAccountSession()}>Thử kết nối lại</button><button className="underline" onClick={()=>void logoutAccount()}>Đăng xuất</button></main>;
   if(!activeAccount)return <LoginView onLogin={()=>setMobileMenuOpen(false)} />;
