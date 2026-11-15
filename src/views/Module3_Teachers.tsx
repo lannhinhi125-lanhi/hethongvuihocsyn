@@ -252,7 +252,7 @@ export const Module3_Teachers: React.FC = () => {
   });
 
   const resetAllProfileFilters = () => {
-    setProfileFields({ id: '', name: '' });
+    setProfileFields({ ...emptyTeacherFields });
     setFilterSubject('ALL');
     setCatFilterCategory('ALL');
     setCatFilterSubOptions([]);
@@ -265,7 +265,7 @@ export const Module3_Teachers: React.FC = () => {
   };
 
   const resetAllAvailFilters = () => {
-    setAvailabilityFields({ minFree: '', maxFree: '', minBusy: '', maxBusy: '' });
+    setAvailabilityFields({ ...emptyTeacherFields });
     setAvailSubject('ALL');
     setAvailStatus('ALL');
     setAvailCategory('ALL');

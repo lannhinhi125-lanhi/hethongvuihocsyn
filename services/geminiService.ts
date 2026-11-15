@@ -32,16 +32,33 @@ export async function generateGeminiText(input: GeminiInput, env: GeminiEnvironm
     throw new GeminiError(503, 'Máy chủ chưa cấu hình GEMINI_API_KEY và GEMINI_MODEL hợp lệ.');
   }
   const validated = validateGeminiInput(input);
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+  const makePayload = (withThinkingBudget: boolean) => JSON.stringify({
+    contents: validated.messages.map(message => ({ role: message.role, parts: [{ text: message.text }] })),
+    ...(validated.systemPrompt ? { systemInstruction: { parts: [{ text: validated.systemPrompt }] } } : {}),
+    generationConfig: withThinkingBudget
+      ? { maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } }
+      : { maxOutputTokens: 4096 },
+  });
+
+  let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method:'POST',
     headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},
     signal:AbortSignal.timeout(45_000),
-    body:JSON.stringify({
-      contents:validated.messages.map(message=>({role:message.role,parts:[{text:message.text}]})),
-      ...(validated.systemPrompt ? {systemInstruction:{parts:[{text:validated.systemPrompt}]}} : {}),
-      generationConfig:{maxOutputTokens:4096},
-    }),
+    body:makePayload(true),
   });
+
+  // Tự động thử lại không kèm thinkingBudget nếu mô hình không hỗ trợ
+  if (response.status === 400) {
+    const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},
+      signal:AbortSignal.timeout(45_000),
+      body:makePayload(false),
+    });
+    if (fallbackResponse.ok) {
+      response = fallbackResponse;
+    }
+  }
   // Never relay upstream error bodies: they can contain configuration or credentials.
   if (!response.ok) {
     const errors:Record<number,string>={
